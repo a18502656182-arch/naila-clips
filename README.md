@@ -1,2 +1,0 @@
-# naila-clips
-naila-clips
