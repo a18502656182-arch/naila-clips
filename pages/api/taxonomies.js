@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       .from("taxonomies")
       .select("id,type,slug")
       .in("type", ["topic", "channel"])
-      .order("name", { ascending: true });
+      .order("slug", { ascending: true });
 
     if (error) throw error;
 
