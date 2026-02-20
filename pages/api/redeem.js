@@ -51,8 +51,11 @@ export default async function handler(req, res) {
     if (!code) return res.status(400).json({ error: "missing_code" });
 
     // 1) 取登录用户（从 cookie 拿 access_token）
-    const token = getAccessTokenFromCookie(req);
-    if (!token) return res.status(401).json({ error: "not_logged_in" });
+    const auth = req.headers.authorization || "";
+const bearer = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+const token = bearer || getAccessTokenFromCookie(req);
+
+if (!token) return res.status(401).json({ error: "not_logged_in" });
 
     const { data: userData, error: userErr } = await supabaseAnon.auth.getUser(token);
     if (userErr || !userData?.user?.id) {
