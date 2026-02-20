@@ -62,7 +62,7 @@ export default async function handler(req, res) {
 
       const { data, error } = await supabase
         .from("clip_taxonomies")
-        .select("clip_id, taxonomies!inner(type, slug, name)")
+        .select("clip_id, taxonomies!inner(type, slug,)")
         .in("taxonomies.type", typeCandidates)
         .in("taxonomies.slug", slugs);
 
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
     if (clipIds.length > 0) {
       const { data: rels, error: relErr } = await supabase
         .from("clip_taxonomies")
-        .select("clip_id, taxonomies(type, slug, name)")
+        .select("clip_id, taxonomies(type, slug,)")
         .in("clip_id", clipIds);
 
       if (relErr) throw relErr;
