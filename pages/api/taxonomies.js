@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     const { data, error } = await supabase
       .from("taxonomies")
       .select("id,type,slug")
-      .in("type", ["difficulty","topic", "channel"])
+      .in("type", ["topic", "channel"])
       .order("slug", { ascending: true });
 
     if (error) throw error;
