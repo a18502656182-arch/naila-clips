@@ -44,7 +44,7 @@ export default function Home() {
   const q = router.query;
 
   const selectedDifficulty = useMemo(() => parseCSV(q.difficulty), [q.difficulty]);
-  const selectedAccess = useMemo(() => parseCSV(q.access), [q.access]);
+  const selectedAccess = useMemo(() => parseCSV(q.access), [q.access]); // free,vip
   const selectedTopic = useMemo(() => parseCSV(q.topic), [q.topic]);
   const selectedChannel = useMemo(() => parseCSV(q.channel), [q.channel]);
 
@@ -94,7 +94,7 @@ export default function Home() {
 
         const params = new URLSearchParams();
         if (selectedDifficulty.length) params.set("difficulty", selectedDifficulty.join(","));
-        if (selectedAccess.length) params.set("access", selectedAccess.join(","));
+        if (selectedAccess.length) params.set("access", selectedAccess.join(",")); // free,vip
         if (selectedTopic.length) params.set("topic", selectedTopic.join(","));
         if (selectedChannel.length) params.set("channel", selectedChannel.join(","));
         params.set("sort", sort);
@@ -298,7 +298,7 @@ export default function Home() {
         >
           请求失败：{err}
           <div style={{ marginTop: 6, color: "#333" }}>
-            请打开浏览器 DevTools → Network → 找 <code>/api/clips</code> → 截图给我（Headers + Response）。
+            请打开 DevTools → Network → 找 <code>/api/clips</code> → 截图给我（Headers + Response）。
           </div>
         </div>
       ) : null}
@@ -373,31 +373,14 @@ export default function Home() {
         <button
           disabled={offset + limit >= total}
           onClick={() => updateQuery({ offset: offset + limit })}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            borderRadius: 10,
-            background: "#fff",
-            cursor: offset + limit >= total ? "not-allowed" : "pointer",
-          }}
+          style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 10, background: "#fff", cursor: offset + limit >= total ? "not-allowed" : "pointer" }}
         >
           下一页
         </button>
       </div>
 
       <div style={{ marginTop: 14, fontSize: 12, color: "#777" }}>
-        当前查询参数：
-        {JSON.stringify(
-          buildQuery({
-            difficulty: selectedDifficulty,
-            access: selectedAccess,
-            topic: selectedTopic,
-            channel: selectedChannel,
-            sort,
-            limit,
-            offset,
-          })
-        )}
+        当前查询参数：{JSON.stringify(buildQuery({ difficulty: selectedDifficulty, access: selectedAccess, topic: selectedTopic, channel: selectedChannel, sort, limit, offset }))}
       </div>
     </div>
   );
