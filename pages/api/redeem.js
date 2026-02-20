@@ -1,84 +1,100 @@
 // pages/api/redeem.js
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
-// 兜底：从 Cookie 里拿 sb-xxx-auth-token
-function getCookie(req, name) {
-  const raw = req.headers.cookie || "";
-  const parts = raw.split(";").map((p) => p.trim());
-  for (const p of parts) {
-    if (p.startsWith(name + "=")) return decodeURIComponent(p.slice(name.length + 1));
-  }
-  return "";
-}
-
-function parseSupabaseAuthTokenFromCookie(req) {
-  const raw = req.headers.cookie || "";
-  const m = raw.match(/sb-[^=]+-auth-token=([^;]+)/);
-  if (!m) return null;
-
-  const val = decodeURIComponent(m[1]);
-  try {
-    // 通常是 JSON 数组字符串：["access_token","refresh_token",...]
-    const arr = JSON.parse(val);
-    if (Array.isArray(arr) && arr[0]) return arr[0];
-  } catch {}
-
-  // 有些情况下可能是 base64 或别的格式，这里就不硬解析了
-  return null;
-}
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Use POST" });
-  }
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // 1) 读取兑换码
-  const code = String(req.body?.code || "").trim();
-  if (!code) return res.status(400).json({ error: "missing_code" });
+  try {
+    const supabase = createPagesServerClient({ req, res });
 
-  // 2) 必须登录：从 cookie 拿 access_token，去 supabase 验证用户
-  const accessToken = parseSupabaseAuthTokenFromCookie(req);
-  if (!accessToken) {
-    return res.status(401).json({ error: "not_logged_in" });
-  }
+    // 1) 必须先拿到当前登录用户（从 cookie 读）
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
-  const user = userData?.user;
-  if (userErr || !user) {
-    return res.status(401).json({ error: "invalid_session", detail: userErr?.message });
-  }
+    if (userErr || !user) {
+      return res.status(401).json({
+        error: "not_logged_in",
+        detail: userErr?.message || "No user session",
+      });
+    }
 
-  // 3) 固定码校验（你可以改成多个码，或者后面接 redeem_codes 表）
-  const VALID_CODE = "VIPTEST"; // ✅ 你要的固定测试码
-  if (code !== VALID_CODE) {
-    return res.status(400).json({ error: "invalid_code" });
-  }
+    // 2) 取兑换码
+    const code = String(req.body?.code || "").trim();
+    if (!code) return res.status(400).json({ error: "missing_code" });
 
-  // 4) 写入 subscriptions：给 30 天会员
-  const endsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    // 3) 查兑换码（你的表：public.redeem_codes）
+    const { data: rc, error: rcErr } = await supabase
+      .from("redeem_codes")
+      .select("*")
+      .eq("code", code)
+      .maybeSingle();
 
-  // 这里用 upsert：同一个 user_id 反复兑换会刷新到期时间（测试方便）
-  const { error: upErr } = await supabase
-    .from("subscriptions")
-    .upsert(
-      { user_id: user.id, status: "active", ends_at: endsAt },
+    if (rcErr) return res.status(500).json({ error: "redeem_code_query_failed", detail: rcErr.message });
+    if (!rc) return res.status(400).json({ error: "invalid_code" });
+
+    // 已使用/过期（按你的表字段来）
+    if (rc.used_at) return res.status(400).json({ error: "code_already_used" });
+    if (rc.expires_at && new Date(rc.expires_at).getTime() < Date.now()) {
+      return res.status(400).json({ error: "code_expired" });
+    }
+
+    // 4) 算到期时间（支持 days / months / years 三种）
+    // 你的 redeem_codes 表最好有：duration_days / duration_months / duration_years / plan
+    const now = new Date();
+    let ends = new Date(now);
+
+    const dDays = Number(rc.duration_days || 0);
+    const dMonths = Number(rc.duration_months || 0);
+    const dYears = Number(rc.duration_years || 0);
+
+    if (dYears) ends.setFullYear(ends.getFullYear() + dYears);
+    if (dMonths) ends.setMonth(ends.getMonth() + dMonths);
+    if (dDays) ends.setDate(ends.getDate() + dDays);
+
+    // 兜底：如果你只有一个字段比如 duration_days，就至少要 >0
+    if (!dDays && !dMonths && !dYears) {
+      // 如果你暂时没做字段，就先默认 30 天，避免 ends_at 为空
+      ends.setDate(ends.getDate() + 30);
+    }
+
+    // 5) upsert subscriptions（关键：user_id = user.id）
+    const { error: subErr } = await supabase.from("subscriptions").upsert(
+      {
+        user_id: user.id,
+        status: "active",
+        ends_at: ends.toISOString(),
+      },
       { onConflict: "user_id" }
     );
 
-  if (upErr) {
-    return res.status(500).json({ error: "db_upsert_failed", detail: upErr.message });
-  }
+    if (subErr) {
+      return res.status(500).json({ error: "subscription_upsert_failed", detail: subErr.message });
+    }
 
-  return res.json({
-    ok: true,
-    user_id: user.id,
-    email: user.email,
-    status: "active",
-    ends_at: endsAt,
-  });
+    // 6) 标记兑换码已使用（可选但推荐）
+    const { error: usedErr } = await supabase
+      .from("redeem_codes")
+      .update({ used_at: new Date().toISOString(), used_by: user.id })
+      .eq("id", rc.id);
+
+    if (usedErr) {
+      // 不阻断主流程，但返回提示
+      return res.status(200).json({
+        ok: true,
+        warning: "redeem_ok_but_mark_used_failed",
+        detail: usedErr.message,
+        ends_at: ends.toISOString(),
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      status: "active",
+      ends_at: ends.toISOString(),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: "server_error", detail: String(e?.message || e) });
+  }
 }
