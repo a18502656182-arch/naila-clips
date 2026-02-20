@@ -1,34 +1,29 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createPagesBrowserClient({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    options: {
-      auth: {
-        // ✅ 关键：让 magic link 走 code (PKCE) 流程，服务端 callback 才能 exchange 并写 cookie
-        flowType: "pkce",
-      },
-    },
-  });
-
   const [email, setEmail] = useState("");
+  const [token, setToken] = useState("");
   const [user, setUser] = useState(null);
   const [msg, setMsg] = useState("");
 
-  // 读取当前 session（cookie + localStorage 都能兼容）
   useEffect(() => {
     let ignore = false;
 
     supabase.auth.getSession().then(({ data }) => {
       if (ignore) return;
+      setToken(data?.session?.access_token || "");
       setUser(data?.session?.user || null);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (ignore) return;
+      setToken(session?.access_token || "");
       setUser(session?.user || null);
     });
 
@@ -36,14 +31,14 @@ export default function LoginPage() {
       ignore = true;
       sub?.subscription?.unsubscribe?.();
     };
-  }, [supabase]);
+  }, []);
 
   async function sendLoginLink() {
     setMsg("");
     const e = email.trim();
     if (!e) return setMsg("请输入邮箱");
 
-    // ✅ 关键：回跳必须到 /api/auth/callback，让服务端写 cookie
+    // ✅ 关键：让 supabase 回调走 /api/auth/callback（服务端写 cookie）
     const redirectTo = `${window.location.origin}/api/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOtp({
@@ -52,13 +47,20 @@ export default function LoginPage() {
     });
 
     if (error) return setMsg("发送失败：" + error.message);
-    setMsg("已发送登录邮件：去邮箱点链接。成功后会自动回到网站。");
+    setMsg("已发送登录邮件：去邮箱点击链接 → 会自动写入登录状态（cookie）。");
   }
 
   async function logout() {
     await supabase.auth.signOut();
     setUser(null);
+    setToken("");
     setMsg("已退出登录");
+  }
+
+  async function copyToken() {
+    if (!token) return setMsg("当前没有 token（可能还没登录成功）");
+    await navigator.clipboard.writeText(token);
+    setMsg("已复制 access_token");
   }
 
   return (
@@ -68,12 +70,14 @@ export default function LoginPage() {
       </h1>
 
       <div style={{ color: "#666", marginBottom: 14 }}>
-        登录后 /api/me 应该变成 logged_in:true（因为 cookie 已写入）
+        登录后：
+        <b> /api/me </b>应变成 logged_in:true（因为 cookie 已写入）
+        <br />
+        也可复制 access_token 用于 Bearer 测试 /api/redeem
       </div>
 
       <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
         <div style={{ fontWeight: 800, marginBottom: 8 }}>邮箱登录</div>
-
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <input
             value={email}
@@ -86,7 +90,6 @@ export default function LoginPage() {
               minWidth: 260,
             }}
           />
-
           <button
             onClick={sendLoginLink}
             style={{
@@ -99,7 +102,6 @@ export default function LoginPage() {
           >
             发送登录邮件
           </button>
-
           <button
             onClick={logout}
             style={{
@@ -114,7 +116,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {msg ? <div style={{ marginTop: 10 }}>{msg}</div> : null}
+        {msg ? <div style={{ marginTop: 10, color: "#111" }}>{msg}</div> : null}
       </div>
 
       <div
@@ -126,12 +128,27 @@ export default function LoginPage() {
         }}
       >
         <div style={{ fontWeight: 800, marginBottom: 8 }}>当前登录状态</div>
+
         {user ? (
           <>
             <div>已登录：{user.email}</div>
-            <div style={{ marginTop: 10 }}>
+
+            <div style={{ marginTop: 10, fontWeight: 700 }}>access_token：</div>
+            <textarea
+              value={token}
+              readOnly
+              style={{
+                width: "100%",
+                height: 140,
+                padding: 10,
+                border: "1px solid #ddd",
+                borderRadius: 10,
+              }}
+            />
+
+            <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
               <button
-                onClick={() => router.push("/")}
+                onClick={copyToken}
                 style={{
                   padding: "10px 14px",
                   border: "1px solid #ddd",
@@ -140,8 +157,25 @@ export default function LoginPage() {
                   cursor: "pointer",
                 }}
               >
-                返回首页
+                一键复制 token
               </button>
+
+              <a
+                href="/api/me"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  padding: "10px 14px",
+                  border: "1px solid #ddd",
+                  borderRadius: 10,
+                  background: "#fff",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  color: "#111",
+                }}
+              >
+                打开 /api/me 验证
+              </a>
             </div>
           </>
         ) : (
