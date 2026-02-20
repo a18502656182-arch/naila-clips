@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     // 期望你的 taxonomies 表至少有：type, slug, name（或 label）
     const { data, error } = await supabase
       .from("taxonomies")
-      .select("id,type,slug,name")
+      .select("id,type,slug")
       .in("type", ["topic", "channel"])
       .order("name", { ascending: true });
 
