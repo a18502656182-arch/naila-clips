@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
- * ✅ 全站筛选：多选下拉 dropdown（电脑/手机统一）
+ * ✅ 保留你现在的 UI：多选下拉 dropdown（电脑/手机统一）
  * ✅ 响应式布局：
- *    - 手机默认两列（更像参考站）
+ *    - 手机默认两列
  *    - 电脑端（>=1024px）强制 5 列一整行
- * ✅ 勾选立即请求 /api/clips
+ * ✅ 勾选立即请求 /api/clips（第一页）
  * ✅ URL 自动同步（可分享）
  * ✅ F5 刷新后从 URL 还原筛选状态
+ * ✅ 下滑自动加载更多（无限滚动 / offset+limit）
  */
 
 function splitParam(v) {
@@ -234,10 +235,22 @@ export default function HomePage() {
   const [access, setAccess] = useState([]); // free / vip
   const [sort, setSort] = useState("newest"); // newest / oldest
 
+  // paging
+  const PAGE_SIZE = 12;
+  const [offset, setOffset] = useState(0);
+
   // data
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // 第一次加载
+  const [loadingMore, setLoadingMore] = useState(false); // 加载更多
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
+  // 防重复请求
+  const fetchingRef = useRef(false);
+
+  // 无限滚动哨兵
+  const sentinelRef = useRef(null);
 
   const accessOptions = useMemo(
     () => [
@@ -273,7 +286,21 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 生成请求 qs
+  // 3) 筛选变化：回到第一页 + 清空列表（关键）
+  useEffect(() => {
+    if (!router.isReady) return;
+    setOffset(0);
+    setItems([]);
+  }, [
+    router.isReady,
+    difficulty.join(","),
+    topic.join(","),
+    channel.join(","),
+    access.join(","),
+    sort,
+  ]);
+
+  // 4) 生成请求 qs（带 limit/offset）
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (difficulty.length) p.set("difficulty", difficulty.join(","));
@@ -282,12 +309,12 @@ export default function HomePage() {
     if (access.length) p.set("access", access.join(","));
     if (sort) p.set("sort", sort);
 
-    p.set("limit", "50");
-    p.set("offset", "0");
+    p.set("limit", String(PAGE_SIZE));
+    p.set("offset", String(offset));
     return p.toString();
-  }, [difficulty, topic, channel, access, sort]);
+  }, [difficulty, topic, channel, access, sort, offset]);
 
-  // 4) 同步 URL + 请求 clips
+  // 5) 同步 URL（只同步筛选，不写 offset，保持分享链接干净）
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -301,29 +328,90 @@ export default function HomePage() {
     router.replace({ pathname: router.pathname, query: nextQuery }, undefined, {
       shallow: true,
     });
+  }, [router.isReady, difficulty, topic, channel, access, sort]);
 
-    setLoading(true);
+  // 6) 请求 clips：第一页 / 加载更多
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (fetchingRef.current) return;
+
+    const isFirstPage = offset === 0;
+    fetchingRef.current = true;
+
+    if (isFirstPage) setLoading(true);
+    else setLoadingMore(true);
+
     fetch(`/api/clips?${qs}`)
       .then((r) => r.json())
       .then((d) => {
-        setItems(d?.items || []);
-        setTotal(d?.total || 0);
+        const newItems = d?.items || [];
+        const nextTotal = d?.total || 0;
+
+        setTotal(nextTotal);
+
+        // ✅ 兼容：后端有 has_more 就用，没有就用 items.length < total
+        const apiHasMore =
+          typeof d?.has_more === "boolean"
+            ? d.has_more
+            : offset + PAGE_SIZE < nextTotal;
+
+        setHasMore(Boolean(apiHasMore));
+
+        setItems((prev) => (isFirstPage ? newItems : [...prev, ...newItems]));
       })
       .catch(() => {
-        setItems([]);
-        setTotal(0);
+        if (isFirstPage) {
+          setItems([]);
+          setTotal(0);
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
-  }, [router.isReady, qs]);
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+        fetchingRef.current = false;
+      });
+  }, [router.isReady, qs]); // qs 包含 offset，所以自动分页
+
+  // 7) 无限滚动：哨兵进入视口就加载下一页
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+
+        if (!hasMore) return;
+        if (loading || loadingMore) return;
+        if (fetchingRef.current) return;
+
+        setOffset((x) => x + PAGE_SIZE);
+      },
+      {
+        root: null,
+        // 提前加载（还没到最底就开始请求）
+        rootMargin: "400px",
+        threshold: 0.01,
+      }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, loadingMore]);
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 8 }}>视频库（接口式筛选测试版）</h1>
+
       <div style={{ opacity: 0.7, marginBottom: 16 }}>
-        {loading ? "加载中..." : `共 ${total} 条`}
+        {loading
+          ? "加载中..."
+          : `共 ${total} 条（已显示 ${items.length} 条）`}
       </div>
 
-      {/* ✅ 响应式：电脑 5 列一行（不再强制手机 1 列） */}
+      {/* ✅ 响应式：电脑 5 列一行 */}
       <style jsx>{`
         @media (min-width: 1024px) {
           .filterGrid {
@@ -347,8 +435,6 @@ export default function HomePage() {
           style={{
             display: "grid",
             gap: 12,
-
-            // ✅ 手机默认两列（每列最小 140px，更稳）
             gridTemplateColumns: "repeat(2, minmax(140px, 1fr))",
           }}
         >
@@ -490,6 +576,19 @@ export default function HomePage() {
           没有结果（请换筛选条件）
         </div>
       ) : null}
+
+      {/* ✅ 无限滚动状态 + 哨兵 */}
+      <div
+        style={{
+          marginTop: 14,
+          textAlign: "center",
+          fontSize: 12,
+          opacity: 0.7,
+        }}
+      >
+        {loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}
+      </div>
+      <div ref={sentinelRef} style={{ height: 1 }} />
     </div>
   );
 }
