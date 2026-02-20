@@ -1,113 +1,186 @@
 import { useEffect, useMemo, useState } from "react";
 
-const DIFFICULTY_OPTIONS = [
-  { label: "初级", value: "beginner" },
-  { label: "中级", value: "intermediate" },
-  { label: "高级", value: "advanced" }
-];
+function readArrayParam(searchParams, key) {
+  // 兼容 ?difficulty=beginner,advanced  或 ?difficulty=beginner&difficulty=advanced
+  const all = searchParams.getAll(key);
+  if (all.length > 1) return all.filter(Boolean);
+  const v = searchParams.get(key);
+  if (!v) return [];
+  return v.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function writeUrl({ difficulty, access, sort }) {
+  const params = new URLSearchParams(window.location.search);
+
+  // 清空旧值
+  params.delete("difficulty");
+  params.delete("access");
+  params.delete("sort");
+
+  // 写入新值（用逗号方式更短）
+  if (difficulty.length) params.set("difficulty", difficulty.join(","));
+  if (access.length) params.set("access", access.join(","));
+  if (sort) params.set("sort", sort);
+
+  const newUrl = `${window.location.pathname}?${params.toString()}`;
+  window.history.replaceState({}, "", newUrl);
+}
 
 export default function Home() {
-  const [difficulty, setDifficulty] = useState("beginner");
-  const [access, setAccess] = useState("free");
-  const [order, setOrder] = useState("newest");
+  const [difficulty, setDifficulty] = useState([]); // ["beginner","intermediate"]
+  const [access, setAccess] = useState([]);         // ["free","member"]
+  const [sort, setSort] = useState("newest");       // newest | oldest
 
-  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState([]);
 
-  const qs = useMemo(() => {
-    const p = new URLSearchParams();
-    p.set("limit", "12");
-    p.set("offset", "0");
-    p.set("order", order);
-    if (difficulty) p.set("difficulty", difficulty);
-    if (access) p.set("access", access);
-    return p.toString();
-  }, [difficulty, access, order]);
+  // 1) 首次加载：从 URL 读参数，恢复筛选
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    setDifficulty(readArrayParam(sp, "difficulty"));
+    setAccess(readArrayParam(sp, "access"));
+    setSort(sp.get("sort") || "newest");
+  }, []);
+
+  // 2) 当筛选变化：写入 URL + 拉接口
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (difficulty.length) params.set("difficulty", difficulty.join(","));
+    if (access.length) params.set("access", access.join(","));
+    if (sort) params.set("sort", sort);
+    return params.toString();
+  }, [difficulty, access, sort]);
 
   useEffect(() => {
-    let ignore = false;
-    setLoading(true);
-    fetch(`/api/clips?${qs}`)
-      .then(r => r.json())
-      .then(d => {
-        if (ignore) return;
-        setItems(d.items || []);
-      })
-      .finally(() => {
-        if (ignore) return;
-        setLoading(false);
-      });
+    // 初次 url 读完后才会触发；这里同步 URL
+    writeUrl({ difficulty, access, sort });
 
-    return () => (ignore = true);
-  }, [qs]);
+    const controller = new AbortController();
+    async function run() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/clips?${queryString}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        setItems(data.items || []);
+      } catch (e) {
+        if (e.name !== "AbortError") console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+    run();
+    return () => controller.abort();
+  }, [queryString]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleInArray(arr, value) {
+    if (arr.includes(value)) return arr.filter((x) => x !== value);
+    return [...arr, value];
+  }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "24px auto", padding: 16, fontFamily: "system-ui" }}>
-      <h1 style={{ marginBottom: 12 }}>视频库（接口式筛选测试版）</h1>
+    <div style={{ maxWidth: 920, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
+      <h1 style={{ textAlign: "center", marginBottom: 18 }}>视频库（接口式筛选测试版）</h1>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", padding: 12, border: "1px solid #eee", borderRadius: 12 }}>
-        <label>
-          难度：
-          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} style={{ marginLeft: 8 }}>
-            {DIFFICULTY_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          权限：
-          <select value={access} onChange={(e) => setAccess(e.target.value)} style={{ marginLeft: 8 }}>
-            <option value="free">免费</option>
-            <option value="vip">会员专享</option>
-          </select>
-        </label>
-
-        <label>
-          排序：
-          <select value={order} onChange={(e) => setOrder(e.target.value)} style={{ marginLeft: 8 }}>
-            <option value="newest">最新优先</option>
-            <option value="oldest">最早优先</option>
-          </select>
-        </label>
-
-        <div style={{ marginLeft: "auto", opacity: 0.7 }}>
-          {loading ? "加载中..." : `共 ${items.length} 条`}
+      <div style={{
+        display: "flex",
+        gap: 16,
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 14,
+        border: "1px solid #eee",
+        borderRadius: 12
+      }}>
+        {/* 难度：多选 */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <b>难度：</b>
+          {[
+            { slug: "beginner", label: "初级" },
+            { slug: "intermediate", label: "中级" },
+            { slug: "advanced", label: "高级" },
+          ].map((o) => (
+            <label key={o.slug} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={difficulty.includes(o.slug)}
+                onChange={() => setDifficulty((d) => toggleInArray(d, o.slug))}
+              />
+              {o.label}
+            </label>
+          ))}
         </div>
+
+        {/* 权限：多选 */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <b>权限：</b>
+          {[
+            { slug: "free", label: "免费" },
+            { slug: "member", label: "会员专享" },
+          ].map((o) => (
+            <label key={o.slug} style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
+              <input
+                type="checkbox"
+                checked={access.includes(o.slug)}
+                onChange={() => setAccess((a) => toggleInArray(a, o.slug))}
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+
+        {/* 排序 */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <b>排序：</b>
+          <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="newest">最新优先</option>
+            <option value="oldest">最旧优先</option>
+          </select>
+        </div>
+
+        {/* 清空 */}
+        <button onClick={() => { setDifficulty([]); setAccess([]); setSort("newest"); }}>
+          清空筛选
+        </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16, marginTop: 16 }}>
-        {items.map(it => (
-          <div key={it.id} style={{ border: "1px solid #eee", borderRadius: 12, overflow: "hidden" }}>
-            <div style={{ aspectRatio: "16/9", background: "#f6f6f6" }}>
+      <div style={{ textAlign: "center", marginTop: 10, color: "#666" }}>
+        {loading ? "加载中..." : `结果：${items.length} 条`}
+      </div>
+
+      <div style={{
+        marginTop: 22,
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+        gap: 16
+      }}>
+        {items.map((it) => (
+          <div key={it.id} style={{
+            border: "1px solid #eee",
+            borderRadius: 14,
+            overflow: "hidden",
+            background: "#fff"
+          }}>
+            <div style={{ height: 160, background: "#f3f3f3" }}>
               {it.cover_url ? (
                 <img src={it.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : null}
             </div>
-
             <div style={{ padding: 12 }}>
               <div style={{ fontWeight: 700 }}>{it.title}</div>
-              <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-                {it.access_tier === "vip" ? "会员专享" : "免费"} · {it.duration_sec}s
+              <div style={{ color: "#666", marginTop: 6 }}>
+                {it.access_tier || it.access_tier === "" ? it.access_tier : ""} {it.duration_sec ? `· ${it.duration_sec}s` : ""}
               </div>
-
-              <div style={{ marginTop: 10 }}>
-                {it.can_access ? (
-                  <a href={it.video_url || "#"} target="_blank" rel="noreferrer">打开视频链接</a>
-                ) : (
-                  <button onClick={() => alert("会员专享：请登录并兑换码激活会员")} style={{ padding: "8px 10px" }}>
-                    会员专享（弹窗）
-                  </button>
-                )}
-              </div>
+              {it.video_url ? (
+                <a href={it.video_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8 }}>
+                  打开视频链接
+                </a>
+              ) : null}
             </div>
           </div>
         ))}
       </div>
-
-      <p style={{ marginTop: 18, opacity: 0.65 }}>
-        这是最小版：先验证“筛选秒刷新”。下一步我会帮你加：话题/博主多选、登录+兑换码、收藏。
-      </p>
     </div>
   );
 }
