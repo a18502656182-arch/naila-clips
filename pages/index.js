@@ -9,10 +9,6 @@ function parseCSV(v) {
     .filter(Boolean);
 }
 
-function uniq(arr) {
-  return Array.from(new Set(arr));
-}
-
 function toggleValue(list, value) {
   const set = new Set(list);
   if (set.has(value)) set.delete(value);
@@ -78,7 +74,6 @@ export default function Home() {
           channels: j.channels || [],
         });
       } catch (e) {
-        // tax 加载失败不阻塞 clips，只是 UI 没选项
         console.error(e);
       } finally {
         if (alive) setTaxLoading(false);
@@ -149,16 +144,17 @@ export default function Home() {
       ...nextPartial,
     };
 
-    // 勾选筛选时，回到第一页
-    if ("difficulty" in nextPartial || "access" in nextPartial || "topic" in nextPartial || "channel" in nextPartial || "sort" in nextPartial) {
+    if (
+      "difficulty" in nextPartial ||
+      "access" in nextPartial ||
+      "topic" in nextPartial ||
+      "channel" in nextPartial ||
+      "sort" in nextPartial
+    ) {
       next.offset = 0;
     }
 
-    router.push(
-      { pathname: "/", query: buildQuery(next) },
-      undefined,
-      { shallow: true }
-    );
+    router.push({ pathname: "/", query: buildQuery(next) }, undefined, { shallow: true });
   }
 
   function clearAll() {
@@ -179,7 +175,16 @@ export default function Home() {
         勾选筛选会立刻请求 /api/clips，URL 可分享，刷新会保留筛选。
       </div>
 
-      <div style={{ border: "1px solid #eee", borderRadius: 10, padding: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div
+        style={{
+          border: "1px solid #eee",
+          borderRadius: 10,
+          padding: 16,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 18,
+        }}
+      >
         {/* Left */}
         <div>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>难度（多选）</div>
@@ -225,7 +230,16 @@ export default function Home() {
               <option value="oldest">最早</option>
             </select>
 
-            <button onClick={clearAll} style={{ padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8, background: "#fff", cursor: "pointer" }}>
+            <button
+              onClick={clearAll}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
               清空筛选
             </button>
           </div>
@@ -235,7 +249,7 @@ export default function Home() {
         <div>
           <div style={{ fontWeight: 800, marginBottom: 8 }}>权限（多选）</div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            {["free", "member"].map((a) => (
+            {["free", "vip"].map((a) => (
               <label key={a} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <input
                   type="checkbox"
@@ -272,7 +286,16 @@ export default function Home() {
       </div>
 
       {err ? (
-        <div style={{ marginTop: 14, padding: 12, border: "1px solid #f2b8b8", background: "#fff2f2", borderRadius: 10, color: "#b00020" }}>
+        <div
+          style={{
+            marginTop: 14,
+            padding: 12,
+            border: "1px solid #f2b8b8",
+            background: "#fff2f2",
+            borderRadius: 10,
+            color: "#b00020",
+          }}
+        >
           请求失败：{err}
           <div style={{ marginTop: 6, color: "#333" }}>
             请打开浏览器 DevTools → Network → 找 <code>/api/clips</code> → 截图给我（Headers + Response）。
@@ -298,7 +321,6 @@ export default function Home() {
               <div style={{ padding: 12 }}>
                 <div style={{ fontWeight: 800, fontSize: 16 }}>{it.title}</div>
 
-                {/* 标签展示 */}
                 <div style={{ marginTop: 6, fontSize: 12, color: "#444" }}>
                   <div>难度: {(it.difficulty || []).join(", ") || "-"}</div>
                   <div>Topic: {(it.topics || []).join(", ") || "-"}</div>
@@ -340,7 +362,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* 分页 */}
       <div style={{ marginTop: 16, display: "flex", gap: 10, justifyContent: "center" }}>
         <button
           disabled={offset <= 0}
@@ -365,7 +386,18 @@ export default function Home() {
       </div>
 
       <div style={{ marginTop: 14, fontSize: 12, color: "#777" }}>
-        当前查询参数：{JSON.stringify(buildQuery({ difficulty: selectedDifficulty, access: selectedAccess, topic: selectedTopic, channel: selectedChannel, sort, limit, offset }))}
+        当前查询参数：
+        {JSON.stringify(
+          buildQuery({
+            difficulty: selectedDifficulty,
+            access: selectedAccess,
+            topic: selectedTopic,
+            channel: selectedChannel,
+            sort,
+            limit,
+            offset,
+          })
+        )}
       </div>
     </div>
   );
