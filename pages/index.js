@@ -2,10 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
- * ✅ 全站筛选改为「多选下拉 dropdown」
+ * ✅ 全站筛选：多选下拉 dropdown（电脑/手机统一）
  * ✅ 响应式布局：
- *    - 手机默认两列
- *    - 超小屏 1 列
+ *    - 手机默认两列（更像参考站）
  *    - 电脑端（>=1024px）强制 5 列一整行
  * ✅ 勾选立即请求 /api/clips
  * ✅ URL 自动同步（可分享）
@@ -324,16 +323,11 @@ export default function HomePage() {
         {loading ? "加载中..." : `共 ${total} 条`}
       </div>
 
-      {/* ✅ 让 grid 响应式：手机2列 / 超小屏1列 / 电脑5列一行 */}
+      {/* ✅ 响应式：电脑 5 列一行（不再强制手机 1 列） */}
       <style jsx>{`
         @media (min-width: 1024px) {
           .filterGrid {
             grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-          }
-        }
-        @media (max-width: 360px) {
-          .filterGrid {
-            grid-template-columns: 1fr !important;
           }
         }
       `}</style>
@@ -354,8 +348,8 @@ export default function HomePage() {
             display: "grid",
             gap: 12,
 
-            // ✅ 手机默认两列
-            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+            // ✅ 手机默认两列（每列最小 140px，更稳）
+            gridTemplateColumns: "repeat(2, minmax(140px, 1fr))",
           }}
         >
           <SingleSelectDropdown
