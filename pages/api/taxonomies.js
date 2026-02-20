@@ -20,16 +20,15 @@ export default async function handler(req, res) {
 
     const sort = req.query.sort === "oldest" ? "oldest" : "newest";
 
-    // 当前已选（用来算“动态 counts”）
     const selectedDifficulty = parseList(req.query.difficulty);
     const selectedAccess = parseList(req.query.access);
     const selectedTopic = parseList(req.query.topic);
     const selectedChannel = parseList(req.query.channel);
 
-    // 1) 先拉所有 taxonomies（用于 options 列表）
+    // ✅ 1) taxonomies：只取 type + slug（不再取 name）
     const { data: taxRows, error: taxErr } = await supabase
       .from("taxonomies")
-      .select("id, type, slug, name")
+      .select("type, slug")
       .order("type", { ascending: true })
       .order("slug", { ascending: true });
 
@@ -39,7 +38,7 @@ export default async function handler(req, res) {
     const topics = (taxRows || []).filter((t) => t.type === "topic");
     const channels = (taxRows || []).filter((t) => t.type === "channel");
 
-    // 2) 拉 clips + taxonomies（用于算 counts）
+    // ✅ 2) 拉 clips + taxonomies（用于算 counts）
     let q = supabase
       .from("clips")
       .select(
@@ -52,7 +51,6 @@ export default async function handler(req, res) {
       )
       .order("created_at", { ascending: sort === "oldest" });
 
-    // access 直接先过滤（减少数据）
     if (selectedAccess.length) q = q.in("access_tier", selectedAccess);
 
     const { data: clipRows, error: clipErr } = await q;
@@ -152,22 +150,22 @@ export default async function handler(req, res) {
         );
     }
 
-    // 3) 把 counts 合并到 options 里（前端直接用）
+    // ✅ 3) 合并 counts 到 options（name 直接用 slug）
     const difficultiesWithCount = difficulties.map((x) => ({
       slug: x.slug,
-      name: x.name || x.slug,
+      name: x.slug,
       count: counts.difficulty[x.slug] || 0,
     }));
 
     const topicsWithCount = topics.map((x) => ({
       slug: x.slug,
-      name: x.name || x.slug,
+      name: x.slug,
       count: counts.topic[x.slug] || 0,
     }));
 
     const channelsWithCount = channels.map((x) => ({
       slug: x.slug,
-      name: x.name || x.slug,
+      name: x.slug,
       count: counts.channel[x.slug] || 0,
     }));
 
@@ -175,7 +173,7 @@ export default async function handler(req, res) {
       difficulties: difficultiesWithCount,
       topics: topicsWithCount,
       channels: channelsWithCount,
-      access_counts: counts.access, // free/vip 的数量
+      access_counts: counts.access,
       filters: {
         difficulty: selectedDifficulty,
         access: selectedAccess,
