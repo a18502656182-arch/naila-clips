@@ -176,6 +176,7 @@ export default async function handler(req, res) {
       .filter(Boolean);
 
     return res.status(200).json({
+      debug: { mode: "db_paged" },
       items,
       total,
       limit,
