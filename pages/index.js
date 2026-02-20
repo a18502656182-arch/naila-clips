@@ -295,6 +295,12 @@ useEffect(() => {
                 <span>难度：{it.difficulty_level || "-"}</span>
                 <span>权限：{it.access_tier || "-"}</span>
                 <span>时长：{it.duration_sec ? `${it.duration_sec}s` : "-"}</span>
+                <div style={{ marginTop: 6, fontSize: 12, color: "#444" }}>
+                <div>难度: {(it.difficulty || []).join(", ") || "-"}</div>
+                <div>Topic: {(it.topics || []).join(", ") || "-"}</div>
+               <div>Channel: {(it.channels || []).join(", ") || "-"}</div>
+              </div> 
+                
               </div>
 
               <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
