@@ -102,17 +102,61 @@ export default async function handler(req, res) {
 
     // ===== 输出（把 difficulty 也返回给前端显示用）=====
     // 为了简单：这里直接把 difficulty 从 query 回填（后续我们再做“查询每条 clip 的难度真实值”）
-    const items = (clips || []).map((c) => {
-      const isFree = c.access_tier === "free";
-      const canAccess = isFree ? true : demoMember ? true : false;
+    // ===== 额外查询：给每条 clip 加上 difficulty/topics/channels =====
+const clipIds = (clips || []).map((c) => c.id).filter(Boolean);
 
-      return {
-        ...c,
-        can_access: canAccess,
-      };
-    });
+let taxMap = {}; // { clip_id: { difficulty:[], topics:[], channels:[] } }
+for (const id of clipIds) taxMap[id] = { difficulty: [], topics: [], channels: [] };
 
-    return res.status(200).json({ version: "clips-api-v3", items, total: count || 0, limit, offset });
+if (clipIds.length > 0) {
+  const { data: links, error: linksErr } = await supabase
+    .from("clip_taxonomies")
+    .select("clip_id,taxonomy_id")
+    .in("clip_id", clipIds);
+
+  if (linksErr) throw linksErr;
+
+  const taxIds = Array.from(new Set((links || []).map((x) => x.taxonomy_id).filter(Boolean)));
+
+  if (taxIds.length > 0) {
+    const { data: taxRows, error: taxErr } = await supabase
+      .from("taxonomies")
+      .select("id,type,slug")
+      .in("id", taxIds);
+
+    if (taxErr) throw taxErr;
+
+    const taxById = {};
+    for (const t of taxRows || []) taxById[t.id] = t;
+
+    for (const lk of links || []) {
+      const t = taxById[lk.taxonomy_id];
+      if (!t) continue;
+      if (!taxMap[lk.clip_id]) taxMap[lk.clip_id] = { difficulty: [], topics: [], channels: [] };
+
+      if (t.type === "difficulty") taxMap[lk.clip_id].difficulty.push(t.slug);
+      if (t.type === "topic") taxMap[lk.clip_id].topics.push(t.slug);
+      if (t.type === "channel") taxMap[lk.clip_id].channels.push(t.slug);
+    }
+  }
+}
+
+const items = (clips || []).map((c) => {
+  const isFree = c.access_tier === "free";
+  const canAccess = isFree ? true : demoMember ? true : false;
+
+  const tags = taxMap[c.id] || { difficulty: [], topics: [], channels: [] };
+
+  return {
+    ...c,
+    can_access: canAccess,
+    difficulty: tags.difficulty,
+    topics: tags.topics,
+    channels: tags.channels,
+  };
+});
+
+return res.status(200).json({ version: "clips-api-v4", items, total: count || 0, limit, offset });
   } catch (e) {
     return res.status(500).json({
       error: e?.message || "Unknown server error",
