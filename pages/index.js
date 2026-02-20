@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";1
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
