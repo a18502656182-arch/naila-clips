@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+
+/**
+ * ✅ 全站筛选改为「下拉框（多选 dropdown）」风格：电脑/手机统一
+ * ✅ 勾选立即请求 /api/clips
+ * ✅ URL 自动同步（可分享）
+ * ✅ F5 刷新后从 URL 还原筛选状态
+ */
 
 function splitParam(v) {
   if (!v) return [];
@@ -17,59 +24,233 @@ function toggleInArray(arr, value) {
   return Array.from(set);
 }
 
+function useOutsideClick(ref, onOutside) {
+  useEffect(() => {
+    function handler(e) {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) onOutside();
+    }
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [ref, onOutside]);
+}
+
+function MultiSelectDropdown({
+  label,
+  placeholder = "请选择",
+  options,
+  value,
+  onChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useOutsideClick(wrapRef, () => setOpen(false));
+
+  const selected = useMemo(() => new Set(value || []), [value]);
+  const selectedLabels = useMemo(() => {
+    if (!value?.length) return "";
+    const map = new Map(options.map((o) => [o.slug, o.name || o.slug]));
+    return value.map((v) => map.get(v) || v).join("、");
+  }, [value, options]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+        {label}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((x) => !x)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "1px solid #e5e5e5",
+          background: "white",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          {value?.length ? (
+            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {selectedLabels}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, opacity: 0.6 }}>{placeholder}</div>
+          )}
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+            已选 {value?.length || 0} 项
+          </div>
+        </div>
+        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>{open ? "▲" : "▼"}</div>
+      </button>
+
+      {open ? (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 50,
+            left: 0,
+            right: 0,
+            marginTop: 8,
+            border: "1px solid #e5e5e5",
+            borderRadius: 12,
+            background: "white",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+            padding: 10,
+            maxHeight: 260,
+            overflow: "auto",
+          }}
+        >
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              style={{
+                border: "1px solid #eee",
+                background: "white",
+                borderRadius: 10,
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              清空
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={{
+                marginLeft: "auto",
+                border: "1px solid #eee",
+                background: "white",
+                borderRadius: 10,
+                padding: "6px 10px",
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              完成
+            </button>
+          </div>
+
+          {options?.length ? (
+            options.map((o) => (
+              <label
+                key={o.slug}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 8px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.has(o.slug)}
+                  onChange={() => onChange(toggleInArray(value || [], o.slug))}
+                />
+                <div style={{ fontSize: 13 }}>
+                  {o.name || o.slug}
+                </div>
+              </label>
+            ))
+          ) : (
+            <div style={{ fontSize: 12, opacity: 0.6, padding: 6 }}>
+              暂无选项（请检查 /api/taxonomies）
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SingleSelectDropdown({ label, value, onChange, options }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "1px solid #e5e5e5",
+          background: "white",
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
 
-  const [tax, setTax] = useState({ difficulties: [], topics: [], channels: [] });
+  const [tax, setTax] = useState({
+    difficulties: [],
+    topics: [],
+    channels: [],
+  });
 
   // filters
   const [difficulty, setDifficulty] = useState([]);
   const [topic, setTopic] = useState([]);
   const [channel, setChannel] = useState([]);
-  const [access, setAccess] = useState([]);
-  const [sort, setSort] = useState("newest");
-
-  // paging
-  const PAGE_SIZE = 12;
-  const [offset, setOffset] = useState(0);
+  const [access, setAccess] = useState([]); // free / vip
+  const [sort, setSort] = useState("newest"); // newest / oldest
 
   // data
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
 
-  const accessOptions = [
-    { slug: "free", name: "免费" },
-    { slug: "vip", name: "会员专享" },
-  ];
+  const accessOptions = useMemo(
+    () => [
+      { slug: "free", name: "免费" },
+      { slug: "vip", name: "会员专享" },
+    ],
+    []
+  );
 
-  const blockStyle = { minWidth: 220, flex: "1 1 220px" };
-  const checkboxRowStyle = {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    marginTop: 6,
-  };
-
-  // 1) taxonomies
+  // 1) 拉取 taxonomies
   useEffect(() => {
     fetch("/api/taxonomies")
       .then((r) => r.json())
-      .then((d) =>
+      .then((d) => {
         setTax({
           difficulties: d?.difficulties || [],
           topics: d?.topics || [],
           channels: d?.channels || [],
-        })
-      )
+        });
+      })
       .catch(() => {});
   }, []);
 
-  // 2) restore filters from URL (on first ready)
+  // 2) 从 URL 还原筛选
   useEffect(() => {
     if (!router.isReady) return;
+
     const q = router.query;
     setDifficulty(splitParam(q.difficulty));
     setTopic(splitParam(q.topic));
@@ -78,7 +259,7 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) build qs by filters + paging
+  // 3) 生成 querystring
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (difficulty.length) p.set("difficulty", difficulty.join(","));
@@ -87,25 +268,15 @@ export default function HomePage() {
     if (access.length) p.set("access", access.join(","));
     if (sort) p.set("sort", sort);
 
-    p.set("limit", String(PAGE_SIZE));
-    p.set("offset", String(offset));
+    p.set("limit", "50");
+    p.set("offset", "0");
     return p.toString();
-  }, [difficulty, topic, channel, access, sort, offset]);
+  }, [difficulty, topic, channel, access, sort]);
 
-  // 4) when filters change -> reset offset + sync URL
+  // 4) 同步 URL + 请求 clips
   useEffect(() => {
     if (!router.isReady) return;
 
-    // ✅ 只要筛选/排序变化，就回到第一页
-    setOffset(0);
-    setItems([]);
-  }, [difficulty.join(","), topic.join(","), channel.join(","), access.join(","), sort, router.isReady]);
-
-  // 5) sync URL (only filters) + fetch clips
-  useEffect(() => {
-    if (!router.isReady) return;
-
-    // 5.1 sync URL (clean: no offset)
     const nextQuery = {};
     if (difficulty.length) nextQuery.difficulty = difficulty.join(",");
     if (topic.length) nextQuery.topic = topic.join(",");
@@ -117,126 +288,110 @@ export default function HomePage() {
       shallow: true,
     });
 
-    // 5.2 fetch
-    const isFirstPage = offset === 0;
-    if (isFirstPage) setLoading(true);
-    else setLoadingMore(true);
-
+    setLoading(true);
     fetch(`/api/clips?${qs}`)
       .then((r) => r.json())
       .then((d) => {
-        const newItems = d?.items || [];
+        setItems(d?.items || []);
         setTotal(d?.total || 0);
-        setHasMore(Boolean(d?.has_more));
-
-        setItems((prev) => (isFirstPage ? newItems : [...prev, ...newItems]));
       })
       .catch(() => {
-        if (isFirstPage) {
-          setItems([]);
-          setTotal(0);
-          setHasMore(false);
-        }
+        setItems([]);
+        setTotal(0);
       })
-      .finally(() => {
-        setLoading(false);
-        setLoadingMore(false);
-      });
+      .finally(() => setLoading(false));
   }, [router.isReady, qs]);
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 8 }}>视频库（接口式筛选测试版）</h1>
       <div style={{ opacity: 0.7, marginBottom: 16 }}>
-        {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
+        {loading ? "加载中..." : `共 ${total} 条`}
       </div>
 
-      {/* Filters */}
+      {/* ✅ 全下拉筛选区 */}
       <div
         style={{
           border: "1px solid #eee",
-          borderRadius: 12,
+          borderRadius: 14,
           padding: 12,
           marginBottom: 16,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 14,
-          alignItems: "flex-start",
+          background: "white",
         }}
       >
-        <div style={blockStyle}>
-          <b style={{ marginRight: 8 }}>排序</b>
-          <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="newest">最新</option>
-            <option value="oldest">最早</option>
-          </select>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <SingleSelectDropdown
+            label="排序"
+            value={sort}
+            onChange={setSort}
+            options={[
+              { value: "newest", label: "最新" },
+              { value: "oldest", label: "最早" },
+            ]}
+          />
+
+          <MultiSelectDropdown
+            label="难度（多选）"
+            placeholder="选择难度"
+            options={tax.difficulties}
+            value={difficulty}
+            onChange={setDifficulty}
+          />
+
+          <MultiSelectDropdown
+            label="权限（多选）"
+            placeholder="选择权限"
+            options={accessOptions}
+            value={access}
+            onChange={setAccess}
+          />
+
+          <MultiSelectDropdown
+            label="Topic（多选）"
+            placeholder="选择 Topic"
+            options={tax.topics}
+            value={topic}
+            onChange={setTopic}
+          />
+
+          <MultiSelectDropdown
+            label="Channel（多选）"
+            placeholder="选择 Channel"
+            options={tax.channels}
+            value={channel}
+            onChange={setChannel}
+          />
         </div>
 
-        <div style={blockStyle}>
-          <b>难度（多选）</b>
-          <div style={checkboxRowStyle}>
-            {tax.difficulties.map((x) => (
-              <label key={x.slug} style={{ cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={difficulty.includes(x.slug)}
-                  onChange={() =>
-                    setDifficulty((prev) => toggleInArray(prev, x.slug))
-                  }
-                />{" "}
-                {x.name || x.slug}
-              </label>
-            ))}
-          </div>
-        </div>
+        <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setDifficulty([]);
+              setTopic([]);
+              setChannel([]);
+              setAccess([]);
+              setSort("newest");
+            }}
+            style={{
+              border: "1px solid #eee",
+              background: "white",
+              borderRadius: 12,
+              padding: "8px 12px",
+              cursor: "pointer",
+            }}
+          >
+            一键清空所有筛选
+          </button>
 
-        <div style={blockStyle}>
-          <b>权限（多选）</b>
-          <div style={checkboxRowStyle}>
-            {accessOptions.map((x) => (
-              <label key={x.slug} style={{ cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={access.includes(x.slug)}
-                  onChange={() => setAccess((prev) => toggleInArray(prev, x.slug))}
-                />{" "}
-                {x.name}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div style={blockStyle}>
-          <b>Topic（多选）</b>
-          <div style={checkboxRowStyle}>
-            {tax.topics.map((x) => (
-              <label key={x.slug} style={{ cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={topic.includes(x.slug)}
-                  onChange={() => setTopic((prev) => toggleInArray(prev, x.slug))}
-                />{" "}
-                {x.name || x.slug}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div style={blockStyle}>
-          <b>Channel（多选）</b>
-          <div style={checkboxRowStyle}>
-            {tax.channels.map((x) => (
-              <label key={x.slug} style={{ cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={channel.includes(x.slug)}
-                  onChange={() =>
-                    setChannel((prev) => toggleInArray(prev, x.slug))
-                  }
-                />{" "}
-                {x.name || x.slug}
-              </label>
-            ))}
+          <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
+            当前 URL：{typeof window !== "undefined" ? window.location.search : ""}
           </div>
         </div>
       </div>
@@ -252,9 +407,14 @@ export default function HomePage() {
         {items.map((it) => (
           <div
             key={it.id}
-            style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}
+            style={{
+              border: "1px solid #eee",
+              borderRadius: 14,
+              padding: 12,
+              background: "white",
+            }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            <div style={{ fontWeight: 800, marginBottom: 6 }}>
               {it.title || `Clip #${it.id}`}
             </div>
 
@@ -268,11 +428,11 @@ export default function HomePage() {
               <img
                 src={it.cover_url}
                 alt=""
-                style={{ width: "100%", borderRadius: 10, marginBottom: 8 }}
+                style={{ width: "100%", borderRadius: 12, marginBottom: 8 }}
               />
             ) : null}
 
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 8 }}>
+            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
               Topics: {(it.topics || []).join(", ") || "-"}
               <br />
               Channels: {(it.channels || []).join(", ") || "-"}
@@ -291,30 +451,9 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Load more */}
-      <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
-        {loading ? null : hasMore ? (
-          <button
-            onClick={() => setOffset((x) => x + PAGE_SIZE)}
-            disabled={loadingMore}
-            style={{
-              padding: "10px 14px",
-              borderRadius: 10,
-              border: "1px solid #ddd",
-              cursor: "pointer",
-              background: "white",
-            }}
-          >
-            {loadingMore ? "加载中..." : "加载更多"}
-          </button>
-        ) : (
-          <div style={{ opacity: 0.6, fontSize: 12 }}>没有更多了</div>
-        )}
-      </div>
-
-      <div style={{ marginTop: 18, fontSize: 12, opacity: 0.6 }}>
-        当前 URL Query：{typeof window !== "undefined" ? window.location.search : ""}
-      </div>
+      {!loading && items.length === 0 ? (
+        <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div>
+      ) : null}
     </div>
   );
 }
