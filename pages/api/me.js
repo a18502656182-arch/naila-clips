@@ -1,61 +1,128 @@
+// pages/api/me.js
 import { createClient } from "@supabase/supabase-js";
+
+function getCookie(req, name) {
+  const raw = req.headers.cookie || "";
+  const parts = raw.split(";").map((p) => p.trim());
+  for (const p of parts) {
+    if (p.startsWith(name + "=")) return p.slice(name.length + 1);
+  }
+  return "";
+}
+
+// 兼容多种 Supabase cookie 形式：
+// 1) sb-<projectref>-auth-token = URL-encoded JSON like ["access","refresh"] 或 {"access_token":...}
+// 2) sb-access-token / sb-refresh-token (旧格式)
+function extractAccessTokenFromCookies(req) {
+  const raw = req.headers.cookie || "";
+  if (!raw) return "";
+
+  // 先找新格式 sb-xxx-auth-token
+  const cookies = raw.split(";").map((p) => p.trim());
+  const authTokenCookie = cookies.find(
+    (c) => c.startsWith("sb-") && c.includes("-auth-token=")
+  );
+
+  if (authTokenCookie) {
+    const [, value] = authTokenCookie.split("=");
+    try {
+      const decoded = decodeURIComponent(value);
+
+      // 可能是 ["access","refresh"]
+      if (decoded.startsWith("[")) {
+        const arr = JSON.parse(decoded);
+        if (Array.isArray(arr) && typeof arr[0] === "string") return arr[0];
+      }
+
+      // 可能是 {"access_token":"..."}
+      if (decoded.startsWith("{")) {
+        const obj = JSON.parse(decoded);
+        if (obj?.access_token) return obj.access_token;
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  // 再兼容旧格式
+  const access = getCookie(req, "sb-access-token");
+  if (access) return access;
+
+  return "";
+}
 
 export default async function handler(req, res) {
   try {
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !anonKey) {
+      return res.status(500).json({
+        error: "Missing env NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, anonKey);
 
-    // 1) 读 Bearer token
-    const auth = req.headers.authorization || "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-
-    if (!token) {
+    const accessToken = extractAccessTokenFromCookies(req);
+    if (!accessToken) {
       return res.status(200).json({
         logged_in: false,
         is_member: false,
         ends_at: null,
         status: null,
+        debug: { reason: "no_access_token_in_cookie" },
       });
     }
 
-    // 2) 用 token 获取当前用户
-    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-    if (userErr || !userData?.user) {
+    // 用 access_token 验证当前用户
+    const { data: userData, error: userErr } = await supabase.auth.getUser(accessToken);
+    const user = userData?.user;
+
+    if (userErr || !user) {
       return res.status(200).json({
         logged_in: false,
         is_member: false,
         ends_at: null,
         status: null,
+        debug: { reason: "getUser_failed", message: userErr?.message || "no user" },
       });
     }
 
-    const user = userData.user;
-
-    // 3) 查 subscriptions
+    // 查会员订阅（你现在的规则：subscriptions 表里 status=active 且 ends_at>now）
     const { data: sub, error: subErr } = await supabase
       .from("subscriptions")
-      .select("expires_at")
+      .select("status, ends_at")
       .eq("user_id", user.id)
+      .order("ends_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (subErr) throw subErr;
+    if (subErr) {
+      return res.status(200).json({
+        logged_in: true,
+        is_member: false,
+        ends_at: null,
+        status: null,
+        email: user.email,
+        user_id: user.id,
+        debug: { reason: "subscription_query_failed", message: subErr.message },
+      });
+    }
 
-    const endsAt = sub?.expires_at || null;
-    const isMember = endsAt ? new Date(endsAt).getTime() > Date.now() : false;
+    const endsAt = sub?.ends_at ? new Date(sub.ends_at).getTime() : 0;
+    const isActive = sub?.status === "active" && endsAt > Date.now();
 
     return res.status(200).json({
       logged_in: true,
+      is_member: Boolean(isActive),
+      ends_at: sub?.ends_at || null,
+      status: sub?.status || null,
+      email: user.email,
       user_id: user.id,
-      is_member: isMember,
-      ends_at: endsAt,
-      status: isMember ? "active" : "expired",
+      debug: { cookie_mode: "manual_parse_auth_token" },
     });
   } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown server error" });
+    return res.status(500).json({ error: String(e?.message || e) });
   }
 }
