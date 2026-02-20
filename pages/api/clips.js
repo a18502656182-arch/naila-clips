@@ -9,10 +9,6 @@ function parseList(v) {
     .filter(Boolean);
 }
 
-function pickFirst(arr) {
-  return Array.isArray(arr) && arr.length ? arr[0] : null;
-}
-
 export default async function handler(req, res) {
   try {
     const supabase = createPagesServerClient({ req, res });
@@ -26,12 +22,11 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // 1) 读登录状态（决定 can_access）
+    // 1) 登录态 -> is_member
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // 2) 取会员状态（你之前已有 subscriptions 逻辑，这里只判断 is_member）
     let is_member = false;
     if (user?.id) {
       const { data: sub } = await supabase
@@ -50,15 +45,15 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3) 先把 clips 拉出来（尽量先用 access 做 DB 过滤）
+    // 2) 先拿“轻量的候选集合”（只拉 id + access + created_at + taxonomies）
+    //    这样比直接拉 title/video_url 等大字段要省很多
     let q = supabase
       .from("clips")
       .select(
         `
-        id, title, description, duration_sec, created_at, upload_time,
-        access_tier, cover_url, video_url,
-        clip_taxonomies(
-          taxonomies(type, slug)
+        id, access_tier, created_at,
+        clip_taxonomies (
+          taxonomies ( type, slug )
         )
       `
       )
@@ -66,36 +61,28 @@ export default async function handler(req, res) {
 
     if (access.length) q = q.in("access_tier", access);
 
-    const { data, error } = await q;
-    if (error) return res.status(500).json({ error: error.message });
+    const { data: lightRows, error: lightErr } = await q;
+    if (lightErr) return res.status(500).json({ error: lightErr.message });
 
-    // 4) normalize + JS 过滤（difficulty/topic/channel）
-    const normalized = (data || []).map((row) => {
+    // 3) 后端做 difficulty/topic/channel 匹配，但这里只是轻量数据
+    const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || [])
         .map((ct) => ct.taxonomies)
         .filter(Boolean);
 
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
-
-      const can_access =
-        row.access_tier === "free" ? true : Boolean(is_member);
+      const channels = all
+        .filter((t) => t.type === "channel")
+        .map((t) => t.slug);
 
       return {
         id: row.id,
-        title: row.title,
-        description: row.description ?? null,
-        duration_sec: row.duration_sec ?? null,
         created_at: row.created_at,
-        upload_time: row.upload_time ?? null,
         access_tier: row.access_tier,
-        cover_url: row.cover_url ?? null,
-        video_url: row.video_url ?? null,
         difficulty: diff,
         topics,
         channels,
-        can_access,
       };
     });
 
@@ -112,12 +99,81 @@ export default async function handler(req, res) {
       return true;
     }
 
-    const filtered = normalized.filter(matches);
+    const matched = normalized.filter(matches);
 
-    // 5) 分页
-    const total = filtered.length;
-    const items = filtered.slice(offset, offset + limit);
+    // 4) 分页（只切 id 列表）
+    const total = matched.length;
+    const page = matched.slice(offset, offset + limit);
+    const pageIds = page.map((x) => x.id);
     const has_more = offset + limit < total;
+
+    // 没有数据直接返回
+    if (!pageIds.length) {
+      return res.status(200).json({
+        items: [],
+        total,
+        limit,
+        offset,
+        has_more,
+        sort,
+        filters: { difficulty, access, topic, channel },
+        is_member,
+      });
+    }
+
+    // 5) 再查“这一页的详细 clips”
+    const { data: fullRows, error: fullErr } = await supabase
+      .from("clips")
+      .select(
+        `
+        id, title, description, duration_sec, created_at, upload_time,
+        access_tier, cover_url, video_url,
+        clip_taxonomies(
+          taxonomies(type, slug)
+        )
+      `
+      )
+      .in("id", pageIds);
+
+    if (fullErr) return res.status(500).json({ error: fullErr.message });
+
+    // 6) 组装 items，并按 pageIds 的顺序输出（否则 in 查询顺序不稳定）
+    const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
+
+    const items = pageIds
+      .map((id) => {
+        const row = fullMap.get(id);
+        if (!row) return null;
+
+        const all = (row.clip_taxonomies || [])
+          .map((ct) => ct.taxonomies)
+          .filter(Boolean);
+
+        const diff = all.find((t) => t.type === "difficulty")?.slug || null;
+        const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
+        const channels = all
+          .filter((t) => t.type === "channel")
+          .map((t) => t.slug);
+
+        const can_access = row.access_tier === "free" ? true : Boolean(is_member);
+
+        return {
+          id: row.id,
+          title: row.title,
+          description: row.description ?? null,
+          duration_sec: row.duration_sec ?? null,
+          created_at: row.created_at,
+          upload_time: row.upload_time ?? null,
+          access_tier: row.access_tier,
+          cover_url: row.cover_url ?? null,
+          video_url: row.video_url ?? null,
+          difficulty: diff,
+          topics,
+          channels,
+          can_access,
+        };
+      })
+      .filter(Boolean);
 
     return res.status(200).json({
       items,
