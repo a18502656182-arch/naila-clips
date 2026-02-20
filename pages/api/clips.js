@@ -1,5 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 
+function parseIntSafe(v, def) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : def;
+}
+
 function parseCSVParam(v) {
   if (!v) return [];
   if (Array.isArray(v)) v = v[0];
@@ -7,11 +12,6 @@ function parseCSVParam(v) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function parseIntSafe(v, def) {
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) ? n : def;
 }
 
 function intersectSets(a, b) {
@@ -27,26 +27,40 @@ export default async function handler(req, res) {
     if (!supabaseUrl || !supabaseAnonKey) {
       return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
     }
+
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+    // ====== 0) 读取登录态（可选）→ isMember ======
+    const auth = req.headers.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    let isMember = false;
+
+    if (token) {
+      const { data: userData } = await supabase.auth.getUser(token);
+      const user = userData?.user;
+      if (user?.id) {
+        const { data: sub } = await supabase
+          .from("subscriptions")
+          .select("expires_at")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const endsAt = sub?.expires_at || null;
+        isMember = endsAt ? new Date(endsAt).getTime() > Date.now() : false;
+      }
+    }
+
+    // ====== 1) 解析参数 ======
     const limit = Math.max(1, Math.min(50, parseIntSafe(req.query.limit, 12)));
     const offset = Math.max(0, parseIntSafe(req.query.offset, 0));
+    const sort = String(req.query.sort || "newest"); // newest | oldest
 
-    const sortRaw = Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort;
-    const sort = sortRaw === "oldest" ? "oldest" : "newest";
+    const difficulty = parseCSVParam(req.query.difficulty); // 这里保留，先不强依赖列
+    const access = parseCSVParam(req.query.access); // free,member
+    const topic = parseCSVParam(req.query.topic);
+    const channel = parseCSVParam(req.query.channel);
 
-    // 全部作为 taxonomy 过滤（difficulty/topic/channel）
-    const difficulty = parseCSVParam(req.query.difficulty); // beginner,advanced
-    const topic = parseCSVParam(req.query.topic);           // daily,business
-    const channel = parseCSVParam(req.query.channel);       // channel-a,...
-
-    // access 还是 clips 表字段
-    const access = parseCSVParam(req.query.access);         // free,member
-
-    // 临时会员：member 需要 ?demo_member=1
-    const demoMember = String(req.query.demo_member || "") === "1";
-
-    // ===== taxonomy 过滤：slug -> taxonomy_id -> clip_id（交集）=====
+    // ====== 2) topic/channel 通过 taxonomies/clip_taxonomies 过滤 clip_id ======
     let filteredClipIds = null;
 
     async function slugsToTaxonomyIds(type, slugs) {
@@ -70,93 +84,95 @@ export default async function handler(req, res) {
       return new Set((data || []).map((x) => x.clip_id).filter(Boolean));
     }
 
-    async function applyTaxFilter(type, slugs) {
-      if (!slugs || slugs.length === 0) return;
-      const taxIds = await slugsToTaxonomyIds(type, slugs);
+    if (topic.length > 0) {
+      const taxIds = await slugsToTaxonomyIds("topic", topic);
       const ids = await taxonomyIdsToClipIds(taxIds);
       filteredClipIds = filteredClipIds ? intersectSets(filteredClipIds, ids) : ids;
     }
 
-    await applyTaxFilter("difficulty", difficulty);
-    await applyTaxFilter("topic", topic);
-    await applyTaxFilter("channel", channel);
-
-    if (filteredClipIds && filteredClipIds.size === 0) {
-      return res.status(200).json({ version: "clips-api-v3", items: [], total: 0, limit, offset });
+    if (channel.length > 0) {
+      const taxIds = await slugsToTaxonomyIds("channel", channel);
+      const ids = await taxonomyIdsToClipIds(taxIds);
+      filteredClipIds = filteredClipIds ? intersectSets(filteredClipIds, ids) : ids;
     }
 
-    // ===== 主查询 clips（按你真实字段名）=====
-    let q = supabase
-      .from("clips")
-      .select("id,title,description,duration_sec,upload_time,created_at,access_tier,cover_url,video_url", { count: "exact" });
+    if (filteredClipIds && filteredClipIds.size === 0) {
+      return res.status(200).json({ version: "clips-api-v5", items: [], total: 0, limit, offset });
+    }
 
+    // ====== 3) 查询 clips ======
+    let q = supabase.from("clips").select("*", { count: "exact" });
+
+    // access 过滤（按你表里已有 access_tier）
     if (access.length > 0) q = q.in("access_tier", access);
+
+    // 如果你 clips 表里没有 difficulty 列，我们先不强过滤（避免报错）
+    // 你后面要做难度多选，我们会改成走 taxonomies/clip_taxonomies（更统一）
+    // if (difficulty.length > 0) q = q.in("difficulty_level", difficulty);
+
     if (filteredClipIds) q = q.in("id", Array.from(filteredClipIds));
 
-    // 排序：优先用 upload_time
-    q = q.order("upload_time", { ascending: sort === "oldest" });
-    q = q.range(offset, offset + limit - 1);
+    q = q.order("created_at", { ascending: sort === "oldest" }).range(offset, offset + limit - 1);
 
     const { data: clips, error: clipsErr, count } = await q;
     if (clipsErr) throw clipsErr;
 
-    // ===== 输出（把 difficulty 也返回给前端显示用）=====
-    // 为了简单：这里直接把 difficulty 从 query 回填（后续我们再做“查询每条 clip 的难度真实值”）
-    // ===== 额外查询：给每条 clip 加上 difficulty/topics/channels =====
-const clipIds = (clips || []).map((c) => c.id).filter(Boolean);
+    // ====== 4) 补充 topics/channels/difficulty（从中间表拉回 slug） ======
+    const clipIds = (clips || []).map((c) => c.id);
+    let map = {}; // clip_id -> {topics:Set, channels:Set, difficulty:Set}
+    clipIds.forEach((id) => (map[id] = { topics: new Set(), channels: new Set(), difficulty: new Set() }));
 
-let taxMap = {}; // { clip_id: { difficulty:[], topics:[], channels:[] } }
-for (const id of clipIds) taxMap[id] = { difficulty: [], topics: [], channels: [] };
+    if (clipIds.length > 0) {
+      const { data: rels, error: relErr } = await supabase
+        .from("clip_taxonomies")
+        .select("clip_id,taxonomy_id")
+        .in("clip_id", clipIds);
+      if (relErr) throw relErr;
 
-if (clipIds.length > 0) {
-  const { data: links, error: linksErr } = await supabase
-    .from("clip_taxonomies")
-    .select("clip_id,taxonomy_id")
-    .in("clip_id", clipIds);
+      const taxIds = Array.from(new Set((rels || []).map((r) => r.taxonomy_id).filter(Boolean)));
+      if (taxIds.length > 0) {
+        const { data: taxes, error: taxErr } = await supabase
+          .from("taxonomies")
+          .select("id,type,slug")
+          .in("id", taxIds);
+        if (taxErr) throw taxErr;
 
-  if (linksErr) throw linksErr;
+        const taxMap = {};
+        (taxes || []).forEach((t) => (taxMap[t.id] = t));
 
-  const taxIds = Array.from(new Set((links || []).map((x) => x.taxonomy_id).filter(Boolean)));
-
-  if (taxIds.length > 0) {
-    const { data: taxRows, error: taxErr } = await supabase
-      .from("taxonomies")
-      .select("id,type,slug")
-      .in("id", taxIds);
-
-    if (taxErr) throw taxErr;
-
-    const taxById = {};
-    for (const t of taxRows || []) taxById[t.id] = t;
-
-    for (const lk of links || []) {
-      const t = taxById[lk.taxonomy_id];
-      if (!t) continue;
-      if (!taxMap[lk.clip_id]) taxMap[lk.clip_id] = { difficulty: [], topics: [], channels: [] };
-
-      if (t.type === "difficulty") taxMap[lk.clip_id].difficulty.push(t.slug);
-      if (t.type === "topic") taxMap[lk.clip_id].topics.push(t.slug);
-      if (t.type === "channel") taxMap[lk.clip_id].channels.push(t.slug);
+        (rels || []).forEach((r) => {
+          const t = taxMap[r.taxonomy_id];
+          if (!t) return;
+          const slot = map[r.clip_id];
+          if (!slot) return;
+          if (t.type === "topic") slot.topics.add(t.slug);
+          if (t.type === "channel") slot.channels.add(t.slug);
+          if (t.type === "difficulty") slot.difficulty.add(t.slug);
+        });
+      }
     }
-  }
-}
 
-const items = (clips || []).map((c) => {
-  const isFree = c.access_tier === "free";
-  const canAccess = isFree ? true : demoMember ? true : false;
+    const items = (clips || []).map((c) => {
+      const accessTier = c.access_tier || "free";
+      const canAccess = accessTier === "free" ? true : isMember;
 
-  const tags = taxMap[c.id] || { difficulty: [], topics: [], channels: [] };
+      return {
+        ...c,
+        can_access: canAccess,
+        topics: Array.from(map[c.id]?.topics || []),
+        channels: Array.from(map[c.id]?.channels || []),
+        difficulty: Array.from(map[c.id]?.difficulty || []),
+      };
+    });
 
-  return {
-    ...c,
-    can_access: canAccess,
-    difficulty: tags.difficulty,
-    topics: tags.topics,
-    channels: tags.channels,
-  };
-});
-
-return res.status(200).json({ version: "clips-api-v4", items, total: count || 0, limit, offset });
+    return res.status(200).json({
+      version: "clips-api-v5",
+      items,
+      total: count || 0,
+      limit,
+      offset,
+      is_member: isMember,
+    });
   } catch (e) {
     return res.status(500).json({
       error: e?.message || "Unknown server error",
