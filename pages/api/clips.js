@@ -11,7 +11,7 @@ function parseCSVParam(v) {
 }
 
 function parseIntSafe(v, def) {
-  const n = parseInt(v, 10);
+  const n = parseInt(Array.isArray(v) ? v[0] : v, 10);
   return Number.isFinite(n) ? n : def;
 }
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     // ===== Query Params =====
-    const limit = Math.max(1, Math.min(50, parseIntSafe(req.query.limit, 10)));
+    const limit = Math.max(1, Math.min(50, parseIntSafe(req.query.limit, 12)));
     const offset = Math.max(0, parseIntSafe(req.query.offset, 0));
 
     const sortRaw = Array.isArray(req.query.sort) ? req.query.sort[0] : req.query.sort;
@@ -44,34 +44,40 @@ export default async function handler(req, res) {
     const topic = parseCSVParam(req.query.topic); // slug list
     const channel = parseCSVParam(req.query.channel); // slug list
 
-    // ===== 会员权限（先做基础版）=====
-    // 现在先实现：free 永远可访问；member 先默认不可访问（除非你传 ?demo_member=1）
-    // 等你做 Supabase Auth + redeem 激活后，我们把这里替换成“按 user subscription 判断”。
+    // ===== 会员权限（先做 demo，后续接你兑换码逻辑）=====
     const demoMember = String(req.query.demo_member || "") === "1";
 
-    // ===== 如果 topic/channel 有筛选：先从 join 表找 clip_id，再回表查 clips =====
-    // 这里假设表结构：
-    // clip_taxonomies: (clip_id, taxonomy_id)
-    // taxonomies: (id, type, slug, name)
-    // clips: (id, title, cover_url, video_url, duration_sec, created_at, difficulty_level, access_tier)
-    //
-    // 如果你列名不同，Vercel Logs 会报错，我们按报错改成你的实际字段名即可。
+    // ===== helper: 通过 taxonomy type + slug 找到匹配 clip_id 集合 =====
+    // 你 taxonomies.type 可能不叫 "difficulty/topic/channel"，所以我做了“兼容多种可能值”
+    const TYPE_MAP = {
+      difficulty: ["difficulty", "level", "clip_level"],
+      topic: ["topic", "clip_topic1", "clip_topic"],
+      channel: ["channel", "clip_channel"],
+    };
 
-    let filteredClipIds = null; // Set 或 null（null 表示不按 join 限制）
-
-    async function fetchClipIdsByTax(type, slugs) {
+    async function fetchClipIdsByTax(kind, slugs) {
       if (!slugs || slugs.length === 0) return null;
+
+      const typeCandidates = TYPE_MAP[kind] || [kind];
 
       const { data, error } = await supabase
         .from("clip_taxonomies")
-        .select("clip_id, taxonomies!inner(type, slug)")
-        .eq("taxonomies.type", type)
+        .select("clip_id, taxonomies!inner(type, slug, name)")
+        .in("taxonomies.type", typeCandidates)
         .in("taxonomies.slug", slugs);
 
       if (error) throw error;
 
       const ids = new Set((data || []).map((r) => r.clip_id).filter(Boolean));
       return ids;
+    }
+
+    // ===== 1) 先按 difficulty/topic/channel 求 clip_id 交集 =====
+    let filteredClipIds = null;
+
+    if (difficulty.length > 0) {
+      const ids = await fetchClipIdsByTax("difficulty", difficulty);
+      filteredClipIds = filteredClipIds ? intersectSets(filteredClipIds, ids) : ids;
     }
 
     if (topic.length > 0) {
@@ -84,60 +90,82 @@ export default async function handler(req, res) {
       filteredClipIds = filteredClipIds ? intersectSets(filteredClipIds, ids) : ids;
     }
 
-    // 如果筛选导致无结果：直接返回空
     if (filteredClipIds && filteredClipIds.size === 0) {
       return res.status(200).json({ items: [], total: 0, limit, offset });
     }
 
-    // ===== 主查询 clips =====
+    // ===== 2) 主查询 clips（按你真实列名）=====
     let q = supabase
       .from("clips")
-      .select(
-        "id,title,cover_url,video_url,duration_sec,created_at,difficulty_level,access_tier",
-        { count: "exact" }
-      );
+      .select("id,title,description,duration_sec,upload_time,access_tier,cover_url,video_url", { count: "exact" });
 
-    // difficulty/access 多选
-    if (difficulty.length > 0) q = q.in("difficulty_level", difficulty);
     if (access.length > 0) q = q.in("access_tier", access);
+    if (filteredClipIds) q = q.in("id", Array.from(filteredClipIds));
 
-    // topic/channel join 限制后的 clip ids
-    if (filteredClipIds) {
-      q = q.in("id", Array.from(filteredClipIds));
-    }
+    // sort by upload_time
+    if (sort === "oldest") q = q.order("upload_time", { ascending: true });
+    else q = q.order("upload_time", { ascending: false });
 
-    // sort
-    if (sort === "oldest") q = q.order("created_at", { ascending: true });
-    else q = q.order("created_at", { ascending: false });
-
-    // pagination
     q = q.range(offset, offset + limit - 1);
 
     const { data: clips, error: clipsErr, count } = await q;
     if (clipsErr) throw clipsErr;
 
-    // ===== 输出 can_access =====
-    const items = (clips || []).map((c) => {
+    const clipList = clips || [];
+    const clipIds = clipList.map((c) => c.id);
+
+    // ===== 3) 把 taxonomies 拉出来组装（返回 difficulty_level/topic/channel 给前端）=====
+    let taxByClipId = {};
+    if (clipIds.length > 0) {
+      const { data: rels, error: relErr } = await supabase
+        .from("clip_taxonomies")
+        .select("clip_id, taxonomies(type, slug, name)")
+        .in("clip_id", clipIds);
+
+      if (relErr) throw relErr;
+
+      taxByClipId = {};
+      for (const r of rels || []) {
+        const cid = r.clip_id;
+        const t = r.taxonomies;
+        if (!cid || !t) continue;
+
+        if (!taxByClipId[cid]) {
+          taxByClipId[cid] = { difficulty: [], topic: [], channel: [] };
+        }
+
+        const type = String(t.type || "");
+        const slug = t.slug;
+
+        // 按候选类型归类
+        if (TYPE_MAP.difficulty.includes(type)) taxByClipId[cid].difficulty.push(slug);
+        else if (TYPE_MAP.topic.includes(type)) taxByClipId[cid].topic.push(slug);
+        else if (TYPE_MAP.channel.includes(type)) taxByClipId[cid].channel.push(slug);
+      }
+    }
+
+    // ===== 4) 输出 can_access + 兼容字段名 difficulty_level =====
+    const items = clipList.map((c) => {
       const isFree = c.access_tier === "free";
       const canAccess = isFree ? true : demoMember ? true : false;
 
+      const tax = taxByClipId[c.id] || { difficulty: [], topic: [], channel: [] };
+
       return {
         ...c,
+        // 兼容你前端现在显示的字段名：
+        difficulty_level: tax.difficulty[0] || null, // 暂时取第一个
+        topics: tax.topic,
+        channels: tax.channel,
         can_access: canAccess,
       };
     });
 
-    return res.status(200).json({
-      items,
-      total: count || 0,
-      limit,
-      offset,
-    });
+    return res.status(200).json({ items, total: count || 0, limit, offset });
   } catch (e) {
     return res.status(500).json({
       error: e?.message || "Unknown server error",
-      hint:
-        "If this happened after upgrading filters, please open Vercel Deployment Logs and screenshot the first red error line + stack trace.",
+      hint: "Open Vercel Deployment Logs and screenshot the first red error line + stack trace.",
     });
   }
 }
