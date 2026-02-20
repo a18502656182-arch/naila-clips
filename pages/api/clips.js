@@ -142,7 +142,7 @@ export default async function handler(req, res) {
       };
     });
 
-    return res.status(200).json({ items, total: count || 0, limit, offset });
+    return res.status(200).json({ version: "clips-api-v2",items, total: count || 0, limit, offset });
   } catch (e) {
     return res.status(500).json({
       error: e?.message || "Unknown server error",
