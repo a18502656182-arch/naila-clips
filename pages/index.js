@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
- * ✅ 全站筛选改为「下拉框（多选 dropdown）」风格：电脑/手机统一
+ * ✅ 全站筛选改为「多选下拉 dropdown」
+ * ✅ 响应式布局：
+ *    - 手机默认两列
+ *    - 超小屏 1 列
+ *    - 电脑端（>=1024px）强制 5 列一整行
  * ✅ 勾选立即请求 /api/clips
  * ✅ URL 自动同步（可分享）
  * ✅ F5 刷新后从 URL 还原筛选状态
@@ -52,6 +56,7 @@ function MultiSelectDropdown({
   useOutsideClick(wrapRef, () => setOpen(false));
 
   const selected = useMemo(() => new Set(value || []), [value]);
+
   const selectedLabels = useMemo(() => {
     if (!value?.length) return "";
     const map = new Map(options.map((o) => [o.slug, o.name || o.slug]));
@@ -83,7 +88,15 @@ function MultiSelectDropdown({
       >
         <div style={{ minWidth: 0 }}>
           {value?.length ? (
-            <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               {selectedLabels}
             </div>
           ) : (
@@ -93,7 +106,9 @@ function MultiSelectDropdown({
             已选 {value?.length || 0} 项
           </div>
         </div>
-        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>{open ? "▲" : "▼"}</div>
+        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>
+          {open ? "▲" : "▼"}
+        </div>
       </button>
 
       {open ? (
@@ -163,9 +178,7 @@ function MultiSelectDropdown({
                   checked={selected.has(o.slug)}
                   onChange={() => onChange(toggleInArray(value || [], o.slug))}
                 />
-                <div style={{ fontSize: 13 }}>
-                  {o.name || o.slug}
-                </div>
+                <div style={{ fontSize: 13 }}>{o.name || o.slug}</div>
               </label>
             ))
           ) : (
@@ -182,7 +195,9 @@ function MultiSelectDropdown({
 function SingleSelectDropdown({ label, value, onChange, options }) {
   return (
     <div>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+        {label}
+      </div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -233,7 +248,7 @@ export default function HomePage() {
     []
   );
 
-  // 1) 拉取 taxonomies
+  // 1) 拉 taxonomies
   useEffect(() => {
     fetch("/api/taxonomies")
       .then((r) => r.json())
@@ -247,7 +262,7 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
-  // 2) 从 URL 还原筛选
+  // 2) 从 URL 还原筛选（刷新不丢）
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -259,7 +274,7 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 生成 querystring
+  // 3) 生成请求 qs
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (difficulty.length) p.set("difficulty", difficulty.join(","));
@@ -309,7 +324,21 @@ export default function HomePage() {
         {loading ? "加载中..." : `共 ${total} 条`}
       </div>
 
-      {/* ✅ 全下拉筛选区 */}
+      {/* ✅ 让 grid 响应式：手机2列 / 超小屏1列 / 电脑5列一行 */}
+      <style jsx>{`
+        @media (min-width: 1024px) {
+          .filterGrid {
+            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+          }
+        }
+        @media (max-width: 360px) {
+          .filterGrid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+
+      {/* ✅ 筛选区（全下拉风格） */}
       <div
         style={{
           border: "1px solid #eee",
@@ -320,10 +349,13 @@ export default function HomePage() {
         }}
       >
         <div
+          className="filterGrid"
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
             gap: 12,
+
+            // ✅ 手机默认两列
+            gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           }}
         >
           <SingleSelectDropdown
@@ -369,7 +401,15 @@ export default function HomePage() {
           />
         </div>
 
-        <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div
+          style={{
+            marginTop: 10,
+            display: "flex",
+            gap: 10,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
           <button
             type="button"
             onClick={() => {
@@ -391,7 +431,7 @@ export default function HomePage() {
           </button>
 
           <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
-            当前 URL：{typeof window !== "undefined" ? window.location.search : ""}
+            {typeof window !== "undefined" ? window.location.search : ""}
           </div>
         </div>
       </div>
@@ -452,7 +492,9 @@ export default function HomePage() {
       </div>
 
       {!loading && items.length === 0 ? (
-        <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div>
+        <div style={{ marginTop: 16, opacity: 0.7 }}>
+          没有结果（请换筛选条件）
+        </div>
       ) : null}
     </div>
   );
