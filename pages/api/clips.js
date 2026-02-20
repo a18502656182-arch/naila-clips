@@ -1,3 +1,8 @@
+function parseCsvParam(v) {
+  if (!v) return [];
+  if (Array.isArray(v)) return v.flatMap(parseCsvParam);
+  return String(v).split(",").map(s => s.trim()).filter(Boolean);
+}
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -21,6 +26,7 @@ export default async function handler(req, res) {
     const order = (req.query.order || "newest").toLowerCase();
     const access = parseCSV(req.query.access);
     const difficulty = parseCSV(req.query.difficulty);
+    const sort = (req.query.sort || "newest");
     const topic = parseCSV(req.query.topic);
     const channel = parseCSV(req.query.channel);
 
