@@ -1,13 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 
-/**
- * ✅ 横向筛选条（自动换行）
- * ✅ 勾选立即请求 /api/clips
- * ✅ URL 自动同步（可分享）
- * ✅ F5 刷新后从 URL 还原筛选状态
- */
-
 function splitParam(v) {
   if (!v) return [];
   if (Array.isArray(v)) v = v.join(",");
@@ -27,36 +20,32 @@ function toggleInArray(arr, value) {
 export default function HomePage() {
   const router = useRouter();
 
-  // taxonomies options
-  const [tax, setTax] = useState({
-    difficulties: [],
-    topics: [],
-    channels: [],
-  });
+  const [tax, setTax] = useState({ difficulties: [], topics: [], channels: [] });
 
   // filters
   const [difficulty, setDifficulty] = useState([]);
   const [topic, setTopic] = useState([]);
   const [channel, setChannel] = useState([]);
-  const [access, setAccess] = useState([]); // free / vip
-  const [sort, setSort] = useState("newest"); // newest / oldest
+  const [access, setAccess] = useState([]);
+  const [sort, setSort] = useState("newest");
+
+  // paging
+  const PAGE_SIZE = 12;
+  const [offset, setOffset] = useState(0);
 
   // data
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
 
-  // UI options
   const accessOptions = [
     { slug: "free", name: "免费" },
     { slug: "vip", name: "会员专享" },
   ];
 
-  const blockStyle = {
-    minWidth: 220,
-    flex: "1 1 220px",
-  };
-
+  const blockStyle = { minWidth: 220, flex: "1 1 220px" };
   const checkboxRowStyle = {
     display: "flex",
     gap: 12,
@@ -64,26 +53,23 @@ export default function HomePage() {
     marginTop: 6,
   };
 
-  // 1) 拉取 taxonomies
+  // 1) taxonomies
   useEffect(() => {
     fetch("/api/taxonomies")
       .then((r) => r.json())
-      .then((d) => {
+      .then((d) =>
         setTax({
           difficulties: d?.difficulties || [],
           topics: d?.topics || [],
           channels: d?.channels || [],
-        });
-      })
-      .catch(() => {
-        // 不阻断页面
-      });
+        })
+      )
+      .catch(() => {});
   }, []);
 
-  // 2) 路由 ready 后：从 URL 还原筛选（保证刷新不丢）
+  // 2) restore filters from URL (on first ready)
   useEffect(() => {
     if (!router.isReady) return;
-
     const q = router.query;
     setDifficulty(splitParam(q.difficulty));
     setTopic(splitParam(q.topic));
@@ -92,7 +78,7 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 生成请求 querystring
+  // 3) build qs by filters + paging
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (difficulty.length) p.set("difficulty", difficulty.join(","));
@@ -101,18 +87,25 @@ export default function HomePage() {
     if (access.length) p.set("access", access.join(","));
     if (sort) p.set("sort", sort);
 
-    // 暂时固定：不分页（后面再加）
-    p.set("limit", "50");
-    p.set("offset", "0");
-
+    p.set("limit", String(PAGE_SIZE));
+    p.set("offset", String(offset));
     return p.toString();
-  }, [difficulty, topic, channel, access, sort]);
+  }, [difficulty, topic, channel, access, sort, offset]);
 
-  // 4) 筛选变化：同步 URL + 请求 clips
+  // 4) when filters change -> reset offset + sync URL
   useEffect(() => {
     if (!router.isReady) return;
 
-    // 4.1 同步 URL（shallow，不整页刷新）
+    // ✅ 只要筛选/排序变化，就回到第一页
+    setOffset(0);
+    setItems([]);
+  }, [difficulty.join(","), topic.join(","), channel.join(","), access.join(","), sort, router.isReady]);
+
+  // 5) sync URL (only filters) + fetch clips
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    // 5.1 sync URL (clean: no offset)
     const nextQuery = {};
     if (difficulty.length) nextQuery.difficulty = difficulty.join(",");
     if (topic.length) nextQuery.topic = topic.join(",");
@@ -124,43 +117,53 @@ export default function HomePage() {
       shallow: true,
     });
 
-    // 4.2 拉取 clips
-    setLoading(true);
+    // 5.2 fetch
+    const isFirstPage = offset === 0;
+    if (isFirstPage) setLoading(true);
+    else setLoadingMore(true);
+
     fetch(`/api/clips?${qs}`)
       .then((r) => r.json())
       .then((d) => {
-        setItems(d?.items || []);
+        const newItems = d?.items || [];
         setTotal(d?.total || 0);
+        setHasMore(Boolean(d?.has_more));
+
+        setItems((prev) => (isFirstPage ? newItems : [...prev, ...newItems]));
       })
       .catch(() => {
-        setItems([]);
-        setTotal(0);
+        if (isFirstPage) {
+          setItems([]);
+          setTotal(0);
+          setHasMore(false);
+        }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
   }, [router.isReady, qs]);
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 8 }}>视频库（接口式筛选测试版）</h1>
       <div style={{ opacity: 0.7, marginBottom: 16 }}>
-        {loading ? "加载中..." : `共 ${total} 条`}
+        {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
       </div>
 
-      {/* ✅ Filters（横向工具栏） */}
+      {/* Filters */}
       <div
         style={{
           border: "1px solid #eee",
           borderRadius: 12,
           padding: 12,
           marginBottom: 16,
-
           display: "flex",
           flexWrap: "wrap",
           gap: 14,
           alignItems: "flex-start",
         }}
       >
-        {/* sort */}
         <div style={blockStyle}>
           <b style={{ marginRight: 8 }}>排序</b>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
@@ -169,7 +172,6 @@ export default function HomePage() {
           </select>
         </div>
 
-        {/* difficulty */}
         <div style={blockStyle}>
           <b>难度（多选）</b>
           <div style={checkboxRowStyle}>
@@ -185,15 +187,9 @@ export default function HomePage() {
                 {x.name || x.slug}
               </label>
             ))}
-            {tax.difficulties.length === 0 && (
-              <span style={{ opacity: 0.6 }}>
-                （没有拿到 difficulty 选项，请检查 /api/taxonomies）
-              </span>
-            )}
           </div>
         </div>
 
-        {/* access */}
         <div style={blockStyle}>
           <b>权限（多选）</b>
           <div style={checkboxRowStyle}>
@@ -210,7 +206,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* topic */}
         <div style={blockStyle}>
           <b>Topic（多选）</b>
           <div style={checkboxRowStyle}>
@@ -224,15 +219,9 @@ export default function HomePage() {
                 {x.name || x.slug}
               </label>
             ))}
-            {tax.topics.length === 0 && (
-              <span style={{ opacity: 0.6 }}>
-                （没有 topic 选项，请检查 /api/taxonomies）
-              </span>
-            )}
           </div>
         </div>
 
-        {/* channel */}
         <div style={blockStyle}>
           <b>Channel（多选）</b>
           <div style={checkboxRowStyle}>
@@ -248,11 +237,6 @@ export default function HomePage() {
                 {x.name || x.slug}
               </label>
             ))}
-            {tax.channels.length === 0 && (
-              <span style={{ opacity: 0.6 }}>
-                （没有 channel 选项，请检查 /api/taxonomies）
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -268,11 +252,7 @@ export default function HomePage() {
         {items.map((it) => (
           <div
             key={it.id}
-            style={{
-              border: "1px solid #eee",
-              borderRadius: 12,
-              padding: 12,
-            }}
+            style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}
           >
             <div style={{ fontWeight: 700, marginBottom: 6 }}>
               {it.title || `Clip #${it.id}`}
@@ -311,11 +291,26 @@ export default function HomePage() {
         ))}
       </div>
 
-      {!loading && items.length === 0 ? (
-        <div style={{ marginTop: 16, opacity: 0.7 }}>
-          没有结果（请换筛选条件）
-        </div>
-      ) : null}
+      {/* Load more */}
+      <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+        {loading ? null : hasMore ? (
+          <button
+            onClick={() => setOffset((x) => x + PAGE_SIZE)}
+            disabled={loadingMore}
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              border: "1px solid #ddd",
+              cursor: "pointer",
+              background: "white",
+            }}
+          >
+            {loadingMore ? "加载中..." : "加载更多"}
+          </button>
+        ) : (
+          <div style={{ opacity: 0.6, fontSize: 12 }}>没有更多了</div>
+        )}
+      </div>
 
       <div style={{ marginTop: 18, fontSize: 12, opacity: 0.6 }}>
         当前 URL Query：{typeof window !== "undefined" ? window.location.search : ""}
