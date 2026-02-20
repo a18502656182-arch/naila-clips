@@ -40,11 +40,39 @@ export default async function handler(req, res) {
     const topic = parseCSVParam(req.query.topic);
     const channel = parseCSVParam(req.query.channel);
 
-    // 临时会员逻辑：free 永远可访问；member 需要 ?demo_member=1
     const demoMember = String(req.query.demo_member || "") === "1";
 
+    // ===== 0) 自动探测 clips 表真实列名（避免你反复撞字段不存在）=====
+    const { data: sample, error: sampleErr } = await supabase
+      .from("clips")
+      .select("*")
+      .limit(1);
+
+    if (sampleErr) throw sampleErr;
+
+    const sampleRow = (sample || [])[0] || {};
+    const has = (k) => Object.prototype.hasOwnProperty.call(sampleRow, k);
+
+    // 你可能的列名：difficulty_level / difficulty
+    const DIFF_COL = has("difficulty_level") ? "difficulty_level" : has("difficulty") ? "difficulty" : null;
+    // 你可能的列名：access_tier / access
+    const ACCESS_COL = has("access_tier") ? "access_tier" : has("access") ? "access" : null;
+
+    if (!DIFF_COL) {
+      return res.status(500).json({
+        error: "Cannot find difficulty column in clips table",
+        hint: "Expected difficulty_level OR difficulty. Please check Supabase clips columns.",
+      });
+    }
+    if (!ACCESS_COL) {
+      return res.status(500).json({
+        error: "Cannot find access column in clips table",
+        hint: "Expected access_tier OR access. Please check Supabase clips columns.",
+      });
+    }
+
     // ===== topic/channel: slug -> taxonomy_id -> clip_id（交集）=====
-    let filteredClipIds = null; // Set or null
+    let filteredClipIds = null;
 
     async function slugsToTaxonomyIds(type, slugs) {
       if (!slugs || slugs.length === 0) return [];
@@ -61,7 +89,7 @@ export default async function handler(req, res) {
       if (!taxonomyIds || taxonomyIds.length === 0) return new Set();
       const { data, error } = await supabase
         .from("clip_taxonomies")
-        .select("clip_id")
+        .select("clip_id,taxonomy_id")
         .in("taxonomy_id", taxonomyIds);
       if (error) throw error;
       return new Set((data || []).map((x) => x.clip_id).filter(Boolean));
@@ -83,13 +111,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ items: [], total: 0, limit, offset });
     }
 
-    // ===== 主查询 clips =====
+    // ===== 主查询 clips（这里用探测到的列名）=====
     let q = supabase
       .from("clips")
-      .select("id,title,cover_url,video_url,duration_sec,created_at,difficulty_level,access_tier", { count: "exact" });
+      .select("*", { count: "exact" });
 
-    if (difficulty.length > 0) q = q.in("difficulty_level", difficulty);
-    if (access.length > 0) q = q.in("access_tier", access);
+    if (difficulty.length > 0) q = q.in(DIFF_COL, difficulty);
+    if (access.length > 0) q = q.in(ACCESS_COL, access);
     if (filteredClipIds) q = q.in("id", Array.from(filteredClipIds));
 
     q = q.order("created_at", { ascending: sort === "oldest" });
@@ -98,10 +126,20 @@ export default async function handler(req, res) {
     const { data: clips, error: clipsErr, count } = await q;
     if (clipsErr) throw clipsErr;
 
+    // ===== 标准化输出字段名：统一给前端 difficulty_level / access_tier =====
     const items = (clips || []).map((c) => {
-      const isFree = c.access_tier === "free";
+      const difficulty_level = c[DIFF_COL];
+      const access_tier = c[ACCESS_COL];
+
+      const isFree = access_tier === "free";
       const canAccess = isFree ? true : demoMember ? true : false;
-      return { ...c, can_access: canAccess };
+
+      return {
+        ...c,
+        difficulty_level,
+        access_tier,
+        can_access: canAccess,
+      };
     });
 
     return res.status(200).json({ items, total: count || 0, limit, offset });
