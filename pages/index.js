@@ -38,16 +38,7 @@ export default function HomePage() {
   ];
 
   // 先放一些示例 topic/channel（你后面可以改成你真实的 slug）
-  const TOPIC_OPTIONS = [
-    { label: "日常口语", value: "daily" },
-    { label: "商务英语", value: "business" },
-    { label: "影视片段", value: "movie" },
-  ];
-  const CHANNEL_OPTIONS = [
-    { label: "频道A", value: "channel-a" },
-    { label: "频道B", value: "channel-b" },
-    { label: "频道C", value: "channel-c" },
-  ];
+  
 
   // ===== UI state（从 URL 初始化）=====
   const [difficulty, setDifficulty] = useState([]);
@@ -63,6 +54,11 @@ export default function HomePage() {
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  const [topicOptions, setTopicOptions] = useState([]);
+  const [channelOptions, setChannelOptions] = useState([]);
+  const [taxLoading, setTaxLoading] = useState(false);
+  const [taxErr, setTaxErr] = useState("");
 
   // ===== 1) 页面打开/刷新：从 URL -> state（刷新保留筛选）=====
   useEffect(() => {
@@ -91,7 +87,21 @@ export default function HomePage() {
     setLimit(qLimit);
     setOffset(qOffset);
   }, [router.isReady, router.query]);
+useEffect(() => {
+  setTaxLoading(true);
+  setTaxErr("");
+  fetch("/api/taxonomies")
+    .then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data?.error || `Request failed (${r.status})`);
 
+      setTopicOptions((data.topics || []).map((t) => ({ label: t.slug, value: t.slug })));
+      setChannelOptions((data.channels || []).map((c) => ({ label: c.slug, value: c.slug })));
+    })
+    .catch((e) => setTaxErr(e.message || "Failed to load taxonomies"))
+    .finally(() => setTaxLoading(false));
+}, []);
+  
   // ===== 2) state 改变：写回 URL（可分享）=====
   const urlQuery = useMemo(() => {
     return {
@@ -215,13 +225,13 @@ export default function HomePage() {
 
         <FilterGroup
           title="Topic（多选，先用示例，后续改为真实 slug）"
-          options={TOPIC_OPTIONS}
+          options={topicOptions}
           selected={topic}
           onToggle={onToggleTopic}
         />
         <FilterGroup
           title="Channel（多选，先用示例，后续改为真实 slug）"
-          options={CHANNEL_OPTIONS}
+          options={channelOptions}
           selected={channel}
           onToggle={onToggleChannel}
         />
@@ -265,7 +275,10 @@ export default function HomePage() {
         </div>
       ) : null}
 
+      
       {/* 列表 */}
+{taxLoading ? <div style={{ gridColumn: "1 / -1", color: "#666" }}>正在加载 Topic/Channel…</div> : null}
+{taxErr ? <div style={{ gridColumn: "1 / -1", color: "#b42318" }}>加载 Topic/Channel 失败：{taxErr}</div> : null}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         {items.map((it) => (
           <div key={it.id} style={{ border: "1px solid #eee", borderRadius: 12, overflow: "hidden", background: "white" }}>
