@@ -3,51 +3,59 @@ import { createClient } from "@supabase/supabase-js";
 export default async function handler(req, res) {
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) {
-      return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY" });
+    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
     }
 
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!token) return res.status(200).json({ logged_in: false, is_member: false });
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    // 1) 读 Bearer token
+    const auth = req.headers.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
 
-    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(token);
+    if (!token) {
+      return res.status(200).json({
+        logged_in: false,
+        is_member: false,
+        ends_at: null,
+        status: null,
+      });
+    }
+
+    // 2) 用 token 获取当前用户
+    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) {
-      return res.status(200).json({ logged_in: false, is_member: false });
+      return res.status(200).json({
+        logged_in: false,
+        is_member: false,
+        ends_at: null,
+        status: null,
+      });
     }
 
-    const userId = userData.user.id;
+    const user = userData.user;
 
-    const { data: sub, error: subErr } = await supabaseAdmin
+    // 3) 查 subscriptions
+    const { data: sub, error: subErr } = await supabase
       .from("subscriptions")
-      .select("ends_at,status")
-      .eq("user_id", userId)
-      .limit(1)
+      .select("expires_at")
+      .eq("user_id", user.id)
       .maybeSingle();
 
     if (subErr) throw subErr;
 
-    const endsAt = sub?.ends_at || null;
-    const status = sub?.status || null;
-
-    const isActiveByTime = endsAt ? new Date(endsAt) > new Date() : false;
-    const isActiveByStatus = status ? status === "active" : true; // 你现在默认 active
-    const isMember = isActiveByTime && isActiveByStatus;
+    const endsAt = sub?.expires_at || null;
+    const isMember = endsAt ? new Date(endsAt).getTime() > Date.now() : false;
 
     return res.status(200).json({
       logged_in: true,
-      user_id: userId,
+      user_id: user.id,
       is_member: isMember,
       ends_at: endsAt,
-      status,
+      status: isMember ? "active" : "expired",
     });
   } catch (e) {
-    return res.status(500).json({
-      error: e?.message || "Unknown server error",
-      hint: "Open Vercel → Deployments → Logs, screenshot the first red line + stack trace",
-    });
+    return res.status(500).json({ error: e?.message || "Unknown server error" });
   }
 }
