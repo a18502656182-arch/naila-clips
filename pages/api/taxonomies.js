@@ -14,6 +14,15 @@ function inc(map, key) {
   map[key] = (map[key] || 0) + 1;
 }
 
+function sortByCountThenName(arr) {
+  return (arr || []).slice().sort((a, b) => {
+    const ca = a.count || 0;
+    const cb = b.count || 0;
+    if (cb !== ca) return cb - ca; // count desc
+    return String(a.slug).localeCompare(String(b.slug)); // slug asc
+  });
+}
+
 export default async function handler(req, res) {
   try {
     const supabase = createPagesServerClient({ req, res });
@@ -25,7 +34,7 @@ export default async function handler(req, res) {
     const selectedTopic = parseList(req.query.topic);
     const selectedChannel = parseList(req.query.channel);
 
-    // ✅ 1) taxonomies：只取 type + slug（不再取 name）
+    // 1) taxonomies 只取 type+slug（你表里没有 name）
     const { data: taxRows, error: taxErr } = await supabase
       .from("taxonomies")
       .select("type, slug")
@@ -38,7 +47,7 @@ export default async function handler(req, res) {
     const topics = (taxRows || []).filter((t) => t.type === "topic");
     const channels = (taxRows || []).filter((t) => t.type === "channel");
 
-    // ✅ 2) 拉 clips + taxonomies（用于算 counts）
+    // 2) 轻量拉 clips（用于 counts）
     let q = supabase
       .from("clips")
       .select(
@@ -61,13 +70,13 @@ export default async function handler(req, res) {
         .map((ct) => ct.taxonomies)
         .filter(Boolean);
 
-      const difficulty = all.find((t) => t.type === "difficulty")?.slug || null;
+      const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const tps = all.filter((t) => t.type === "topic").map((t) => t.slug);
       const chs = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
       return {
         access_tier: row.access_tier,
-        difficulty,
+        difficulty: diff,
         topics: tps,
         channels: chs,
       };
@@ -150,26 +159,33 @@ export default async function handler(req, res) {
         );
     }
 
-    // ✅ 3) 合并 counts 到 options（name 直接用 slug）
-    const difficultiesWithCount = difficulties.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.difficulty[x.slug] || 0,
-    }));
+    // 3) 合并 counts（并排序：count 高的在前）
+    const difficultiesWithCount = sortByCountThenName(
+      difficulties.map((x) => ({
+        slug: x.slug,
+        name: x.slug,
+        count: counts.difficulty[x.slug] || 0,
+      }))
+    );
 
-    const topicsWithCount = topics.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.topic[x.slug] || 0,
-    }));
+    const topicsWithCount = sortByCountThenName(
+      topics.map((x) => ({
+        slug: x.slug,
+        name: x.slug,
+        count: counts.topic[x.slug] || 0,
+      }))
+    );
 
-    const channelsWithCount = channels.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.channel[x.slug] || 0,
-    }));
+    const channelsWithCount = sortByCountThenName(
+      channels.map((x) => ({
+        slug: x.slug,
+        name: x.slug,
+        count: counts.channel[x.slug] || 0,
+      }))
+    );
 
     return res.status(200).json({
+      debug: { mode: "tax_with_counts_sorted" },
       difficulties: difficultiesWithCount,
       topics: topicsWithCount,
       channels: channelsWithCount,
