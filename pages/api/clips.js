@@ -9,84 +9,89 @@ function parseList(v) {
     .filter(Boolean);
 }
 
+function pickFirst(arr) {
+  return Array.isArray(arr) && arr.length ? arr[0] : null;
+}
+
 export default async function handler(req, res) {
   try {
     const supabase = createPagesServerClient({ req, res });
 
-    const limit = Math.min(parseInt(req.query.limit || "10", 10) || 10, 100);
-    const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
-    const sort = req.query.sort === "oldest" ? "oldest" : "newest";
-
-    const difficulty = parseList(req.query.difficulty); // beginner,advanced
+    const difficulty = parseList(req.query.difficulty);
     const access = parseList(req.query.access); // free,vip
-    const topic = parseList(req.query.topic); // daily,business
-    const channel = parseList(req.query.channel); // channel-a,channel-b
+    const topic = parseList(req.query.topic);
+    const channel = parseList(req.query.channel);
 
-    // 1) 当前用户是否会员（用于 can_access）
+    const sort = req.query.sort === "oldest" ? "oldest" : "newest";
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
+    const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
+
+    // 1) 读登录状态（决定 can_access）
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    let isMember = false;
-    if (user) {
-      const nowIso = new Date().toISOString();
-      const sub = await supabase
+    // 2) 取会员状态（你之前已有 subscriptions 逻辑，这里只判断 is_member）
+    let is_member = false;
+    if (user?.id) {
+      const { data: sub } = await supabase
         .from("subscriptions")
         .select("status, ends_at")
         .eq("user_id", user.id)
-        .eq("status", "active")
-        .gt("ends_at", nowIso)
+        .order("ends_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      isMember = !!sub?.data;
+      if (sub?.status === "active" && sub?.ends_at) {
+        const ends = new Date(sub.ends_at);
+        if (!isNaN(ends.getTime()) && ends.getTime() > Date.now()) {
+          is_member = true;
+        }
+      }
     }
 
-    // 2) 拉 clips + taxonomies（嵌套 select）
-    // clips -> clip_taxonomies -> taxonomies(type, slug)
+    // 3) 先把 clips 拉出来（尽量先用 access 做 DB 过滤）
     let q = supabase
       .from("clips")
       .select(
         `
-        id, title, video_url, cover_url, duration_sec, created_at, access_tier,
-        clip_taxonomies (
-          taxonomies ( type, slug )
+        id, title, description, duration_sec, created_at, upload_time,
+        access_tier, cover_url, video_url,
+        clip_taxonomies(
+          taxonomies(type, slug)
         )
-      `,
-        { count: "exact" }
-      );
+      `
+      )
+      .order("created_at", { ascending: sort === "oldest" });
 
-    // access_tier 先在 DB 层过滤（最省）
     if (access.length) q = q.in("access_tier", access);
 
-    // 排序
-    q = q.order("created_at", { ascending: sort === "oldest" });
-
     const { data, error } = await q;
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
+    if (error) return res.status(500).json({ error: error.message });
 
-    // 3) 组装每条 clip 的 difficulty/topics/channels
+    // 4) normalize + JS 过滤（difficulty/topic/channel）
     const normalized = (data || []).map((row) => {
-      const taxRows = row.clip_taxonomies || [];
-      const all = taxRows.map((ct) => ct.taxonomies).filter(Boolean);
+      const all = (row.clip_taxonomies || [])
+        .map((ct) => ct.taxonomies)
+        .filter(Boolean);
 
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const channels = all
-        .filter((t) => t.type === "channel")
-        .map((t) => t.slug);
+      const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
-      const can_access = row.access_tier === "free" ? true : Boolean(isMember);
+      const can_access =
+        row.access_tier === "free" ? true : Boolean(is_member);
 
       return {
         id: row.id,
         title: row.title,
-        video_url: row.video_url,
-        cover_url: row.cover_url,
-        duration_sec: row.duration_sec,
+        description: row.description ?? null,
+        duration_sec: row.duration_sec ?? null,
         created_at: row.created_at,
+        upload_time: row.upload_time ?? null,
         access_tier: row.access_tier,
+        cover_url: row.cover_url ?? null,
+        video_url: row.video_url ?? null,
         difficulty: diff,
         topics,
         channels,
@@ -94,35 +99,35 @@ export default async function handler(req, res) {
       };
     });
 
-    // 4) JS 层做多选过滤（difficulty/topic/channel），再分页
-    let filtered = normalized;
-
-    if (difficulty.length) {
-      filtered = filtered.filter(
-        (x) => x.difficulty && difficulty.includes(x.difficulty)
-      );
-    }
-    if (topic.length) {
-      filtered = filtered.filter((x) =>
-        (x.topics || []).some((t) => topic.includes(t))
-      );
-    }
-    if (channel.length) {
-      filtered = filtered.filter((x) =>
-        (x.channels || []).some((c) => channel.includes(c))
-      );
+    function matches(clip) {
+      if (difficulty.length) {
+        if (!clip.difficulty || !difficulty.includes(clip.difficulty)) return false;
+      }
+      if (topic.length) {
+        if (!(clip.topics || []).some((t) => topic.includes(t))) return false;
+      }
+      if (channel.length) {
+        if (!(clip.channels || []).some((c) => channel.includes(c))) return false;
+      }
+      return true;
     }
 
+    const filtered = normalized.filter(matches);
+
+    // 5) 分页
     const total = filtered.length;
     const items = filtered.slice(offset, offset + limit);
+    const has_more = offset + limit < total;
 
     return res.status(200).json({
       items,
       total,
       limit,
       offset,
+      has_more,
       sort,
       filters: { difficulty, access, topic, channel },
+      is_member,
     });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Unknown error" });
