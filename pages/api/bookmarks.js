@@ -1,63 +1,81 @@
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseAnon = createClient(supabaseUrl, anonKey);
+const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+
+function getBearerToken(req) {
+  const h = req.headers.authorization || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : "";
+}
 
 export default async function handler(req, res) {
   try {
-    const supabase = createPagesServerClient({ req, res });
-    const { data: { user } } = await supabase.auth.getUser();
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: "not_logged_in" });
 
-    if (!user?.id) return res.status(200).json({ logged_in: false, items: [] });
+    const { data: userData, error: userErr } = await supabaseAnon.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return res.status(401).json({ error: "not_logged_in" });
+    }
+    const user = userData.user;
 
-    const limit = Math.min(Math.max(parseInt(req.query.limit || "50", 10), 1), 100);
+    // GET /api/bookmarks?limit=20&offset=0
+    if (req.method === "GET") {
+      const limit = Math.max(1, Math.min(50, parseInt(req.query.limit || "20", 10)));
+      const offset = Math.max(0, parseInt(req.query.offset || "0", 10));
 
-    const { data, error } = await supabase
-      .from("bookmarks")
-      .select(
-        `
-        created_at,
-        clips (
-          id, title, description, duration_sec, created_at, upload_time,
-          access_tier, cover_url, video_url,
-          clip_taxonomies( taxonomies(type, slug) )
-        )
-      `
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(limit);
+      // 先取 bookmarks，再取 clips（简单可靠）
+      const { data: rows, error } = await supabaseAdmin
+        .from("bookmarks")
+        .select("clip_id, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
-    if (error) return res.status(500).json({ error: error.message });
+      if (error) return res.status(500).json({ error: "bookmark_query_failed", detail: error.message });
 
-    const items = (data || [])
-      .map((r) => r.clips)
-      .filter(Boolean)
-      .map((row) => {
-        const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
-        const difficulty = all.find((t) => t.type === "difficulty")?.slug || null;
-        const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-        const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
+      const clipIds = (rows || []).map(r => r.clip_id);
+      if (clipIds.length === 0) return res.json({ items: [], total: 0, limit, offset });
 
-        return {
-          id: row.id,
-          title: row.title,
-          description: row.description ?? null,
-          duration_sec: row.duration_sec ?? null,
-          created_at: row.created_at,
-          upload_time: row.upload_time ?? null,
-          access_tier: row.access_tier,
-          cover_url: row.cover_url ?? null,
-          video_url: row.video_url ?? null,
-          difficulty,
-          topics,
-          channels,
-        };
-      });
+      const { data: clips, error: clipsErr } = await supabaseAdmin
+        .from("clips")
+        .select("id, title, description, duration_sec, created_at, upload_time, access_tier, cover_url, video_url, difficulty")
+        .in("id", clipIds);
 
-    return res.status(200).json({
-      debug: { mode: "bookmarks_list" },
-      logged_in: true,
-      items,
-    });
+      if (clipsErr) return res.status(500).json({ error: "clips_query_failed", detail: clipsErr.message });
+
+      // 按 bookmarks 的顺序排回去
+      const map = new Map((clips || []).map(c => [c.id, c]));
+      const items = clipIds.map(id => map.get(id)).filter(Boolean);
+
+      return res.json({ items, total: clipIds.length, limit, offset });
+    }
+
+    // POST /api/bookmarks { clip_id: 1 }
+    if (req.method === "POST") {
+      const { clip_id } = req.body || {};
+      const cid = parseInt(clip_id, 10);
+      if (!cid) return res.status(400).json({ error: "clip_id_required" });
+
+      const { error } = await supabaseAdmin
+        .from("bookmarks")
+        .upsert(
+          { user_id: user.id, clip_id: cid },
+          { onConflict: "user_id,clip_id" }
+        );
+
+      if (error) return res.status(500).json({ error: "bookmark_upsert_failed", detail: error.message });
+
+      return res.json({ ok: true });
+    }
+
+    return res.status(405).json({ error: "method_not_allowed" });
   } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown error" });
+    return res.status(500).json({ error: "bookmarks_failed", detail: String(e) });
   }
 }
