@@ -1,5 +1,10 @@
-// pages/api/bookmarks.js
 import { createClient } from "@supabase/supabase-js";
+
+function getBearer(req) {
+  const h = req.headers.authorization || "";
+  if (!h.startsWith("Bearer ")) return null;
+  return h.slice(7);
+}
 
 export default async function handler(req, res) {
   try {
@@ -8,139 +13,58 @@ export default async function handler(req, res) {
     }
 
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      return res.status(500).json({ error: "missing_env" });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // ===== 1) 取 token（优先 Authorization，其次尝试 cookie）=====
-    const token = getAccessTokenFromReq(req);
+    const token = getBearer(req);
     if (!token) return res.status(401).json({ error: "not_logged_in" });
 
-    const { data: u, error: uerr } = await supabase.auth.getUser(token);
-    if (uerr || !u?.user) {
-      return res.status(401).json({ error: "not_logged_in", detail: uerr?.message || "no_user" });
-    }
-    const user_id = u.user.id;
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
 
-    // ===== 2) 分页参数 =====
-    const limit = clampInt(req.query.limit, 20, 1, 50);
-    const offset = clampInt(req.query.offset, 0, 0, 100000);
+    const limit = Math.min(parseInt(req.query.limit || "20", 10) || 20, 50);
+    const offset = parseInt(req.query.offset || "0", 10) || 0;
 
-    // ===== 3) 查 bookmarks（只拿 clip_id 列表）=====
-    const { data: rows, error: berr } = await supabase
+    // ✅ 读收藏表（RLS 负责只给本人）
+    const { data: rows, error } = await supabase
       .from("bookmarks")
-      .select("clip_id, created_at")
-      .eq("user_id", user_id)
+      .select("id, clip_id, created_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (berr) {
-      return res.status(500).json({ error: "bookmarks_query_failed", detail: berr.message });
-    }
+    if (error) return res.status(500).json({ error: "bookmarks_query_failed", detail: error.message });
 
     const clipIds = (rows || []).map((r) => r.clip_id).filter(Boolean);
     if (!clipIds.length) {
       return res.status(200).json({ items: [], total: 0, limit, offset });
     }
 
-    // ===== 4) 用 clips_view 批量查视频信息（重点：不碰 clips.difficulty）=====
-    const { data: clips, error: cerr } = await supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,upload_time,access_tier,cover_url,video_url,created_at,difficulty_slugs,topic_slugs,channel_slugs"
-      )
+    // ✅ 再把 clips 信息查出来（用你的真实列名）
+    const { data: clips, error: e2 } = await supabase
+      .from("clips")
+      .select("id,title,description,duration_sec,created_at,access_tier,cover_url,video_url")
       .in("id", clipIds);
 
-    if (cerr) {
-      return res.status(500).json({ error: "clips_view_query_failed", detail: cerr.message });
-    }
+    if (e2) return res.status(500).json({ error: "clips_query_failed", detail: e2.message });
 
-    // ===== 5) 组装返回：保持原 bookmark 顺序 =====
-    const byId = new Map((clips || []).map((c) => [c.id, c]));
-
+    // 按收藏顺序输出
+    const map = new Map((clips || []).map((c) => [c.id, c]));
     const items = (rows || [])
-      .map((b) => {
-        const c = byId.get(b.clip_id);
+      .map((r) => {
+        const c = map.get(r.clip_id);
         if (!c) return null;
-
-        // 你之前接口用 difficulty: "beginner" 这种单值，这里从 difficulty_slugs[0] 取
-        const difficulty = Array.isArray(c.difficulty_slugs) ? (c.difficulty_slugs[0] || null) : null;
-
         return {
-          id: c.id,
-          title: c.title,
-          description: c.description,
-          duration_sec: c.duration_sec,
-          upload_time: c.upload_time,
-          created_at: c.created_at,
-          access_tier: c.access_tier,
-          cover_url: c.cover_url,
-          video_url: c.video_url,
-          difficulty,
-          topics: Array.isArray(c.topic_slugs) ? c.topic_slugs : [],
-          channels: Array.isArray(c.channel_slugs) ? c.channel_slugs : [],
-          bookmarked_at: b.created_at,
+          ...c,
+          bookmarked_at: r.created_at,
         };
       })
       .filter(Boolean);
 
-    return res.status(200).json({
-      items,
-      total: items.length, // 先返回本页数量；你要全量 total 我也可以再加 count 查询
-      limit,
-      offset,
-      debug: { mode: "bookmarks_from_clips_view" },
-    });
-  } catch (e) {
-    return res.status(500).json({ error: "unknown", detail: String(e?.message || e) });
+    return res.status(200).json({ items, total: items.length, limit, offset });
+  } catch (err) {
+    return res.status(500).json({ error: "server_error", detail: String(err?.message || err) });
   }
-}
-
-function clampInt(v, def, min, max) {
-  const n = parseInt(String(v ?? ""), 10);
-  if (Number.isNaN(n)) return def;
-  return Math.max(min, Math.min(max, n));
-}
-
-function getAccessTokenFromReq(req) {
-  // 1) Authorization: Bearer xxx
-  const auth = req.headers?.authorization || req.headers?.Authorization;
-  if (auth && String(auth).startsWith("Bearer ")) {
-    return String(auth).slice("Bearer ".length).trim();
-  }
-
-  // 2) Cookie: 尝试找 sb-xxx-auth-token（你截图里就是这种）
-  const cookie = req.headers?.cookie || "";
-  if (!cookie) return "";
-
-  const kv = cookie.split(";").map((s) => s.trim());
-  const tokenCookie = kv.find((x) => x.startsWith("sb-") && x.includes("-auth-token="));
-  if (!tokenCookie) return "";
-
-  const raw = tokenCookie.split("=").slice(1).join("=");
-  if (!raw) return "";
-
-  try {
-    const decoded = decodeURIComponent(raw);
-
-    // 兼容两种：数组 / 对象
-    const parsed = JSON.parse(decoded);
-
-    // 有些是 [access, refresh, ...]
-    if (Array.isArray(parsed) && typeof parsed[0] === "string" && parsed[0].includes(".")) {
-      return parsed[0];
-    }
-
-    // 有些是 { access_token: "..." }
-    if (parsed && typeof parsed.access_token === "string") {
-      return parsed.access_token;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return "";
 }
