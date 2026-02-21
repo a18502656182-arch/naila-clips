@@ -1,53 +1,60 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-// ✅ 后端用 service role 查 subscriptions（不受 RLS 影响）
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabaseAnon = createClient(supabaseUrl, anonKey);
-const supabaseAdmin = createClient(supabaseUrl, serviceKey);
-
-function getBearerToken(req) {
-  const h = req.headers.authorization || "";
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1].trim() : "";
-}
+// pages/api/me.js
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 export default async function handler(req, res) {
   try {
-    const token = getBearerToken(req);
+    const supabase = createPagesServerClient({ req, res });
 
-    if (!token) {
+    // 1) 优先：如果有 Authorization: Bearer xxx，就用它
+    const auth = req.headers.authorization || "";
+    const m = auth.match(/^Bearer\s+(.+)$/i);
+    let user = null;
+    let mode = "cookie";
+
+    if (m?.[1]) {
+      const token = m[1].trim();
+      const { data, error } = await supabase.auth.getUser(token);
+      if (error) {
+        return res.status(200).json({
+          logged_in: false,
+          is_member: false,
+          ends_at: null,
+          status: null,
+          debug: { reason: "bearer_getUser_failed", message: error.message },
+        });
+      }
+      user = data?.user || null;
+      mode = "bearer";
+    } else {
+      // 2) 否则：走 cookie session
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        return res.status(200).json({
+          logged_in: false,
+          is_member: false,
+          ends_at: null,
+          status: null,
+          debug: { reason: "cookie_getUser_failed", message: error.message },
+        });
+      }
+      user = data?.user || null;
+    }
+
+    if (!user) {
       return res.status(200).json({
         logged_in: false,
         is_member: false,
         ends_at: null,
         status: null,
-        debug: { reason: "missing_bearer" },
+        debug: { reason: "no_user", mode },
       });
     }
 
-    // 1) 用 token 拿到用户
-    const { data: userData, error: userErr } = await supabaseAnon.auth.getUser(
-      token
-    );
-    if (userErr || !userData?.user) {
-      return res.status(200).json({
-        logged_in: false,
-        is_member: false,
-        ends_at: null,
-        status: null,
-        debug: { reason: "getUser_failed", message: userErr?.message },
-      });
-    }
-
-    const user = userData.user;
-
-    // 2) 查 subscriptions（用 service role）
-    const { data: sub, error: subErr } = await supabaseAdmin
+    // 3) 查会员（subscriptions）
+    // 你们之前 redeem 已经能写入 subscriptions 并算出 expires_at
+    const { data: sub, error: subErr } = await supabase
       .from("subscriptions")
-      .select("status, plan, expires_at")
+      .select("status,expires_at,plan")
       .eq("user_id", user.id)
       .order("expires_at", { ascending: false })
       .limit(1)
@@ -61,26 +68,26 @@ export default async function handler(req, res) {
         is_member: false,
         ends_at: null,
         status: null,
-        debug: { reason: "subscription_query_failed", message: subErr.message },
+        debug: { reason: "subscription_query_failed", message: subErr.message, mode },
       });
     }
 
-    const endsAt = sub?.expires_at || null;
+    const now = Date.now();
+    const endsAt = sub?.expires_at ? new Date(sub.expires_at).getTime() : null;
     const isActive =
-      !!endsAt &&
-      new Date(endsAt).getTime() > Date.now() &&
-      (sub?.status || "") === "active";
+      sub?.status === "active" && endsAt && endsAt > now;
 
     return res.status(200).json({
       logged_in: true,
       email: user.email,
       user_id: user.id,
-      is_member: isActive,
+      is_member: Boolean(isActive),
       plan: sub?.plan || null,
+      ends_at: sub?.expires_at || null,
       status: sub?.status || null,
-      ends_at: endsAt, // ✅ 统一返回 ends_at（其实就是 expires_at）
+      debug: { mode },
     });
   } catch (e) {
-    return res.status(500).json({ error: "me_failed", detail: String(e) });
+    return res.status(500).json({ error: "api_me_failed", detail: String(e) });
   }
 }
