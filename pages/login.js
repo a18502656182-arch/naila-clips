@@ -33,7 +33,7 @@ export default function LoginPage() {
     const e = email.trim();
     if (!e) return setMsg("请输入邮箱");
 
-    const redirectTo = `${window.location.origin}/api/auth/callback`;
+    const redirectTo = `${window.location.origin}/api/auth/callback?next=/login`;
 
     const { error } = await supabase.auth.signInWithOtp({
       email: e,
