@@ -1,16 +1,15 @@
-// pages/api/auth/callback.js
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 export default async function handler(req, res) {
-  const supabase = createPagesServerClient({ req, res });
+  try {
+    const supabase = createPagesServerClient({ req, res });
 
-  // ✅ 核心：把 ?code=... 换成 session，并写入 cookie
-  const code = req.query.code;
+    // 这一步会把 session 写入 cookie（关键）
+    await supabase.auth.getSession();
 
-  if (typeof code === "string") {
-    await supabase.auth.exchangeCodeForSession(code);
+    // 成功后回到首页（你也可以改成 /login）
+    res.redirect("/");
+  } catch (e) {
+    res.redirect("/login?error=callback_failed");
   }
-
-  // 登录完成后跳回 /login（或首页都行）
-  res.redirect("/login");
 }
