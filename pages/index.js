@@ -2,14 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
- * ✅ 保留你现在的 UI：多选下拉 dropdown（电脑/手机统一）
- * ✅ 响应式布局：
- *    - 手机默认两列
- *    - 电脑端（>=1024px）强制 5 列一整行
- * ✅ 勾选立即请求 /api/clips（第一页）
- * ✅ URL 自动同步（可分享）
- * ✅ F5 刷新后从 URL 还原筛选状态
- * ✅ 下滑自动加载更多（无限滚动 / offset+limit）
+ * ✅ 你的筛选/无限滚动原样保留
+ * ✅ 新增：收藏系统（bookmarks）
+ *   - /api/me 判断登录
+ *   - /api/bookmarks 拉收藏列表（做成 set）
+ *   - /api/bookmarks_add /api/bookmarks_delete 点按钮收藏/取消
  */
 
 function splitParam(v) {
@@ -219,6 +216,29 @@ function SingleSelectDropdown({ label, value, onChange, options }) {
   );
 }
 
+// ------- 小工具：更稳的 fetch + 自动解析错误 -------
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    // 不是 json
+  }
+  if (!res.ok) {
+    const msg =
+      (data && (data.error || data.message)) ||
+      text ||
+      `HTTP ${res.status}`;
+    const err = new Error(msg);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -240,8 +260,8 @@ export default function HomePage() {
   const [offset, setOffset] = useState(0);
 
   // data
-  const [loading, setLoading] = useState(false); // 第一次加载
-  const [loadingMore, setLoadingMore] = useState(false); // 加载更多
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -260,6 +280,103 @@ export default function HomePage() {
     []
   );
 
+  // ----------- 新增：登录状态 & 收藏 -----------
+  const [me, setMe] = useState({
+    loading: true,
+    logged_in: false,
+    is_member: false,
+    email: null,
+  });
+
+  const [bookmarkIds, setBookmarkIds] = useState(() => new Set());
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
+  const [toast, setToast] = useState("");
+
+  function showToast(s) {
+    setToast(s);
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(""), 2500);
+  }
+
+  async function loadMe() {
+    try {
+      setMe((x) => ({ ...x, loading: true }));
+      const d = await fetchJson("/api/me");
+      setMe({
+        loading: false,
+        logged_in: !!d?.logged_in,
+        is_member: !!d?.is_member,
+        email: d?.email || null,
+      });
+      return d;
+    } catch (e) {
+      setMe({ loading: false, logged_in: false, is_member: false, email: null });
+      return null;
+    }
+  }
+
+  async function loadBookmarks() {
+    if (!me.logged_in) {
+      setBookmarkIds(new Set());
+      return;
+    }
+    try {
+      setBookmarkLoading(true);
+      // 拉一大页做 set（你现在数据量很小，这样最省事稳定）
+      const d = await fetchJson("/api/bookmarks?limit=500&offset=0");
+      const ids = new Set((d?.items || []).map((x) => x.clip_id));
+      setBookmarkIds(ids);
+    } catch (e) {
+      showToast("拉收藏失败：" + e.message);
+    } finally {
+      setBookmarkLoading(false);
+    }
+  }
+
+  async function toggleBookmark(clipId) {
+    if (!me.logged_in) {
+      showToast("请先登录再收藏（去 /login）");
+      return;
+    }
+    if (!clipId) return;
+
+    const has = bookmarkIds.has(clipId);
+    setBookmarkBusyId(clipId);
+    try {
+      if (!has) {
+        await fetchJson("/api/bookmarks_add", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clip_id: clipId }),
+        });
+        setBookmarkIds((prev) => {
+          const next = new Set(prev);
+          next.add(clipId);
+          return next;
+        });
+        showToast("已收藏");
+      } else {
+        await fetchJson("/api/bookmarks_delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clip_id: clipId }),
+        });
+        setBookmarkIds((prev) => {
+          const next = new Set(prev);
+          next.delete(clipId);
+          return next;
+        });
+        showToast("已取消收藏");
+      }
+    } catch (e) {
+      // 常见：RLS / not_logged_in / policy 等
+      showToast("操作失败：" + e.message);
+    } finally {
+      setBookmarkBusyId(null);
+    }
+  }
+
   // 1) 拉 taxonomies
   useEffect(() => {
     fetch("/api/taxonomies")
@@ -274,6 +391,19 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  // 1.5) 拉 /api/me（登录状态）
+  useEffect(() => {
+    loadMe();
+  }, []);
+
+  // 1.6) 登录后拉收藏
+  useEffect(() => {
+    if (me.loading) return;
+    if (me.logged_in) loadBookmarks();
+    else setBookmarkIds(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me.loading, me.logged_in]);
+
   // 2) 从 URL 还原筛选（刷新不丢）
   useEffect(() => {
     if (!router.isReady) return;
@@ -286,7 +416,7 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 筛选变化：回到第一页 + 清空列表（关键）
+  // 3) 筛选变化：回到第一页 + 清空列表
   useEffect(() => {
     if (!router.isReady) return;
     setOffset(0);
@@ -314,7 +444,7 @@ export default function HomePage() {
     return p.toString();
   }, [difficulty, topic, channel, access, sort, offset]);
 
-  // 5) 同步 URL（只同步筛选，不写 offset，保持分享链接干净）
+  // 5) 同步 URL（只同步筛选，不写 offset）
   useEffect(() => {
     if (!router.isReady) return;
 
@@ -349,7 +479,6 @@ export default function HomePage() {
 
         setTotal(nextTotal);
 
-        // ✅ 兼容：后端有 has_more 就用，没有就用 items.length < total
         const apiHasMore =
           typeof d?.has_more === "boolean"
             ? d.has_more
@@ -371,7 +500,7 @@ export default function HomePage() {
         setLoadingMore(false);
         fetchingRef.current = false;
       });
-  }, [router.isReady, qs]); // qs 包含 offset，所以自动分页
+  }, [router.isReady, qs]);
 
   // 7) 无限滚动：哨兵进入视口就加载下一页
   useEffect(() => {
@@ -389,12 +518,7 @@ export default function HomePage() {
 
         setOffset((x) => x + PAGE_SIZE);
       },
-      {
-        root: null,
-        // 提前加载（还没到最底就开始请求）
-        rootMargin: "400px",
-        threshold: 0.01,
-      }
+      { root: null, rootMargin: "400px", threshold: 0.01 }
     );
 
     obs.observe(el);
@@ -405,13 +529,90 @@ export default function HomePage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
       <h1 style={{ marginBottom: 8 }}>视频库（接口式筛选测试版）</h1>
 
-      <div style={{ opacity: 0.7, marginBottom: 16 }}>
-        {loading
-          ? "加载中..."
-          : `共 ${total} 条（已显示 ${items.length} 条）`}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: 10,
+          opacity: 0.85,
+          fontSize: 13,
+        }}
+      >
+        <div>
+          {me.loading
+            ? "登录状态：检查中..."
+            : me.logged_in
+            ? `已登录：${me.email || "（无邮箱）"}`
+            : "未登录"}
+          {me.logged_in ? (
+            <span style={{ marginLeft: 8 }}>
+              会员：{me.is_member ? "✅ 是" : "❌ 否"}
+            </span>
+          ) : null}
+        </div>
+
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <a
+            href="/login"
+            style={{
+              border: "1px solid #eee",
+              background: "white",
+              borderRadius: 10,
+              padding: "6px 10px",
+              textDecoration: "none",
+              color: "#111",
+            }}
+          >
+            去登录/兑换
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              loadMe().then(() => {
+                // loadMe 完后 useEffect 会拉收藏
+                showToast("已刷新登录状态");
+              });
+            }}
+            style={{
+              border: "1px solid #eee",
+              background: "white",
+              borderRadius: 10,
+              padding: "6px 10px",
+              cursor: "pointer",
+            }}
+          >
+            刷新登录状态
+          </button>
+        </div>
       </div>
 
-      {/* ✅ 响应式：电脑 5 列一行 */}
+      {toast ? (
+        <div
+          style={{
+            marginBottom: 10,
+            padding: "10px 12px",
+            border: "1px solid #eee",
+            borderRadius: 12,
+            background: "white",
+            fontSize: 13,
+          }}
+        >
+          {toast}
+        </div>
+      ) : null}
+
+      <div style={{ opacity: 0.7, marginBottom: 16 }}>
+        {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
+        {me.logged_in ? (
+          <span style={{ marginLeft: 10 }}>
+            收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}
+          </span>
+        ) : null}
+      </div>
+
+      {/* ✅ 电脑 5 列一行 */}
       <style jsx>{`
         @media (min-width: 1024px) {
           .filterGrid {
@@ -420,7 +621,7 @@ export default function HomePage() {
         }
       `}</style>
 
-      {/* ✅ 筛选区（全下拉风格） */}
+      {/* ✅ 筛选区 */}
       <div
         style={{
           border: "1px solid #eee",
@@ -524,51 +725,82 @@ export default function HomePage() {
           gap: 12,
         }}
       >
-        {items.map((it) => (
-          <div
-            key={it.id}
-            style={{
-              border: "1px solid #eee",
-              borderRadius: 14,
-              padding: 12,
-              background: "white",
-            }}
-          >
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>
-              {it.title || `Clip #${it.id}`}
-            </div>
+        {items.map((it) => {
+          const isBookmarked = bookmarkIds.has(it.id);
+          const busy = bookmarkBusyId === it.id;
 
-            <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-              {it.access_tier} · {it.difficulty || "unknown"} ·{" "}
-              {it.duration_sec ? `${it.duration_sec}s` : ""}
-            </div>
+          return (
+            <div
+              key={it.id}
+              style={{
+                border: "1px solid #eee",
+                borderRadius: 14,
+                padding: 12,
+                background: "white",
+              }}
+            >
+              <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
+                <div style={{ fontWeight: 800, marginBottom: 6, flex: 1 }}>
+                  {it.title || `Clip #${it.id}`}
+                </div>
 
-            {it.cover_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={it.cover_url}
-                alt=""
-                style={{ width: "100%", borderRadius: 12, marginBottom: 8 }}
-              />
-            ) : null}
-
-            <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
-              Topics: {(it.topics || []).join(", ") || "-"}
-              <br />
-              Channels: {(it.channels || []).join(", ") || "-"}
-            </div>
-
-            {it.can_access ? (
-              <a href={it.video_url} target="_blank" rel="noreferrer">
-                播放视频
-              </a>
-            ) : (
-              <div style={{ color: "#b00", fontSize: 12 }}>
-                会员专享：请登录并兑换码激活
+                {/* ✅ 收藏按钮 */}
+                <button
+                  type="button"
+                  onClick={() => toggleBookmark(it.id)}
+                  disabled={busy}
+                  title={me.logged_in ? "" : "请先登录"}
+                  style={{
+                    border: "1px solid #eee",
+                    background: "white",
+                    borderRadius: 10,
+                    padding: "6px 10px",
+                    cursor: busy ? "not-allowed" : "pointer",
+                    fontSize: 12,
+                    opacity: busy ? 0.6 : 1,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {busy
+                    ? "处理中..."
+                    : isBookmarked
+                    ? "★ 已收藏"
+                    : "☆ 收藏"}
+                </button>
               </div>
-            )}
-          </div>
-        ))}
+
+              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+                {it.access_tier} · {it.difficulty || "unknown"} ·{" "}
+                {it.duration_sec ? `${it.duration_sec}s` : ""}
+              </div>
+
+              {it.cover_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={it.cover_url}
+                  alt=""
+                  style={{ width: "100%", borderRadius: 12, marginBottom: 8 }}
+                />
+              ) : null}
+
+              <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
+                Topics: {(it.topics || []).join(", ") || "-"}
+                <br />
+                Channels: {(it.channels || []).join(", ") || "-"}
+              </div>
+
+              {it.can_access ? (
+                <a href={it.video_url} target="_blank" rel="noreferrer">
+                  播放视频
+                </a>
+              ) : (
+                <div style={{ color: "#b00", fontSize: 12 }}>
+                  会员专享：请登录并兑换码激活
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {!loading && items.length === 0 ? (
