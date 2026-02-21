@@ -13,22 +13,25 @@ export default function LoginPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    let ignore = false;
+    let mounted = true;
 
+    // 读当前 session（如果 cookie 已写入，这里也会有）
     supabase.auth.getSession().then(({ data }) => {
-      if (ignore) return;
-      setToken(data?.session?.access_token || "");
+      if (!mounted) return;
+      const t = data?.session?.access_token || "";
+      setToken(t);
       setUser(data?.session?.user || null);
     });
 
+    // 监听登录态变化
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (ignore) return;
+      if (!mounted) return;
       setToken(session?.access_token || "");
       setUser(session?.user || null);
     });
 
     return () => {
-      ignore = true;
+      mounted = false;
       sub?.subscription?.unsubscribe?.();
     };
   }, []);
@@ -38,7 +41,7 @@ export default function LoginPage() {
     const e = email.trim();
     if (!e) return setMsg("请输入邮箱");
 
-    // ✅ 关键：让 supabase 回调走 /api/auth/callback（服务端写 cookie）
+    // ✅ 关键：必须回跳到 /api/auth/callback 让服务端写 cookie
     const redirectTo = `${window.location.origin}/api/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOtp({
@@ -47,7 +50,7 @@ export default function LoginPage() {
     });
 
     if (error) return setMsg("发送失败：" + error.message);
-    setMsg("已发送登录邮件：去邮箱点击链接 → 会自动写入登录状态（cookie）。");
+    setMsg("已发送登录邮件：去邮箱点链接。成功后会自动回到首页并写入登录 cookie。");
   }
 
   async function logout() {
@@ -58,9 +61,9 @@ export default function LoginPage() {
   }
 
   async function copyToken() {
-    if (!token) return setMsg("当前没有 token（可能还没登录成功）");
+    if (!token) return;
     await navigator.clipboard.writeText(token);
-    setMsg("已复制 access_token");
+    setMsg("已复制 access_token（Bearer 用）");
   }
 
   return (
@@ -68,10 +71,8 @@ export default function LoginPage() {
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 10 }}>
         登录（magic link）
       </h1>
-
       <div style={{ color: "#666", marginBottom: 14 }}>
-        登录后：
-        <b> /api/me </b>应变成 logged_in:true（因为 cookie 已写入）
+        登录后：/api/me 应变成 logged_in:true（因为 cookie 已写入）
         <br />
         也可复制 access_token 用于 Bearer 测试 /api/redeem
       </div>
@@ -128,59 +129,57 @@ export default function LoginPage() {
         }}
       >
         <div style={{ fontWeight: 800, marginBottom: 8 }}>当前登录状态</div>
-
-        {user ? (
-          <>
-            <div>已登录：{user.email}</div>
-
-            <div style={{ marginTop: 10, fontWeight: 700 }}>access_token：</div>
-            <textarea
-              value={token}
-              readOnly
-              style={{
-                width: "100%",
-                height: 140,
-                padding: 10,
-                border: "1px solid #ddd",
-                borderRadius: 10,
-              }}
-            />
-
-            <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
-              <button
-                onClick={copyToken}
+        <div style={{ color: "#444" }}>
+          {user ? (
+            <>
+              <div>已登录：{user.email}</div>
+              <div style={{ marginTop: 6, fontWeight: 700 }}>access_token：</div>
+              <textarea
+                value={token}
+                readOnly
                 style={{
-                  padding: "10px 14px",
+                  width: "100%",
+                  height: 160,
+                  padding: 10,
                   border: "1px solid #ddd",
                   borderRadius: 10,
-                  background: "#fff",
-                  cursor: "pointer",
                 }}
-              >
-                一键复制 token
-              </button>
+              />
+              <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={copyToken}
+                  style={{
+                    padding: "10px 14px",
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    background: "#fff",
+                    cursor: "pointer",
+                  }}
+                >
+                  一键复制 token
+                </button>
 
-              <a
-                href="/api/me"
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  padding: "10px 14px",
-                  border: "1px solid #ddd",
-                  borderRadius: 10,
-                  background: "#fff",
-                  display: "inline-block",
-                  textDecoration: "none",
-                  color: "#111",
-                }}
-              >
-                打开 /api/me 验证
-              </a>
-            </div>
-          </>
-        ) : (
-          <div>未登录</div>
-        )}
+                <a
+                  href="/api/me"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    padding: "10px 14px",
+                    border: "1px solid #ddd",
+                    borderRadius: 10,
+                    display: "inline-block",
+                    color: "#111",
+                    textDecoration: "none",
+                  }}
+                >
+                  打开 /api/me 验证
+                </a>
+              </div>
+            </>
+          ) : (
+            <div>未登录</div>
+          )}
+        </div>
       </div>
 
       <div style={{ marginTop: 12 }}>
