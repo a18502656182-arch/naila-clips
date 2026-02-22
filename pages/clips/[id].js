@@ -130,7 +130,6 @@ export default function ClipDetailPage() {
 
   const [item, setItem] = useState(null);
   const [me, setMe] = useState(null);
-
   const [details, setDetails] = useState(null);
 
   const [subLang, setSubLang] = useState("zh");
@@ -143,12 +142,27 @@ export default function ClipDetailPage() {
   const videoRef = useRef(null);
   const [activeSegIdx, setActiveSegIdx] = useState(-1);
 
-  // ✅ 关键：用 router.query.id 拿 clipId（不要用 window.location）
   const clipId = useMemo(() => {
     const raw = router.query?.id;
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   }, [router.query?.id]);
+
+  // ✅ 单独拉 details：先试 clip_detail，再试 clip_details；失败当 null（不影响整页）
+  async function loadDetailsSafe(id) {
+    try {
+      const d2 = await fetchJson(`/api/clip_detail?id=${id}`);
+      return d2?.details_json ?? null;
+    } catch (e1) {
+      // 如果 clip_detail 不存在，就试 clip_details
+      try {
+        const d3 = await fetchJson(`/api/clip_details?id=${id}`);
+        return d3?.details_json ?? null;
+      } catch {
+        return null;
+      }
+    }
+  }
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -164,19 +178,26 @@ export default function ClipDetailPage() {
       setDetails(null);
 
       try {
+        // ✅ 先拉 clip：只有这个失败才算 notFound
         const d1 = await fetchJson(`/api/clip?id=${clipId}`);
         if (!mounted) return;
 
-        setItem(d1?.item || null);
+        const gotItem = d1?.item || null;
+        setItem(gotItem);
         setMe(d1?.me || null);
 
-        // 这里你现在用的是 /api/clip_detail
-        const d2 = await fetchJson(`/api/clip_detail?id=${clipId}`);
-        if (!mounted) return;
+        if (!gotItem) {
+          setNotFound(true);
+          return;
+        }
 
-        setDetails(d2?.details_json || null);
+        // ✅ details 失败不影响整页
+        const dj = await loadDetailsSafe(clipId);
+        if (!mounted) return;
+        setDetails(dj);
       } catch (e) {
         if (!mounted) return;
+        // 只有 /api/clip 真的 404 才 notFound
         if (e?.status === 404) setNotFound(true);
       } finally {
         if (!mounted) return;
@@ -365,9 +386,7 @@ export default function ClipDetailPage() {
               </div>
             ) : (
               <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-                {details
-                  ? "details_json 里没有 segments 字幕段"
-                  : "暂无详情内容（details_json）。\n后续你把 AI 生成的 JSON 存进 clip_details.details_json 后，这里会自动出现时间轴字幕 & 词汇卡。"}
+                {details ? "details_json 里没有 segments 字幕段" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
               </div>
             )}
           </div>
