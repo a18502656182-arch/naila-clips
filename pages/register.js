@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+// pages/register.js
+import { useState } from "react";
+import { useRouter } from "next/router";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -7,141 +9,104 @@ const supabase = createClient(
 );
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
+  const router = useRouter();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
-  const [session, setSession] = useState(null);
-  const [me, setMe] = useState(null);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data?.session || null));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => setSession(sess));
-    return () => sub?.subscription?.unsubscribe?.();
-  }, []);
-
-  async function refreshMe(token) {
-    const r = await fetch("/api/me", {
-      headers: { Authorization: "Bearer " + token },
-    });
-    const j = await r.json();
-    setMe(j);
-    return j;
-  }
-
-  async function onRegister() {
+  async function onSubmit(e) {
+    e.preventDefault();
     setMsg("");
-    const e = email.trim();
-    if (!e || !pw) return setMsg("请填写邮箱和密码");
+    setLoading(true);
 
-    // 1) 注册
-    const { data, error } = await supabase.auth.signUp({
-      email: e,
-      password: pw,
-    });
-    if (error) return setMsg("注册失败：" + error.message);
-
-    // 2) 有些配置下 signUp 会直接给 session；若没有 session，就提示去登录页
-    const token = data?.session?.access_token || "";
-    if (!token) {
-      setMsg("注册成功，但当前未自动登录。请去 /login 用邮箱+密码登录后再输入兑换码。");
-      return;
-    }
-
-    // 3) 如果填了兑换码，自动兑换
-    const c = code.trim();
-    if (c) {
-      const rr = await fetch("/api/redeem", {
+    try {
+      const r = await fetch("/api/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + token,
-        },
-        body: JSON.stringify({ code: c }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password, code }),
       });
-      const rj = await rr.json();
-      if (!rr.ok) {
-        setMsg("注册成功，但兑换失败：" + (rj?.error || "unknown"));
-        await refreshMe(token);
+
+      const j = await r.json();
+
+      if (!r.ok || !j.ok) {
+        setMsg(j.error || "注册失败");
+        setLoading(false);
         return;
       }
-      setMsg("注册+兑换成功✅ 会员已激活，ends_at=" + rj.ends_at);
-      await refreshMe(token);
-      return;
+
+      if (!j.needs_login && j.session) {
+        const { error } = await supabase.auth.setSession({
+          access_token: j.session.access_token,
+          refresh_token: j.session.refresh_token,
+        });
+        if (error) {
+          setMsg("注册成功，但写入登录态失败：请去登录页登录");
+          setLoading(false);
+          return;
+        }
+        router.push("/");
+        return;
+      }
+
+      // needs_login
+      router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
+    } catch (err) {
+      setMsg(err.message || "未知错误");
+    } finally {
+      setLoading(false);
     }
-
-    setMsg("注册成功✅（未填兑换码，当前为访客权限）");
-    await refreshMe(token);
-  }
-
-  async function logout() {
-    await supabase.auth.signOut();
-    setSession(null);
-    setMe(null);
-    setMsg("已退出登录");
   }
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 10 }}>注册（邮箱 + 密码 + 兑换码）</h1>
-      <div style={{ color: "#666", marginBottom: 14 }}>
-        目标流程：注册时可直接输入兑换码 → 自动激活会员；到期后仍能登录，但会员权限消失。
-      </div>
+    <div style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
+      <h1 style={{ fontSize: 22, marginBottom: 12 }}>注册（输入兑换码直接开通会员）</h1>
 
-      <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
-        <div style={{ display: "grid", gap: 10 }}>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <div>邮箱或用户名</div>
           <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="邮箱（可用QQ邮箱）"
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10 }}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="邮箱 或 你想要的用户名"
+            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
           />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <div>密码</div>
           <input
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
             type="password"
-            placeholder="密码（随便先设一个测试）"
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10 }}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="至少 8 位，建议包含大小写+数字"
+            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
           />
+        </label>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <div>兑换码</div>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="兑换码（可选，例如 TEST30）"
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 10 }}
+            placeholder="月/季/年兑换码"
+            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
           />
+        </label>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              onClick={onRegister}
-              style={{ padding: "10px 14px", border: "1px solid #ddd", borderRadius: 10, background: "#fff", cursor: "pointer" }}
-            >
-              注册并（可选）兑换
-            </button>
-            <button
-              onClick={logout}
-              style={{ padding: "10px 14px", border: "1px solid #ddd", borderRadius: 10, background: "#fff", cursor: "pointer" }}
-            >
-              退出登录
-            </button>
-          </div>
+        <button
+          disabled={loading}
+          style={{ padding: 12, borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600 }}
+        >
+          {loading ? "注册中..." : "注册并开通"}
+        </button>
+      </form>
 
-          {msg ? <div style={{ marginTop: 6, color: "#111" }}>{msg}</div> : null}
-        </div>
-      </div>
+      {msg ? <div style={{ marginTop: 12, color: "#b00020" }}>{msg}</div> : null}
 
-      <div style={{ marginTop: 14, border: "1px solid #eee", borderRadius: 12, padding: 14 }}>
-        <div style={{ fontWeight: 800, marginBottom: 8 }}>当前状态（调试用）</div>
-        <div style={{ color: "#444" }}>
-          <div>session：{session ? "✅有" : "❌无"}</div>
-          <div style={{ marginTop: 8, fontWeight: 700 }}>/api/me 返回：</div>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(me, null, 2)}</pre>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <a href="/" style={{ color: "#111" }}>← 返回首页</a>
-        <span style={{ margin: "0 10px" }}>|</span>
-        <a href="/login" style={{ color: "#111" }}>去临时 token 页</a>
+      <div style={{ marginTop: 14, fontSize: 14 }}>
+        已有账号？ <a href="/login">去登录</a>
       </div>
     </div>
   );
