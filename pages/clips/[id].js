@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
+/** 小工具：安全拉 JSON */
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   const text = await res.text();
@@ -22,53 +23,152 @@ async function fetchJson(url, options) {
   return data;
 }
 
+/** 秒数格式化 0:00 */
 function fmtTime(sec) {
-  const s = Math.max(0, Math.floor(Number(sec || 0)));
+  const s = Math.max(0, Math.floor(Number(sec) || 0));
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+/** 兼容 AI 生成 details_json 的不同字段名 */
+function normalizeDetails(detailsJson) {
+  const d = detailsJson || {};
+
+  // segments: [{start,end,en,zh}] 或 [{start_sec,end_sec,text_en,text_zh}] 等
+  const rawSegments = Array.isArray(d.segments) ? d.segments : [];
+  const segments = rawSegments
+    .map((x) => {
+      const start =
+        x.start ??
+        x.start_sec ??
+        x.startSeconds ??
+        x.start_seconds ??
+        x.t0 ??
+        0;
+      const end =
+        x.end ?? x.end_sec ?? x.endSeconds ?? x.end_seconds ?? x.t1 ?? null;
+
+      const en =
+        x.en ??
+        x.text_en ??
+        x.english ??
+        x.text ??
+        x.transcript_en ??
+        "";
+      const zh =
+        x.zh ?? x.text_zh ?? x.chinese ?? x.translation_zh ?? "";
+
+      return {
+        start: Number(start) || 0,
+        end: end === null || end === undefined ? null : Number(end) || null,
+        en: String(en || "").trim(),
+        zh: String(zh || "").trim(),
+      };
+    })
+    .filter((x) => x.en || x.zh);
+
+  // vocab: {words, phrases, expressions} 或 {vocab:{...}} 或 {cards:{...}}
+  const vocabRoot =
+    d.vocab ||
+    d.cards ||
+    d.vocabulary ||
+    d.word_cards ||
+    d.vocab_cards ||
+    {};
+  const words = Array.isArray(vocabRoot.words) ? vocabRoot.words : [];
+  const phrases = Array.isArray(vocabRoot.phrases) ? vocabRoot.phrases : [];
+  const expressions = Array.isArray(vocabRoot.expressions)
+    ? vocabRoot.expressions
+    : Array.isArray(vocabRoot.idioms)
+    ? vocabRoot.idioms
+    : [];
+
+  function normCard(x) {
+    const term = x.term ?? x.word ?? x.phrase ?? x.expression ?? x.title ?? "";
+    const ipa = x.ipa ?? x.phonetic ?? "";
+    const meaning_zh =
+      x.meaning_zh ?? x.zh ?? x.cn ?? x.translation_zh ?? x.definition_zh ?? "";
+    const example_en =
+      x.example_en ?? x.example ?? x.en_example ?? x.sentence_en ?? "";
+    const example_zh =
+      x.example_zh ??
+      x.example_cn ??
+      x.zh_example ??
+      x.sentence_zh ??
+      "";
+    const note_zh = x.note_zh ?? x.note ?? x.usage_zh ?? x.tip_zh ?? "";
+
+    return {
+      term: String(term || "").trim(),
+      ipa: String(ipa || "").trim(),
+      meaning_zh: String(meaning_zh || "").trim(),
+      example_en: String(example_en || "").trim(),
+      example_zh: String(example_zh || "").trim(),
+      note_zh: String(note_zh || "").trim(),
+    };
+  }
+
+  const vocab = {
+    words: words.map(normCard).filter((x) => x.term),
+    phrases: phrases.map(normCard).filter((x) => x.term),
+    expressions: expressions.map(normCard).filter((x) => x.term),
+  };
+
+  return { segments, vocab };
 }
 
 export default function ClipDetailPage() {
   const router = useRouter();
   const clipId = useMemo(() => Number(router.query.id), [router.query.id]);
 
+  // 主 clip 信息
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
+  const [item, setItem] = useState(null);
+  const [me, setMe] = useState(null);
+
+  // details_json
+  const [detailsLoading, setDetailsLoading] = useState(true);
+  const [details, setDetails] = useState(null);
+
+  // UI states
+  const [lang, setLang] = useState("en"); // en | zh
+  const [activeSegIndex, setActiveSegIndex] = useState(-1);
+
+  const [showVocab, setShowVocab] = useState(false);
+  const [vocabTab, setVocabTab] = useState("words"); // words | phrases | expressions
+  const [openExplainKey, setOpenExplainKey] = useState(null); // 只展开一张解释卡
+
   const videoRef = useRef(null);
 
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-
-  const [clip, setClip] = useState(null); // 对应 d.item
-  const [me, setMe] = useState(null); // 对应 d.me
-  const [details, setDetails] = useState(null); // 对应 d.details_json（从 /api/clip_details）
-
-  // 右侧：字幕 EN/中 切换
-  const [subLang, setSubLang] = useState("zh"); // "en" | "zh"
-
-  // 右侧：词汇卡展开/收起（先保留结构，后面再做成你图里那种 2列/3列切换）
-  const [showVocabPanel, setShowVocabPanel] = useState(false);
-
-  // --- 拉 clip 基础信息（/api/clip?id=）
+  // 拉 clip
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
 
     let alive = true;
     setLoading(true);
-    setErr("");
-    setClip(null);
+    setNotFound(false);
+    setErrMsg("");
+    setItem(null);
     setMe(null);
 
     fetchJson(`/api/clip?id=${clipId}`)
       .then((d) => {
         if (!alive) return;
-        // ✅ 关键：你的 API 返回是 { ok, item, me }
-        setClip(d?.item || null);
-        setMe(d?.me || null);
+        if (!d?.ok || !d?.item) {
+          setNotFound(true);
+          return;
+        }
+        setItem(d.item);
+        setMe(d.me || null);
       })
       .catch((e) => {
         if (!alive) return;
-        setErr(e.message || "加载失败");
+        if (e?.status === 404) setNotFound(true);
+        else setErrMsg(e?.message || "加载失败");
       })
       .finally(() => {
         if (!alive) return;
@@ -80,25 +180,28 @@ export default function ClipDetailPage() {
     };
   }, [router.isReady, clipId]);
 
-  // --- 拉 details_json（/api/clip_detail 或 /api/clip_details）
-  // 你现在的文件叫 pages/api/clip_detail.js（单数），我们就按这个来请求
+  // 拉 details_json（允许为空）
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
 
     let alive = true;
+    setDetailsLoading(true);
     setDetails(null);
 
     fetchJson(`/api/clip_detail?id=${clipId}`)
       .then((d) => {
         if (!alive) return;
-        // 兼容：你返回是 { ok, clip_id, details_json, updated_at }
-        setDetails(d?.details_json || null);
+        const normalized = normalizeDetails(d?.details_json || null);
+        setDetails(normalized);
       })
       .catch(() => {
-        // details 没有也没关系，右侧显示引导文案
         if (!alive) return;
         setDetails(null);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setDetailsLoading(false);
       });
 
     return () => {
@@ -106,22 +209,42 @@ export default function ClipDetailPage() {
     };
   }, [router.isReady, clipId]);
 
-  const canAccess = !!clip?.can_access; // ✅ 必须从 d.item.can_access 来
+  const segments = details?.segments || [];
+  const vocab = details?.vocab || { words: [], phrases: [], expressions: [] };
 
-  const segments = useMemo(() => {
-    // 你后续会把 AI 生成的内容写进 details_json.segments
-    const arr = details?.segments;
-    return Array.isArray(arr) ? arr : [];
-  }, [details]);
+  const vocabList = useMemo(() => {
+    if (vocabTab === "phrases") return vocab.phrases || [];
+    if (vocabTab === "expressions") return vocab.expressions || [];
+    return vocab.words || [];
+  }, [vocabTab, vocab]);
 
-  function seekTo(sec) {
+  function seekAndPlay(seconds) {
     const v = videoRef.current;
     if (!v) return;
     try {
-      v.currentTime = Math.max(0, Number(sec || 0));
-      v.play?.();
+      v.currentTime = Math.max(0, Number(seconds) || 0);
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
     } catch {}
   }
+
+  function onClickSegment(i) {
+    setActiveSegIndex(i);
+    const seg = segments[i];
+    if (seg) seekAndPlay(seg.start);
+  }
+
+  // 页面头部显示
+  const title = item?.title || (clipId ? `Clip #${clipId}` : "Clip");
+
+  const difficulty = (item?.difficulty_slugs && item.difficulty_slugs[0]) || "unknown";
+  const durationSec = item?.duration_sec || null;
+  const accessTier = item?.access_tier || "-";
+
+  const loggedIn = !!me?.logged_in;
+  const isMember = !!me?.is_member;
+
+  const canAccess = !!item?.can_access; // 后端已经算好
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
@@ -132,17 +255,15 @@ export default function ClipDetailPage() {
           style={{
             border: "1px solid #eee",
             background: "white",
-            borderRadius: 10,
-            padding: "6px 10px",
+            borderRadius: 12,
+            padding: "8px 12px",
             cursor: "pointer",
           }}
         >
           ← 返回
         </button>
 
-        <div style={{ fontSize: 20, fontWeight: 900 }}>
-          {clip?.title || `Clip #${clipId || ""}`}
-        </div>
+        <div style={{ fontWeight: 900, fontSize: 22 }}>{title}</div>
 
         <div style={{ marginLeft: "auto" }}>
           <a
@@ -150,10 +271,11 @@ export default function ClipDetailPage() {
             style={{
               border: "1px solid #eee",
               background: "white",
-              borderRadius: 10,
-              padding: "6px 10px",
+              borderRadius: 12,
+              padding: "8px 12px",
               textDecoration: "none",
               color: "#111",
+              display: "inline-block",
             }}
           >
             回首页
@@ -162,214 +284,481 @@ export default function ClipDetailPage() {
       </div>
 
       {loading ? (
-        <div style={{ opacity: 0.7 }}>加载中...</div>
-      ) : err ? (
-        <div style={{ color: "#b00" }}>加载失败：{err}</div>
-      ) : !clip ? (
-        <div style={{ opacity: 0.7 }}>未找到该视频（id={clipId}）</div>
+        <div style={{ padding: 14, border: "1px solid #eee", borderRadius: 14, background: "white" }}>
+          加载中...
+        </div>
+      ) : notFound ? (
+        <div style={{ padding: 14, border: "1px solid #eee", borderRadius: 14, background: "white" }}>
+          未找到该视频（id={clipId}）
+        </div>
+      ) : errMsg ? (
+        <div style={{ padding: 14, border: "1px solid #eee", borderRadius: 14, background: "white", color: "#b00" }}>
+          加载失败：{errMsg}
+        </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gap: 14,
-            gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1.2fr)",
-            alignItems: "start",
-          }}
-        >
-          {/* 左：视频 + 基础信息 */}
+        <>
+          {/* 顶部信息条 */}
           <div
             style={{
               border: "1px solid #eee",
-              borderRadius: 16,
+              borderRadius: 14,
               background: "white",
-              padding: 14,
+              padding: 12,
+              marginBottom: 12,
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              alignItems: "center",
+              fontSize: 13,
+              opacity: 0.9,
             }}
           >
-            <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 10 }}>
-              难度：{clip?.difficulty_slugs?.[0] || "unknown"}　时长：
-              {clip?.duration_sec ? `${clip.duration_sec}s` : "-"}　权限：
-              {clip?.access_tier || "-"}　
-              <span style={{ marginLeft: 10 }}>
-                登录：{me?.logged_in ? "✅" : "❌"} / 会员：{me?.is_member ? "✅" : "❌"}
-              </span>
-            </div>
-
-            {canAccess ? (
-              <video
-                ref={videoRef}
-                src={clip.video_url}
-                controls
-                style={{ width: "100%", borderRadius: 14, background: "#000" }}
-                poster={clip.cover_url || undefined}
-              />
-            ) : (
-              <div
-                style={{
-                  border: "1px solid #f1d2d2",
-                  background: "#fff7f7",
-                  borderRadius: 14,
-                  padding: 14,
-                  color: "#b00",
-                  fontSize: 13,
-                  lineHeight: 1.7,
-                }}
-              >
-                <div style={{ fontWeight: 900, marginBottom: 6 }}>会员专享</div>
-                该视频需要登录并先兑换激活后观看。
-              </div>
-            )}
+            <div>难度：{difficulty}</div>
+            <div>时长：{durationSec ? `${durationSec}s` : "-"}</div>
+            <div>权限：{accessTier}</div>
+            <div>登录：{loggedIn ? "✅" : "❌"}</div>
+            <div>会员：{isMember ? "✅" : "❌"}</div>
           </div>
 
-          {/* 右：字幕/词汇卡区域（先把结构搭对） */}
-          <div
-            style={{
-              border: "1px solid #eee",
-              borderRadius: 16,
-              background: "white",
-              padding: 14,
-              minHeight: 420,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div style={{ fontWeight: 900 }}>字幕</div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setSubLang("en")}
-                  style={{
-                    border: "1px solid #eee",
-                    background: subLang === "en" ? "#111" : "white",
-                    color: subLang === "en" ? "white" : "#111",
-                    borderRadius: 999,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 800,
-                  }}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSubLang("zh")}
-                  style={{
-                    border: "1px solid #eee",
-                    background: subLang === "zh" ? "#111" : "white",
-                    color: subLang === "zh" ? "white" : "#111",
-                    borderRadius: 999,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    fontSize: 12,
-                    fontWeight: 800,
-                  }}
-                >
-                  中
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setShowVocabPanel((x) => !x)}
-                style={{
-                  marginLeft: "auto",
-                  border: "1px solid #eee",
-                  background: showVocabPanel ? "#111" : "white",
-                  color: showVocabPanel ? "white" : "#111",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                  fontSize: 12,
-                }}
-              >
-                {showVocabPanel ? "收起词汇卡" : "词汇卡"}
-              </button>
-            </div>
-
-            {/* 主体：字幕列表 */}
-            <div
-              style={{
-                border: "1px solid #eee",
-                borderRadius: 14,
-                padding: 10,
-                maxHeight: 520,
-                overflow: "auto",
-              }}
-            >
-              {!details ? (
-                <div style={{ fontSize: 13, opacity: 0.75, lineHeight: 1.6 }}>
-                  还没有详情内容（details_json）。
-                  <br />
-                  你把 AI 生成的 JSON 存进 clip_details.details_json 后，这里就会出现时间轴字幕。
-                </div>
-              ) : segments.length === 0 ? (
-                <div style={{ fontSize: 13, opacity: 0.75 }}>
-                  details_json 里没有 segments 字幕段
-                </div>
-              ) : (
-                segments.map((s, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      border: "1px solid #eee",
-                      borderRadius: 14,
-                      padding: 10,
-                      marginBottom: 10,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => seekTo(s.start_sec)}
-                    title="点击跳到该时间并播放"
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 900,
-                          background: "#f5f5f5",
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {fmtTime(s.start_sec)} - {fmtTime(s.end_sec)}
-                      </div>
-                      {s?.repeat ? (
-                        <div style={{ fontSize: 12, opacity: 0.65 }}>🔁 x{s.repeat}</div>
-                      ) : null}
-                    </div>
-
-                    <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 6 }}>
-                      {subLang === "en" ? s.en : s.zh}
-                    </div>
-
-                    {subLang === "en" ? (
-                      s.zh ? <div style={{ fontSize: 13, opacity: 0.75 }}>{s.zh}</div> : null
-                    ) : s.en ? (
-                      <div style={{ fontSize: 13, opacity: 0.75 }}>{s.en}</div>
-                    ) : null}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* 词汇卡面板：先占位，下一步我们再做成你截图那种“第三列抽屉式”结构 */}
-            {showVocabPanel ? (
+          {/* ✅ 两列/三列布局 */}
+          <div className={`detailGrid ${showVocab ? "vocabOpen" : ""}`}>
+            {/* 左：视频 */}
+            <div className="colVideo">
               <div
                 style={{
-                  marginTop: 12,
                   border: "1px solid #eee",
-                  borderRadius: 14,
-                  padding: 10,
-                  fontSize: 13,
-                  opacity: 0.85,
-                  lineHeight: 1.6,
+                  borderRadius: 16,
+                  background: "white",
+                  padding: 12,
                 }}
               >
-                这里下一步会做成「单词 / 短语 / 地道表达」三类，并且每张卡只保留“中文解释”按钮（不做英文解释）。
+                {canAccess ? (
+                  <video
+                    ref={videoRef}
+                    src={item?.video_url || ""}
+                    controls
+                    style={{
+                      width: "100%",
+                      borderRadius: 14,
+                      display: "block",
+                      background: "#000",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      background: "#fafafa",
+                      border: "1px solid #eee",
+                      padding: 14,
+                      color: "#b00",
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    <div style={{ fontWeight: 900, marginBottom: 6 }}>会员专享</div>
+                    <div>该视频需要登录并兑换码激活后观看。</div>
+                    <div style={{ marginTop: 10, display: "flex", gap: 10 }}>
+                      <a
+                        href="/login"
+                        style={{
+                          border: "1px solid #eee",
+                          background: "white",
+                          borderRadius: 12,
+                          padding: "8px 12px",
+                          textDecoration: "none",
+                          color: "#111",
+                          fontWeight: 800,
+                        }}
+                      >
+                        去登录/兑换
+                      </a>
+                      <a
+                        href="/register"
+                        style={{
+                          border: "none",
+                          background: "#111",
+                          color: "white",
+                          borderRadius: 12,
+                          padding: "8px 12px",
+                          textDecoration: "none",
+                          fontWeight: 800,
+                        }}
+                      >
+                        去注册
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 中/右：字幕区 */}
+            <div className="colSubs">
+              <div
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 16,
+                  background: "white",
+                  padding: 12,
+                  height: "100%",
+                  minHeight: 420,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {/* 顶栏：字幕 + EN/中 + 词汇卡按钮 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ fontWeight: 900 }}>字幕</div>
+
+                  <div style={{ display: "flex", gap: 8, marginLeft: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => setLang("en")}
+                      className={`pill ${lang === "en" ? "active" : ""}`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLang("zh")}
+                      className={`pill ${lang === "zh" ? "active" : ""}`}
+                    >
+                      中
+                    </button>
+                  </div>
+
+                  <div style={{ marginLeft: "auto" }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowVocab((x) => !x)}
+                      style={{
+                        border: showVocab ? "1px solid #eee" : "none",
+                        background: showVocab ? "white" : "#111",
+                        color: showVocab ? "#111" : "white",
+                        borderRadius: 12,
+                        padding: "8px 12px",
+                        cursor: "pointer",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {showVocab ? "收起词汇卡" : "词汇卡"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ height: 10 }} />
+
+                {/* 内容区：字幕列表 */}
+                <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
+                  {detailsLoading ? (
+                    <div style={{ padding: 10, opacity: 0.75, fontSize: 13 }}>加载详情内容中...</div>
+                  ) : !details || (segments.length === 0 && vocab.words.length === 0 && vocab.phrases.length === 0 && vocab.expressions.length === 0) ? (
+                    <div style={{ padding: 10, opacity: 0.75, fontSize: 13, lineHeight: 1.7 }}>
+                      暂无详情内容（details_json）。
+                      <br />
+                      后续你把 AI 生成的 JSON 存进 <b>clip_details.details_json</b> 后，这里会自动出现时间轴字幕 & 词汇卡。
+                    </div>
+                  ) : segments.length === 0 ? (
+                    <div style={{ padding: 10, opacity: 0.75, fontSize: 13 }}>
+                      details_json 里没有 segments 字幕段
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {segments.map((s, i) => {
+                        const active = i === activeSegIndex;
+                        const text = lang === "zh" ? s.zh || s.en : s.en || s.zh;
+
+                        return (
+                          <button
+                            key={`${s.start}-${i}`}
+                            type="button"
+                            onClick={() => onClickSegment(i)}
+                            style={{
+                              textAlign: "left",
+                              border: active ? "2px solid #b9d9ff" : "1px solid #eee",
+                              background: active ? "#f3f9ff" : "white",
+                              borderRadius: 14,
+                              padding: "10px 12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                              <div style={{ fontWeight: 800, fontSize: 12, opacity: 0.75 }}>
+                                {fmtTime(s.start)}
+                                {s.end != null ? ` - ${fmtTime(s.end)}` : ""}
+                              </div>
+                              <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
+                                点击跳转播放
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 14, lineHeight: 1.65 }}>
+                              {text || "（空）"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 右：词汇卡（打开时显示） */}
+            {showVocab ? (
+              <div className="colVocab">
+                <div
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 16,
+                    background: "white",
+                    padding: 12,
+                    height: "100%",
+                    minHeight: 420,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontWeight: 900 }}>词汇卡</div>
+                    <div style={{ marginLeft: "auto" }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowVocab(false)}
+                        style={{
+                          border: "1px solid #eee",
+                          background: "white",
+                          borderRadius: 12,
+                          padding: "8px 12px",
+                          cursor: "pointer",
+                          fontWeight: 800,
+                        }}
+                      >
+                        收起
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ height: 10 }} />
+
+                  {/* 词汇卡分类 Tab */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className={`tabBtn ${vocabTab === "words" ? "active" : ""}`}
+                      onClick={() => setVocabTab("words")}
+                    >
+                      单词 ({vocab.words?.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`tabBtn ${vocabTab === "phrases" ? "active" : ""}`}
+                      onClick={() => setVocabTab("phrases")}
+                    >
+                      短语 ({vocab.phrases?.length || 0})
+                    </button>
+                    <button
+                      type="button"
+                      className={`tabBtn ${vocabTab === "expressions" ? "active" : ""}`}
+                      onClick={() => setVocabTab("expressions")}
+                    >
+                      地道表达 ({vocab.expressions?.length || 0})
+                    </button>
+                  </div>
+
+                  <div style={{ height: 10 }} />
+
+                  <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
+                    {detailsLoading ? (
+                      <div style={{ padding: 10, opacity: 0.75, fontSize: 13 }}>加载中...</div>
+                    ) : vocabList.length === 0 ? (
+                      <div style={{ padding: 10, opacity: 0.75, fontSize: 13, lineHeight: 1.7 }}>
+                        当前分类暂无词汇卡内容。
+                        <br />
+                        （后续你把 AI 输出的 vocab 写入 details_json 即可）
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {vocabList.map((c, idx) => {
+                          const key = `${vocabTab}-${idx}-${c.term}`;
+                          const open = openExplainKey === key;
+
+                          return (
+                            <div
+                              key={key}
+                              style={{
+                                border: "1px solid #eee",
+                                borderRadius: 16,
+                                padding: 12,
+                                background: "white",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={{ fontSize: 18, fontWeight: 900 }}>{c.term}</div>
+                                {c.ipa ? (
+                                  <div style={{ opacity: 0.65, fontSize: 13 }}>/{c.ipa}/</div>
+                                ) : null}
+
+                                <div style={{ marginLeft: "auto" }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenExplainKey(open ? null : key)}
+                                    style={{
+                                      border: open ? "1px solid #ddd" : "none",
+                                      background: open ? "white" : "#111",
+                                      color: open ? "#111" : "white",
+                                      borderRadius: 999,
+                                      padding: "6px 10px",
+                                      cursor: "pointer",
+                                      fontWeight: 800,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    中文解释
+                                  </button>
+                                </div>
+                              </div>
+
+                              {open ? (
+                                <div style={{ marginTop: 10 }}>
+                                  {c.meaning_zh ? (
+                                    <div
+                                      style={{
+                                        border: "1px solid #ffe2a8",
+                                        background: "#fff7e6",
+                                        borderRadius: 14,
+                                        padding: 10,
+                                        lineHeight: 1.65,
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: 900, marginBottom: 6 }}>中文含义</div>
+                                      <div>{c.meaning_zh}</div>
+                                    </div>
+                                  ) : null}
+
+                                  {(c.example_en || c.example_zh) ? (
+                                    <div
+                                      style={{
+                                        marginTop: 10,
+                                        border: "1px solid #d7e7ff",
+                                        background: "#f3f9ff",
+                                        borderRadius: 14,
+                                        padding: 10,
+                                        lineHeight: 1.65,
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: 900, marginBottom: 6 }}>例句</div>
+                                      {c.example_en ? (
+                                        <div style={{ marginBottom: 6 }}>
+                                          <b>EN:</b> {c.example_en}
+                                        </div>
+                                      ) : null}
+                                      {c.example_zh ? (
+                                        <div>
+                                          <b>中:</b> {c.example_zh}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+
+                                  {c.note_zh ? (
+                                    <div
+                                      style={{
+                                        marginTop: 10,
+                                        border: "1px solid #eee",
+                                        background: "#fafafa",
+                                        borderRadius: 14,
+                                        padding: 10,
+                                        lineHeight: 1.65,
+                                        fontSize: 13,
+                                      }}
+                                    >
+                                      <div style={{ fontWeight: 900, marginBottom: 6 }}>使用提示</div>
+                                      <div>{c.note_zh}</div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             ) : null}
           </div>
-        </div>
+
+          {/* 样式：两列/三列 + pills/tabs */}
+          <style jsx>{`
+            .detailGrid {
+              display: grid;
+              gap: 14px;
+              align-items: start;
+
+              /* 默认：两列（视频 + 字幕） */
+              grid-template-columns: minmax(520px, 1.4fr) minmax(360px, 1fr);
+            }
+
+            /* 打开词汇卡：三列（视频变窄 + 字幕 + 词汇卡） */
+            .detailGrid.vocabOpen {
+              grid-template-columns: minmax(420px, 1.15fr) minmax(360px, 1fr)
+                minmax(340px, 0.95fr);
+            }
+
+            .colVideo,
+            .colSubs,
+            .colVocab {
+              min-width: 0; /* 防止内容撑爆导致重叠/溢出 */
+            }
+
+            .pill {
+              border: 1px solid #eee;
+              background: white;
+              border-radius: 999px;
+              padding: 6px 10px;
+              cursor: pointer;
+              font-weight: 800;
+              font-size: 12px;
+              color: #111;
+              opacity: 0.85;
+            }
+            .pill.active {
+              background: #111;
+              color: white;
+              border-color: #111;
+              opacity: 1;
+            }
+
+            .tabBtn {
+              border: 1px solid #eee;
+              background: white;
+              border-radius: 999px;
+              padding: 6px 10px;
+              cursor: pointer;
+              font-weight: 900;
+              font-size: 12px;
+              color: #111;
+              opacity: 0.85;
+            }
+            .tabBtn.active {
+              background: #1e88ff;
+              color: white;
+              border-color: #1e88ff;
+              opacity: 1;
+            }
+
+            /* 移动端：全部改成单列堆叠 */
+            @media (max-width: 900px) {
+              .detailGrid,
+              .detailGrid.vocabOpen {
+                grid-template-columns: 1fr;
+              }
+            }
+          `}</style>
+        </>
       )}
     </div>
   );
