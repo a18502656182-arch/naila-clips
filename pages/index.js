@@ -418,17 +418,23 @@ export default function HomePage() {
 
   // 3) 筛选变化：回到第一页 + 清空列表
   useEffect(() => {
-    if (!router.isReady) return;
-    setOffset(0);
-    setItems([]);
-  }, [
-    router.isReady,
-    difficulty.join(","),
-    topic.join(","),
-    channel.join(","),
-    access.join(","),
-    sort,
-  ]);
+  if (!router.isReady) return;
+
+  // ✅ 关键：登录/会员状态变化后，也强制回到第一页重新拉 /api/clips
+  setOffset(0);
+  setItems([]);
+}, [
+  router.isReady,
+  difficulty.join(","),
+  topic.join(","),
+  channel.join(","),
+  access.join(","),
+  sort,
+
+  // ✅ 新增这两项
+  me.logged_in,
+  me.is_member,
+]);
 
   // 4) 生成请求 qs（带 limit/offset）
   const qs = useMemo(() => {
