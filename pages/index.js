@@ -407,11 +407,20 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 筛选变化：回到第一页 + 清空列表（会员/登录变化也要重拉）
+  // ✅✅✅ 关键修复：筛选/登录态变化时，清空列表后必须“解锁并强制重拉”
   useEffect(() => {
     if (!router.isReady) return;
+
     setOffset(0);
     setItems([]);
+    setTotal(0);
+    setHasMore(false);
+
+    // 关键：否则会出现“清空了但被 fetchingRef 挡住没重拉”的偶发空白
+    fetchingRef.current = false;
+
+    // 关键：强制触发重新拉取 clips
+    setClipsReloadKey((x) => x + 1);
   }, [
     router.isReady,
     difficulty.join(","),
@@ -486,7 +495,7 @@ export default function HomePage() {
         setLoadingMore(false);
         fetchingRef.current = false;
       });
-  }, [router.isReady, qs, clipsReloadKey]);
+  }, [router.isReady, qs, clipsReloadKey, offset]);
 
   // 无限滚动
   useEffect(() => {
