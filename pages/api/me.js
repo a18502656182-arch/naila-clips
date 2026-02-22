@@ -5,9 +5,10 @@ export default async function handler(req, res) {
   try {
     const supabase = createPagesServerClient({ req, res });
 
-    // 1) 优先：如果有 Authorization: Bearer xxx，就用它
+    // 1) 优先 Bearer（你控制台手动测接口时用）
     const auth = req.headers.authorization || "";
     const m = auth.match(/^Bearer\s+(.+)$/i);
+
     let user = null;
     let mode = "cookie";
 
@@ -26,7 +27,7 @@ export default async function handler(req, res) {
       user = data?.user || null;
       mode = "bearer";
     } else {
-      // 2) 否则：走 cookie session
+      // 2) 否则走 cookie session（正常网页访问就是这个）
       const { data, error } = await supabase.auth.getUser();
       if (error) {
         return res.status(200).json({
@@ -50,14 +51,13 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3) 查会员（subscriptions）
-    // 你们之前 redeem 已经能写入 subscriptions 并算出 expires_at
+    // 3) 查会员：统一用 subscriptions.ends_at
     const { data: sub, error: subErr } = await supabase
       .from("subscriptions")
-      .select("status,expires_at,plan")
+      .select("status, ends_at, plan")
       .eq("user_id", user.id)
-      .not("ends_at", "is", null)
-      .order("expires_at", { ascending: false })
+      .not("ends_at", "is", null) // ✅ 过滤掉 ends_at=null 的脏行
+      .order("ends_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -67,6 +67,7 @@ export default async function handler(req, res) {
         email: user.email,
         user_id: user.id,
         is_member: false,
+        plan: null,
         ends_at: null,
         status: null,
         debug: { reason: "subscription_query_failed", message: subErr.message, mode },
@@ -74,9 +75,8 @@ export default async function handler(req, res) {
     }
 
     const now = Date.now();
-    const endsAt = sub?.expires_at ? new Date(sub.expires_at).getTime() : null;
-    const isActive =
-      sub?.status === "active" && endsAt && endsAt > now;
+    const endsAtMs = sub?.ends_at ? new Date(sub.ends_at).getTime() : null;
+    const isActive = sub?.status === "active" && endsAtMs && endsAtMs > now;
 
     return res.status(200).json({
       logged_in: true,
@@ -84,7 +84,7 @@ export default async function handler(req, res) {
       user_id: user.id,
       is_member: Boolean(isActive),
       plan: sub?.plan || null,
-      ends_at: sub?.expires_at || null,
+      ends_at: sub?.ends_at || null,
       status: sub?.status || null,
       debug: { mode },
     });
