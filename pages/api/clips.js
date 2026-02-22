@@ -39,13 +39,14 @@ export default async function handler(req, res) {
     let sub_debug = null;
 
     if (user?.id) {
-      const { data: sub, error: subErr } = await supabase
-        .from("subscriptions")
-        .select("status, ends_at, plan")
-        .eq("user_id", user.id)
-        .order("ends_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const { data: sub } = await supabase
+  .from("subscriptions")
+  .select("status, ends_at, plan")
+  .eq("user_id", user.id)
+  .not("ends_at", "is", null)              // ✅ 关键：过滤掉 ends_at=null
+  .order("ends_at", { ascending: false })  // ✅ 再按 ends_at 取最新
+  .limit(1)
+  .maybeSingle();
 
       if (subErr) {
         sub_debug = { ok: false, error: subErr.message };
