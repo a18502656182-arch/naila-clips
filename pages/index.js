@@ -1,6 +1,7 @@
 // pages/index.js
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import HoverPreview from "../components/HoverPreview";
 
 /**
  * ✅ 筛选/无限滚动
@@ -928,14 +929,12 @@ async function logout() {
                 {it.duration_sec ? `${it.duration_sec}s` : ""}
               </div>
 
-              {it.cover_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={it.cover_url}
-                  alt=""
-                  style={{ width: "100%", borderRadius: 12, marginBottom: 8 }}
-                />
-              ) : null}
+              <HoverPreview
+  coverUrl={it.cover_url}
+  videoUrl={it.video_url}
+  alt={it.title || ""}
+/>
+<div style={{ height: 8 }} />
 
               <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
                 Topics: {(it.topics || []).join(", ") || "-"}
