@@ -3,10 +3,8 @@ import { useRouter } from "next/router";
 
 /**
  * ✅ 你的筛选/无限滚动原样保留
- * ✅ 新增：收藏系统（bookmarks）
- *   - /api/me 判断登录
- *   - /api/bookmarks 拉收藏列表（做成 set）
- *   - /api/bookmarks_add /api/bookmarks_delete 点按钮收藏/取消
+ * ✅ 收藏系统（bookmarks）
+ * ✅ 新增：退出登录按钮（POST /api/logout）
  */
 
 function splitParam(v) {
@@ -223,9 +221,7 @@ async function fetchJson(url, options) {
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;
-  } catch {
-    // 不是 json
-  }
+  } catch {}
   if (!res.ok) {
     const msg =
       (data && (data.error || data.message)) ||
@@ -280,7 +276,7 @@ export default function HomePage() {
     []
   );
 
-  // ----------- 新增：登录状态 & 收藏 -----------
+  // ----------- 登录状态 & 收藏 -----------
   const [me, setMe] = useState({
     loading: true,
     logged_in: false,
@@ -323,7 +319,6 @@ export default function HomePage() {
     }
     try {
       setBookmarkLoading(true);
-      // 拉一大页做 set（你现在数据量很小，这样最省事稳定）
       const d = await fetchJson("/api/bookmarks?limit=500&offset=0");
       const ids = new Set((d?.items || []).map((x) => x.clip_id));
       setBookmarkIds(ids);
@@ -370,10 +365,25 @@ export default function HomePage() {
         showToast("已取消收藏");
       }
     } catch (e) {
-      // 常见：RLS / not_logged_in / policy 等
       showToast("操作失败：" + e.message);
     } finally {
       setBookmarkBusyId(null);
+    }
+  }
+
+  // ✅ 新增：退出登录（清 cookie）
+  async function logout() {
+    try {
+      await fetchJson("/api/logout", { method: "POST" });
+      showToast("已退出登录");
+      // 清本地状态
+      setBookmarkIds(new Set());
+      setOffset(0);
+      setItems([]);
+      // 重新拉 me（会变成未登录）
+      await loadMe();
+    } catch (e) {
+      showToast("退出失败：" + e.message);
     }
   }
 
@@ -416,25 +426,21 @@ export default function HomePage() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 筛选变化：回到第一页 + 清空列表
+  // 3) 筛选变化：回到第一页 + 清空列表（会员/登录变化也要重拉）
   useEffect(() => {
-  if (!router.isReady) return;
-
-  // ✅ 关键：登录/会员状态变化后，也强制回到第一页重新拉 /api/clips
-  setOffset(0);
-  setItems([]);
-}, [
-  router.isReady,
-  difficulty.join(","),
-  topic.join(","),
-  channel.join(","),
-  access.join(","),
-  sort,
-
-  // ✅ 新增这两项
-  me.logged_in,
-  me.is_member,
-]);
+    if (!router.isReady) return;
+    setOffset(0);
+    setItems([]);
+  }, [
+    router.isReady,
+    difficulty.join(","),
+    topic.join(","),
+    channel.join(","),
+    access.join(","),
+    sort,
+    me.logged_in,
+    me.is_member,
+  ]);
 
   // 4) 生成请求 qs（带 limit/offset）
   const qs = useMemo(() => {
@@ -560,26 +566,40 @@ export default function HomePage() {
         </div>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <a
-            href="/login"
-            style={{
-              border: "1px solid #eee",
-              background: "white",
-              borderRadius: 10,
-              padding: "6px 10px",
-              textDecoration: "none",
-              color: "#111",
-            }}
-          >
-            去登录/兑换
-          </a>
+          {!me.logged_in ? (
+            <a
+              href="/login"
+              style={{
+                border: "1px solid #eee",
+                background: "white",
+                borderRadius: 10,
+                padding: "6px 10px",
+                textDecoration: "none",
+                color: "#111",
+              }}
+            >
+              去登录/兑换
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={logout}
+              style={{
+                border: "1px solid #eee",
+                background: "white",
+                borderRadius: 10,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              退出登录
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => {
-              loadMe().then(() => {
-                // loadMe 完后 useEffect 会拉收藏
-                showToast("已刷新登录状态");
-              });
+              loadMe().then(() => showToast("已刷新登录状态"));
             }}
             style={{
               border: "1px solid #eee",
@@ -767,11 +787,7 @@ export default function HomePage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {busy
-                    ? "处理中..."
-                    : isBookmarked
-                    ? "★ 已收藏"
-                    : "☆ 收藏"}
+                  {busy ? "处理中..." : isBookmarked ? "★ 已收藏" : "☆ 收藏"}
                 </button>
               </div>
 
