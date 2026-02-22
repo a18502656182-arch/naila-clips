@@ -23,46 +23,38 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // 1) 登录态 -> is_member
+    // 1) 登录态 -> is_member（统一用 subscriptions.expires_at）
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
 
     let is_member = false;
-    let sub_debug = null;
+    let sub_debug = { ok: false, status: null, expires_at: null, plan: null };
 
-    if (userErr) {
-      // 不强制报错：未登录也能看 clips
-      sub_debug = { ok: false, reason: "getUser_error", message: userErr.message };
-    } else if (user?.id) {
-      // ✅ 关键：过滤 ends_at = null，避免 NULL 被排到最前面导致永远取到空值
+    if (user?.id && !userErr) {
       const { data: sub, error: subErr } = await supabase
         .from("subscriptions")
-        .select("status, ends_at, plan")
+        .select("status, expires_at, plan")
         .eq("user_id", user.id)
-        .not("ends_at", "is", null)
-        .order("ends_at", { ascending: false })
+        .not("expires_at", "is", null)
+        .order("expires_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (subErr) {
-        sub_debug = { ok: false, reason: "sub_query_error", message: subErr.message };
-      } else if (sub) {
-        sub_debug = { ok: true, status: sub.status, ends_at: sub.ends_at, plan: sub.plan };
+      if (!subErr && sub) {
+        sub_debug = { ok: true, status: sub.status || null, expires_at: sub.expires_at || null, plan: sub.plan || null };
 
-        if (sub.status === "active" && sub.ends_at) {
-          const ends = new Date(sub.ends_at);
-          if (!isNaN(ends.getTime()) && ends.getTime() > Date.now()) {
-            is_member = true;
-          }
+        const exp = sub.expires_at ? new Date(sub.expires_at).getTime() : null;
+        if (sub.status === "active" && exp && !Number.isNaN(exp) && exp > Date.now()) {
+          is_member = true;
         }
       } else {
-        sub_debug = { ok: true, status: null, ends_at: null, plan: null };
+        sub_debug = { ok: false, status: null, expires_at: null, plan: null };
       }
     }
 
-    // 2) 先拿轻量集合
+    // 2) 先拿轻量候选集合
     let q = supabase
       .from("clips")
       .select(
@@ -80,7 +72,7 @@ export default async function handler(req, res) {
     const { data: lightRows, error: lightErr } = await q;
     if (lightErr) return res.status(500).json({ error: lightErr.message });
 
-    // 3) 后端匹配
+    // 3) 后端匹配 difficulty/topic/channel
     const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || [])
         .map((ct) => ct.taxonomies)
@@ -123,7 +115,7 @@ export default async function handler(req, res) {
 
     if (!pageIds.length) {
       return res.status(200).json({
-        debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, sub_debug },
+        debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
         items: [],
         total,
         limit,
@@ -135,7 +127,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5) 查这一页的详细 clips
+    // 5) 查这一页详情
     const { data: fullRows, error: fullErr } = await supabase
       .from("clips")
       .select(
@@ -151,7 +143,6 @@ export default async function handler(req, res) {
 
     if (fullErr) return res.status(500).json({ error: fullErr.message });
 
-    // 6) 组装 items，按 pageIds 的顺序输出
     const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
 
     const items = pageIds
@@ -188,7 +179,7 @@ export default async function handler(req, res) {
       .filter(Boolean);
 
     return res.status(200).json({
-      debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, sub_debug },
+      debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
       items,
       total,
       limit,
