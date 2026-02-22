@@ -1,12 +1,6 @@
 // pages/register.js
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -30,47 +24,20 @@ export default function RegisterPage() {
 
       const j = await r.json();
 
+      // 失败：显示错误
       if (!r.ok || !j.ok) {
         setMsg(j.error || "注册失败");
-        setLoading(false);
         return;
       }
 
-      if (!j.needs_login && j.session) {
-  // 1) 先写入浏览器 session（可留可不留）
-  const { error } = await supabase.auth.setSession({
-    access_token: j.session.access_token,
-    refresh_token: j.session.refresh_token,
-  });
-  if (error) {
-    setMsg("注册成功，但写入登录态失败：请去登录页登录");
-    setLoading(false);
-    return;
-  }
-
-  // 2) 关键：把 session 写入 cookie（让 /api/me 这种后端接口看得到）
-  const r2 = await fetch("/api/auth/set-session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      access_token: j.session.access_token,
-      refresh_token: j.session.refresh_token,
-    }),
-  });
-  const j2 = await r2.json();
-  if (!r2.ok || !j2.ok) {
-    setMsg(j2.error || "注册成功，但写入 cookie 失败（/api/me 会看不到登录态）");
-    setLoading(false);
-    return;
-  }
-
-  router.push("/");
-  return;
-}
+      // 后端说需要去登录（极少数：写 cookie 失败 / 登录失败）
+      if (j.needs_login) {
+        router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
+        return;
       }
 
-      // needs_login
-      router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
+      // ✅ 成功：后端已经写好 cookie，直接回首页
+      router.push("/");
     } catch (err) {
       setMsg(err.message || "未知错误");
     } finally {
@@ -116,7 +83,13 @@ export default function RegisterPage() {
 
         <button
           disabled={loading}
-          style={{ padding: 12, borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 600 }}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "none",
+            cursor: "pointer",
+            fontWeight: 600,
+          }}
         >
           {loading ? "注册中..." : "注册并开通"}
         </button>
