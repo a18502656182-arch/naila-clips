@@ -1,31 +1,22 @@
 // pages/api/bookmarks_delete.js
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
-import { createClient } from "@supabase/supabase-js";
 
 function getBearer(req) {
   const h = req.headers.authorization || "";
   const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1] : null;
+  return m ? m[1].trim() : null;
 }
 
-async function getAuthedSupabase(req, res) {
-  const supabaseCookie = createPagesServerClient({ req, res });
-  const { data: u1 } = await supabaseCookie.auth.getUser();
-  if (u1?.user) return { supabase: supabaseCookie, user: u1.user, mode: "cookie" };
+async function getUserFromReq(req, res) {
+  const supabase = createPagesServerClient({ req, res });
 
   const token = getBearer(req);
-  if (!token) return { supabase: null, user: null, mode: "none" };
+  const { data, error } = token
+    ? await supabase.auth.getUser(token)
+    : await supabase.auth.getUser();
 
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  const supabaseBearer = createClient(url, key, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
-  const { data: u2 } = await supabaseBearer.auth.getUser();
-  if (u2?.user) return { supabase: supabaseBearer, user: u2.user, mode: "bearer" };
-
-  return { supabase: null, user: null, mode: "invalid" };
+  const user = data?.user || null;
+  return { supabase, user, mode: token ? "bearer" : "cookie", userErr: error?.message || null };
 }
 
 export default async function handler(req, res) {
@@ -34,8 +25,8 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "method_not_allowed" });
     }
 
-    const { supabase, user, mode } = await getAuthedSupabase(req, res);
-    if (!user) return res.status(401).json({ error: "not_logged_in", debug: { mode } });
+    const { supabase, user, mode, userErr } = await getUserFromReq(req, res);
+    if (!user) return res.status(401).json({ error: "not_logged_in", debug: { mode, userErr } });
 
     const { clip_id } = req.body || {};
     const cid = Number(clip_id);
