@@ -382,17 +382,32 @@ export default function HomePage() {
 
   // ✅ 退出登录（清 cookie）
   async function logout() {
-    try {
-      await fetchJson("/api/logout", { method: "POST" });
-      showToast("已退出登录");
-      setBookmarkIds(new Set());
+  try {
+    await fetchJson("/api/logout", { method: "POST" });
+    showToast("已退出登录");
+
+    // 1) 清本地收藏
+    setBookmarkIds(new Set());
+
+    // 2) 先更新登录态（让 /api/clips 里 is_member 变成 false）
+    await loadMe();
+
+    // 3) 强制触发“重新加载第一页”
+    fetchingRef.current = false; // 防止被“正在请求”的锁卡住
+    setHasMore(false);
+    setTotal(0);
+    setOffset(0);
+    setItems([]);
+
+    // 4) 给 React 一帧时间把 state 落地，再让 clips effect 立刻跑起来
+    setTimeout(() => {
+      // 触发一次“轻微变化”，确保 qs effect 会重新跑
       setOffset(0);
-      setItems([]);
-      await loadMe(); // 会变成未登录
-    } catch (e) {
-      showToast("退出失败：" + e.message);
-    }
+    }, 0);
+  } catch (e) {
+    showToast("退出失败：" + e.message);
   }
+}
 
   // 1) 拉 taxonomies
   useEffect(() => {
