@@ -1,9 +1,34 @@
+// pages/api/bookmarks.js
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 
 function getBearer(req) {
   const h = req.headers.authorization || "";
-  if (!h.startsWith("Bearer ")) return null;
-  return h.slice(7);
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : null;
+}
+
+// ✅ 同时支持 cookie & Bearer
+async function getAuthedSupabase(req, res) {
+  // 1) 先用 cookie（你现在 /api/me 就是靠它成功的）
+  const supabaseCookie = createPagesServerClient({ req, res });
+  const { data: u1 } = await supabaseCookie.auth.getUser();
+  if (u1?.user) return { supabase: supabaseCookie, user: u1.user, mode: "cookie" };
+
+  // 2) 再兼容 Bearer（方便你控制台测试）
+  const token = getBearer(req);
+  if (!token) return { supabase: null, user: null, mode: "none" };
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  const supabaseBearer = createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data: u2 } = await supabaseBearer.auth.getUser();
+  if (u2?.user) return { supabase: supabaseBearer, user: u2.user, mode: "bearer" };
+
+  return { supabase: null, user: null, mode: "invalid" };
 }
 
 export default async function handler(req, res) {
@@ -12,59 +37,77 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "method_not_allowed" });
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) {
-      return res.status(500).json({ error: "missing_env" });
+    const limit = Math.min(parseInt(req.query.limit || "20", 10), 50);
+    const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
+
+    const { supabase, user, mode } = await getAuthedSupabase(req, res);
+    if (!user) {
+      return res.status(401).json({ error: "not_logged_in", debug: { mode } });
     }
 
-    const token = getBearer(req);
-    if (!token) return res.status(401).json({ error: "not_logged_in" });
-
-    const supabase = createClient(supabaseUrl, serviceKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    const limit = Math.min(parseInt(req.query.limit || "20", 10) || 20, 50);
-    const offset = parseInt(req.query.offset || "0", 10) || 0;
-
-    // ✅ 读收藏表（RLS 负责只给本人）
-    const { data: rows, error } = await supabase
+    // 1) 先取 bookmarks（只取当前用户）
+    const { data: rows, error: e1, count } = await supabase
       .from("bookmarks")
-      .select("id, clip_id, created_at")
+      .select("id, clip_id, created_at", { count: "exact" })
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) return res.status(500).json({ error: "bookmarks_query_failed", detail: error.message });
-
-    const clipIds = (rows || []).map((r) => r.clip_id).filter(Boolean);
-    if (!clipIds.length) {
-      return res.status(200).json({ items: [], total: 0, limit, offset });
+    if (e1) {
+      return res.status(500).json({ error: "bookmarks_query_failed", detail: e1.message });
     }
 
-    // ✅ 再把 clips 信息查出来（用你的真实列名）
-    const { data: clips, error: e2 } = await supabase
-      .from("clips")
-      .select("id,title,description,duration_sec,created_at,access_tier,cover_url,video_url")
-      .in("id", clipIds);
+    const clipIds = (rows || []).map((r) => r.clip_id).filter(Boolean);
 
-    if (e2) return res.status(500).json({ error: "clips_query_failed", detail: e2.message });
+    // 2) 再批量取 clips_view（你库里已经有 clips_view，且字段是 *_slugs）
+    let clipMap = new Map();
+    if (clipIds.length) {
+      const { data: clips, error: e2 } = await supabase
+        .from("clips_view")
+        .select(
+          "id,title,access_tier,cover_url,video_url,duration_sec,created_at,difficulty_slugs,topic_slugs,channel_slugs"
+        )
+        .in("id", clipIds);
 
-    // 按收藏顺序输出
-    const map = new Map((clips || []).map((c) => [c.id, c]));
-    const items = (rows || [])
-      .map((r) => {
-        const c = map.get(r.clip_id);
-        if (!c) return null;
-        return {
-          ...c,
-          bookmarked_at: r.created_at,
-        };
-      })
-      .filter(Boolean);
+      if (e2) {
+        return res.status(500).json({ error: "clips_query_failed", detail: e2.message });
+      }
+      clipMap = new Map((clips || []).map((c) => [c.id, c]));
+    }
 
-    return res.status(200).json({ items, total: items.length, limit, offset });
+    // 3) 合并输出
+    const items = (rows || []).map((b) => {
+      const c = clipMap.get(b.clip_id);
+      return {
+        bookmark_id: b.id,
+        clip_id: b.clip_id,
+        bookmarked_at: b.created_at,
+        clip: c
+          ? {
+              id: c.id,
+              title: c.title,
+              access_tier: c.access_tier,
+              cover_url: c.cover_url,
+              video_url: c.video_url,
+              duration_sec: c.duration_sec,
+              created_at: c.created_at,
+              difficulty_slugs: c.difficulty_slugs || [],
+              topic_slugs: c.topic_slugs || [],
+              channel_slugs: c.channel_slugs || [],
+            }
+          : null,
+      };
+    });
+
+    return res.status(200).json({
+      ok: true,
+      total: count || 0,
+      limit,
+      offset,
+      items,
+      debug: { mode },
+    });
   } catch (err) {
-    return res.status(500).json({ error: "server_error", detail: String(err?.message || err) });
+    return res.status(500).json({ error: "unknown", detail: String(err?.message || err) });
   }
 }
