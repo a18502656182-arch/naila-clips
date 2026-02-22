@@ -10,6 +10,8 @@ import HoverPreview from "../components/HoverPreview";
  * ✅ 退出登录（POST /api/logout）
  * ✅ 未登录点收藏：弹窗引导登录/注册
  * ✅ 我的收藏入口 /bookmarks
+ * ✅ 整张卡片可点进详情页 /clips/[id]
+ * ✅ 悬停卡片轻微阴影
  */
 
 function splitParam(v) {
@@ -43,16 +45,9 @@ function useOutsideClick(ref, onOutside) {
   }, [ref, onOutside]);
 }
 
-function MultiSelectDropdown({
-  label,
-  placeholder = "请选择",
-  options,
-  value,
-  onChange,
-}) {
+function MultiSelectDropdown({ label, placeholder = "请选择", options, value, onChange }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
-
   useOutsideClick(wrapRef, () => setOpen(false));
 
   const selected = useMemo(() => new Set(value || []), [value]);
@@ -65,9 +60,7 @@ function MultiSelectDropdown({
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-        {label}
-      </div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
 
       <button
         type="button"
@@ -102,13 +95,9 @@ function MultiSelectDropdown({
           ) : (
             <div style={{ fontSize: 13, opacity: 0.6 }}>{placeholder}</div>
           )}
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
-            已选 {value?.length || 0} 项
-          </div>
+          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>已选 {value?.length || 0} 项</div>
         </div>
-        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>
-          {open ? "▲" : "▼"}
-        </div>
+        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>{open ? "▲" : "▼"}</div>
       </button>
 
       {open ? (
@@ -173,18 +162,12 @@ function MultiSelectDropdown({
                   cursor: "pointer",
                 }}
               >
-                <input
-                  type="checkbox"
-                  checked={selected.has(o.slug)}
-                  onChange={() => onChange(toggleInArray(value || [], o.slug))}
-                />
+                <input type="checkbox" checked={selected.has(o.slug)} onChange={() => onChange(toggleInArray(value || [], o.slug))} />
                 <div style={{ fontSize: 13 }}>{o.name || o.slug}</div>
               </label>
             ))
           ) : (
-            <div style={{ fontSize: 12, opacity: 0.6, padding: 6 }}>
-              暂无选项（请检查 /api/taxonomies）
-            </div>
+            <div style={{ fontSize: 12, opacity: 0.6, padding: 6 }}>暂无选项（请检查 /api/taxonomies）</div>
           )}
         </div>
       ) : null}
@@ -195,9 +178,7 @@ function MultiSelectDropdown({
 function SingleSelectDropdown({ label, value, onChange, options }) {
   return (
     <div>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-        {label}
-      </div>
+      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -227,8 +208,7 @@ async function fetchJson(url, options) {
     data = text ? JSON.parse(text) : null;
   } catch {}
   if (!res.ok) {
-    const msg =
-      (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
+    const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;
@@ -240,11 +220,7 @@ async function fetchJson(url, options) {
 export default function HomePage() {
   const router = useRouter();
 
-  const [tax, setTax] = useState({
-    difficulties: [],
-    topics: [],
-    channels: [],
-  });
+  const [tax, setTax] = useState({ difficulties: [], topics: [], channels: [] });
 
   // filters
   const [difficulty, setDifficulty] = useState([]);
@@ -264,10 +240,7 @@ export default function HomePage() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
 
-  // 防重复请求
   const fetchingRef = useRef(false);
-
-  // 无限滚动哨兵
   const sentinelRef = useRef(null);
 
   const accessOptions = useMemo(
@@ -279,13 +252,7 @@ export default function HomePage() {
   );
 
   // -------- 登录状态 & 收藏 --------
-  const [me, setMe] = useState({
-    loading: true,
-    logged_in: false,
-    is_member: false,
-    email: null,
-  });
-
+  const [me, setMe] = useState({ loading: true, logged_in: false, is_member: false, email: null });
   const [bookmarkIds, setBookmarkIds] = useState(() => new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
@@ -293,7 +260,7 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
-  // ✅ 未登录收藏弹窗
+  // 未登录收藏弹窗
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
 
@@ -340,7 +307,6 @@ export default function HomePage() {
   async function toggleBookmark(clipId) {
     if (!clipId) return;
 
-    // ✅ 未登录：弹窗
     if (!me.logged_in) {
       setPendingBookmarkId(clipId);
       setShowAuthModal(true);
@@ -382,31 +348,28 @@ export default function HomePage() {
     }
   }
 
-  // ✅ 退出登录（清 cookie）
-async function logout() {
-  try {
-    await fetchJson("/api/logout", { method: "POST" });
-    showToast("已退出登录");
+  // 退出登录
+  async function logout() {
+    try {
+      await fetchJson("/api/logout", { method: "POST" });
+      showToast("已退出登录");
 
-    // 清本地状态
-    setBookmarkIds(new Set());
-    setHasMore(false);
-    setTotal(0);
-    setOffset(0);
-    setItems([]);
+      setBookmarkIds(new Set());
+      setHasMore(false);
+      setTotal(0);
+      setOffset(0);
+      setItems([]);
 
-    // 更新登录态（me -> 未登录）
-    await loadMe();
+      await loadMe();
 
-    // ✅ 关键：强制重新请求 clips（不依赖 qs 变化）
-    fetchingRef.current = false;
-    setClipsReloadKey((x) => x + 1);
-  } catch (e) {
-    showToast("退出失败：" + e.message);
+      fetchingRef.current = false;
+      setClipsReloadKey((x) => x + 1);
+    } catch (e) {
+      showToast("退出失败：" + e.message);
+    }
   }
-}
 
-  // 1) 拉 taxonomies
+  // 拉 taxonomies
   useEffect(() => {
     fetch("/api/taxonomies")
       .then((r) => r.json())
@@ -420,12 +383,12 @@ async function logout() {
       .catch(() => {});
   }, []);
 
-  // 1.5) 拉 /api/me（登录状态）
+  // 拉 /api/me
   useEffect(() => {
     loadMe();
   }, []);
 
-  // 1.6) 登录后拉收藏
+  // 登录后拉收藏
   useEffect(() => {
     if (me.loading) return;
     if (me.logged_in) loadBookmarks();
@@ -433,10 +396,9 @@ async function logout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me.loading, me.logged_in]);
 
-  // 2) 从 URL 还原筛选（刷新不丢）
+  // 从 URL 还原筛选
   useEffect(() => {
     if (!router.isReady) return;
-
     const q = router.query;
     setDifficulty(splitParam(q.difficulty));
     setTopic(splitParam(q.topic));
@@ -445,7 +407,7 @@ async function logout() {
     setSort(q.sort === "oldest" ? "oldest" : "newest");
   }, [router.isReady]);
 
-  // 3) 筛选变化：回到第一页 + 清空列表（会员/登录变化也要重拉）
+  // 筛选变化：回到第一页 + 清空列表（会员/登录变化也要重拉）
   useEffect(() => {
     if (!router.isReady) return;
     setOffset(0);
@@ -461,7 +423,7 @@ async function logout() {
     me.is_member,
   ]);
 
-  // 4) 生成请求 qs（带 limit/offset）
+  // 请求 qs
   const qs = useMemo(() => {
     const p = new URLSearchParams();
     if (difficulty.length) p.set("difficulty", difficulty.join(","));
@@ -469,29 +431,24 @@ async function logout() {
     if (channel.length) p.set("channel", channel.join(","));
     if (access.length) p.set("access", access.join(","));
     if (sort) p.set("sort", sort);
-
     p.set("limit", String(PAGE_SIZE));
     p.set("offset", String(offset));
     return p.toString();
   }, [difficulty, topic, channel, access, sort, offset]);
 
-  // 5) 同步 URL（只同步筛选，不写 offset）
+  // 同步 URL（不写 offset）
   useEffect(() => {
     if (!router.isReady) return;
-
     const nextQuery = {};
     if (difficulty.length) nextQuery.difficulty = difficulty.join(",");
     if (topic.length) nextQuery.topic = topic.join(",");
     if (channel.length) nextQuery.channel = channel.join(",");
     if (access.length) nextQuery.access = access.join(",");
     if (sort && sort !== "newest") nextQuery.sort = sort;
-
-    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, {
-      shallow: true,
-    });
+    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
   }, [router.isReady, difficulty, topic, channel, access, sort]);
 
-  // 6) 请求 clips：第一页 / 加载更多
+  // 请求 clips
   useEffect(() => {
     if (!router.isReady) return;
     if (fetchingRef.current) return;
@@ -507,7 +464,6 @@ async function logout() {
       .then((d) => {
         const newItems = d?.items || [];
         const nextTotal = d?.total || 0;
-
         setTotal(nextTotal);
 
         const apiHasMore =
@@ -516,7 +472,6 @@ async function logout() {
             : offset + PAGE_SIZE < nextTotal;
 
         setHasMore(Boolean(apiHasMore));
-
         setItems((prev) => (isFirstPage ? newItems : [...prev, ...newItems]));
       })
       .catch(() => {
@@ -533,7 +488,7 @@ async function logout() {
       });
   }, [router.isReady, qs, clipsReloadKey]);
 
-  // 7) 无限滚动：哨兵进入视口就加载下一页
+  // 无限滚动
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -542,11 +497,9 @@ async function logout() {
       (entries) => {
         const first = entries[0];
         if (!first?.isIntersecting) return;
-
         if (!hasMore) return;
         if (loading || loadingMore) return;
         if (fetchingRef.current) return;
-
         setOffset((x) => x + PAGE_SIZE);
       },
       { root: null, rootMargin: "400px", threshold: 0.01 }
@@ -572,16 +525,8 @@ async function logout() {
         }}
       >
         <div>
-          {me.loading
-            ? "登录状态：检查中..."
-            : me.logged_in
-            ? `已登录：${me.email || "（无邮箱）"}`
-            : "未登录"}
-          {me.logged_in ? (
-            <span style={{ marginLeft: 8 }}>
-              会员：{me.is_member ? "✅ 是" : "❌ 否"}
-            </span>
-          ) : null}
+          {me.loading ? "登录状态：检查中..." : me.logged_in ? `已登录：${me.email || "（无邮箱）"}` : "未登录"}
+          {me.logged_in ? <span style={{ marginLeft: 8 }}>会员：{me.is_member ? "✅ 是" : "❌ 否"}</span> : null}
         </div>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -632,11 +577,11 @@ async function logout() {
           <button
             type="button"
             onClick={() => {
-  loadMe().then(() => {
-    setClipsReloadKey((x) => x + 1);
-    showToast("已刷新登录状态");
-  });
-}}
+              loadMe().then(() => {
+                setClipsReloadKey((x) => x + 1);
+                showToast("已刷新登录状态");
+              });
+            }}
             style={{
               border: "1px solid #eee",
               background: "white",
@@ -665,7 +610,7 @@ async function logout() {
         </div>
       ) : null}
 
-      {/* ✅ 未登录收藏弹窗 */}
+      {/* 未登录收藏弹窗 */}
       {showAuthModal ? (
         <div
           onClick={() => setShowAuthModal(false)}
@@ -710,14 +655,7 @@ async function logout() {
               </button>
             </div>
 
-            <div
-              style={{
-                marginTop: 10,
-                fontSize: 13,
-                opacity: 0.8,
-                lineHeight: 1.6,
-              }}
-            >
+            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
               收藏功能需要登录。登录后你可以在「我的收藏」里随时找到这些视频。
             </div>
 
@@ -772,16 +710,23 @@ async function logout() {
         ) : null}
       </div>
 
-      {/* ✅ 电脑 5 列一行 */}
+      {/* 电脑 5 列一行 */}
       <style jsx>{`
         @media (min-width: 1024px) {
           .filterGrid {
             grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
           }
         }
+        .cardLink {
+          transition: box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .cardLink:hover {
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
+          transform: translateY(-2px);
+        }
       `}</style>
 
-      {/* ✅ 筛选区 */}
+      {/* 筛选区 */}
       <div
         style={{
           border: "1px solid #eee",
@@ -809,48 +754,13 @@ async function logout() {
             ]}
           />
 
-          <MultiSelectDropdown
-            label="难度（多选）"
-            placeholder="选择难度"
-            options={tax.difficulties}
-            value={difficulty}
-            onChange={setDifficulty}
-          />
-
-          <MultiSelectDropdown
-            label="权限（多选）"
-            placeholder="选择权限"
-            options={accessOptions}
-            value={access}
-            onChange={setAccess}
-          />
-
-          <MultiSelectDropdown
-            label="Topic（多选）"
-            placeholder="选择 Topic"
-            options={tax.topics}
-            value={topic}
-            onChange={setTopic}
-          />
-
-          <MultiSelectDropdown
-            label="Channel（多选）"
-            placeholder="选择 Channel"
-            options={tax.channels}
-            value={channel}
-            onChange={setChannel}
-          />
+          <MultiSelectDropdown label="难度（多选）" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
+          <MultiSelectDropdown label="权限（多选）" placeholder="选择权限" options={accessOptions} value={access} onChange={setAccess} />
+          <MultiSelectDropdown label="Topic（多选）" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
+          <MultiSelectDropdown label="Channel（多选）" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
         </div>
 
-        <div
-          style={{
-            marginTop: 10,
-            display: "flex",
-            gap: 10,
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
+        <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <button
             type="button"
             onClick={() => {
@@ -890,32 +800,34 @@ async function logout() {
           const busy = bookmarkBusyId === it.id;
 
           return (
-            <div
+            <a
               key={it.id}
+              href={`/clips/${it.id}`}
+              className="cardLink"
               style={{
                 border: "1px solid #eee",
                 borderRadius: 14,
                 padding: 12,
                 background: "white",
+                display: "block",
+                color: "inherit",
+                textDecoration: "none",
+                cursor: "pointer",
               }}
             >
               <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-                <a
-  href={`/clips/${it.id}`}
-  style={{
-    fontWeight: 800,
-    marginBottom: 6,
-    flex: 1,
-    color: "#111",
-    textDecoration: "none",
-  }}
->
-  {it.title || `Clip #${it.id}`}
-</a>
+                <div style={{ fontWeight: 800, marginBottom: 6, flex: 1 }}>
+                  {it.title || `Clip #${it.id}`}
+                </div>
 
+                {/* 收藏按钮：阻止跳详情页 */}
                 <button
                   type="button"
-                  onClick={() => toggleBookmark(it.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleBookmark(it.id);
+                  }}
                   disabled={busy}
                   title={me.logged_in ? "" : "请先登录"}
                   style={{
@@ -934,16 +846,11 @@ async function logout() {
               </div>
 
               <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-                {it.access_tier} · {it.difficulty || "unknown"} ·{" "}
-                {it.duration_sec ? `${it.duration_sec}s` : ""}
+                {it.access_tier} · {it.difficulty || "unknown"} · {it.duration_sec ? `${it.duration_sec}s` : ""}
               </div>
 
-              <HoverPreview
-  coverUrl={it.cover_url}
-  videoUrl={it.video_url}
-  alt={it.title || ""}
-/>
-<div style={{ height: 8 }} />
+              <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} />
+              <div style={{ height: 8 }} />
 
               <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
                 Topics: {(it.topics || []).join(", ") || "-"}
@@ -952,33 +859,30 @@ async function logout() {
               </div>
 
               {it.can_access ? (
-                <a href={it.video_url} target="_blank" rel="noreferrer">
+                <a
+                  href={it.video_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(it.video_url, "_blank", "noopener,noreferrer");
+                  }}
+                  style={{ fontSize: 13 }}
+                >
                   播放视频
                 </a>
               ) : (
-                <div style={{ color: "#b00", fontSize: 12 }}>
-                  会员专享：请登录并兑换码激活
-                </div>
+                <div style={{ color: "#b00", fontSize: 12 }}>会员专享：请登录并兑换码激活</div>
               )}
-            </div>
+            </a>
           );
         })}
       </div>
 
-      {!loading && items.length === 0 ? (
-        <div style={{ marginTop: 16, opacity: 0.7 }}>
-          没有结果（请换筛选条件）
-        </div>
-      ) : null}
+      {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
 
-      <div
-        style={{
-          marginTop: 14,
-          textAlign: "center",
-          fontSize: 12,
-          opacity: 0.7,
-        }}
-      >
+      <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, opacity: 0.7 }}>
         {loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}
       </div>
 
