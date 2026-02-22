@@ -290,6 +290,7 @@ export default function HomePage() {
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
 
   const [toast, setToast] = useState("");
+  const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
   // ✅ 未登录收藏弹窗
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -381,29 +382,24 @@ export default function HomePage() {
   }
 
   // ✅ 退出登录（清 cookie）
-  async function logout() {
+async function logout() {
   try {
     await fetchJson("/api/logout", { method: "POST" });
     showToast("已退出登录");
 
-    // 1) 清本地收藏
+    // 清本地状态
     setBookmarkIds(new Set());
-
-    // 2) 先更新登录态（让 /api/clips 里 is_member 变成 false）
-    await loadMe();
-
-    // 3) 强制触发“重新加载第一页”
-    fetchingRef.current = false; // 防止被“正在请求”的锁卡住
     setHasMore(false);
     setTotal(0);
     setOffset(0);
     setItems([]);
 
-    // 4) 给 React 一帧时间把 state 落地，再让 clips effect 立刻跑起来
-    setTimeout(() => {
-      // 触发一次“轻微变化”，确保 qs effect 会重新跑
-      setOffset(0);
-    }, 0);
+    // 更新登录态（me -> 未登录）
+    await loadMe();
+
+    // ✅ 关键：强制重新请求 clips（不依赖 qs 变化）
+    fetchingRef.current = false;
+    setClipsReloadKey((x) => x + 1);
   } catch (e) {
     showToast("退出失败：" + e.message);
   }
@@ -534,7 +530,7 @@ export default function HomePage() {
         setLoadingMore(false);
         fetchingRef.current = false;
       });
-  }, [router.isReady, qs]);
+  }, [router.isReady, qs, clipsReloadKey]);
 
   // 7) 无限滚动：哨兵进入视口就加载下一页
   useEffect(() => {
