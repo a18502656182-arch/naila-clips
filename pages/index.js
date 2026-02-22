@@ -900,9 +900,18 @@ async function logout() {
               }}
             >
               <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-                <div style={{ fontWeight: 800, marginBottom: 6, flex: 1 }}>
-                  {it.title || `Clip #${it.id}`}
-                </div>
+                <a
+  href={`/clips/${it.id}`}
+  style={{
+    fontWeight: 800,
+    marginBottom: 6,
+    flex: 1,
+    color: "#111",
+    textDecoration: "none",
+  }}
+>
+  {it.title || `Clip #${it.id}`}
+</a>
 
                 <button
                   type="button"
