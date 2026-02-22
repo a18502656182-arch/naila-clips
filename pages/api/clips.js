@@ -22,20 +22,36 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // 1) 登录态 -> is_member
+    // ✅ DEBUG：看服务端是否拿到 cookie
+    const cookieHeader = req.headers.cookie || "";
+    const has_cookie = cookieHeader.length > 0;
+
+    // 1) 登录态 -> user
     const {
       data: { user },
+      error: userErr,
     } = await supabase.auth.getUser();
 
+    const has_user = !!user?.id;
+
+    // 1.1) is_member
     let is_member = false;
+    let sub_debug = null;
+
     if (user?.id) {
-      const { data: sub } = await supabase
+      const { data: sub, error: subErr } = await supabase
         .from("subscriptions")
-        .select("status, ends_at")
+        .select("status, ends_at, plan")
         .eq("user_id", user.id)
         .order("ends_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+
+      if (subErr) {
+        sub_debug = { ok: false, error: subErr.message };
+      } else {
+        sub_debug = { ok: true, status: sub?.status || null, ends_at: sub?.ends_at || null, plan: sub?.plan || null };
+      }
 
       if (sub?.status === "active" && sub?.ends_at) {
         const ends = new Date(sub.ends_at);
@@ -45,8 +61,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2) 先拿“轻量的候选集合”（只拉 id + access + created_at + taxonomies）
-    //    这样比直接拉 title/video_url 等大字段要省很多
+    // 2) 轻量候选集合
     let q = supabase
       .from("clips")
       .select(
@@ -62,9 +77,14 @@ export default async function handler(req, res) {
     if (access.length) q = q.in("access_tier", access);
 
     const { data: lightRows, error: lightErr } = await q;
-    if (lightErr) return res.status(500).json({ error: lightErr.message });
+    if (lightErr) {
+      return res.status(500).json({
+        error: lightErr.message,
+        debug: { mode: "db_paged", step: "light_query_failed", has_cookie, has_user, userErr: userErr?.message || null },
+      });
+    }
 
-    // 3) 后端做 difficulty/topic/channel 匹配，但这里只是轻量数据
+    // 3) 匹配筛选
     const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || [])
         .map((ct) => ct.taxonomies)
@@ -72,9 +92,7 @@ export default async function handler(req, res) {
 
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const channels = all
-        .filter((t) => t.type === "channel")
-        .map((t) => t.slug);
+      const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
       return {
         id: row.id,
@@ -101,15 +119,22 @@ export default async function handler(req, res) {
 
     const matched = normalized.filter(matches);
 
-    // 4) 分页（只切 id 列表）
+    // 4) 分页
     const total = matched.length;
     const page = matched.slice(offset, offset + limit);
     const pageIds = page.map((x) => x.id);
     const has_more = offset + limit < total;
 
-    // 没有数据直接返回
     if (!pageIds.length) {
       return res.status(200).json({
+        debug: {
+          mode: "db_paged",
+          has_cookie,
+          has_user,
+          user_id: user?.id || null,
+          userErr: userErr?.message || null,
+          sub_debug,
+        },
         items: [],
         total,
         limit,
@@ -121,7 +146,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5) 再查“这一页的详细 clips”
+    // 5) 查这一页详细 clips
     const { data: fullRows, error: fullErr } = await supabase
       .from("clips")
       .select(
@@ -135,9 +160,14 @@ export default async function handler(req, res) {
       )
       .in("id", pageIds);
 
-    if (fullErr) return res.status(500).json({ error: fullErr.message });
+    if (fullErr) {
+      return res.status(500).json({
+        error: fullErr.message,
+        debug: { mode: "db_paged", step: "full_query_failed", has_cookie, has_user, user_id: user?.id || null },
+      });
+    }
 
-    // 6) 组装 items，并按 pageIds 的顺序输出（否则 in 查询顺序不稳定）
+    // 6) 组装 items（保持顺序）
     const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
 
     const items = pageIds
@@ -151,9 +181,7 @@ export default async function handler(req, res) {
 
         const diff = all.find((t) => t.type === "difficulty")?.slug || null;
         const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-        const channels = all
-          .filter((t) => t.type === "channel")
-          .map((t) => t.slug);
+        const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
         const can_access = row.access_tier === "free" ? true : Boolean(is_member);
 
@@ -176,7 +204,14 @@ export default async function handler(req, res) {
       .filter(Boolean);
 
     return res.status(200).json({
-      debug: { mode: "db_paged" },
+      debug: {
+        mode: "db_paged",
+        has_cookie,
+        has_user,
+        user_id: user?.id || null,
+        userErr: userErr?.message || null,
+        sub_debug,
+      },
       items,
       total,
       limit,
