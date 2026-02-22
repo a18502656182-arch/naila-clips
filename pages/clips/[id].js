@@ -1,5 +1,5 @@
 // pages/clips/[id].js
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 async function fetchJson(url, options) {
@@ -10,143 +10,155 @@ async function fetchJson(url, options) {
     data = text ? JSON.parse(text) : null;
   } catch {}
   if (!res.ok) {
-    const msg =
-      (data && (data.error || data.message || data.detail)) ||
-      text ||
-      `HTTP ${res.status}`;
+    const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
     throw new Error(msg);
   }
   return data;
 }
 
-function fmtDur(sec) {
-  const s = Number(sec || 0);
-  const mm = Math.floor(s / 60);
-  const ss = s % 60;
-  return `${mm}:${String(ss).padStart(2, "0")}`;
+function tsToSec(ts) {
+  // "mm:ss" -> seconds
+  const m = String(ts || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return 0;
+  const mm = parseInt(m[1], 10);
+  const ss = parseInt(m[2], 10);
+  return mm * 60 + ss;
 }
 
-function slugToCN(s) {
-  if (!s) return "-";
-  const m = {
-    beginner: "初级",
-    intermediate: "中级",
-    advanced: "高级",
-  };
-  return m[s] || s;
+function formatTs(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  const mm = String(Math.floor(sec / 60)).padStart(2, "0");
+  const ss = String(sec % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
 }
 
 export default function ClipDetailPage() {
   const router = useRouter();
-  const id = router.query?.id;
+  const id = useMemo(() => parseInt(router.query.id || "0", 10), [router.query.id]);
 
-  const [me, setMe] = useState({ loading: true, logged_in: false, is_member: false, email: null });
-  const [clip, setClip] = useState(null);
-  const [subs, setSubs] = useState([]); // [{start_sec,end_sec,en,zh,repeat}]
+  const videoRef = useRef(null);
+  const listRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("");
+  const [clip, setClip] = useState(null); // from /api/clip?id
+  const [detail, setDetail] = useState(null); // from /api/clip_detail?id
+  const [tab, setTab] = useState("timeline"); // timeline | transcript | vocab | expr | takeaways
 
-  const [lang, setLang] = useState("en"); // en / zh
-  const [completed, setCompleted] = useState(false);
-  const [busyComplete, setBusyComplete] = useState(false);
+  const [currentSec, setCurrentSec] = useState(0);
+  const [langMode, setLangMode] = useState("both"); // en | both | zh
+  const [search, setSearch] = useState("");
 
-  const title = clip?.title || (id ? `Clip #${id}` : "Clip");
-  const difficulty = clip?.difficulty || "-";
-  const duration = clip?.duration_sec ? fmtDur(clip.duration_sec) : "-";
-  const accessTier = clip?.access_tier || "-";
-  const canAccess = !!clip?.can_access;
-
-  async function loadMe() {
-    try {
-      setMe((x) => ({ ...x, loading: true }));
-      const d = await fetchJson("/api/me");
-      setMe({
-        loading: false,
-        logged_in: !!d?.logged_in,
-        is_member: !!d?.is_member,
-        email: d?.email || null,
-      });
-      return d;
-    } catch {
-      setMe({ loading: false, logged_in: false, is_member: false, email: null });
-      return null;
-    }
-  }
-
-  async function loadAll() {
-    if (!id) return;
-    setLoading(true);
-    setMsg("");
-
-    try {
-      await loadMe();
-
-      // 详情
-      const d = await fetchJson(`/api/clip?id=${encodeURIComponent(id)}`);
-      setClip(d?.clip || null);
-
-      // 字幕（可为空）
-      const s = await fetchJson(`/api/subtitles?clip_id=${encodeURIComponent(id)}`);
-      setSubs(s?.items || []);
-
-      // 完成状态（只有登录才查）
-      if (d?.me?.logged_in) {
-        const p = await fetchJson(`/api/progress_status?clip_id=${encodeURIComponent(id)}`);
-        setCompleted(!!p?.completed);
-      } else {
-        setCompleted(false);
-      }
-    } catch (e) {
-      setMsg(e.message || "加载失败");
-      setClip(null);
-      setSubs([]);
-      setCompleted(false);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  // 1) 拉 clip 基础信息（复用你已有 /api/clips 的字段逻辑）
+  // 这里我们用 /api/clips?limit=1&offset=0&id=xx 不一定有，所以更稳：你后面可以加 /api/clip
+  // 暂时：直接调用 /api/clips 并在前端找（数据少时可行）
   useEffect(() => {
-    if (!router.isReady) return;
-    loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!router.isReady || !id) return;
+
+    (async () => {
+      setLoading(true);
+      try {
+        // A) 取 clip 基本信息：从 clips 接口里拿（临时方案）
+        const d1 = await fetchJson(`/api/clips?limit=1&offset=0&id=${id}`);
+        const item = d1?.items?.[0] || null;
+        setClip(item);
+
+        // B) 取详情 JSON
+        const d2 = await fetchJson(`/api/clip_detail?id=${id}`);
+        setDetail(d2?.details || null);
+      } catch (e) {
+        setClip(null);
+        setDetail(null);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [router.isReady, id]);
 
-  async function toggleComplete() {
-    if (!me.logged_in) {
-      alert("需要登录后才能标记完成");
-      return;
+  // 2) 视频时间更新 -> 高亮字幕
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+
+    const onTime = () => setCurrentSec(v.currentTime || 0);
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, []);
+
+  const timeline = useMemo(() => detail?.timeline || [], [detail]);
+  const vocab = useMemo(() => detail?.vocabulary || [], [detail]);
+  const expressions = useMemo(() => detail?.expressions || [], [detail]);
+  const takeaways = useMemo(() => detail?.key_takeaways || [], [detail]);
+
+  const activeIndex = useMemo(() => {
+    if (!timeline.length) return -1;
+    // 找最后一个 start <= currentSec
+    let idx = -1;
+    for (let i = 0; i < timeline.length; i++) {
+      const t = timeline[i];
+      const s = typeof t.start === "number" ? t.start : tsToSec(t.start_ts);
+      if (s <= currentSec + 0.2) idx = i;
+      else break;
     }
-    setBusyComplete(true);
-    try {
-      const r = await fetchJson("/api/progress_toggle", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clip_id: Number(id) }),
-      });
-      setCompleted(!!r?.completed);
-    } catch (e) {
-      alert("操作失败：" + e.message);
-    } finally {
-      setBusyComplete(false);
-    }
+    return idx;
+  }, [timeline, currentSec]);
+
+  // 3) 自动滚动让高亮字幕在中间
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    const container = listRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-line="${activeIndex}"]`);
+    if (!el) return;
+
+    const top = el.offsetTop;
+    const h = el.offsetHeight;
+    const ch = container.clientHeight;
+    const target = Math.max(0, top - ch / 2 + h / 2);
+    container.scrollTo({ top: target, behavior: "smooth" });
+  }, [activeIndex]);
+
+  function seekTo(sec) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(0, sec);
+    v.play?.();
   }
 
-  const subtitleRows = useMemo(() => {
-    return (subs || []).map((x, idx) => {
-      const start = fmtDur(Math.floor(x.start_sec || 0));
-      const end = fmtDur(Math.floor(x.end_sec || 0));
-      const repeat = x.repeat ?? 3;
-      const line = lang === "en" ? x.en : x.zh;
-      return { idx, start, end, repeat, line: line || "" };
+  const filteredVocab = useMemo(() => {
+    const q = String(search || "").trim().toLowerCase();
+    if (!q) return vocab;
+    return vocab.filter((x) => {
+      return (
+        String(x.term || "").toLowerCase().includes(q) ||
+        String(x.meaning_zh || "").includes(q) ||
+        String(x.meaning_en || "").toLowerCase().includes(q)
+      );
     });
-  }, [subs, lang]);
+  }, [vocab, search]);
+
+  const filteredExpr = useMemo(() => {
+    const q = String(search || "").trim().toLowerCase();
+    if (!q) return expressions;
+    return expressions.filter((x) => {
+      return (
+        String(x.phrase || "").toLowerCase().includes(q) ||
+        String(x.meaning_zh || "").includes(q)
+      );
+    });
+  }, [expressions, search]);
+
+  const title =
+    detail?.clip?.title_zh ||
+    clip?.title ||
+    (id ? `Clip #${id}` : "Clip");
+
+  const canAccess = clip?.can_access ?? true;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
-      {/* 顶部返回 + 标题信息（参考站风格） */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
         <button
+          type="button"
           onClick={() => router.back()}
           style={{
             border: "1px solid #eee",
@@ -156,214 +168,419 @@ export default function ClipDetailPage() {
             cursor: "pointer",
           }}
         >
-          ←
+          ← 返回
         </button>
 
-        <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1.2 }}>
-          {title}
-          <div style={{ marginTop: 4, fontSize: 12, opacity: 0.7, fontWeight: 500 }}>
-            时长 {duration} · {slugToCN(difficulty)} ·{" "}
-            {accessTier === "vip" ? (me.is_member ? "会员" : "非会员") : "免费"}
-          </div>
-        </div>
+        <div style={{ fontWeight: 900, fontSize: 18 }}>{title}</div>
 
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {me.loading ? (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>检查登录...</div>
-          ) : me.logged_in ? (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>{me.email}</div>
-          ) : (
-            <a
-              href="/login"
-              style={{
-                border: "1px solid #eee",
-                background: "white",
-                borderRadius: 10,
-                padding: "6px 10px",
-                textDecoration: "none",
-                color: "#111",
-                fontSize: 13,
-              }}
-            >
-              去登录
-            </a>
-          )}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <a
+            href="/"
+            style={{
+              border: "1px solid #eee",
+              background: "white",
+              borderRadius: 10,
+              padding: "6px 10px",
+              textDecoration: "none",
+              color: "#111",
+            }}
+          >
+            回首页
+          </a>
         </div>
       </div>
 
-      {/* 标记完成 */}
-      <div style={{ marginTop: 10, display: "flex", gap: 10, alignItems: "center" }}>
-        <button
-          onClick={toggleComplete}
-          disabled={busyComplete}
+      {loading ? (
+        <div style={{ opacity: 0.7, padding: 10 }}>加载中...</div>
+      ) : null}
+
+      {!loading && !clip ? (
+        <div style={{ padding: 12, border: "1px solid #eee", borderRadius: 14, background: "white" }}>
+          未找到该视频（id={id}）
+        </div>
+      ) : null}
+
+      {clip ? (
+        <div
           style={{
-            border: "1px solid #eee",
-            background: completed ? "#111" : "white",
-            color: completed ? "white" : "#111",
-            borderRadius: 12,
-            padding: "8px 12px",
-            cursor: busyComplete ? "not-allowed" : "pointer",
-            fontWeight: 800,
-            fontSize: 13,
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr) 380px",
+            gap: 12,
           }}
         >
-          {busyComplete ? "处理中..." : completed ? "已完成 ✅" : "标记完成"}
-        </button>
-
-        <a
-          href={`/vocab?clip_id=${encodeURIComponent(id || "")}`}
-          style={{ fontSize: 13, opacity: 0.8 }}
-        >
-          查看词汇卡片
-        </a>
-      </div>
-
-      {msg ? <div style={{ marginTop: 12, color: "#b00020" }}>{msg}</div> : null}
-
-      {/* 播放区 */}
-      <div
-        style={{
-          marginTop: 14,
-          border: "1px solid #eee",
-          borderRadius: 14,
-          padding: 12,
-          background: "white",
-        }}
-      >
-        {loading ? (
-          <div style={{ opacity: 0.7 }}>加载中...</div>
-        ) : !clip ? (
-          <div style={{ opacity: 0.7 }}>未找到该视频</div>
-        ) : canAccess ? (
-          <video
-            src={clip.video_url}
-            controls
-            playsInline
-            style={{ width: "100%", borderRadius: 12, background: "#000" }}
-          />
-        ) : (
-          <div style={{ padding: 16 }}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>无视频预览</div>
-            <div style={{ fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-              这是会员视频。请登录并使用兑换码开通会员后观看。
+          {/* 左：视频区 */}
+          <div
+            style={{
+              border: "1px solid #eee",
+              borderRadius: 16,
+              background: "white",
+              padding: 12,
+            }}
+          >
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10, fontSize: 12, opacity: 0.75 }}>
+              <span>难度：{clip.difficulty || "-"}</span>
+              <span>时长：{clip.duration_sec ? `${clip.duration_sec}s` : "-"}</span>
+              <span>权限：{clip.access_tier || "-"}</span>
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-              <a
-                href="/login"
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  border: "1px solid #eee",
-                  background: "white",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  textDecoration: "none",
-                  color: "#111",
-                  fontWeight: 800,
-                }}
-              >
-                去登录/兑换
-              </a>
-              <a
-                href="/register"
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  border: "none",
-                  background: "#111",
-                  color: "white",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  textDecoration: "none",
-                  fontWeight: 800,
-                }}
-              >
-                去注册
-              </a>
-            </div>
+
+            {canAccess ? (
+              <video
+                ref={videoRef}
+                src={clip.video_url}
+                controls
+                style={{ width: "100%", borderRadius: 14, background: "#000" }}
+              />
+            ) : (
+              <div style={{ padding: 16, border: "1px dashed #ddd", borderRadius: 14, color: "#b00" }}>
+                会员专享：请登录并兑换码激活
+              </div>
+            )}
+
+            {/* 快捷重点（来自 AI） */}
+            {takeaways?.length ? (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontWeight: 800, marginBottom: 8 }}>重点</div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {takeaways.slice(0, 4).map((t, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        border: "1px solid #eee",
+                        borderRadius: 14,
+                        padding: 10,
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, marginBottom: 4 }}>{t.title_zh}</div>
+                      <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>{t.detail_zh}</div>
+                      {t.refs?.length ? (
+                        <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {t.refs.slice(0, 4).map((r) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => seekTo(tsToSec(r))}
+                              style={{
+                                border: "1px solid #eee",
+                                background: "white",
+                                borderRadius: 999,
+                                padding: "4px 8px",
+                                cursor: "pointer",
+                                fontSize: 12,
+                              }}
+                            >
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        )}
-      </div>
 
-      {/* 标题/描述/标签（参考页下半部分） */}
-      {clip ? (
-        <div style={{ marginTop: 14 }}>
-          <h2 style={{ margin: "10px 0 6px" }}>{clip.title}</h2>
-          {clip.description ? (
-            <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.7 }}>
-              {clip.description}
+          {/* 右：学习面板 */}
+          <div
+            style={{
+              border: "1px solid #eee",
+              borderRadius: 16,
+              background: "white",
+              padding: 12,
+              minHeight: 520,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Tabs */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {[
+                ["timeline", "时间轴"],
+                ["transcript", "转写文本"],
+                ["vocab", "词汇卡"],
+                ["expr", "表达"],
+              ].map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTab(k)}
+                  style={{
+                    border: "1px solid #eee",
+                    background: tab === k ? "#111" : "white",
+                    color: tab === k ? "white" : "#111",
+                    borderRadius: 999,
+                    padding: "6px 10px",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                <select
+                  value={langMode}
+                  onChange={(e) => setLangMode(e.target.value)}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 10,
+                    padding: "6px 8px",
+                    fontSize: 12,
+                    background: "white",
+                  }}
+                >
+                  <option value="en">只看英文</option>
+                  <option value="both">中英</option>
+                  <option value="zh">只看中文</option>
+                </select>
+              </div>
             </div>
-          ) : null}
 
-          <div style={{ marginTop: 10, fontSize: 12, opacity: 0.8 }}>
-            难度: {slugToCN(difficulty)}　|　权限: {accessTier}　|　
-            Topics: {(clip.topics || []).join(", ") || "-"}　|　
-            Channels: {(clip.channels || []).join(", ") || "-"}
+            {/* 搜索：词汇/表达用 */}
+            {tab === "vocab" || tab === "expr" ? (
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索…（英文/中文）"
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  marginBottom: 10,
+                }}
+              />
+            ) : null}
+
+            {/* 内容区 */}
+            <div style={{ flex: 1, minHeight: 0 }}>
+              {/* Timeline */}
+              {tab === "timeline" ? (
+                <div
+                  ref={listRef}
+                  style={{
+                    border: "1px solid #eee",
+                    borderRadius: 14,
+                    height: 520,
+                    overflow: "auto",
+                    padding: 8,
+                  }}
+                >
+                  {timeline?.length ? (
+                    timeline.map((t, i) => {
+                      const s = typeof t.start === "number" ? t.start : tsToSec(t.start_ts);
+                      const ts = t.start_ts || formatTs(s);
+                      const active = i === activeIndex;
+
+                      const showEn = langMode === "en" || langMode === "both";
+                      const showZh = langMode === "zh" || langMode === "both";
+
+                      return (
+                        <div
+                          key={i}
+                          data-line={i}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "64px minmax(0, 1fr)",
+                            gap: 10,
+                            padding: "8px 8px",
+                            borderRadius: 12,
+                            background: active ? "rgba(0,0,0,0.06)" : "transparent",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => seekTo(s)}
+                            style={{
+                              border: "1px solid #eee",
+                              background: "white",
+                              borderRadius: 10,
+                              padding: "6px 8px",
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            {ts}
+                          </button>
+
+                          <div style={{ minWidth: 0 }}>
+                            {t.type === "stage" ? (
+                              <div style={{ opacity: 0.6, fontSize: 13 }}>
+                                {t.en || ""}
+                              </div>
+                            ) : (
+                              <>
+                                {showEn ? (
+                                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+                                    {t.en}
+                                  </div>
+                                ) : null}
+                                {showZh ? (
+                                  <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4, lineHeight: 1.5 }}>
+                                    {t.zh}
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ padding: 12, opacity: 0.7 }}>
+                      还没有详情内容（details_json）。  
+                      你把 AI 生成的 JSON 存进 clip_details.details_json 后，这里就会出现时间轴。
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Transcript */}
+              {tab === "transcript" ? (
+                <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, height: 520, overflow: "auto" }}>
+                  {detail?.full_transcript ? (
+                    <>
+                      {langMode !== "zh" ? (
+                        <>
+                          <div style={{ fontWeight: 900, marginBottom: 8 }}>English</div>
+                          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: 13 }}>
+                            {detail.full_transcript.en || ""}
+                          </div>
+                        </>
+                      ) : null}
+                      {langMode !== "en" ? (
+                        <>
+                          <div style={{ fontWeight: 900, marginTop: 14, marginBottom: 8 }}>中文</div>
+                          <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, fontSize: 13 }}>
+                            {detail.full_transcript.zh || ""}
+                          </div>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div style={{ opacity: 0.7 }}>暂无转写文本（需要 details_json.full_transcript）</div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Vocabulary */}
+              {tab === "vocab" ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {filteredVocab?.length ? (
+                    filteredVocab.map((v, i) => (
+                      <div key={i} style={{ border: "1px solid #eee", borderRadius: 14, padding: 12 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                          <div style={{ fontWeight: 900, fontSize: 16 }}>{v.term}</div>
+                          <div style={{ fontSize: 12, opacity: 0.7 }}>
+                            {v.pos || "other"} · {v.cefr || "-"}
+                          </div>
+                        </div>
+                        <div style={{ marginTop: 6, lineHeight: 1.6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{v.meaning_zh || ""}</div>
+                          <div style={{ fontSize: 12, opacity: 0.8 }}>{v.meaning_en || ""}</div>
+                        </div>
+                        {v.example_en ? (
+                          <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>
+                            <div style={{ fontWeight: 800 }}>例句</div>
+                            <div>{v.example_en}</div>
+                            <div style={{ opacity: 0.85 }}>{v.example_zh || ""}</div>
+                          </div>
+                        ) : null}
+                        {v.refs?.length ? (
+                          <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {v.refs.slice(0, 4).map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => seekTo(tsToSec(r))}
+                                style={{
+                                  border: "1px solid #eee",
+                                  background: "white",
+                                  borderRadius: 999,
+                                  padding: "4px 8px",
+                                  cursor: "pointer",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {r}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ opacity: 0.7 }}>暂无词汇卡（需要 details_json.vocabulary）</div>
+                  )}
+                </div>
+              ) : null}
+
+              {/* Expressions */}
+              {tab === "expr" ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {filteredExpr?.length ? (
+                    filteredExpr.map((x, i) => (
+                      <div key={i} style={{ border: "1px solid #eee", borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontWeight: 900, fontSize: 16 }}>{x.phrase}</div>
+                        <div style={{ marginTop: 6, lineHeight: 1.6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700 }}>{x.meaning_zh || ""}</div>
+                          <div style={{ fontSize: 12, opacity: 0.8 }}>{x.usage || ""}</div>
+                        </div>
+                        {x.example_en ? (
+                          <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.6 }}>
+                            <div style={{ fontWeight: 800 }}>例句</div>
+                            <div>{x.example_en}</div>
+                            <div style={{ opacity: 0.85 }}>{x.example_zh || ""}</div>
+                          </div>
+                        ) : null}
+                        {x.alternatives?.length ? (
+                          <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+                            替换说法：{x.alternatives.join(" / ")}
+                          </div>
+                        ) : null}
+                        {x.refs?.length ? (
+                          <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {x.refs.slice(0, 4).map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                onClick={() => seekTo(tsToSec(r))}
+                                style={{
+                                  border: "1px solid #eee",
+                                  background: "white",
+                                  borderRadius: 999,
+                                  padding: "4px 8px",
+                                  cursor: "pointer",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {r}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ opacity: 0.7 }}>暂无表达卡（需要 details_json.expressions）</div>
+                  )}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
 
-      {/* 字幕区（结构尽量贴近参考站） */}
-      <div style={{ marginTop: 18 }}>
-        <h3 style={{ marginBottom: 10 }}>字幕</h3>
-
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <button
-            onClick={() => setLang("en")}
-            style={{
-              border: "1px solid #eee",
-              background: lang === "en" ? "#111" : "white",
-              color: lang === "en" ? "white" : "#111",
-              borderRadius: 10,
-              padding: "6px 10px",
-              cursor: "pointer",
-              fontWeight: 800,
-              fontSize: 12,
-            }}
-          >
-            EN
-          </button>
-          <button
-            onClick={() => setLang("zh")}
-            style={{
-              border: "1px solid #eee",
-              background: lang === "zh" ? "#111" : "white",
-              color: lang === "zh" ? "white" : "#111",
-              borderRadius: 10,
-              padding: "6px 10px",
-              cursor: "pointer",
-              fontWeight: 800,
-              fontSize: 12,
-            }}
-          >
-            中
-          </button>
-
-          <a
-            href={`/vocab?clip_id=${encodeURIComponent(id || "")}`}
-            style={{ marginLeft: "auto", fontSize: 13, opacity: 0.85 }}
-          >
-            查看词汇卡片
-          </a>
-        </div>
-
-        {subtitleRows.length ? (
-          <div style={{ display: "grid", gap: 10 }}>
-            {subtitleRows.map((r) => (
-              <div key={r.idx} style={{ borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
-                <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 6 }}>
-                  {r.start} – {r.end}　{r.repeat}x
-                </div>
-                <div style={{ fontSize: 14, lineHeight: 1.7 }}>{r.line}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ fontSize: 13, opacity: 0.7 }}>
-            暂无字幕（后面我们可以导入字幕表，就会像参考站一样显示时间段列表）
-          </div>
-        )}
-      </div>
+      {/* Mobile：强制单列 */}
+      <style jsx>{`
+        @media (max-width: 900px) {
+          div[style*="grid-template-columns: minmax(0, 1fr) 380px"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
