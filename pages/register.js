@@ -37,17 +37,36 @@ export default function RegisterPage() {
       }
 
       if (!j.needs_login && j.session) {
-        const { error } = await supabase.auth.setSession({
-          access_token: j.session.access_token,
-          refresh_token: j.session.refresh_token,
-        });
-        if (error) {
-          setMsg("注册成功，但写入登录态失败：请去登录页登录");
-          setLoading(false);
-          return;
-        }
-        router.push("/");
-        return;
+  // 1) 先写入浏览器 session（可留可不留）
+  const { error } = await supabase.auth.setSession({
+    access_token: j.session.access_token,
+    refresh_token: j.session.refresh_token,
+  });
+  if (error) {
+    setMsg("注册成功，但写入登录态失败：请去登录页登录");
+    setLoading(false);
+    return;
+  }
+
+  // 2) 关键：把 session 写入 cookie（让 /api/me 这种后端接口看得到）
+  const r2 = await fetch("/api/auth/set-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      access_token: j.session.access_token,
+      refresh_token: j.session.refresh_token,
+    }),
+  });
+  const j2 = await r2.json();
+  if (!r2.ok || !j2.ok) {
+    setMsg(j2.error || "注册成功，但写入 cookie 失败（/api/me 会看不到登录态）");
+    setLoading(false);
+    return;
+  }
+
+  router.push("/");
+  return;
+}
       }
 
       // needs_login
