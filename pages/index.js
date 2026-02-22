@@ -288,7 +288,8 @@ export default function HomePage() {
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
   const [toast, setToast] = useState("");
-
+const [showAuthModal, setShowAuthModal] = useState(false);
+const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
   function showToast(s) {
     setToast(s);
     window.clearTimeout(showToast._t);
@@ -331,8 +332,10 @@ export default function HomePage() {
 
   async function toggleBookmark(clipId) {
     if (!me.logged_in) {
-      showToast("请先登录再收藏（去 /login）");
-      return;
+  setPendingBookmarkId(clipId || null);
+  setShowAuthModal(true);
+  return;
+}
     }
     if (!clipId) return;
 
@@ -628,6 +631,95 @@ export default function HomePage() {
           {toast}
         </div>
       ) : null}
+        {showAuthModal ? (
+  <div
+    onClick={() => setShowAuthModal(false)}
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+      zIndex: 9999,
+    }}
+  >
+    <div
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "100%",
+        maxWidth: 420,
+        background: "white",
+        borderRadius: 16,
+        border: "1px solid #eee",
+        padding: 16,
+        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ fontWeight: 800, fontSize: 16 }}>需要登录</div>
+        <button
+          type="button"
+          onClick={() => setShowAuthModal(false)}
+          style={{
+            marginLeft: "auto",
+            border: "1px solid #eee",
+            background: "white",
+            borderRadius: 10,
+            padding: "6px 10px",
+            cursor: "pointer",
+          }}
+        >
+          关闭
+        </button>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+        收藏功能需要登录。登录后你可以在「我的收藏」里随时找到这些视频。
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+        <a
+          href={`/login`}
+          style={{
+            flex: 1,
+            textAlign: "center",
+            border: "1px solid #eee",
+            background: "white",
+            borderRadius: 12,
+            padding: "10px 12px",
+            textDecoration: "none",
+            color: "#111",
+            fontWeight: 700,
+          }}
+        >
+          去登录
+        </a>
+        <a
+          href={`/register`}
+          style={{
+            flex: 1,
+            textAlign: "center",
+            border: "none",
+            background: "#111",
+            color: "white",
+            borderRadius: 12,
+            padding: "10px 12px",
+            textDecoration: "none",
+            fontWeight: 700,
+          }}
+        >
+          去注册
+        </a>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
+        （刚刚点击的 clip：{pendingBookmarkId || "-"}）
+      </div>
+    </div>
+  </div>
+) : null}
 
       <div style={{ opacity: 0.7, marginBottom: 16 }}>
         {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
