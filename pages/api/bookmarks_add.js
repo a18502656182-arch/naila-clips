@@ -1,56 +1,60 @@
+// pages/api/bookmarks_add.js
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 
+function getBearer(req) {
+  const h = req.headers.authorization || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1] : null;
+}
+
+async function getAuthedSupabase(req, res) {
+  const supabaseCookie = createPagesServerClient({ req, res });
+  const { data: u1 } = await supabaseCookie.auth.getUser();
+  if (u1?.user) return { supabase: supabaseCookie, user: u1.user, mode: "cookie" };
+
+  const token = getBearer(req);
+  if (!token) return { supabase: null, user: null, mode: "none" };
+
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  const supabaseBearer = createClient(url, key, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+
+  const { data: u2 } = await supabaseBearer.auth.getUser();
+  if (u2?.user) return { supabase: supabaseBearer, user: u2.user, mode: "bearer" };
+
+  return { supabase: null, user: null, mode: "invalid" };
+}
+
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "method_not_allowed" });
-  }
-
   try {
-    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey =
-      process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ error: "missing_supabase_env" });
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "method_not_allowed" });
     }
 
-    // 1) 从请求头拿 Bearer token
-    const authHeader = req.headers.authorization || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!token) return res.status(401).json({ error: "not_logged_in" });
-
-    // 2) 用 token 创建“带用户身份”的 supabase client（关键！）
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-
-    // 3) 取用户（确保 auth.uid() 有值）
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    const user = userData?.user;
-    if (userErr || !user) {
-      return res.status(401).json({ error: "get_user_failed", detail: userErr?.message });
-    }
+    const { supabase, user, mode } = await getAuthedSupabase(req, res);
+    if (!user) return res.status(401).json({ error: "not_logged_in", debug: { mode } });
 
     const { clip_id } = req.body || {};
-    const clipIdNum = Number(clip_id);
-    if (!clipIdNum) return res.status(400).json({ error: "missing_clip_id" });
+    const cid = Number(clip_id);
+    if (!cid) return res.status(400).json({ error: "missing_clip_id" });
 
-    // 4) 插入（RLS 要求 user_id = auth.uid()，所以这里必须写 user.id）
-    const { error: insErr } = await supabase.from("bookmarks").insert({
-      user_id: user.id,
-      clip_id: clipIdNum,
-    });
+    // ✅ 需要你 bookmarks 表有唯一约束 (user_id, clip_id) 才能 onConflict
+    const { error } = await supabase
+      .from("bookmarks")
+      .upsert(
+        { user_id: user.id, clip_id: cid },
+        { onConflict: "user_id,clip_id", ignoreDuplicates: true }
+      );
 
-    // 唯一约束冲突：说明已收藏过，直接当成功即可（幂等）
-    if (insErr && String(insErr.message || "").toLowerCase().includes("duplicate")) {
-      return res.status(200).json({ ok: true, already: true });
-    }
-    if (insErr) {
-      return res.status(500).json({ error: "bookmark_insert_failed", detail: insErr.message });
+    if (error) {
+      return res.status(500).json({ error: "bookmark_insert_failed", detail: error.message });
     }
 
     return res.status(200).json({ ok: true });
-  } catch (e) {
-    return res.status(500).json({ error: "server_error", detail: String(e?.message || e) });
+  } catch (err) {
+    return res.status(500).json({ error: "unknown", detail: String(err?.message || err) });
   }
 }
