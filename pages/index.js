@@ -1,10 +1,14 @@
+// pages/index.js
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 
 /**
- * ✅ 你的筛选/无限滚动原样保留
+ * ✅ 筛选/无限滚动
  * ✅ 收藏系统（bookmarks）
- * ✅ 新增：退出登录按钮（POST /api/logout）
+ * ✅ 登录状态 /api/me
+ * ✅ 退出登录（POST /api/logout）
+ * ✅ 未登录点收藏：弹窗引导登录/注册
+ * ✅ 我的收藏入口 /bookmarks
  */
 
 function splitParam(v) {
@@ -54,7 +58,7 @@ function MultiSelectDropdown({
 
   const selectedLabels = useMemo(() => {
     if (!value?.length) return "";
-    const map = new Map(options.map((o) => [o.slug, o.name || o.slug]));
+    const map = new Map((options || []).map((o) => [o.slug, o.name || o.slug]));
     return value.map((v) => map.get(v) || v).join("、");
   }, [value, options]);
 
@@ -214,7 +218,6 @@ function SingleSelectDropdown({ label, value, onChange, options }) {
   );
 }
 
-// ------- 小工具：更稳的 fetch + 自动解析错误 -------
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   const text = await res.text();
@@ -224,9 +227,7 @@ async function fetchJson(url, options) {
   } catch {}
   if (!res.ok) {
     const msg =
-      (data && (data.error || data.message)) ||
-      text ||
-      `HTTP ${res.status}`;
+      (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;
@@ -276,7 +277,7 @@ export default function HomePage() {
     []
   );
 
-  // ----------- 登录状态 & 收藏 -----------
+  // -------- 登录状态 & 收藏 --------
   const [me, setMe] = useState({
     loading: true,
     logged_in: false,
@@ -287,9 +288,13 @@ export default function HomePage() {
   const [bookmarkIds, setBookmarkIds] = useState(() => new Set());
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [bookmarkBusyId, setBookmarkBusyId] = useState(null);
+
   const [toast, setToast] = useState("");
-const [showAuthModal, setShowAuthModal] = useState(false);
-const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
+
+  // ✅ 未登录收藏弹窗
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
+
   function showToast(s) {
     setToast(s);
     window.clearTimeout(showToast._t);
@@ -307,7 +312,7 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
         email: d?.email || null,
       });
       return d;
-    } catch (e) {
+    } catch {
       setMe({ loading: false, logged_in: false, is_member: false, email: null });
       return null;
     }
@@ -331,13 +336,14 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
   }
 
   async function toggleBookmark(clipId) {
-    if (!me.logged_in) {
-  setPendingBookmarkId(clipId || null);
-  setShowAuthModal(true);
-  return;
-}
-    }
     if (!clipId) return;
+
+    // ✅ 未登录：弹窗
+    if (!me.logged_in) {
+      setPendingBookmarkId(clipId);
+      setShowAuthModal(true);
+      return;
+    }
 
     const has = bookmarkIds.has(clipId);
     setBookmarkBusyId(clipId);
@@ -374,17 +380,15 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
     }
   }
 
-  // ✅ 新增：退出登录（清 cookie）
+  // ✅ 退出登录（清 cookie）
   async function logout() {
     try {
       await fetchJson("/api/logout", { method: "POST" });
       showToast("已退出登录");
-      // 清本地状态
       setBookmarkIds(new Set());
       setOffset(0);
       setItems([]);
-      // 重新拉 me（会变成未登录）
-      await loadMe();
+      await loadMe(); // 会变成未登录
     } catch (e) {
       showToast("退出失败：" + e.message);
     }
@@ -569,6 +573,20 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
         </div>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <a
+            href="/bookmarks"
+            style={{
+              border: "1px solid #eee",
+              background: "white",
+              borderRadius: 10,
+              padding: "6px 10px",
+              textDecoration: "none",
+              color: "#111",
+            }}
+          >
+            我的收藏
+          </a>
+
           {!me.logged_in ? (
             <a
               href="/login"
@@ -631,95 +649,104 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
           {toast}
         </div>
       ) : null}
-        {showAuthModal ? (
-  <div
-    onClick={() => setShowAuthModal(false)}
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.35)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-      zIndex: 9999,
-    }}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        width: "100%",
-        maxWidth: 420,
-        background: "white",
-        borderRadius: 16,
-        border: "1px solid #eee",
-        padding: 16,
-        boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontWeight: 800, fontSize: 16 }}>需要登录</div>
-        <button
-          type="button"
+
+      {/* ✅ 未登录收藏弹窗 */}
+      {showAuthModal ? (
+        <div
           onClick={() => setShowAuthModal(false)}
           style={{
-            marginLeft: "auto",
-            border: "1px solid #eee",
-            background: "white",
-            borderRadius: 10,
-            padding: "6px 10px",
-            cursor: "pointer",
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+            zIndex: 9999,
           }}
         >
-          关闭
-        </button>
-      </div>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: 420,
+              background: "white",
+              borderRadius: 16,
+              border: "1px solid #eee",
+              padding: 16,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontWeight: 800, fontSize: 16 }}>需要登录</div>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                style={{
+                  marginLeft: "auto",
+                  border: "1px solid #eee",
+                  background: "white",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                }}
+              >
+                关闭
+              </button>
+            </div>
 
-      <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-        收藏功能需要登录。登录后你可以在「我的收藏」里随时找到这些视频。
-      </div>
+            <div
+              style={{
+                marginTop: 10,
+                fontSize: 13,
+                opacity: 0.8,
+                lineHeight: 1.6,
+              }}
+            >
+              收藏功能需要登录。登录后你可以在「我的收藏」里随时找到这些视频。
+            </div>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <a
-          href={`/login`}
-          style={{
-            flex: 1,
-            textAlign: "center",
-            border: "1px solid #eee",
-            background: "white",
-            borderRadius: 12,
-            padding: "10px 12px",
-            textDecoration: "none",
-            color: "#111",
-            fontWeight: 700,
-          }}
-        >
-          去登录
-        </a>
-        <a
-          href={`/register`}
-          style={{
-            flex: 1,
-            textAlign: "center",
-            border: "none",
-            background: "#111",
-            color: "white",
-            borderRadius: 12,
-            padding: "10px 12px",
-            textDecoration: "none",
-            fontWeight: 700,
-          }}
-        >
-          去注册
-        </a>
-      </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <a
+                href="/login"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  border: "1px solid #eee",
+                  background: "white",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  textDecoration: "none",
+                  color: "#111",
+                  fontWeight: 700,
+                }}
+              >
+                去登录
+              </a>
+              <a
+                href="/register"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  border: "none",
+                  background: "#111",
+                  color: "white",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                }}
+              >
+                去注册
+              </a>
+            </div>
 
-      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
-        （刚刚点击的 clip：{pendingBookmarkId || "-"}）
-      </div>
-    </div>
-  </div>
-) : null}
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
+              （刚刚点击的 clip：{pendingBookmarkId || "-"}）
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ opacity: 0.7, marginBottom: 16 }}>
         {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
@@ -862,7 +889,6 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
                   {it.title || `Clip #${it.id}`}
                 </div>
 
-                {/* ✅ 收藏按钮 */}
                 <button
                   type="button"
                   onClick={() => toggleBookmark(it.id)}
@@ -923,7 +949,6 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
         </div>
       ) : null}
 
-      {/* ✅ 无限滚动状态 + 哨兵 */}
       <div
         style={{
           marginTop: 14,
@@ -934,6 +959,7 @@ const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
       >
         {loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}
       </div>
+
       <div ref={sentinelRef} style={{ height: 1 }} />
     </div>
   );
