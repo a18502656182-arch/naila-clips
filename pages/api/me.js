@@ -56,6 +56,7 @@ export default async function handler(req, res) {
       .from("subscriptions")
       .select("status,expires_at,plan")
       .eq("user_id", user.id)
+      .not("ends_at", "is", null)
       .order("expires_at", { ascending: false })
       .limit(1)
       .maybeSingle();
