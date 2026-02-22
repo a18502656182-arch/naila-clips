@@ -631,8 +631,11 @@ async function logout() {
           <button
             type="button"
             onClick={() => {
-              loadMe().then(() => showToast("已刷新登录状态"));
-            }}
+  loadMe().then(() => {
+    setClipsReloadKey((x) => x + 1);
+    showToast("已刷新登录状态");
+  });
+}}
             style={{
               border: "1px solid #eee",
               background: "white",
