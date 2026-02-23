@@ -11,7 +11,11 @@ function parseList(v) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "s-maxage=10, stale-while-revalidate=60");
+  // ✅ 根因修复：这个接口返回 can_access（和用户有关），不能用 s-maxage 公共缓存
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
     const supabase = createPagesServerClient({ req, res });
 
@@ -44,7 +48,12 @@ export default async function handler(req, res) {
         .maybeSingle();
 
       if (!subErr && sub) {
-        sub_debug = { ok: true, status: sub.status || null, expires_at: sub.expires_at || null, plan: sub.plan || null };
+        sub_debug = {
+          ok: true,
+          status: sub.status || null,
+          expires_at: sub.expires_at || null,
+          plan: sub.plan || null,
+        };
 
         const exp = sub.expires_at ? new Date(sub.expires_at).getTime() : null;
         if (sub.status === "active" && exp && !Number.isNaN(exp) && exp > Date.now()) {
@@ -75,9 +84,7 @@ export default async function handler(req, res) {
 
     // 3) 后端匹配 difficulty/topic/channel
     const normalized = (lightRows || []).map((row) => {
-      const all = (row.clip_taxonomies || [])
-        .map((ct) => ct.taxonomies)
-        .filter(Boolean);
+      const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
 
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
@@ -116,7 +123,14 @@ export default async function handler(req, res) {
 
     if (!pageIds.length) {
       return res.status(200).json({
-        debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
+        debug: {
+          mode: "db_paged",
+          has_cookie: true,
+          has_user: !!user?.id,
+          user_id: user?.id || null,
+          userErr: userErr?.message || null,
+          sub_debug,
+        },
         items: [],
         total,
         limit,
@@ -151,9 +165,7 @@ export default async function handler(req, res) {
         const row = fullMap.get(id);
         if (!row) return null;
 
-        const all = (row.clip_taxonomies || [])
-          .map((ct) => ct.taxonomies)
-          .filter(Boolean);
+        const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
 
         const diff = all.find((t) => t.type === "difficulty")?.slug || null;
         const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
@@ -180,7 +192,14 @@ export default async function handler(req, res) {
       .filter(Boolean);
 
     return res.status(200).json({
-      debug: { mode: "db_paged", has_cookie: true, has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
+      debug: {
+        mode: "db_paged",
+        has_cookie: true,
+        has_user: !!user?.id,
+        user_id: user?.id || null,
+        userErr: userErr?.message || null,
+        sub_debug,
+      },
       items,
       total,
       limit,
