@@ -1,99 +1,106 @@
 // pages/api/me.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
+import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
+
+function setNoStore(res) {
+  // ✅ 彻底禁用缓存：浏览器/CDN/代理都不缓存
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+}
 
 export default async function handler(req, res) {
+  setNoStore(res);
+
   try {
-    const supabase = createPagesServerClient({ req, res });
+    // 1) 用 cookie session 判断是否登录
+    const supabase = createServerSupabaseClient({ req, res });
+    const {
+      data: { session },
+      error: sessionErr,
+    } = await supabase.auth.getSession();
 
-    // 1) 优先：Authorization Bearer（用于你手动测试）
-    const auth = req.headers.authorization || "";
-    const m = auth.match(/^Bearer\s+(.+)$/i);
-
-    let user = null;
-    let mode = "cookie";
-
-    if (m?.[1]) {
-      const token = m[1].trim();
-      const { data, error } = await supabase.auth.getUser(token);
-      if (error) {
-        return res.status(200).json({
-          logged_in: false,
-          is_member: false,
-          plan: null,
-          ends_at: null,
-          status: null,
-          debug: { reason: "bearer_getUser_failed", message: error.message },
-        });
-      }
-      user = data?.user || null;
-      mode = "bearer";
-    } else {
-      // 2) 否则：cookie session
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        return res.status(200).json({
-          logged_in: false,
-          is_member: false,
-          plan: null,
-          ends_at: null,
-          status: null,
-          debug: { reason: "cookie_getUser_failed", message: error.message },
-        });
-      }
-      user = data?.user || null;
+    if (sessionErr) {
+      return res.status(200).json({
+        logged_in: false,
+        is_member: false,
+        email: null,
+        user_id: null,
+        debug: { mode: "cookie", error: sessionErr.message },
+      });
     }
 
+    const user = session?.user;
     if (!user) {
       return res.status(200).json({
         logged_in: false,
         is_member: false,
-        plan: null,
-        ends_at: null,
-        status: null,
-        debug: { reason: "no_user", mode },
+        email: null,
+        user_id: null,
+        debug: { mode: "cookie" },
       });
     }
 
-    // 3) 查会员：统一用 expires_at（你表里就是这个字段有值）
-    const { data: sub, error: subErr } = await supabase
-      .from("subscriptions")
-      .select("status, expires_at, plan")
-      .eq("user_id", user.id)
-      .not("expires_at", "is", null)
-      .order("expires_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 2) 用 Service Role 查询 subscriptions（不依赖 RLS）
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (subErr) {
+    if (!supabaseUrl || !serviceKey) {
+      // 环境变量缺失也别 500，避免前端误判（但会带 debug）
       return res.status(200).json({
         logged_in: true,
-        email: user.email,
+        email: user.email || null,
         user_id: user.id,
         is_member: false,
         plan: null,
         ends_at: null,
         status: null,
-        debug: { reason: "subscription_query_failed", message: subErr.message, mode },
+        debug: { mode: "cookie", warn: "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY" },
       });
     }
 
-    const now = Date.now();
-    const expiresMs = sub?.expires_at ? new Date(sub.expires_at).getTime() : null;
+    const admin = createClient(supabaseUrl, serviceKey);
 
-    const isActive =
-      sub?.status === "active" && expiresMs && !Number.isNaN(expiresMs) && expiresMs > now;
+    const { data: sub, error: subErr } = await admin
+      .from("subscriptions")
+      .select("plan, ends_at, status")
+      .eq("user_id", user.id)
+      .order("ends_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let is_member = false;
+    let plan = sub?.plan ?? null;
+    let ends_at = sub?.ends_at ?? null;
+    let status = sub?.status ?? null;
+
+    if (!subErr && sub?.status === "active" && sub?.ends_at) {
+      const now = Date.now();
+      const endMs = new Date(sub.ends_at).getTime();
+      if (Number.isFinite(endMs) && endMs > now) is_member = true;
+    }
 
     return res.status(200).json({
       logged_in: true,
-      email: user.email,
+      email: user.email || null,
       user_id: user.id,
-      is_member: Boolean(isActive),
-      plan: sub?.plan || null,
-      ends_at: sub?.expires_at || null, // 为了兼容前端字段名，仍叫 ends_at
-      status: sub?.status || null,
-      debug: { mode },
+      is_member,
+      plan,
+      ends_at,
+      status,
+      debug: { mode: "cookie" },
     });
   } catch (e) {
-    return res.status(500).json({ error: "api_me_failed", detail: String(e) });
+    return res.status(200).json({
+      logged_in: false,
+      is_member: false,
+      email: null,
+      user_id: null,
+      debug: { mode: "cookie", error: e?.message || "unknown" },
+    });
   }
 }
