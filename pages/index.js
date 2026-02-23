@@ -4,9 +4,10 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * 首页（成品美化版：Hero + 筛选 + 网格）
- * ✅ 保留原有全部功能：筛选、无限滚动、收藏、登录态、弹窗、会员拦截、HoverPreview
- * ✅ 去掉“复制分享链接”按钮
+ * 首页（修改版）
+ * 1. 删除红框区域（副标题、胶囊按钮、右下角特性、小技巧提示）。
+ * 2. 黄框内容（元数据）下移至视频下方。
+ * 3. 视频卡片放大，PC端一行3个。
  */
 
 function splitParam(v) {
@@ -251,16 +252,7 @@ function HeroSection({ me, sample, onTryVip }) {
             每天 5 分钟就有进步
           </h1>
 
-          <div className="heroSub">
-            这里的 clip 都是「短 + 清晰 + 可复习」的英语片段。你可以按难度、Topic、Channel 筛选，快速找到想学的内容。
-          </div>
-
-          <div className="heroPills">
-            <span className="pill">接口式筛选</span>
-            <span className="pill">悬停预览</span>
-            <span className="pill">一键收藏</span>
-            <span className="pill">会员内容解锁</span>
-          </div>
+          {/* 删除了 heroSub 和 heroPills */}
 
           <div className="heroCtas">
             <a className="ctaPrimary" href="#all">
@@ -307,6 +299,7 @@ function HeroSection({ me, sample, onTryVip }) {
               <div className="demoTag">{sample?.access_tier === "vip" ? "会员" : "免费"}</div>
             </div>
 
+            {/* 视频部分，去掉了 Overlay */}
             <div style={{ position: "relative" }}>
               <HoverPreview
                 coverUrl={sample?.cover_url}
@@ -314,17 +307,23 @@ function HeroSection({ me, sample, onTryVip }) {
                 alt={sample?.title || ""}
                 borderRadius={16}
               />
-              <div className="demoOverlay">
-                <div className="demoOverlayTitle">{sample?.title || "从下方列表选择任意 clip"}</div>
-                <div className="demoOverlayMeta">
-                  {sample?.difficulty ? <span className="demoChip">难度：{sample.difficulty}</span> : null}
-                  {sample?.duration_sec ? <span className="demoChip">{sample.duration_sec}s</span> : null}
-                  {sample?.access_tier ? <span className="demoChip">{sample.access_tier === "vip" ? "会员专享" : "免费可看"}</span> : null}
-                </div>
-              </div>
             </div>
 
+            {/* 黄框内容下移到这里 */}
             <div className="demoBody">
+              {/* 标题 */}
+              <div className="demoBigTitle">{sample?.title || "从下方列表选择任意 clip"}</div>
+              
+              {/* 元数据：难度、时长、权限 */}
+              <div className="demoMetaRow">
+                 {sample?.difficulty ? <Badge>{sample.difficulty}</Badge> : null}
+                 {sample?.duration_sec ? <Badge>{sample.duration_sec}s</Badge> : null}
+                 {sample?.access_tier ? <Badge tone={sample.access_tier === "vip" ? "vip" : "free"}>{sample.access_tier === "vip" ? "会员专享" : "免费可看"}</Badge> : null}
+              </div>
+
+              <div className="demoDivider" />
+
+              {/* Topic & Channel */}
               <div className="demoLine">
                 <span className="demoKey">Topic：</span>
                 <span className="demoVal">{(sample?.topics || []).slice(0, 3).join(", ") || "-"}</span>
@@ -333,36 +332,12 @@ function HeroSection({ me, sample, onTryVip }) {
                 <span className="demoKey">Channel：</span>
                 <span className="demoVal">{(sample?.channels || []).slice(0, 3).join(", ") || "-"}</span>
               </div>
-
-              <div className="demoHint">
-                小技巧：把鼠标移到封面上可预览播放；喜欢的 clip 点右上角「☆/★」收藏。
-              </div>
+            
+              {/* 删除了 demoHint */}
             </div>
           </div>
 
-          <div className="heroMini">
-            <div className="miniItem">
-              <div className="miniNum">⚡</div>
-              <div>
-                <div className="miniT">秒级筛选</div>
-                <div className="miniD">点筛选立即刷新，不整页重载</div>
-              </div>
-            </div>
-            <div className="miniItem">
-              <div className="miniNum">🔒</div>
-              <div>
-                <div className="miniT">权限分层</div>
-                <div className="miniD">免费/会员内容清晰标识</div>
-              </div>
-            </div>
-            <div className="miniItem">
-              <div className="miniNum">📌</div>
-              <div>
-                <div className="miniT">收藏复习</div>
-                <div className="miniD">积累你的专属学习清单</div>
-              </div>
-            </div>
-          </div>
+          {/* 删除了 heroMini (右下角的三个特性块) */}
         </div>
       </div>
     </div>
@@ -852,8 +827,6 @@ export default function HomePage() {
                 <div style={{ fontSize: 12, opacity: 0.6 }}>（未选择筛选项）</div>
               )}
             </div>
-
-            {/* ✅ 去掉“复制分享链接”按钮（按你要求） */}
           </div>
         </div>
 
@@ -955,7 +928,7 @@ export default function HomePage() {
         }
 
         .container {
-          max-width: 1120px;
+          max-width: 1200px; /* 加宽容器以便放大卡片 */
           margin: 0 auto;
           padding: 14px 16px 28px;
         }
@@ -969,7 +942,7 @@ export default function HomePage() {
         }
 
         .topbar {
-          max-width: 1120px;
+          max-width: 1200px;
           margin: 0 auto;
           border: 1px solid var(--bd);
           border-radius: 18px;
@@ -1223,6 +1196,8 @@ export default function HomePage() {
 
         .heroLeft {
           padding: 6px 4px;
+          display: flex;
+          flex-direction: column;
         }
         .heroKicker {
           display: inline-flex;
@@ -1235,6 +1210,7 @@ export default function HomePage() {
           border-radius: 999px;
           font-weight: 950;
           font-size: 12px;
+          align-self: flex-start;
         }
         .heroTitle {
           margin: 12px 0 0;
@@ -1248,30 +1224,9 @@ export default function HomePage() {
             font-size: 36px;
           }
         }
-        .heroSub {
-          margin-top: 10px;
-          font-size: 14px;
-          line-height: 1.7;
-          color: rgba(17, 17, 17, 0.72);
-          max-width: 56ch;
-        }
-        .heroPills {
-          margin-top: 12px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        .pill {
-          border: 1px solid rgba(17, 17, 17, 0.08);
-          background: rgba(255, 255, 255, 0.7);
-          border-radius: 999px;
-          padding: 6px 10px;
-          font-size: 12px;
-          font-weight: 900;
-          color: rgba(17, 17, 17, 0.75);
-        }
+        
         .heroCtas {
-          margin-top: 14px;
+          margin-top: 20px;
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
@@ -1321,7 +1276,7 @@ export default function HomePage() {
         }
 
         .heroSteps {
-          margin-top: 14px;
+          margin-top: 24px;
         }
         .stepsTitle {
           font-weight: 1000;
@@ -1408,54 +1363,40 @@ export default function HomePage() {
           border: 1px solid rgba(17, 17, 17, 0.08);
           background: rgba(17, 17, 17, 0.03);
         }
-        .demoOverlay {
-          position: absolute;
-          left: 10px;
-          right: 10px;
-          bottom: 10px;
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.86);
-          border: 1px solid rgba(17, 17, 17, 0.08);
-          padding: 10px 10px;
-          backdrop-filter: blur(10px);
+        
+        .demoBody {
+          padding: 14px 16px 16px;
         }
-        .demoOverlayTitle {
-          font-weight: 1000;
-          font-size: 13px;
-          line-height: 1.3;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+        .demoBigTitle {
+          font-size: 15px;
+          font-weight: 1100;
+          line-height: 1.4;
+          margin-bottom: 10px;
+          color: #111;
         }
-        .demoOverlayMeta {
-          margin-top: 6px;
+        .demoMetaRow {
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+          margin-bottom: 12px;
         }
-        .demoChip {
-          font-size: 12px;
-          font-weight: 900;
-          padding: 4px 8px;
-          border-radius: 999px;
-          background: rgba(17, 17, 17, 0.04);
-          border: 1px solid rgba(17, 17, 17, 0.06);
+        .demoDivider {
+          height: 1px;
+          background: rgba(17,17,17,0.06);
+          margin-bottom: 12px;
         }
-        .demoBody {
-          padding: 12px 12px 14px;
-        }
+
         .demoLine {
           display: flex;
           gap: 8px;
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.4;
           margin-top: 6px;
         }
         .demoKey {
           opacity: 0.65;
           font-weight: 900;
-          width: 68px;
+          width: 70px;
           flex: 0 0 auto;
         }
         .demoVal {
@@ -1465,60 +1406,10 @@ export default function HomePage() {
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .demoHint {
-          margin-top: 10px;
-          font-size: 12px;
-          line-height: 1.5;
-          color: rgba(17, 17, 17, 0.66);
-          padding: 10px 10px;
-          border-radius: 14px;
-          border: 1px dashed rgba(17, 17, 17, 0.14);
-          background: rgba(17, 17, 17, 0.02);
-        }
-
-        .heroMini {
-          display: grid;
-          gap: 10px;
-          grid-template-columns: 1fr;
-        }
-        @media (min-width: 560px) {
-          .heroMini {
-            grid-template-columns: 1fr 1fr 1fr;
-          }
-        }
-        .miniItem {
-          border: 1px solid rgba(17, 17, 17, 0.08);
-          background: rgba(255, 255, 255, 0.68);
-          border-radius: 18px;
-          padding: 12px;
-          display: flex;
-          gap: 10px;
-          align-items: center;
-        }
-        .miniNum {
-          width: 34px;
-          height: 34px;
-          border-radius: 14px;
-          border: 1px solid rgba(17, 17, 17, 0.1);
-          background: rgba(17, 17, 17, 0.04);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 1100;
-        }
-        .miniT {
-          font-weight: 1000;
-          font-size: 13px;
-        }
-        .miniD {
-          margin-top: 2px;
-          font-size: 12px;
-          color: rgba(17, 17, 17, 0.65);
-        }
 
         /* Section head */
         .sectionHead {
-          margin-top: 18px;
+          margin-top: 24px;
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
@@ -1526,12 +1417,12 @@ export default function HomePage() {
           flex-wrap: wrap;
         }
         .sectionTitle {
-          font-size: 16px;
+          font-size: 18px;
           font-weight: 1100;
         }
         .sectionSub {
           margin-top: 3px;
-          font-size: 12px;
+          font-size: 13px;
           color: rgba(17, 17, 17, 0.62);
         }
         .statsPills {
@@ -1553,10 +1444,10 @@ export default function HomePage() {
 
         /* Filter */
         .filterWrap {
-          margin-top: 10px;
+          margin-top: 12px;
           border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 20px;
-          padding: 14px;
+          padding: 16px;
           background: rgba(255, 255, 255, 0.82);
           box-shadow: 0 18px 60px rgba(0, 0, 0, 0.06);
         }
@@ -1571,7 +1462,7 @@ export default function HomePage() {
           }
         }
         .filterBottom {
-          margin-top: 12px;
+          margin-top: 14px;
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
@@ -1686,17 +1577,28 @@ export default function HomePage() {
           font-weight: 900;
         }
 
-        /* Cards */
+        /* Cards - Adjusted for size and 3 per row */
         .cardGrid {
-          margin-top: 12px;
+          margin-top: 16px;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 14px;
+          gap: 20px;
+          grid-template-columns: 1fr;
         }
+        @media (min-width: 640px) {
+           .cardGrid {
+             grid-template-columns: repeat(2, 1fr);
+           }
+        }
+        @media (min-width: 1024px) {
+           .cardGrid {
+             grid-template-columns: repeat(3, 1fr); /* 强制一行3个 */
+           }
+        }
+
         .card {
           border: 1px solid rgba(17, 17, 17, 0.08);
-          border-radius: 18px;
-          padding: 12px;
+          border-radius: 20px; /* 圆角加大 */
+          padding: 14px; /* 内边距加大 */
           background: rgba(255, 255, 255, 0.9);
           display: block;
           color: inherit;
@@ -1747,7 +1649,7 @@ export default function HomePage() {
         }
 
         .cardBadges {
-          margin-top: 10px;
+          margin-top: 12px;
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
@@ -1755,19 +1657,19 @@ export default function HomePage() {
         }
 
         .titleLine {
-          margin-top: 10px;
-          font-size: 14px;
+          margin-top: 12px;
+          font-size: 16px; /* 字体加大 */
           font-weight: 1100;
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          min-height: 38px;
+          min-height: 44px;
         }
         .metaLine {
-          margin-top: 8px;
-          font-size: 12px;
+          margin-top: 10px;
+          font-size: 13px; /* 字体加大 */
           opacity: 0.85;
           line-height: 1.5;
           display: flex;
@@ -1775,27 +1677,27 @@ export default function HomePage() {
           gap: 4px;
         }
         .vipHint {
-          margin-top: 10px;
-          font-size: 12px;
+          margin-top: 12px;
+          font-size: 13px;
           font-weight: 1000;
           color: #b00000;
         }
         .okHint {
-          margin-top: 10px;
-          font-size: 12px;
+          margin-top: 12px;
+          font-size: 13px;
           font-weight: 1000;
           color: #0b5aa6;
         }
 
         .footerHint {
-          margin-top: 14px;
+          margin-top: 20px;
           text-align: center;
-          font-size: 12px;
+          font-size: 13px;
           opacity: 0.7;
         }
 
         .footNote {
-          margin-top: 16px;
+          margin-top: 20px;
           border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 18px;
           padding: 12px;
