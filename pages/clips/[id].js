@@ -65,6 +65,58 @@ function Card({ children, style }) {
   );
 }
 
+/** ✅ 模板里的词汇卡组件：原样保留 */
+function VocabCard({ v, showZh }) {
+  return (
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
+            {v.term || v.word || "-"}
+          </div>
+          {v.ipa ? <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>/ {v.ipa} /</div> : null}
+        </div>
+      </div>
+
+      {showZh ? (
+        <div
+          style={{
+            marginTop: 10,
+            border: "1px solid #ffe3a3",
+            background: "#fff8e8",
+            borderRadius: 14,
+            padding: 10,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>
+            {v.meaning_zh || v.zh || "（暂无）"}
+          </div>
+        </div>
+      ) : null}
+
+      {(v.example_en || v.example_zh) ? (
+        <div
+          style={{
+            marginTop: 10,
+            border: "1px solid #cfe6ff",
+            background: "#f3fbff",
+            borderRadius: 14,
+            padding: 10,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, color: "#0b5aa6" }}>例句</div>
+          {v.example_en ? <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.example_en}</div> : null}
+          {showZh && v.example_zh ? (
+            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9, lineHeight: 1.55 }}>{v.example_zh}</div>
+          ) : null}
+        </div>
+      ) : null
+      }
+    </Card>
+  );
+}
+
 function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
   return (
     <div
@@ -88,120 +140,12 @@ function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
 
       <div style={{ marginTop: 8, lineHeight: 1.55 }}>
         <div style={{ fontSize: 14, fontWeight: 900 }}>{seg.en || "-"}</div>
-        {showZh ? <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div> : null}
+        {showZh ? (
+          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div>
+        ) : null}
       </div>
     </div>
   );
-}
-
-function normalizeWord(w) {
-  return String(w || "")
-    .toLowerCase()
-    .replace(/^[^a-z]+|[^a-z]+$/g, "")
-    .replace(/’/g, "'")
-    .trim();
-}
-
-const STOPWORDS = new Set([
-  "the","a","an","and","or","but","to","of","in","on","at","for","from","with","as","by",
-  "is","am","are","was","were","be","been","being",
-  "i","you","he","she","it","we","they","me","him","her","us","them","my","your","his","its","our","their",
-  "this","that","these","those",
-  "do","does","did","done","doing",
-  "have","has","had",
-  "will","would","can","could","may","might","should","must",
-  "not","no","yes",
-  "so","if","then","than","because","when","while","where","what","who","why","how",
-  "there","here","just","really","very","much","more","most","some","any","all",
-  "up","down","out","about","into","over","under",
-]);
-
-function extractVocabFromSegments(segments, limit = 40) {
-  // 简单高频词：按出现次数排序
-  const freq = new Map();
-  const sample = new Map(); // word -> example sentence
-
-  for (const seg of segments || []) {
-    const en = String(seg?.en || "");
-    const tokens = en.split(/\s+/);
-    for (const t of tokens) {
-      const w = normalizeWord(t);
-      if (!w) continue;
-      if (w.length < 3) continue;
-      if (STOPWORDS.has(w)) continue;
-      freq.set(w, (freq.get(w) || 0) + 1);
-      if (!sample.has(w) && en) sample.set(w, en);
-    }
-  }
-
-  const arr = Array.from(freq.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([word, count]) => ({ word, count, example: sample.get(word) || "" }));
-
-  return arr;
-}
-
-function loadSavedVocab() {
-  try {
-    const raw = localStorage.getItem("vocab_saved_v1");
-    const arr = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(arr)) return new Set();
-    return new Set(arr.map((x) => String(x)));
-  } catch {
-    return new Set();
-  }
-}
-
-function saveSavedVocab(set) {
-  try {
-    localStorage.setItem("vocab_saved_v1", JSON.stringify(Array.from(set)));
-  } catch {}
-}
-
-async function lookupDictionary(word) {
-  // 免费字典：dictionaryapi.dev
-  const url = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("词典查询失败");
-  const data = await res.json();
-  return data;
-}
-
-function pickBestMeaning(dictData) {
-  // dictData 通常是数组
-  const first = Array.isArray(dictData) ? dictData[0] : null;
-  if (!first) return null;
-
-  const phonetic =
-    first.phonetic ||
-    (Array.isArray(first.phonetics) ? first.phonetics.find((p) => p?.text)?.text : "") ||
-    "";
-
-  const audio =
-    (Array.isArray(first.phonetics) ? first.phonetics.find((p) => p?.audio)?.audio : "") || "";
-
-  const meanings = Array.isArray(first.meanings) ? first.meanings : [];
-  const defs = [];
-  for (const m of meanings) {
-    const part = m?.partOfSpeech || "";
-    const ds = Array.isArray(m?.definitions) ? m.definitions : [];
-    for (const d of ds.slice(0, 2)) {
-      defs.push({
-        part,
-        def: d?.definition || "",
-        example: d?.example || "",
-      });
-    }
-    if (defs.length >= 4) break;
-  }
-
-  return {
-    word: first.word || "",
-    phonetic,
-    audio,
-    defs,
-  };
 }
 
 export default function ClipDetailPage() {
@@ -214,14 +158,16 @@ export default function ClipDetailPage() {
   const [me, setMe] = useState(null);
   const [details, setDetails] = useState(null);
 
-  // 页面右侧 Tab
-  const [rightTab, setRightTab] = useState("subs"); // "subs" | "vocab"
-
   // 字幕语言
-  const [subLang, setSubLang] = useState("zh"); // "en" | "zh"
+  const [subLang, setSubLang] = useState("zh");
   const showZhSub = subLang === "zh";
 
-  // 学习体验
+  // ✅ 词汇卡模板状态（原样）
+  const [vocabOpen, setVocabOpen] = useState(false);
+  const [vocabTab, setVocabTab] = useState("words");
+  const [showZhExplain, setShowZhExplain] = useState(true);
+
+  // 字幕增强
   const videoRef = useRef(null);
   const [activeSegIdx, setActiveSegIdx] = useState(-1);
   const [follow, setFollow] = useState(true);
@@ -231,28 +177,12 @@ export default function ClipDetailPage() {
   const listWrapRef = useRef(null);
   const rowRefs = useRef({});
 
-  // 词汇卡
-  const [vocabQuery, setVocabQuery] = useState("");
-  const [selectedWord, setSelectedWord] = useState("");
-  const [selectedWordMeta, setSelectedWordMeta] = useState(null); // {word,count,example}
-  const [dictLoading, setDictLoading] = useState(false);
-  const [dictCard, setDictCard] = useState(null); // {word, phonetic, audio, defs}
-  const [dictError, setDictError] = useState("");
-
-  const [savedSet, setSavedSet] = useState(() => new Set()); // localStorage
-
-  useEffect(() => {
-    // 只在浏览器端加载
-    setSavedSet(loadSavedVocab());
-  }, []);
-
   const clipId = useMemo(() => {
     const raw = router.query?.id;
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   }, [router.query?.id]);
 
-  // 拉 clip + details
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
@@ -279,6 +209,7 @@ export default function ClipDetailPage() {
           return;
         }
 
+        // ✅ 只用真实存在的接口 /api/clip_details
         try {
           const d2 = await fetchJson(`/api/clip_details?id=${clipId}`);
           if (!mounted) return;
@@ -306,35 +237,23 @@ export default function ClipDetailPage() {
     return Array.isArray(arr) ? arr : [];
   }, [details]);
 
+  // ✅ 模板要求：details_json.vocab.words/phrases/idioms
+  const vocab = useMemo(() => {
+    const v = details?.vocab || {};
+    const words = Array.isArray(v.words) ? v.words : [];
+    const phrases = Array.isArray(v.phrases) ? v.phrases : [];
+    const idioms = Array.isArray(v.idioms) ? v.idioms : [];
+    return { words, phrases, idioms };
+  }, [details]);
+
+  const vocabList = useMemo(() => {
+    if (vocabTab === "phrases") return vocab.phrases;
+    if (vocabTab === "idioms") return vocab.idioms;
+    return vocab.words;
+  }, [vocabTab, vocab]);
+
   const canAccess = !!item?.can_access;
 
-  // 如果 details_json 里未来提供 vocab，就优先用它
-  const vocabList = useMemo(() => {
-    const fromJson = details?.vocab;
-    if (Array.isArray(fromJson) && fromJson.length) {
-      // 允许格式：[{word, meaning, example}] 或 ["word"]
-      return fromJson
-        .map((x) => {
-          if (typeof x === "string") return { word: normalizeWord(x), count: 0, example: "" };
-          return {
-            word: normalizeWord(x?.word),
-            count: Number(x?.count || 0),
-            example: x?.example || "",
-            meaning: x?.meaning || "",
-          };
-        })
-        .filter((x) => x.word);
-    }
-    return extractVocabFromSegments(segments, 50);
-  }, [details, segments]);
-
-  const filteredVocab = useMemo(() => {
-    const q = normalizeWord(vocabQuery);
-    if (!q) return vocabList;
-    return vocabList.filter((v) => v.word.includes(q));
-  }, [vocabList, vocabQuery]);
-
-  // 点击字幕：跳到该句并播放
   function jumpTo(seg, idx) {
     setActiveSegIdx(idx);
     const v = videoRef.current;
@@ -346,7 +265,7 @@ export default function ClipDetailPage() {
     } catch {}
   }
 
-  // 播放倍速
+  // 倍速
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -355,7 +274,7 @@ export default function ClipDetailPage() {
     } catch {}
   }, [rate]);
 
-  // 自动高亮 + 循环（已修复版）
+  // ✅ 自动高亮 + 循环（修复版）
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -393,7 +312,7 @@ export default function ClipDetailPage() {
     return () => v.removeEventListener("timeupdate", onTime);
   }, [segments, loopSeg, activeSegIdx]);
 
-  // 自动滚动跟随
+  // ✅ 自动滚动跟随当前句
   useEffect(() => {
     if (!follow) return;
     if (activeSegIdx < 0) return;
@@ -408,7 +327,7 @@ export default function ClipDetailPage() {
     wrap.scrollTo({ top: target, behavior: "smooth" });
   }, [activeSegIdx, follow]);
 
-  // 快捷键：空格播放暂停；J/K 上一句下一句；L 循环
+  // ✅ 快捷键：空格/J/K/L
   useEffect(() => {
     function onKey(e) {
       const tag = (e.target && e.target.tagName) || "";
@@ -444,54 +363,6 @@ export default function ClipDetailPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [segments, activeSegIdx]);
 
-  // 词汇卡：选中单词 -> 查词典
-  async function openWordCard(v) {
-    const w = normalizeWord(v?.word || "");
-    if (!w) return;
-
-    setRightTab("vocab");
-    setSelectedWord(w);
-    setSelectedWordMeta(v || null);
-    setDictError("");
-
-    // 如果 details_json.vocab 里自带 meaning，可先显示
-    if (v?.meaning) {
-      setDictCard({
-        word: w,
-        phonetic: "",
-        audio: "",
-        defs: [{ part: "", def: v.meaning, example: v.example || "" }],
-      });
-      return;
-    }
-
-    setDictLoading(true);
-    setDictCard(null);
-
-    try {
-      const data = await lookupDictionary(w);
-      const card = pickBestMeaning(data);
-      if (!card) throw new Error("没有查到释义");
-      setDictCard(card);
-    } catch (e) {
-      setDictError(e?.message || "查词失败");
-    } finally {
-      setDictLoading(false);
-    }
-  }
-
-  function toggleSaveWord(w) {
-    const word = normalizeWord(w);
-    if (!word) return;
-    setSavedSet((prev) => {
-      const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
-      saveSavedVocab(next);
-      return next;
-    });
-  }
-
   if (loading) {
     return (
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
@@ -513,6 +384,11 @@ export default function ClipDetailPage() {
       </div>
     );
   }
+
+  // ✅ 三栏布局：打开词汇卡时显示第三列（与模板一致）
+  const gridCols = vocabOpen
+    ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
+    : "minmax(420px, 1.15fr) minmax(420px, 1fr)";
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
@@ -536,18 +412,14 @@ export default function ClipDetailPage() {
         <div style={{ fontSize: 20, fontWeight: 950, flex: 1, minWidth: 220 }}>
           {item.title || `Clip #${item.id}`}
         </div>
+
+        <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>
+          登录 {me?.logged_in ? "✅" : "❌"} / 会员 {me?.is_member ? "✅" : "❌"}
+        </div>
       </div>
 
       {/* 主体 */}
-      <div
-        style={{
-          marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: "minmax(360px, 1fr) minmax(420px, 1.1fr)",
-          gap: 14,
-          alignItems: "start",
-        }}
-      >
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: gridCols, gap: 14, alignItems: "start" }}>
         {/* 播放器 */}
         <Card style={{ padding: 12, position: "sticky", top: 12 }}>
           {canAccess ? (
@@ -607,276 +479,135 @@ export default function ClipDetailPage() {
           )}
         </Card>
 
-        {/* 右侧：字幕 / 词汇卡 */}
+        {/* 字幕 */}
         <Card style={{ padding: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 950, fontSize: 16 }}>学习区</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontWeight: 950, fontSize: 16 }}>字幕</div>
 
             <div style={{ display: "flex", gap: 8, marginLeft: 6 }}>
-              <Pill active={rightTab === "subs"} onClick={() => setRightTab("subs")}>
-                字幕
+              <Pill active={subLang === "en"} onClick={() => setSubLang("en")}>
+                EN
               </Pill>
-              <Pill active={rightTab === "vocab"} onClick={() => setRightTab("vocab")}>
-                词汇卡
+              <Pill active={subLang === "zh"} onClick={() => setSubLang("zh")}>
+                中
               </Pill>
             </div>
 
-            <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
-              {me?.logged_in ? "已登录" : "未登录"} / {me?.is_member ? "会员" : "非会员"}
-            </div>
+            {!vocabOpen ? (
+              <button
+                type="button"
+                onClick={() => setVocabOpen(true)}
+                style={{
+                  marginLeft: "auto",
+                  border: "none",
+                  background: "#111",
+                  color: "white",
+                  borderRadius: 12,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontWeight: 950,
+                  fontSize: 12,
+                }}
+              >
+                词汇卡
+              </button>
+            ) : (
+              <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>词汇卡已打开 →</div>
+            )}
           </div>
 
-          {rightTab === "subs" ? (
-            <>
-              <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <Pill active={subLang === "en"} onClick={() => setSubLang("en")}>
-                  EN
-                </Pill>
-                <Pill active={subLang === "zh"} onClick={() => setSubLang("zh")}>
-                  中
-                </Pill>
-
-                <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.65 }}>
-                  提示：到「词汇卡」里点单词可查词 & 加生词本
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                {segments.length ? (
-                  <div
-                    ref={listWrapRef}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      maxHeight: 620,
-                      overflow: "auto",
-                      paddingRight: 4,
+          <div style={{ marginTop: 10 }}>
+            {segments.length ? (
+              <div
+                ref={listWrapRef}
+                style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 540, overflow: "auto", paddingRight: 4 }}
+              >
+                {segments.map((seg, idx) => (
+                  <SubtitleRow
+                    key={idx}
+                    seg={seg}
+                    active={idx === activeSegIdx}
+                    showZh={showZhSub}
+                    onClick={() => jumpTo(seg, idx)}
+                    rowRef={(el) => {
+                      if (el) rowRefs.current[idx] = el;
                     }}
-                  >
-                    {segments.map((seg, idx) => (
-                      <SubtitleRow
-                        key={idx}
-                        seg={seg}
-                        active={idx === activeSegIdx}
-                        showZh={showZhSub}
-                        onClick={() => jumpTo(seg, idx)}
-                        rowRef={(el) => {
-                          if (el) rowRefs.current[idx] = el;
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      border: "1px solid #eee",
-                      borderRadius: 14,
-                      padding: 12,
-                      fontSize: 13,
-                      opacity: 0.8,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {details ? "details_json 里没有 segments" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
-                  </div>
-                )}
+                  />
+                ))}
               </div>
-            </>
-          ) : (
-            <>
-              {/* 词汇卡区 */}
-              <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <input
-                  value={vocabQuery}
-                  onChange={(e) => setVocabQuery(e.target.value)}
-                  placeholder="搜索单词..."
-                  style={{
-                    flex: 1,
-                    minWidth: 200,
-                    border: "1px solid #eee",
-                    borderRadius: 12,
-                    padding: "10px 12px",
-                    fontWeight: 800,
-                  }}
-                />
-                <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>
-                  候选词 {filteredVocab.length} / 生词本 {savedSet.size}
-                </div>
+            ) : (
+              <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                {details ? "details_json 里没有 segments 字幕段" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
               </div>
-
-              <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {/* 左：词表 */}
-                <div
-                  style={{
-                    border: "1px solid #eee",
-                    borderRadius: 14,
-                    padding: 10,
-                    maxHeight: 560,
-                    overflow: "auto",
-                  }}
-                >
-                  <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900, marginBottom: 8 }}>
-                    点击单词 → 打开词汇卡
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {filteredVocab.map((v) => {
-                      const saved = savedSet.has(v.word);
-                      const active = selectedWord === v.word;
-                      return (
-                        <button
-                          key={v.word}
-                          type="button"
-                          onClick={() => openWordCard(v)}
-                          style={{
-                            textAlign: "left",
-                            border: active ? "1px solid #bfe3ff" : "1px solid #eee",
-                            background: active ? "#f3fbff" : "white",
-                            borderRadius: 12,
-                            padding: 10,
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ fontWeight: 950 }}>{v.word}</div>
-                            {typeof v.count === "number" && v.count > 0 ? (
-                              <div style={{ fontSize: 12, opacity: 0.6 }}>×{v.count}</div>
-                            ) : null}
-                            <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.8, fontWeight: 900 }}>
-                              {saved ? "★ 已加" : "☆ 未加"}
-                            </div>
-                          </div>
-                          {v.example ? (
-                            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.75, lineHeight: 1.4 }}>
-                              例句：{v.example}
-                            </div>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 右：词汇卡 */}
-                <div
-                  style={{
-                    border: "1px solid #eee",
-                    borderRadius: 14,
-                    padding: 12,
-                    minHeight: 200,
-                  }}
-                >
-                  {!selectedWord ? (
-                    <div style={{ opacity: 0.75, lineHeight: 1.7 }}>
-                      选择一个单词后会显示词汇卡。<br />
-                      （词典来自 dictionaryapi.dev）
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                        <div style={{ fontSize: 20, fontWeight: 950 }}>{selectedWord}</div>
-                        <div style={{ fontSize: 13, opacity: 0.7, fontWeight: 900 }}>
-                          {dictCard?.phonetic ? dictCard.phonetic : ""}
-                        </div>
-
-                        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleSaveWord(selectedWord)}
-                            style={{
-                              border: "1px solid #eee",
-                              background: savedSet.has(selectedWord) ? "#111" : "white",
-                              color: savedSet.has(selectedWord) ? "white" : "#111",
-                              borderRadius: 12,
-                              padding: "8px 10px",
-                              fontWeight: 950,
-                              cursor: "pointer",
-                            }}
-                          >
-                            {savedSet.has(selectedWord) ? "已加入生词本（点移除）" : "加入生词本"}
-                          </button>
-
-                          {dictCard?.audio ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try {
-                                  const a = new Audio(dictCard.audio);
-                                  a.play?.();
-                                } catch {}
-                              }}
-                              style={{
-                                border: "1px solid #eee",
-                                background: "white",
-                                borderRadius: 12,
-                                padding: "8px 10px",
-                                fontWeight: 950,
-                                cursor: "pointer",
-                              }}
-                            >
-                              🔊 发音
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {selectedWordMeta?.example ? (
-                        <div style={{ marginTop: 10, fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
-                          <div style={{ fontWeight: 950, marginBottom: 4 }}>字幕例句</div>
-                          <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 10, background: "#fafafa" }}>
-                            {selectedWordMeta.example}
-                          </div>
-                        </div>
-                      ) : null}
-
-                      <div style={{ marginTop: 10 }}>
-                        {dictLoading ? (
-                          <div style={{ opacity: 0.75 }}>查词中...</div>
-                        ) : dictError ? (
-                          <div style={{ color: "#b00", fontWeight: 900, lineHeight: 1.6 }}>
-                            {dictError}
-                            <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>
-                              提示：如果你在国内网络，可能会被墙；后续可换成你自己的词典 API。
-                            </div>
-                          </div>
-                        ) : dictCard?.defs?.length ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            {dictCard.defs.map((d, idx) => (
-                              <div key={idx} style={{ border: "1px solid #eee", borderRadius: 12, padding: 10 }}>
-                                <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 950 }}>
-                                  {d.part ? `[${d.part}]` : "释义"}
-                                </div>
-                                <div style={{ marginTop: 6, fontSize: 14, fontWeight: 900, lineHeight: 1.5 }}>
-                                  {d.def || "-"}
-                                </div>
-                                {d.example ? (
-                                  <div style={{ marginTop: 6, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
-                                    例句：{d.example}
-                                  </div>
-                                ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ opacity: 0.75 }}>暂无释义</div>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.65, lineHeight: 1.6 }}>
-                说明：当前“生词本”先存浏览器本地（localStorage）。下一步你如果要跨设备同步，我会带你建 Supabase 表 + API + “我的生词本”页面。
-              </div>
-            </>
-          )}
+            )}
+          </div>
         </Card>
+
+        {/* 词汇卡（模板样式 + 模板数据结构） */}
+        {vocabOpen ? (
+          <Card style={{ padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontWeight: 950, fontSize: 16 }}>词汇卡</div>
+
+              <button
+                type="button"
+                onClick={() => setVocabOpen(false)}
+                style={{
+                  marginLeft: "auto",
+                  border: "1px solid #eee",
+                  background: "white",
+                  borderRadius: 12,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  fontWeight: 950,
+                  fontSize: 12,
+                }}
+              >
+                收起
+              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <Pill active={showZhExplain} onClick={() => setShowZhExplain(true)}>
+                中文解释
+              </Pill>
+              <Pill active={!showZhExplain} onClick={() => setShowZhExplain(false)}>
+                关闭中文
+              </Pill>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <Pill active={vocabTab === "words"} onClick={() => setVocabTab("words")}>
+                单词 ({vocab.words.length})
+              </Pill>
+              <Pill active={vocabTab === "phrases"} onClick={() => setVocabTab("phrases")}>
+                短语 ({vocab.phrases.length})
+              </Pill>
+              <Pill active={vocabTab === "idioms"} onClick={() => setVocabTab("idioms")}>
+                地道表达 ({vocab.idioms.length})
+              </Pill>
+            </div>
+
+            <div style={{ marginTop: 12 }}>
+              {vocabList.length ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 540, overflow: "auto", paddingRight: 4 }}>
+                  {vocabList.map((v, idx) => (
+                    <VocabCard key={idx} v={v} showZh={showZhExplain} />
+                  ))}
+                </div>
+              ) : (
+                <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                  当前分类暂无词汇卡内容。
+                  <div style={{ marginTop: 6, opacity: 0.75 }}>（后续你把 AI 输出的 vocab 写入 details_json 即可）</div>
+                </div>
+              )}
+            </div>
+          </Card>
+        ) : null}
       </div>
 
       <style jsx>{`
-        @media (max-width: 980px) {
+        @media (max-width: 1100px) {
           div[style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
           }
