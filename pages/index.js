@@ -393,48 +393,58 @@ export default function HomePage() {
   }, [difficulty, topic, channel, access, sort]);
 
   // ---------------- 拉 clips ----------------
-  useEffect(() => {
-    if (!router.isReady) return;
+// ---------------- 拉 clips ----------------
+useEffect(() => {
+  if (!router.isReady) return;
 
-    async function run() {
-      if (fetchingRef.current) return;
-      fetchingRef.current = true;
+  async function run() {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
-      try {
-        if (offset === 0) setLoading(true);
-        else setLoadingMore(true);
+    try {
+      if (offset === 0) setLoading(true);
+      else setLoadingMore(true);
 
-        const params = new URLSearchParams();
-        params.set("limit", String(PAGE_SIZE));
-        params.set("offset", String(offset));
-        params.set("sort", sort);
-        if (difficulty.length) params.set("difficulty", difficulty.join(","));
-        if (topic.length) params.set("topic", topic.join(","));
-        if (channel.length) params.set("channel", channel.join(","));
-        if (access.length) params.set("access", access.join(","));
+      const params = new URLSearchParams();
+      params.set("limit", String(PAGE_SIZE));
+      params.set("offset", String(offset));
+      params.set("sort", sort);
+      if (difficulty.length) params.set("difficulty", difficulty.join(","));
+      if (topic.length) params.set("topic", topic.join(","));
+      if (channel.length) params.set("channel", channel.join(","));
+      if (access.length) params.set("access", access.join(","));
 
-        const d = await fetchJson(`/api/clips?${params.toString()}`);
-        const newItems = d?.items || [];
-        const totalCount = d?.total || 0;
+      const d = await fetchJson(`/api/clips?${params.toString()}`);
+      const newItems = d?.items || [];
+      const totalCount = d?.total || 0;
 
-        setTotal(totalCount);
+      setTotal(totalCount);
 
-        setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
+      setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
 
-        const shown = (offset === 0 ? newItems.length : items.length + newItems.length);
-        setHasMore(shown < totalCount);
-      } catch (e) {
-        showToast("拉取失败：" + e.message);
-      } finally {
-        fetchingRef.current = false;
-        setLoading(false);
-        setLoadingMore(false);
-      }
+      // ✅ 关键：用 offset 计算 hasMore，不要依赖 items 的旧值
+      setHasMore(offset + newItems.length < totalCount);
+    } catch (e) {
+      showToast("拉取失败：" + e.message);
+    } finally {
+      fetchingRef.current = false;
+      setLoading(false);
+      setLoadingMore(false);
     }
+  }
 
-    run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady, offset, clipsReloadKey]);
+  run();
+  // ✅ 关键：filters/sort 必须在依赖里，否则点筛选不会重新拉取
+}, [
+  router.isReady,
+  offset,
+  clipsReloadKey,
+  sort,
+  difficulty.join(","),
+  topic.join(","),
+  channel.join(","),
+  access.join(","),
+]);
 
   // ---------------- 无限滚动 ----------------
   useEffect(() => {
