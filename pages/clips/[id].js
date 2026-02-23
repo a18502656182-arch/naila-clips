@@ -203,46 +203,50 @@ export default function ClipDetailPage() {
     } catch {}
   }, [rate]);
 
-  // 自动高亮当前句 + 循环当前句
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (!segments.length) return;
+  // 自动高亮当前句 + 循环当前句（✅修复版：循环以 activeSegIdx 为准）
+useEffect(() => {
+  const v = videoRef.current;
+  if (!v) return;
+  if (!segments.length) return;
 
-    function findActiveIdx(t) {
-      // 线性扫描：segments 一般几十条，够用
-      for (let i = 0; i < segments.length; i++) {
-        const s = Number(segments[i]?.start || 0);
-        const e = Number(segments[i]?.end || 0);
-        if (t >= s && t <= e + 0.05) return i;
-      }
-      return -1;
+  function findActiveIdx(t) {
+    for (let i = 0; i < segments.length; i++) {
+      const s = Number(segments[i]?.start || 0);
+      const e = Number(segments[i]?.end || 0);
+      if (t >= s && t < e) return i; // ✅ 用 < e 更干净
+    }
+    return -1;
+  }
+
+  function onTime() {
+    const t = v.currentTime || 0;
+
+    // 1) 更新高亮句
+    const idx = findActiveIdx(t);
+    if (idx !== -1 && idx !== activeSegIdx) {
+      setActiveSegIdx(idx);
     }
 
-    function onTime() {
-      const t = v.currentTime || 0;
-      const idx = findActiveIdx(t);
+    // 2) 循环（✅关键：以 activeSegIdx 为准，不再依赖 idx）
+    if (loopSeg && activeSegIdx !== -1) {
+      const seg = segments[activeSegIdx];
+      const start = Number(seg?.start || 0);
+      const end = Number(seg?.end || 0);
 
-      if (idx !== -1 && idx !== activeSegIdx) {
-        setActiveSegIdx(idx);
-      }
-
-      if (loopSeg && idx !== -1) {
-        const seg = segments[idx];
-        const end = Number(seg?.end || 0);
-        const start = Number(seg?.start || 0);
-        if (t > end + 0.06) {
-          try {
-            v.currentTime = start;
-            v.play?.();
-          } catch {}
-        }
+      // 到达句尾就回到句首（留一点点余量避免抖动）
+      if (t >= end - 0.02) {
+        try {
+          v.currentTime = start;
+          // 如果正在播放，继续播放；如果暂停，就只定位不强行播放
+          if (!v.paused) v.play?.();
+        } catch {}
       }
     }
+  }
 
-    v.addEventListener("timeupdate", onTime);
-    return () => v.removeEventListener("timeupdate", onTime);
-  }, [segments, loopSeg, activeSegIdx]);
+  v.addEventListener("timeupdate", onTime);
+  return () => v.removeEventListener("timeupdate", onTime);
+}, [segments, loopSeg, activeSegIdx]);
 
   // 自动滚动跟随
   useEffect(() => {
