@@ -1,13 +1,18 @@
 // pages/index.js
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * ✅ 首页 v3（修复：登录/注册样式、头像菜单排版、会员卡点击逻辑）
- * 1) 未登录点会员视频卡片 => 弹窗引导登录/注册
- * 2) 已登录点会员视频卡片 => 直接进详情页（不在首页拦截）
- * 3) 右上角：未登录=登录/注册（有样式）；已登录=头像下拉（收藏/退出）
+ * 首页（全替换版本）
+ * - 筛选：URL 可分享 + 无限滚动
+ * - 登录态：/api/me
+ * - 收藏：/api/bookmarks + add/delete
+ * - 弹窗：
+ *   1) 未登录点收藏 -> 登录弹窗
+ *   2) 未登录点会员卡片 -> 登录弹窗
+ *   3) 已登录但非会员点会员卡片 -> 会员开通弹窗（去兑换/开通）
+ * - 右上角：头像下拉（未登录：登录/注册按钮；已登录：收藏/退出）
  */
 
 function splitParam(v) {
@@ -30,7 +35,7 @@ function useOutsideClick(ref, onOutside) {
   useEffect(() => {
     function handler(e) {
       if (!ref.current) return;
-      if (!ref.current.contains(e.target)) onOutside?.();
+      if (!ref.current.contains(e.target)) onOutside();
     }
     document.addEventListener("mousedown", handler);
     document.addEventListener("touchstart", handler, { passive: true });
@@ -174,36 +179,32 @@ function Badge({ children, tone = "gray" }) {
   );
 }
 
-/** 右上角账号菜单 */
+/** 右上角用户菜单 */
 function UserMenu({ me, onLogout }) {
-  const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
+  const [open, setOpen] = useState(false);
   useOutsideClick(wrapRef, () => setOpen(false));
 
-  const initial = useMemo(() => {
-    const email = String(me?.email || "");
-    const ch = (email.split("@")[0] || "U").trim().slice(0, 1) || "U";
-    return ch.toUpperCase();
-  }, [me?.email]);
-
+  // 未登录：显示按钮（带站内样式）
   if (!me?.logged_in) {
-  return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-      <a className="topBtn" href="/login">
-        登录
-      </a>
-      <a className="topBtn dark" href="/register">
-        注册
-      </a>
-    </div>
-  );
-}
+    return (
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <a className="topBtn" href="/login">
+          登录
+        </a>
+        <a className="topBtn dark" href="/register">
+          注册
+        </a>
+      </div>
     );
   }
 
+  const email = me?.email || "";
+  const initial = (email.trim()[0] || "U").toUpperCase();
+
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={me?.email || "账号"}>
+      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={email || "账号"}>
         <span className="avatarCircle">{initial}</span>
         <span className="caret">{open ? "▲" : "▼"}</span>
       </button>
@@ -214,15 +215,17 @@ function UserMenu({ me, onLogout }) {
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <span className="avatarCircle big">{initial}</span>
               <div style={{ minWidth: 0 }}>
-                <div className="menuEmail">{me?.email || "（无邮箱）"}</div>
+                <div className="menuEmail">{email || "（无邮箱）"}</div>
                 <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>{me?.is_member ? "会员" : "非会员"}</div>
               </div>
             </div>
           </div>
+
           <div className="menuBody">
             <a className="menuItem" href="/bookmarks" onClick={() => setOpen(false)}>
               ❤️ 视频收藏
             </a>
+
             <button
               type="button"
               className="menuItem danger"
@@ -283,16 +286,20 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
-  // ✅ 通用弹窗：只负责“需要登录”
+  // 弹窗：未登录（收藏/会员卡片用同一个）
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingClipId, setPendingClipId] = useState(null); // 点击的 clip id
-  const [authReason, setAuthReason] = useState("bookmark"); // bookmark | vip_click
+  const [pendingId, setPendingId] = useState(null);
+  const [pendingReason, setPendingReason] = useState("bookmark"); // bookmark | vip
 
-  const showToast = useCallback((s) => {
+  // 弹窗：已登录但非会员点会员卡
+  const [showVipModal, setShowVipModal] = useState(false);
+  const [pendingVipClipId, setPendingVipClipId] = useState(null);
+
+  function showToast(s) {
     setToast(s);
     window.clearTimeout(showToast._t);
     showToast._t = window.setTimeout(() => setToast(""), 2500);
-  }, []);
+  }
 
   async function loadMe() {
     try {
@@ -332,8 +339,8 @@ export default function HomePage() {
     if (!clipId) return;
 
     if (!me.logged_in) {
-      setAuthReason("bookmark");
-      setPendingClipId(clipId);
+      setPendingId(clipId);
+      setPendingReason("bookmark");
       setShowAuthModal(true);
       return;
     }
@@ -436,7 +443,7 @@ export default function HomePage() {
 
     router.replace({ pathname: "/", query: q }, undefined, { shallow: true });
 
-    // ✅ reset paging（不清空 items！避免闪屏）
+    // reset paging（不清空 items 避免闪屏）
     setOffset(0);
     setHasMore(false);
     setTotal(0);
@@ -490,7 +497,6 @@ export default function HomePage() {
     topic.join(","),
     channel.join(","),
     access.join(","),
-    showToast,
   ]);
 
   // ---------------- 无限滚动 ----------------
@@ -536,65 +542,72 @@ export default function HomePage() {
     if (chip.k === "channel") setChannel((arr) => arr.filter((x) => x !== chip.slug));
   }
 
-  return (
-    {/* 顶部栏 */}
-<div className="topbar">
-  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-    <div className="logoDot" />
-    <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
-      <div
-        style={{
-          fontSize: 12,
-          opacity: 0.65,
-          marginTop: 2,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-      >
-        像 englishclips 一样的接口式筛选（UI 对齐中）
-      </div>
-    </div>
-  </div>
+  function handleCardClick(e, clip) {
+    // 只有“不能访问”才拦截（否则照常进详情页）
+    if (!clip || clip.can_access) return;
 
-  <div className="topbarRight">
-    <UserMenu me={me} onLogout={logout} />
-  </div>
-</div>
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 未登录：引导登录/注册
+    if (!me.logged_in) {
+      setPendingId(clip.id);
+      setPendingReason("vip");
+      setShowAuthModal(true);
+      return;
+    }
+
+    // 已登录但非会员：引导去兑换/开通
+    setPendingVipClipId(clip.id);
+    setShowVipModal(true);
+  }
+
+  return (
+    <div style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
+      {/* 顶部栏 */}
+      <div className="topbar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <div className="logoDot" />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.65,
+                marginTop: 2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              像 englishclips 一样的接口式筛选（UI 对齐中）
+            </div>
+          </div>
+        </div>
+
+        <div className="topbarRight">
+          <UserMenu me={me} onLogout={logout} />
+        </div>
+      </div>
 
       {/* toast */}
       {toast ? <div className="toast">{toast}</div> : null}
 
-      {/* ✅ 统一弹窗：只在未登录时出现 */}
+      {/* 未登录弹窗（收藏/会员卡片共用） */}
       {showAuthModal ? (
-        <div
-          onClick={() => {
-            setShowAuthModal(false);
-            setPendingClipId(null);
-          }}
-          className="modalMask"
-        >
+        <div onClick={() => setShowAuthModal(false)} className="modalMask">
           <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
-              <button
-                type="button"
-                className="topBtn"
-                onClick={() => {
-                  setShowAuthModal(false);
-                  setPendingClipId(null);
-                }}
-                style={{ marginLeft: "auto" }}
-              >
+              <button type="button" className="topBtn" onClick={() => setShowAuthModal(false)} style={{ marginLeft: "auto" }}>
                 关闭
               </button>
             </div>
 
             <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-              {authReason === "vip_click"
-                ? "该视频为会员专享。请先登录/注册，然后使用兑换码开通会员。"
-                : "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"}
+              {pendingReason === "bookmark"
+                ? "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"
+                : "该视频为会员专享。请先登录（并在登录页兑换码开通会员）后再观看。"}
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -606,7 +619,33 @@ export default function HomePage() {
               </a>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingClipId || "-"}）</div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingId || "-"}）</div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 已登录但非会员：会员弹窗 */}
+      {showVipModal ? (
+        <div onClick={() => setShowVipModal(false)} className="modalMask">
+          <div onClick={(e) => e.stopPropagation()} className="modalCard">
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontWeight: 900, fontSize: 16 }}>需要会员</div>
+              <button type="button" className="topBtn" onClick={() => setShowVipModal(false)} style={{ marginLeft: "auto" }}>
+                关闭
+              </button>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+              该视频为会员专享，请先在「登录/兑换」页面输入兑换码开通会员后再观看。
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                去兑换/开通
+              </a>
+            </div>
+
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingVipClipId || "-"}）</div>
           </div>
         </div>
       ) : null}
@@ -630,7 +669,7 @@ export default function HomePage() {
             ]}
           />
           <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
-          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={[{ slug: "free", name: "免费" }, { slug: "vip", name: "会员专享" }]} value={access} onChange={setAccess} />
+          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
           <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
           <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
         </div>
@@ -667,7 +706,8 @@ export default function HomePage() {
             className="topBtn"
             onClick={() => {
               try {
-                navigator.clipboard?.writeText(window.location.href);
+                const url = window.location.href;
+                navigator.clipboard?.writeText(url);
                 showToast("已复制分享链接");
               } catch {
                 showToast("复制失败（请手动复制地址栏）");
@@ -681,71 +721,63 @@ export default function HomePage() {
       </div>
 
       {/* 卡片列表 */}
-      <div style={{ position: "relative" }}>
-        <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
-          {items.map((it) => {
-            const isBookmarked = bookmarkIds.has(it.id);
-            const busy = bookmarkBusyId === it.id;
-            const accessTone = it.access_tier === "vip" ? "vip" : "free";
-            const diffText = it.difficulty || "unknown";
+      <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
+        {items.map((it) => {
+          const isBookmarked = bookmarkIds.has(it.id);
+          const busy = bookmarkBusyId === it.id;
 
-            return (
-              <a
-                key={it.id}
-                href={`/clips/${it.id}`}
-                className="card"
-                onClick={(e) => {
-                  // ✅ 只拦截“未登录 + 会员视频”
-                  if (!me.logged_in && it.access_tier === "vip") {
+          const accessTone = it.access_tier === "vip" ? "vip" : "free";
+          const diffText = it.difficulty || "unknown";
+
+          return (
+            <a
+              key={it.id}
+              href={`/clips/${it.id}`}
+              className="card"
+              onClick={(e) => handleCardClick(e, it)}
+              title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
+            >
+              <div style={{ position: "relative" }}>
+                <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
+
+                <button
+                  type="button"
+                  className="bmBtn"
+                  disabled={busy}
+                  onClick={(e) => {
                     e.preventDefault();
-                    setAuthReason("vip_click");
-                    setPendingClipId(it.id);
-                    setShowAuthModal(true);
-                  }
-                }}
-              >
-                <div style={{ position: "relative" }}>
-                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
+                    e.stopPropagation();
+                    toggleBookmark(it.id);
+                  }}
+                  title={me.logged_in ? "" : "请先登录"}
+                >
+                  {busy ? "…" : isBookmarked ? "★" : "☆"}
+                </button>
+              </div>
 
-                  <button
-                    type="button"
-                    className="bmBtn"
-                    disabled={busy}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleBookmark(it.id);
-                    }}
-                    title={me.logged_in ? "" : "请先登录"}
-                  >
-                    {busy ? "…" : isBookmarked ? "★" : "☆"}
-                  </button>
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
+                <Badge>{diffText}</Badge>
+                {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
+              </div>
+
+              <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
+
+              <div className="metaLine">
+                <div>
+                  <span style={{ opacity: 0.7 }}>Topics：</span>
+                  {(it.topics || []).slice(0, 3).join(", ") || "-"}
                 </div>
-
-                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
-                  <Badge>{diffText}</Badge>
-                  {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
+                <div>
+                  <span style={{ opacity: 0.7 }}>Channels：</span>
+                  {(it.channels || []).slice(0, 3).join(", ") || "-"}
                 </div>
+              </div>
 
-                <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
-
-                <div className="metaLine">
-                  <div>
-                    <span style={{ opacity: 0.7 }}>Topics：</span>
-                    {(it.topics || []).slice(0, 3).join(", ") || "-"}
-                  </div>
-                  <div>
-                    <span style={{ opacity: 0.7 }}>Channels：</span>
-                    {(it.channels || []).slice(0, 3).join(", ") || "-"}
-                  </div>
-                </div>
-
-                {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
-              </a>
-            );
-          })}
-        </div>
+              {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
+            </a>
+          );
+        })}
       </div>
 
       {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
@@ -781,8 +813,10 @@ export default function HomePage() {
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-wrap: wrap;
           justify-content: flex-end;
         }
+
         .topBtn {
           border: 1px solid #eee;
           background: white;
@@ -799,13 +833,16 @@ export default function HomePage() {
           justify-content: center;
           gap: 8px;
         }
+        .topBtn:hover {
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+        }
         .topBtn.dark {
           background: #111;
           border-color: #111;
           color: white;
         }
 
-        /* avatar menu */
+        /* 头像菜单 */
         .avatarBtn {
           border: 1px solid #eee;
           background: white;
@@ -817,8 +854,8 @@ export default function HomePage() {
           gap: 8px;
         }
         .avatarCircle {
-          width: 28px;
-          height: 28px;
+          width: 26px;
+          height: 26px;
           border-radius: 999px;
           background: #111;
           color: white;
@@ -826,29 +863,29 @@ export default function HomePage() {
           align-items: center;
           justify-content: center;
           font-weight: 950;
-          font-size: 13px;
-        }
-        .avatarCircle.big {
-          width: 34px;
-          height: 34px;
-          font-size: 14px;
-        }
-        .caret {
-          opacity: 0.7;
           font-size: 12px;
           line-height: 1;
         }
+        .avatarCircle.big {
+          width: 36px;
+          height: 36px;
+          font-size: 14px;
+        }
+        .caret {
+          font-size: 12px;
+          opacity: 0.65;
+        }
         .menuPanel {
           position: absolute;
-          right: 0;
           top: calc(100% + 10px);
-          width: 240px;
+          right: 0;
+          width: 220px;
           border: 1px solid #eee;
           background: white;
           border-radius: 16px;
           box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
           overflow: hidden;
-          z-index: 60;
+          z-index: 50;
         }
         .menuHead {
           padding: 12px;
@@ -856,9 +893,8 @@ export default function HomePage() {
           background: #fafafa;
         }
         .menuEmail {
-          font-weight: 950;
           font-size: 13px;
-          line-height: 1.2;
+          font-weight: 950;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -871,15 +907,22 @@ export default function HomePage() {
         }
         .menuItem {
           width: 100%;
+          text-align: left;
           border: 1px solid #eee;
           background: white;
           border-radius: 12px;
           padding: 10px 10px;
           cursor: pointer;
-          font-weight: 900;
           text-decoration: none;
           color: #111;
-          text-align: left;
+          font-weight: 900;
+          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .menuItem:hover {
+          background: #fafafa;
         }
         .menuItem.danger {
           border-color: #ffd5d5;
