@@ -4,15 +4,9 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * 首页（全替换版本）
- * - 筛选：URL 可分享 + 无限滚动
- * - 登录态：/api/me
- * - 收藏：/api/bookmarks + add/delete
- * - 弹窗：
- *   1) 未登录点收藏 -> 登录弹窗
- *   2) 未登录点会员卡片 -> 登录弹窗
- *   3) 已登录但非会员点会员卡片 -> 会员开通弹窗（去兑换/开通）
- * - 右上角：头像下拉（未登录：登录/注册按钮；已登录：收藏/退出）
+ * 首页（全替换版本 - 修复样式不生效）
+ * 关键修复：把 <style jsx> 改成 <style jsx global>
+ * 这样 UserMenu 这种子组件里的 topBtn/avatarBtn/menuItem 也能吃到样式
  */
 
 function splitParam(v) {
@@ -63,7 +57,12 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
     <div ref={wrapRef} style={{ position: "relative" }}>
       <div className="fLabel">{label}</div>
 
-      <button type="button" onClick={() => setOpen((x) => !x)} className="fBtn" style={{ justifyContent: "space-between" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((x) => !x)}
+        className="fBtn"
+        style={{ justifyContent: "space-between" }}
+      >
         <div className="fBtnText">{selectedLabels || <span style={{ opacity: 0.55 }}>{placeholder}</span>}</div>
         <div style={{ opacity: 0.65 }}>{open ? "▲" : "▼"}</div>
       </button>
@@ -104,7 +103,11 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
                     border: checked ? "1px solid #bfe3ff" : "1px solid transparent",
                   }}
                 >
-                  <input type="checkbox" checked={checked} onChange={() => onChange(toggleInArray(value || [], opt.slug))} />
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onChange(toggleInArray(value || [], opt.slug))}
+                  />
                   <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.name || opt.slug}</div>
                   {typeof opt.count === "number" ? (
                     <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>{opt.count}</div>
@@ -185,7 +188,7 @@ function UserMenu({ me, onLogout }) {
   const [open, setOpen] = useState(false);
   useOutsideClick(wrapRef, () => setOpen(false));
 
-  // 未登录：显示按钮（带站内样式）
+  // 未登录：显示按钮（现在一定会有样式，因为改成 global 了）
   if (!me?.logged_in) {
     return (
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -204,7 +207,12 @@ function UserMenu({ me, onLogout }) {
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={email || "账号"}>
+      <button
+        type="button"
+        className="avatarBtn"
+        onClick={() => setOpen((v) => !v)}
+        title={email || "账号"}
+      >
         <span className="avatarCircle">{initial}</span>
         <span className="caret">{open ? "▲" : "▼"}</span>
       </button>
@@ -216,7 +224,9 @@ function UserMenu({ me, onLogout }) {
               <span className="avatarCircle big">{initial}</span>
               <div style={{ minWidth: 0 }}>
                 <div className="menuEmail">{email || "（无邮箱）"}</div>
-                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>{me?.is_member ? "会员" : "非会员"}</div>
+                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>
+                  {me?.is_member ? "会员" : "非会员"}
+                </div>
               </div>
             </div>
           </div>
@@ -286,7 +296,7 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
-  // 弹窗：未登录（收藏/会员卡片用同一个）
+  // 弹窗：未登录（收藏/会员卡片共用）
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingId, setPendingId] = useState(null);
   const [pendingReason, setPendingReason] = useState("bookmark"); // bookmark | vip
@@ -543,13 +553,12 @@ export default function HomePage() {
   }
 
   function handleCardClick(e, clip) {
-    // 只有“不能访问”才拦截（否则照常进详情页）
+    // 只有“不能访问”才拦截
     if (!clip || clip.can_access) return;
 
     e.preventDefault();
     e.stopPropagation();
 
-    // 未登录：引导登录/注册
     if (!me.logged_in) {
       setPendingId(clip.id);
       setPendingReason("vip");
@@ -557,7 +566,7 @@ export default function HomePage() {
       return;
     }
 
-    // 已登录但非会员：引导去兑换/开通
+    // 已登录但非会员
     setPendingVipClipId(clip.id);
     setShowVipModal(true);
   }
@@ -590,16 +599,20 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* toast */}
       {toast ? <div className="toast">{toast}</div> : null}
 
-      {/* 未登录弹窗（收藏/会员卡片共用） */}
+      {/* 未登录弹窗 */}
       {showAuthModal ? (
         <div onClick={() => setShowAuthModal(false)} className="modalMask">
           <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
-              <button type="button" className="topBtn" onClick={() => setShowAuthModal(false)} style={{ marginLeft: "auto" }}>
+              <button
+                type="button"
+                className="topBtn"
+                onClick={() => setShowAuthModal(false)}
+                style={{ marginLeft: "auto" }}
+              >
                 关闭
               </button>
             </div>
@@ -624,13 +637,18 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      {/* 已登录但非会员：会员弹窗 */}
+      {/* 已登录但非会员 */}
       {showVipModal ? (
         <div onClick={() => setShowVipModal(false)} className="modalMask">
           <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>需要会员</div>
-              <button type="button" className="topBtn" onClick={() => setShowVipModal(false)} style={{ marginLeft: "auto" }}>
+              <button
+                type="button"
+                className="topBtn"
+                onClick={() => setShowVipModal(false)}
+                style={{ marginLeft: "auto" }}
+              >
                 关闭
               </button>
             </div>
@@ -725,7 +743,6 @@ export default function HomePage() {
         {items.map((it) => {
           const isBookmarked = bookmarkIds.has(it.id);
           const busy = bookmarkBusyId === it.id;
-
           const accessTone = it.access_tier === "vip" ? "vip" : "free";
           const diffText = it.difficulty || "unknown";
 
@@ -788,7 +805,8 @@ export default function HomePage() {
 
       <div ref={sentinelRef} style={{ height: 1 }} />
 
-      <style jsx>{`
+      {/* ✅ 关键：改成 global，保证子组件 UserMenu 也能吃到样式 */}
+      <style jsx global>{`
         .topbar {
           position: sticky;
           top: 0;
