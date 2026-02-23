@@ -65,16 +65,127 @@ function Card({ children, style }) {
   );
 }
 
-/** ✅ 模板里的词汇卡组件：原样保留 */
-function VocabCard({ v, showZh }) {
+// ========== 本地收藏（词汇） ==========
+function loadFavVocab() {
+  try {
+    const raw = localStorage.getItem("vocab_favs_v1");
+    const arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.map((x) => String(x)));
+  } catch {
+    return new Set();
+  }
+}
+function saveFavVocab(set) {
+  try {
+    localStorage.setItem("vocab_favs_v1", JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
+// ========== 发音：优先 audio_url，否则用 TTS ==========
+function speakEn(text) {
+  try {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
+function playAudioUrl(url) {
+  try {
+    const a = new Audio(url);
+    a.play?.();
+  } catch {}
+}
+
+function normTerm(s) {
+  return String(s || "").trim();
+}
+function normForMatch(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/’/g, "'")
+    .replace(/[^\w\s']/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// 找到包含 term 的第一条字幕索引
+function findSegIdxForTerm(segments, term) {
+  const q = normForMatch(term);
+  if (!q) return -1;
+  for (let i = 0; i < (segments || []).length; i++) {
+    const en = normForMatch(segments[i]?.en || "");
+    // 简单包含匹配
+    if (en.includes(q)) return i;
+  }
+  return -1;
+}
+
+function TinyIconBtn({ title, onClick, children, active }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      onClick={onClick}
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 999,
+        border: active ? "1px solid #bfe3ff" : "1px solid #eee",
+        background: active ? "#f3fbff" : "white",
+        cursor: "pointer",
+        display: "grid",
+        placeItems: "center",
+        fontSize: 16,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** ✅ 词汇卡：按你的模板结构展示 + 3个小按钮（听/收藏/定位） */
+function VocabCard({ v, showZh, segments, onLocate, favSet, onToggleFav }) {
+  const term = normTerm(v.term || v.word || "");
+  const audioUrl = v.audio_url || v.audio || ""; // 兼容字段
+  const isFav = favSet?.has(term);
+
   return (
     <Card style={{ padding: 14 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>
-            {v.term || v.word || "-"}
-          </div>
+          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>{term || "-"}</div>
           {v.ipa ? <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>/ {v.ipa} /</div> : null}
+        </div>
+
+        {/* 3个小按钮：听/收藏/定位 */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <TinyIconBtn
+            title="听发音"
+            onClick={() => {
+              if (audioUrl) playAudioUrl(audioUrl);
+              else speakEn(term);
+            }}
+          >
+            🔊
+          </TinyIconBtn>
+
+          <TinyIconBtn title="收藏" active={!!isFav} onClick={() => onToggleFav(term)}>
+            {isFav ? "❤️" : "🤍"}
+          </TinyIconBtn>
+
+          <TinyIconBtn
+            title="定位到视频字幕"
+            onClick={() => {
+              const idx = findSegIdxForTerm(segments, term);
+              if (idx !== -1) onLocate(idx);
+            }}
+          >
+            📍
+          </TinyIconBtn>
         </div>
       </div>
 
@@ -89,9 +200,22 @@ function VocabCard({ v, showZh }) {
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>
-            {v.meaning_zh || v.zh || "（暂无）"}
-          </div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.meaning_zh || v.zh || "（暂无）"}</div>
+        </div>
+      ) : null}
+
+      {v.explain_en ? (
+        <div
+          style={{
+            marginTop: 10,
+            border: "1px solid #e7e7e7",
+            background: "#fbfbfb",
+            borderRadius: 14,
+            padding: 10,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.8 }}>英文解释</div>
+          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.explain_en}</div>
         </div>
       ) : null}
 
@@ -111,13 +235,22 @@ function VocabCard({ v, showZh }) {
             <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9, lineHeight: 1.55 }}>{v.example_zh}</div>
           ) : null}
         </div>
-      ) : null
-      }
+      ) : null}
     </Card>
   );
 }
 
-function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
+function SubtitleRow({
+  seg,
+  idx,
+  active,
+  onClick,
+  showZh,
+  rowRef,
+  loopIdx,
+  onToggleLoopForIdx,
+}) {
+  const loopingThis = loopIdx === idx;
   return (
     <div
       ref={rowRef}
@@ -136,13 +269,33 @@ function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
         <div style={{ fontSize: 12, opacity: 0.7, whiteSpace: "nowrap" }}>
           {fmtSec(seg.start)} – {fmtSec(seg.end)}
         </div>
+
+        {/* ✅ 循环按钮：放在每句时间戳后面，和时间戳差不多大小 */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleLoopForIdx(idx);
+          }}
+          style={{
+            border: "1px solid #eee",
+            background: loopingThis ? "#111" : "white",
+            color: loopingThis ? "white" : "#111",
+            borderRadius: 999,
+            padding: "3px 8px",
+            fontSize: 12,
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+          title="循环这句"
+        >
+          循环
+        </button>
       </div>
 
       <div style={{ marginTop: 8, lineHeight: 1.55 }}>
         <div style={{ fontSize: 14, fontWeight: 900 }}>{seg.en || "-"}</div>
-        {showZh ? (
-          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div>
-        ) : null}
+        {showZh ? <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div> : null}
       </div>
     </div>
   );
@@ -162,8 +315,8 @@ export default function ClipDetailPage() {
   const [subLang, setSubLang] = useState("zh");
   const showZhSub = subLang === "zh";
 
-  // ✅ 词汇卡模板状态（原样）
-  const [vocabOpen, setVocabOpen] = useState(false);
+  // 词汇卡区
+  const [vocabOpen, setVocabOpen] = useState(true);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
 
@@ -171,11 +324,20 @@ export default function ClipDetailPage() {
   const videoRef = useRef(null);
   const [activeSegIdx, setActiveSegIdx] = useState(-1);
   const [follow, setFollow] = useState(true);
-  const [loopSeg, setLoopSeg] = useState(false);
   const [rate, setRate] = useState(1);
+
+  // ✅ 循环：改成“循环某一句”，用 loopIdx
+  const [loopIdx, setLoopIdx] = useState(-1);
 
   const listWrapRef = useRef(null);
   const rowRefs = useRef({});
+
+  // 词汇收藏 set
+  const [favSet, setFavSet] = useState(() => new Set());
+
+  useEffect(() => {
+    setFavSet(loadFavVocab());
+  }, []);
 
   const clipId = useMemo(() => {
     const raw = router.query?.id;
@@ -209,7 +371,6 @@ export default function ClipDetailPage() {
           return;
         }
 
-        // ✅ 只用真实存在的接口 /api/clip_details
         try {
           const d2 = await fetchJson(`/api/clip_details?id=${clipId}`);
           if (!mounted) return;
@@ -237,7 +398,7 @@ export default function ClipDetailPage() {
     return Array.isArray(arr) ? arr : [];
   }, [details]);
 
-  // ✅ 模板要求：details_json.vocab.words/phrases/idioms
+  // vocab 模板结构：details_json.vocab.words/phrases/idioms
   const vocab = useMemo(() => {
     const v = details?.vocab || {};
     const words = Array.isArray(v.words) ? v.words : [];
@@ -265,6 +426,33 @@ export default function ClipDetailPage() {
     } catch {}
   }
 
+  // 词汇卡定位：传 idx 直接跳
+  function locateToSegIdx(idx) {
+    if (idx < 0 || idx >= segments.length) return;
+    const seg = segments[idx];
+    jumpTo(seg, idx);
+
+    // 同时滚动字幕列表到那句
+    const wrap = listWrapRef.current;
+    const el = rowRefs.current[idx];
+    if (wrap && el) {
+      const top = el.offsetTop;
+      wrap.scrollTo({ top: Math.max(0, top - 120), behavior: "smooth" });
+    }
+  }
+
+  function toggleFav(term) {
+    const t = normTerm(term);
+    if (!t) return;
+    setFavSet((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      saveFavVocab(next);
+      return next;
+    });
+  }
+
   // 倍速
   useEffect(() => {
     const v = videoRef.current;
@@ -274,7 +462,7 @@ export default function ClipDetailPage() {
     } catch {}
   }, [rate]);
 
-  // ✅ 自动高亮 + 循环（修复版）
+  // 自动高亮 + 循环（按 loopIdx 循环）
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -291,14 +479,16 @@ export default function ClipDetailPage() {
 
     function onTime() {
       const t = v.currentTime || 0;
-
       const idx = findActiveIdx(t);
       if (idx !== -1 && idx !== activeSegIdx) setActiveSegIdx(idx);
 
-      if (loopSeg && activeSegIdx !== -1) {
-        const seg = segments[activeSegIdx];
-        const start = Number(seg?.start || 0);
-        const end = Number(seg?.end || 0);
+      // ✅ 循环某一句
+      if (loopIdx !== -1) {
+        const seg = segments[loopIdx];
+        if (!seg) return;
+        const start = Number(seg.start || 0);
+        const end = Number(seg.end || 0);
+
         if (t >= end - 0.02) {
           try {
             v.currentTime = start;
@@ -310,9 +500,9 @@ export default function ClipDetailPage() {
 
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
-  }, [segments, loopSeg, activeSegIdx]);
+  }, [segments, loopIdx, activeSegIdx]);
 
-  // ✅ 自动滚动跟随当前句
+  // 自动滚动跟随
   useEffect(() => {
     if (!follow) return;
     if (activeSegIdx < 0) return;
@@ -327,41 +517,11 @@ export default function ClipDetailPage() {
     wrap.scrollTo({ top: target, behavior: "smooth" });
   }, [activeSegIdx, follow]);
 
-  // ✅ 快捷键：空格/J/K/L
-  useEffect(() => {
-    function onKey(e) {
-      const tag = (e.target && e.target.tagName) || "";
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  // ✅ 删除快捷键功能：这里不再有 keydown 监听
 
-      const v = videoRef.current;
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        if (!v) return;
-        try {
-          if (v.paused) v.play?.();
-          else v.pause?.();
-        } catch {}
-      }
-
-      if (e.key === "k" || e.key === "K") {
-        if (!segments.length) return;
-        const next = Math.min((activeSegIdx < 0 ? 0 : activeSegIdx + 1), segments.length - 1);
-        jumpTo(segments[next], next);
-      }
-
-      if (e.key === "j" || e.key === "J") {
-        if (!segments.length) return;
-        const prev = Math.max((activeSegIdx <= 0 ? 0 : activeSegIdx - 1), 0);
-        jumpTo(segments[prev], prev);
-      }
-
-      if (e.key === "l" || e.key === "L") setLoopSeg((x) => !x);
-    }
-
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [segments, activeSegIdx]);
+  function onToggleLoopForIdx(idx) {
+    setLoopIdx((prev) => (prev === idx ? -1 : idx));
+  }
 
   if (loading) {
     return (
@@ -385,7 +545,6 @@ export default function ClipDetailPage() {
     );
   }
 
-  // ✅ 三栏布局：打开词汇卡时显示第三列（与模板一致）
   const gridCols = vocabOpen
     ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
     : "minmax(420px, 1.15fr) minmax(420px, 1fr)";
@@ -437,9 +596,6 @@ export default function ClipDetailPage() {
                 <Pill active={follow} onClick={() => setFollow((x) => !x)}>
                   自动跟随 {follow ? "ON" : "OFF"}
                 </Pill>
-                <Pill active={loopSeg} onClick={() => setLoopSeg((x) => !x)}>
-                  循环当前句 {loopSeg ? "ON" : "OFF"}
-                </Pill>
 
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>倍速</div>
@@ -457,9 +613,7 @@ export default function ClipDetailPage() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.65, lineHeight: 1.6 }}>
-                快捷键：空格 播放/暂停；J 上一句；K 下一句；L 循环开关
-              </div>
+              {/* ✅ 删除“快捷键提示” */}
             </>
           ) : (
             <div
@@ -512,7 +666,9 @@ export default function ClipDetailPage() {
                 词汇卡
               </button>
             ) : (
-              <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>词汇卡已打开 →</div>
+              <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
+                当前循环：{loopIdx === -1 ? "关闭" : `第 ${loopIdx + 1} 句`}
+              </div>
             )}
           </div>
 
@@ -526,9 +682,12 @@ export default function ClipDetailPage() {
                   <SubtitleRow
                     key={idx}
                     seg={seg}
+                    idx={idx}
                     active={idx === activeSegIdx}
                     showZh={showZhSub}
                     onClick={() => jumpTo(seg, idx)}
+                    loopIdx={loopIdx}
+                    onToggleLoopForIdx={onToggleLoopForIdx}
                     rowRef={(el) => {
                       if (el) rowRefs.current[idx] = el;
                     }}
@@ -543,7 +702,7 @@ export default function ClipDetailPage() {
           </div>
         </Card>
 
-        {/* 词汇卡（模板样式 + 模板数据结构） */}
+        {/* 词汇卡 */}
         {vocabOpen ? (
           <Card style={{ padding: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -592,7 +751,15 @@ export default function ClipDetailPage() {
               {vocabList.length ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 540, overflow: "auto", paddingRight: 4 }}>
                   {vocabList.map((v, idx) => (
-                    <VocabCard key={idx} v={v} showZh={showZhExplain} />
+                    <VocabCard
+                      key={idx}
+                      v={v}
+                      showZh={showZhExplain}
+                      segments={segments}
+                      onLocate={locateToSegIdx}
+                      favSet={favSet}
+                      onToggleFav={toggleFav}
+                    />
                   ))}
                 </div>
               ) : (
