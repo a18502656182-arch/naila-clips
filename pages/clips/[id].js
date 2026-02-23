@@ -11,7 +11,10 @@ async function fetchJson(url, options) {
     data = text ? JSON.parse(text) : null;
   } catch {}
   if (!res.ok) {
-    const msg = (data && (data.error || data.message || data.detail)) || text || `HTTP ${res.status}`;
+    const msg =
+      (data && (data.error || data.message || data.detail)) ||
+      text ||
+      `HTTP ${res.status}`;
     const err = new Error(msg);
     err.status = res.status;
     err.data = data;
@@ -88,7 +91,11 @@ function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
 
       <div style={{ marginTop: 8, lineHeight: 1.55 }}>
         <div style={{ fontSize: 14, fontWeight: 900 }}>{seg.en || "-"}</div>
-        {showZh ? <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div> : null}
+        {showZh ? (
+          <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
+            {seg.zh || "（暂无中文）"}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -119,10 +126,10 @@ export default function ClipDetailPage() {
   const rowRefs = useRef({}); // idx -> element
 
   const clipId = useMemo(() => {
-    const raw = router.query?.id;
+    const raw = router.query && router.query.id;
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
-  }, [router.query?.id]);
+  }, [router.query && router.query.id]);
 
   // 拉 clip + details
   useEffect(() => {
@@ -142,9 +149,9 @@ export default function ClipDetailPage() {
         const d1 = await fetchJson(`/api/clip?id=${clipId}`);
         if (!mounted) return;
 
-        const gotItem = d1?.item || null;
+        const gotItem = (d1 && d1.item) || null;
         setItem(gotItem);
-        setMe(d1?.me || null);
+        setMe((d1 && d1.me) || null);
 
         if (!gotItem) {
           setNotFound(true);
@@ -155,14 +162,13 @@ export default function ClipDetailPage() {
         try {
           const d2 = await fetchJson(`/api/clip_details?id=${clipId}`);
           if (!mounted) return;
-          setDetails(d2?.details_json ?? null);
+          setDetails(d2 ? d2.details_json ?? null : null);
         } catch {
-          // details 不影响整页
           setDetails(null);
         }
       } catch (e) {
         if (!mounted) return;
-        if (e?.status === 404) setNotFound(true);
+        if (e && e.status === 404) setNotFound(true);
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -176,21 +182,21 @@ export default function ClipDetailPage() {
   }, [router.isReady, clipId]);
 
   const segments = useMemo(() => {
-    const arr = details?.segments;
+    const arr = details && details.segments;
     return Array.isArray(arr) ? arr : [];
   }, [details]);
 
-  const canAccess = !!item?.can_access;
+  const canAccess = !!(item && item.can_access);
 
-  // 点击字幕：跳转到该句并播放
+  // 点击字幕：跳转到该句开始并播放
   function jumpTo(seg, idx) {
     setActiveSegIdx(idx);
     const v = videoRef.current;
     if (!v) return;
-    const t = Number(seg?.start || 0);
+    const t = Number((seg && seg.start) || 0);
     try {
       v.currentTime = t;
-      v.play?.();
+      v.play();
     } catch {}
   }
 
@@ -203,61 +209,61 @@ export default function ClipDetailPage() {
     } catch {}
   }, [rate]);
 
-  // 自动高亮当前句 + 循环当前句（✅修复版：循环以 activeSegIdx 为准）
-useEffect(() => {
-  const v = videoRef.current;
-  if (!v) return;
-  if (!segments.length) return;
+  // 自动高亮当前句 + 循环当前句（以 activeSegIdx 为准 + padding）
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (!segments.length) return;
 
-  function findActiveIdx(t) {
-    for (let i = 0; i < segments.length; i++) {
-      const s = Number(segments[i]?.start || 0);
-      const e = Number(segments[i]?.end || 0);
-      if (t >= s && t < e) return i; // ✅ 用 < e 更干净
-    }
-    return -1;
-  }
-
-  function onTime() {
-    const t = v.currentTime || 0;
-
-    // 1) 更新高亮句
-    const idx = findActiveIdx(t);
-    if (idx !== -1 && idx !== activeSegIdx) {
-      setActiveSegIdx(idx);
+    function findActiveIdx(t) {
+      for (let i = 0; i < segments.length; i++) {
+        const s = Number((segments[i] && segments[i].start) || 0);
+        const e = Number((segments[i] && segments[i].end) || 0);
+        if (t >= s && t < e) return i;
+      }
+      return -1;
     }
 
-    // 2) 循环（✅关键：以 activeSegIdx 为准，不再依赖 idx）
-    if (loopSeg && activeSegIdx !== -1) {
-      const seg = segments[activeSegIdx];
-      const rawStart = Number(seg?.start || 0);
-const rawEnd = Number(seg?.end || 0);
+    function onTime() {
+      const t = v.currentTime || 0;
 
-// ✅ padding：补齐首尾词（你可以微调这两个数字）
-const start = Math.max(0, rawStart - 0.20); // 句首往前退 0.20s
-const end = rawEnd + 0.08;                  // 句尾往后放 0.08s
+      // 1) 更新高亮句（仅当落在某句内时）
+      const idx = findActiveIdx(t);
+      if (idx !== -1 && idx !== activeSegIdx) {
+        setActiveSegIdx(idx);
+      }
 
-if (t >= end - 0.03) {
-  try {
-    v.currentTime = start;
-    if (!v.paused) v.play?.()
-  } catch {}
-}
-          // 如果正在播放，继续播放；如果暂停，就只定位不强行播放
-          if (!v.paused) v.play?.();
-        } catch {}
+      // 2) 循环：以 activeSegIdx 为准（不依赖 idx）
+      if (loopSeg && activeSegIdx !== -1) {
+        const seg = segments[activeSegIdx];
+        if (!seg) return;
+
+        const rawStart = Number(seg.start || 0);
+        const rawEnd = Number(seg.end || 0);
+
+        // ✅ padding：补齐首尾词（可后续微调）
+        const start = Math.max(0, rawStart - 0.2);
+        const end = rawEnd + 0.08;
+
+        if (t >= end - 0.03) {
+          try {
+            v.currentTime = start;
+            // 如果正在播放，继续播放；如果暂停，只定位不强行播放
+            if (!v.paused) v.play();
+          } catch {}
+        }
       }
     }
-  }
 
-  v.addEventListener("timeupdate", onTime);
-  return () => v.removeEventListener("timeupdate", onTime);
-}, [segments, loopSeg, activeSegIdx]);
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [segments, loopSeg, activeSegIdx]);
 
   // 自动滚动跟随
   useEffect(() => {
     if (!follow) return;
     if (activeSegIdx < 0) return;
+
     const el = rowRefs.current[activeSegIdx];
     const wrap = listWrapRef.current;
     if (!el || !wrap) return;
@@ -281,14 +287,17 @@ if (t >= end - 0.03) {
         e.preventDefault();
         if (!v) return;
         try {
-          if (v.paused) v.play?.();
-          else v.pause?.();
+          if (v.paused) v.play();
+          else v.pause();
         } catch {}
       }
 
       if (e.key === "k" || e.key === "K") {
         if (!segments.length) return;
-        const next = Math.min((activeSegIdx < 0 ? 0 : activeSegIdx + 1), segments.length - 1);
+        const next = Math.min(
+          (activeSegIdx < 0 ? 0 : activeSegIdx + 1),
+          segments.length - 1
+        );
         jumpTo(segments[next], next);
       }
 
@@ -305,7 +314,7 @@ if (t >= end - 0.03) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [segments, activeSegIdx]);
+  }, [segments, activeSegIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -324,7 +333,9 @@ if (t >= end - 0.03) {
           </Link>
           <div style={{ fontWeight: 950 }}>Clip #{clipId || "-"}</div>
         </div>
-        <Card style={{ padding: 14, marginTop: 14 }}>未找到该视频（id={clipId || "-"}）</Card>
+        <Card style={{ padding: 14, marginTop: 14 }}>
+          未找到该视频（id={clipId || "-"}）
+        </Card>
       </div>
     );
   }
@@ -354,7 +365,15 @@ if (t >= end - 0.03) {
       </div>
 
       {/* 主体 */}
-      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(420px, 1.1fr)", gap: 14, alignItems: "start" }}>
+      <div
+        style={{
+          marginTop: 14,
+          display: "grid",
+          gridTemplateColumns: "minmax(360px, 1fr) minmax(420px, 1.1fr)",
+          gap: 14,
+          alignItems: "start",
+        }}
+      >
         {/* 播放器 */}
         <Card style={{ padding: 12, position: "sticky", top: 12 }}>
           {canAccess ? (
@@ -429,7 +448,7 @@ if (t >= end - 0.03) {
             </div>
 
             <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
-              {me?.logged_in ? "已登录" : "未登录"} / {me?.is_member ? "会员" : "非会员"}
+              {me && me.logged_in ? "已登录" : "未登录"} / {me && me.is_member ? "会员" : "非会员"}
             </div>
           </div>
 
@@ -437,7 +456,14 @@ if (t >= end - 0.03) {
             {segments.length ? (
               <div
                 ref={listWrapRef}
-                style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 620, overflow: "auto", paddingRight: 4 }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  maxHeight: 620,
+                  overflow: "auto",
+                  paddingRight: 4,
+                }}
               >
                 {segments.map((seg, idx) => (
                   <SubtitleRow
@@ -453,8 +479,19 @@ if (t >= end - 0.03) {
                 ))}
               </div>
             ) : (
-              <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-                {details ? "details_json 里没有 segments" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
+              <div
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 14,
+                  padding: 12,
+                  fontSize: 13,
+                  opacity: 0.8,
+                  lineHeight: 1.6,
+                }}
+              >
+                {details
+                  ? "details_json 里没有 segments"
+                  : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
               </div>
             )}
           </div>
