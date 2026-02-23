@@ -4,11 +4,10 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * ✅ UI 对齐 v1（更像 englishclips）
- * - 顶部栏：品牌/登录状态/按钮
- * - 筛选区：更紧凑 + 选中条件 chips
- * - 卡片：封面(hover 预览) + badges + 收藏按钮
- * - 不改任何接口逻辑（保持你现有 /api/clips /api/taxonomies /api/me /api/bookmarks...）
+ * ✅ 首页 UI 对齐 v2（不闪屏）
+ * - filters 改变：不清空旧卡片，只显示“正在筛选…”遮罩
+ * - clips 拉取：依赖正确，筛选即时生效
+ * - 收藏/登录态/弹窗：保留
  */
 
 function splitParam(v) {
@@ -72,12 +71,7 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
       {open ? (
         <div className="fPanel">
           <div style={{ padding: 8, borderBottom: "1px solid #eee", display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              className="miniBtn"
-              onClick={() => onChange([])}
-              style={{ background: "white" }}
-            >
+            <button type="button" className="miniBtn" onClick={() => onChange([])} style={{ background: "white" }}>
               清空
             </button>
             <button
@@ -166,7 +160,6 @@ function Badge({ children, tone = "gray" }) {
     gray: { bg: "#f5f5f5", bd: "#eee", tx: "#111" },
     vip: { bg: "#fff5f5", bd: "#ffd5d5", tx: "#b00000" },
     free: { bg: "#f3fbff", bd: "#bfe3ff", tx: "#0b5aa6" },
-    dark: { bg: "#111", bd: "#111", tx: "#fff" },
   };
   const s = map[tone] || map.gray;
   return (
@@ -384,67 +377,64 @@ export default function HomePage() {
 
     router.replace({ pathname: "/", query: q }, undefined, { shallow: true });
 
-    // reset paging
+    // ✅ reset paging（不清空 items！避免闪屏）
     setOffset(0);
-    setItems([]);
     setHasMore(false);
     setTotal(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difficulty, topic, channel, access, sort]);
 
   // ---------------- 拉 clips ----------------
-// ---------------- 拉 clips ----------------
-useEffect(() => {
-  if (!router.isReady) return;
+  useEffect(() => {
+    if (!router.isReady) return;
 
-  async function run() {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
+    async function run() {
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
 
-    try {
-      if (offset === 0) setLoading(true);
-      else setLoadingMore(true);
+      try {
+        if (offset === 0) setLoading(true);
+        else setLoadingMore(true);
 
-      const params = new URLSearchParams();
-      params.set("limit", String(PAGE_SIZE));
-      params.set("offset", String(offset));
-      params.set("sort", sort);
-      if (difficulty.length) params.set("difficulty", difficulty.join(","));
-      if (topic.length) params.set("topic", topic.join(","));
-      if (channel.length) params.set("channel", channel.join(","));
-      if (access.length) params.set("access", access.join(","));
+        const params = new URLSearchParams();
+        params.set("limit", String(PAGE_SIZE));
+        params.set("offset", String(offset));
+        params.set("sort", sort);
+        if (difficulty.length) params.set("difficulty", difficulty.join(","));
+        if (topic.length) params.set("topic", topic.join(","));
+        if (channel.length) params.set("channel", channel.join(","));
+        if (access.length) params.set("access", access.join(","));
 
-      const d = await fetchJson(`/api/clips?${params.toString()}`);
-      const newItems = d?.items || [];
-      const totalCount = d?.total || 0;
+        const d = await fetchJson(`/api/clips?${params.toString()}`);
+        const newItems = d?.items || [];
+        const totalCount = d?.total || 0;
 
-      setTotal(totalCount);
+        setTotal(totalCount);
 
-      setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
+        setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
 
-      // ✅ 关键：用 offset 计算 hasMore，不要依赖 items 的旧值
-      setHasMore(offset + newItems.length < totalCount);
-    } catch (e) {
-      showToast("拉取失败：" + e.message);
-    } finally {
-      fetchingRef.current = false;
-      setLoading(false);
-      setLoadingMore(false);
+        // ✅ 用 offset 计算 hasMore，避免旧 items 引起计算错误
+        setHasMore(offset + newItems.length < totalCount);
+      } catch (e) {
+        showToast("拉取失败：" + e.message);
+      } finally {
+        fetchingRef.current = false;
+        setLoading(false);
+        setLoadingMore(false);
+      }
     }
-  }
 
-  run();
-  // ✅ 关键：filters/sort 必须在依赖里，否则点筛选不会重新拉取
-}, [
-  router.isReady,
-  offset,
-  clipsReloadKey,
-  sort,
-  difficulty.join(","),
-  topic.join(","),
-  channel.join(","),
-  access.join(","),
-]);
+    run();
+  }, [
+    router.isReady,
+    offset,
+    clipsReloadKey,
+    sort,
+    difficulty.join(","),
+    topic.join(","),
+    channel.join(","),
+    access.join(","),
+  ]);
 
   // ---------------- 无限滚动 ----------------
   useEffect(() => {
@@ -498,7 +488,16 @@ useEffect(() => {
           <div className="logoDot" />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
-            <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div
+              style={{
+                fontSize: 12,
+                opacity: 0.65,
+                marginTop: 2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
               像 englishclips 一样的接口式筛选（UI 对齐中）
             </div>
           </div>
@@ -548,7 +547,12 @@ useEffect(() => {
           <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
-              <button type="button" className="topBtn" onClick={() => setShowAuthModal(false)} style={{ marginLeft: "auto" }}>
+              <button
+                type="button"
+                className="topBtn"
+                onClick={() => setShowAuthModal(false)}
+                style={{ marginLeft: "auto" }}
+              >
                 关闭
               </button>
             </div>
@@ -589,10 +593,28 @@ useEffect(() => {
               { value: "oldest", label: "最早" },
             ]}
           />
-          <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
-          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
+          <MultiSelectDropdown
+            label="难度"
+            placeholder="选择难度"
+            options={tax.difficulties}
+            value={difficulty}
+            onChange={setDifficulty}
+          />
+          <MultiSelectDropdown
+            label="权限"
+            placeholder="免费/会员"
+            options={accessOptions}
+            value={access}
+            onChange={setAccess}
+          />
           <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
-          <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
+          <MultiSelectDropdown
+            label="Channel"
+            placeholder="选择 Channel"
+            options={tax.channels}
+            value={channel}
+            onChange={setChannel}
+          />
         </div>
 
         <div className="filterBottom">
@@ -641,59 +663,66 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* 卡片列表 */}
-      <div className="cardGrid">
-        {items.map((it) => {
-          const isBookmarked = bookmarkIds.has(it.id);
-          const busy = bookmarkBusyId === it.id;
+      {/* 卡片列表（✅不闪屏：loading 时不清空，只加遮罩） */}
+      <div style={{ position: "relative" }}>
+        {loading && offset === 0 ? (
+          <div className="loadingMask">
+            <div className="loadingBox">正在筛选…</div>
+          </div>
+        ) : null}
 
-          const accessTone = it.access_tier === "vip" ? "vip" : "free";
-          const diffText = it.difficulty || "unknown";
+        <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
+          {items.map((it) => {
+            const isBookmarked = bookmarkIds.has(it.id);
+            const busy = bookmarkBusyId === it.id;
 
-          return (
-            <a key={it.id} href={`/clips/${it.id}`} className="card">
-              <div style={{ position: "relative" }}>
-                <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
+            const accessTone = it.access_tier === "vip" ? "vip" : "free";
+            const diffText = it.difficulty || "unknown";
 
-                {/* 收藏 */}
-                <button
-                  type="button"
-                  className="bmBtn"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleBookmark(it.id);
-                  }}
-                  title={me.logged_in ? "" : "请先登录"}
-                >
-                  {busy ? "…" : isBookmarked ? "★" : "☆"}
-                </button>
-              </div>
+            return (
+              <a key={it.id} href={`/clips/${it.id}`} className="card">
+                <div style={{ position: "relative" }}>
+                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
 
-              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
-                <Badge>{diffText}</Badge>
-                {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
-              </div>
-
-              <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
-
-              <div className="metaLine">
-                <div>
-                  <span style={{ opacity: 0.7 }}>Topics：</span>
-                  {(it.topics || []).slice(0, 3).join(", ") || "-"}
+                  <button
+                    type="button"
+                    className="bmBtn"
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleBookmark(it.id);
+                    }}
+                    title={me.logged_in ? "" : "请先登录"}
+                  >
+                    {busy ? "…" : isBookmarked ? "★" : "☆"}
+                  </button>
                 </div>
-                <div>
-                  <span style={{ opacity: 0.7 }}>Channels：</span>
-                  {(it.channels || []).slice(0, 3).join(", ") || "-"}
-                </div>
-              </div>
 
-              {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
-            </a>
-          );
-        })}
+                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
+                  <Badge>{diffText}</Badge>
+                  {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
+                </div>
+
+                <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
+
+                <div className="metaLine">
+                  <div>
+                    <span style={{ opacity: 0.7 }}>Topics：</span>
+                    {(it.topics || []).slice(0, 3).join(", ") || "-"}
+                  </div>
+                  <div>
+                    <span style={{ opacity: 0.7 }}>Channels：</span>
+                    {(it.channels || []).slice(0, 3).join(", ") || "-"}
+                  </div>
+                </div>
+
+                {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
+              </a>
+            );
+          })}
+        </div>
       </div>
 
       {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
@@ -760,7 +789,7 @@ useEffect(() => {
           color: white;
         }
         .toast {
-          marginTop: 10px;
+          margin-top: 10px;
           margin-bottom: 10px;
           padding: 10px 12px;
           border: 1px solid #eee;
@@ -838,7 +867,7 @@ useEffect(() => {
           width: 100%;
           text-align: left;
           padding: 10px 12px;
-          borderRadius: 14px;
+          border-radius: 14px;
           border: 1px solid #eee;
           background: white;
           cursor: pointer;
@@ -947,6 +976,28 @@ useEffect(() => {
           font-size: 12px;
           font-weight: 900;
           color: #0b5aa6;
+        }
+
+        /* ✅ 不闪屏：加载遮罩 */
+        .loadingMask {
+          position: absolute;
+          inset: 0;
+          z-index: 30;
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+          padding-top: 16px;
+          pointer-events: none;
+        }
+        .loadingBox {
+          border: 1px solid #eee;
+          background: rgba(255, 255, 255, 0.92);
+          backdrop-filter: blur(8px);
+          border-radius: 999px;
+          padding: 8px 12px;
+          font-size: 12px;
+          font-weight: 950;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
         }
       `}</style>
     </div>
