@@ -916,9 +916,7 @@ export default function ClipDetailPage() {
               >
                 {showZhExplain ? "中文 ON" : "中文 OFF"}
               </Pill>
-              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 800 }}>
-                （点一下切换）
-              </div>
+            
             </div>
 
             {/* ✅ tab按钮稍微放大 */}
