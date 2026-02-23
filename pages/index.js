@@ -4,9 +4,9 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * 首页（全替换版本 - 修复样式不生效）
- * 关键修复：把 <style jsx> 改成 <style jsx global>
- * 这样 UserMenu 这种子组件里的 topBtn/avatarBtn/menuItem 也能吃到样式
+ * 首页（成品美化版：Hero + 筛选 + 网格）
+ * ✅ 保留原有全部功能：筛选、无限滚动、收藏、登录态、弹窗、会员拦截、HoverPreview
+ * ✅ 去掉“复制分享链接”按钮
  */
 
 function splitParam(v) {
@@ -69,16 +69,11 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
 
       {open ? (
         <div className="fPanel">
-          <div style={{ padding: 8, borderBottom: "1px solid #eee", display: "flex", gap: 8 }}>
-            <button type="button" className="miniBtn" onClick={() => onChange([])} style={{ background: "white" }}>
+          <div className="fPanelTop">
+            <button type="button" className="miniBtn" onClick={() => onChange([])}>
               清空
             </button>
-            <button
-              type="button"
-              className="miniBtn"
-              onClick={() => onChange((options || []).map((o) => o.slug))}
-              style={{ background: "white" }}
-            >
+            <button type="button" className="miniBtn" onClick={() => onChange((options || []).map((o) => o.slug))}>
               全选
             </button>
             <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
@@ -92,26 +87,16 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
               return (
                 <label
                   key={opt.slug}
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    padding: "10px 10px",
-                    borderRadius: 12,
-                    cursor: "pointer",
-                    alignItems: "center",
-                    background: checked ? "#f3fbff" : "transparent",
-                    border: checked ? "1px solid #bfe3ff" : "1px solid transparent",
-                  }}
+                  className={`checkRow ${checked ? "on" : ""}`}
+                  style={{ background: checked ? "rgba(19, 109, 255, 0.06)" : "transparent" }}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => onChange(toggleInArray(value || [], opt.slug))}
                   />
-                  <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.name || opt.slug}</div>
-                  {typeof opt.count === "number" ? (
-                    <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>{opt.count}</div>
-                  ) : null}
+                  <div className="checkName">{opt.name || opt.slug}</div>
+                  {typeof opt.count === "number" ? <div className="checkCount">{opt.count}</div> : null}
                 </label>
               );
             })}
@@ -156,9 +141,9 @@ async function fetchJson(url, options) {
 
 function Badge({ children, tone = "gray" }) {
   const map = {
-    gray: { bg: "#f5f5f5", bd: "#eee", tx: "#111" },
-    vip: { bg: "#fff5f5", bd: "#ffd5d5", tx: "#b00000" },
-    free: { bg: "#f3fbff", bd: "#bfe3ff", tx: "#0b5aa6" },
+    gray: { bg: "#f5f6f8", bd: "rgba(17,17,17,.06)", tx: "#111" },
+    vip: { bg: "rgba(255, 82, 82, 0.08)", bd: "rgba(255, 82, 82, 0.22)", tx: "#b00000" },
+    free: { bg: "rgba(19, 109, 255, 0.08)", bd: "rgba(19, 109, 255, 0.22)", tx: "#0b5aa6" },
   };
   const s = map[tone] || map.gray;
   return (
@@ -170,7 +155,7 @@ function Badge({ children, tone = "gray" }) {
         padding: "4px 10px",
         borderRadius: 999,
         fontSize: 12,
-        fontWeight: 800,
+        fontWeight: 900,
         background: s.bg,
         border: `1px solid ${s.bd}`,
         color: s.tx,
@@ -188,10 +173,9 @@ function UserMenu({ me, onLogout }) {
   const [open, setOpen] = useState(false);
   useOutsideClick(wrapRef, () => setOpen(false));
 
-  // 未登录：显示按钮（现在一定会有样式，因为改成 global 了）
   if (!me?.logged_in) {
     return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="topActions">
         <a className="topBtn" href="/login">
           登录
         </a>
@@ -207,12 +191,7 @@ function UserMenu({ me, onLogout }) {
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <button
-        type="button"
-        className="avatarBtn"
-        onClick={() => setOpen((v) => !v)}
-        title={email || "账号"}
-      >
+      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={email || "账号"}>
         <span className="avatarCircle">{initial}</span>
         <span className="caret">{open ? "▲" : "▼"}</span>
       </button>
@@ -224,9 +203,7 @@ function UserMenu({ me, onLogout }) {
               <span className="avatarCircle big">{initial}</span>
               <div style={{ minWidth: 0 }}>
                 <div className="menuEmail">{email || "（无邮箱）"}</div>
-                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>
-                  {me?.is_member ? "会员" : "非会员"}
-                </div>
+                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>{me?.is_member ? "会员" : "非会员"}</div>
               </div>
             </div>
           </div>
@@ -249,6 +226,145 @@ function UserMenu({ me, onLogout }) {
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function HeroSection({ me, sample, onTryVip }) {
+  const steps = [
+    { t: "选一个你感兴趣的场景", d: "从难度 / Topic / Channel 快速筛选，找到更适合你的内容。" },
+    { t: "看 1 分钟，跟读 3 遍", d: "短视频更适合碎片化学习，练听力 + 口语输出更快。" },
+    { t: "收藏进「视频收藏」", d: "遇到喜欢的 clip 一键收藏，随时回看复习。" },
+  ];
+
+  return (
+    <div className="heroWrap">
+      <div className="heroBg" />
+      <div className="heroGrid">
+        {/* left */}
+        <div className="heroLeft">
+          <div className="heroKicker">🎬 场景化英语短视频库</div>
+
+          <h1 className="heroTitle">
+            用真实场景练口语，
+            <br />
+            每天 5 分钟就有进步
+          </h1>
+
+          <div className="heroSub">
+            这里的 clip 都是「短 + 清晰 + 可复习」的英语片段。你可以按难度、Topic、Channel 筛选，快速找到想学的内容。
+          </div>
+
+          <div className="heroPills">
+            <span className="pill">接口式筛选</span>
+            <span className="pill">悬停预览</span>
+            <span className="pill">一键收藏</span>
+            <span className="pill">会员内容解锁</span>
+          </div>
+
+          <div className="heroCtas">
+            <a className="ctaPrimary" href="#all">
+              立即开始筛选
+            </a>
+
+            {!me?.logged_in ? (
+              <a className="ctaGhost" href="/register">
+                注册并兑换会员
+              </a>
+            ) : me?.is_member ? (
+              <span className="ctaHint">✅ 你已是会员，可直接观看会员内容</span>
+            ) : (
+              <button type="button" className="ctaGhost" onClick={onTryVip}>
+                去兑换/开通会员
+              </button>
+            )}
+          </div>
+
+          <div className="heroSteps">
+            <div className="stepsTitle">怎么用更有效？</div>
+            <div className="stepsGrid">
+              {steps.map((s, idx) => (
+                <div key={idx} className="stepCard">
+                  <div className="stepNo">{idx + 1}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="stepT">{s.t}</div>
+                    <div className="stepD">{s.d}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* right */}
+        <div className="heroRight">
+          <div className="demoCard">
+            <div className="demoTop">
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div className="demoDot" />
+                <div className="demoTitle">推荐示例</div>
+              </div>
+              <div className="demoTag">{sample?.access_tier === "vip" ? "会员" : "免费"}</div>
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <HoverPreview
+                coverUrl={sample?.cover_url}
+                videoUrl={sample?.video_url}
+                alt={sample?.title || ""}
+                borderRadius={16}
+              />
+              <div className="demoOverlay">
+                <div className="demoOverlayTitle">{sample?.title || "从下方列表选择任意 clip"}</div>
+                <div className="demoOverlayMeta">
+                  {sample?.difficulty ? <span className="demoChip">难度：{sample.difficulty}</span> : null}
+                  {sample?.duration_sec ? <span className="demoChip">{sample.duration_sec}s</span> : null}
+                  {sample?.access_tier ? <span className="demoChip">{sample.access_tier === "vip" ? "会员专享" : "免费可看"}</span> : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="demoBody">
+              <div className="demoLine">
+                <span className="demoKey">Topic：</span>
+                <span className="demoVal">{(sample?.topics || []).slice(0, 3).join(", ") || "-"}</span>
+              </div>
+              <div className="demoLine">
+                <span className="demoKey">Channel：</span>
+                <span className="demoVal">{(sample?.channels || []).slice(0, 3).join(", ") || "-"}</span>
+              </div>
+
+              <div className="demoHint">
+                小技巧：把鼠标移到封面上可预览播放；喜欢的 clip 点右上角「☆/★」收藏。
+              </div>
+            </div>
+          </div>
+
+          <div className="heroMini">
+            <div className="miniItem">
+              <div className="miniNum">⚡</div>
+              <div>
+                <div className="miniT">秒级筛选</div>
+                <div className="miniD">点筛选立即刷新，不整页重载</div>
+              </div>
+            </div>
+            <div className="miniItem">
+              <div className="miniNum">🔒</div>
+              <div>
+                <div className="miniT">权限分层</div>
+                <div className="miniD">免费/会员内容清晰标识</div>
+              </div>
+            </div>
+            <div className="miniItem">
+              <div className="miniNum">📌</div>
+              <div>
+                <div className="miniT">收藏复习</div>
+                <div className="miniD">积累你的专属学习清单</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -571,288 +687,378 @@ export default function HomePage() {
     setShowVipModal(true);
   }
 
+  // Hero：挑一个“示例”卡片展示（优先免费，否则第一条）
+  const heroSample = useMemo(() => {
+    if (!items?.length) return null;
+    const free = items.find((x) => x.access_tier === "free");
+    return free || items[0];
+  }, [items]);
+
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
+    <div className="page">
       {/* 顶部栏 */}
-      <div className="topbar">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div className="logoDot" />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.65,
-                marginTop: 2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              像 englishclips 一样的接口式筛选（UI 对齐中）
+      <div className="topbarShell">
+        <div className="topbar">
+          <div className="brand">
+            <div className="logoMark">
+              <div className="logoDot" />
+              <div className="logoDot soft" />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="brandName">naila clips</div>
+              <div className="brandSub">用真实场景练英语 · 秒级筛选 · 一键收藏</div>
             </div>
           </div>
-        </div>
 
-        <div className="topbarRight">
-          <UserMenu me={me} onLogout={logout} />
+          <div className="topbarRight">
+            <UserMenu me={me} onLogout={logout} />
+          </div>
         </div>
       </div>
 
-      {toast ? <div className="toast">{toast}</div> : null}
+      <div className="container">
+        {toast ? <div className="toast">{toast}</div> : null}
 
-      {/* 未登录弹窗 */}
-      {showAuthModal ? (
-        <div onClick={() => setShowAuthModal(false)} className="modalMask">
-          <div onClick={(e) => e.stopPropagation()} className="modalCard">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
-              <button
-                type="button"
-                className="topBtn"
-                onClick={() => setShowAuthModal(false)}
-                style={{ marginLeft: "auto" }}
-              >
-                关闭
-              </button>
-            </div>
+        {/* Hero */}
+        <HeroSection
+          me={me}
+          sample={heroSample}
+          onTryVip={() => {
+            window.location.href = "/login";
+          }}
+        />
 
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-              {pendingReason === "bookmark"
-                ? "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"
-                : "该视频为会员专享。请先登录（并在登录页兑换码开通会员）后再观看。"}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
-                去登录
-              </a>
-              <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
-                去注册
-              </a>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingId || "-"}）</div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* 已登录但非会员 */}
-      {showVipModal ? (
-        <div onClick={() => setShowVipModal(false)} className="modalMask">
-          <div onClick={(e) => e.stopPropagation()} className="modalCard">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>需要会员</div>
-              <button
-                type="button"
-                className="topBtn"
-                onClick={() => setShowVipModal(false)}
-                style={{ marginLeft: "auto" }}
-              >
-                关闭
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-              该视频为会员专享，请先在「登录/兑换」页面输入兑换码开通会员后再观看。
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
-                去兑换/开通
-              </a>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingVipClipId || "-"}）</div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* 统计 */}
-      <div style={{ opacity: 0.75, margin: "14px 0 10px", fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <div>{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
-        {me.logged_in ? <div>收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
-      </div>
-
-      {/* 筛选区 */}
-      <div className="filterWrap">
-        <div className="filterGrid">
-          <SingleSelectDropdown
-            label="排序"
-            value={sort}
-            onChange={setSort}
-            options={[
-              { value: "newest", label: "最新" },
-              { value: "oldest", label: "最早" },
-            ]}
-          />
-          <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
-          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
-          <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
-          <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
-        </div>
-
-        <div className="filterBottom">
-          <button
-            type="button"
-            className="topBtn"
-            onClick={() => {
-              setDifficulty([]);
-              setTopic([]);
-              setChannel([]);
-              setAccess([]);
-              setSort("newest");
-            }}
-          >
-            清空全部
-          </button>
-
-          <div className="chips">
-            {selectedChips.length ? (
-              selectedChips.map((c) => (
-                <button key={`${c.k}:${c.slug}`} type="button" className="chip" onClick={() => removeChip(c)} title="点我移除">
-                  {c.name} <span style={{ opacity: 0.6 }}>×</span>
-                </button>
-              ))
-            ) : (
-              <div style={{ fontSize: 12, opacity: 0.6 }}>（未选择筛选项）</div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            className="topBtn"
-            onClick={() => {
-              try {
-                const url = window.location.href;
-                navigator.clipboard?.writeText(url);
-                showToast("已复制分享链接");
-              } catch {
-                showToast("复制失败（请手动复制地址栏）");
-              }
-            }}
-            style={{ marginLeft: "auto" }}
-          >
-            复制分享链接
-          </button>
-        </div>
-      </div>
-
-      {/* 卡片列表 */}
-      <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
-        {items.map((it) => {
-          const isBookmarked = bookmarkIds.has(it.id);
-          const busy = bookmarkBusyId === it.id;
-          const accessTone = it.access_tier === "vip" ? "vip" : "free";
-          const diffText = it.difficulty || "unknown";
-
-          return (
-            <a
-              key={it.id}
-              href={`/clips/${it.id}`}
-              className="card"
-              onClick={(e) => handleCardClick(e, it)}
-              title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
-            >
-              <div style={{ position: "relative" }}>
-                <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
-
+        {/* 未登录弹窗 */}
+        {showAuthModal ? (
+          <div onClick={() => setShowAuthModal(false)} className="modalMask">
+            <div onClick={(e) => e.stopPropagation()} className="modalCard">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontWeight: 950, fontSize: 16 }}>需要登录</div>
                 <button
                   type="button"
-                  className="bmBtn"
-                  disabled={busy}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleBookmark(it.id);
-                  }}
-                  title={me.logged_in ? "" : "请先登录"}
+                  className="topBtn"
+                  onClick={() => setShowAuthModal(false)}
+                  style={{ marginLeft: "auto" }}
                 >
-                  {busy ? "…" : isBookmarked ? "★" : "☆"}
+                  关闭
                 </button>
               </div>
 
-              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
-                <Badge>{diffText}</Badge>
-                {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                {pendingReason === "bookmark"
+                  ? "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"
+                  : "该视频为会员专享。请先登录（并在登录页兑换码开通会员）后再观看。"}
               </div>
 
-              <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
-
-              <div className="metaLine">
-                <div>
-                  <span style={{ opacity: 0.7 }}>Topics：</span>
-                  {(it.topics || []).slice(0, 3).join(", ") || "-"}
-                </div>
-                <div>
-                  <span style={{ opacity: 0.7 }}>Channels：</span>
-                  {(it.channels || []).slice(0, 3).join(", ") || "-"}
-                </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
+                  去登录
+                </a>
+                <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                  去注册
+                </a>
               </div>
 
-              {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
-            </a>
-          );
-        })}
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingId || "-"}）</div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* 已登录但非会员 */}
+        {showVipModal ? (
+          <div onClick={() => setShowVipModal(false)} className="modalMask">
+            <div onClick={(e) => e.stopPropagation()} className="modalCard">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontWeight: 950, fontSize: 16 }}>需要会员</div>
+                <button
+                  type="button"
+                  className="topBtn"
+                  onClick={() => setShowVipModal(false)}
+                  style={{ marginLeft: "auto" }}
+                >
+                  关闭
+                </button>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                该视频为会员专享，请先在「登录/兑换」页面输入兑换码开通会员后再观看。
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                  去兑换/开通
+                </a>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingVipClipId || "-"}）</div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* “全部视频”标题 + 统计 */}
+        <div id="all" className="sectionHead">
+          <div>
+            <div className="sectionTitle">全部视频</div>
+            <div className="sectionSub">按难度 / 权限 / Topic / Channel 筛选，找到更适合你的练习片段</div>
+          </div>
+
+          <div className="statsPills">
+            <div className="statPill">{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
+            {me.logged_in ? <div className="statPill">收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
+          </div>
+        </div>
+
+        {/* 筛选区 */}
+        <div className="filterWrap">
+          <div className="filterGrid">
+            <SingleSelectDropdown
+              label="排序"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: "newest", label: "最新" },
+                { value: "oldest", label: "最早" },
+              ]}
+            />
+            <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
+            <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
+            <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
+            <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
+          </div>
+
+          <div className="filterBottom">
+            <button
+              type="button"
+              className="topBtn"
+              onClick={() => {
+                setDifficulty([]);
+                setTopic([]);
+                setChannel([]);
+                setAccess([]);
+                setSort("newest");
+              }}
+            >
+              清空全部
+            </button>
+
+            <div className="chips">
+              {selectedChips.length ? (
+                selectedChips.map((c) => (
+                  <button key={`${c.k}:${c.slug}`} type="button" className="chip" onClick={() => removeChip(c)} title="点我移除">
+                    {c.name} <span style={{ opacity: 0.6 }}>×</span>
+                  </button>
+                ))
+              ) : (
+                <div style={{ fontSize: 12, opacity: 0.6 }}>（未选择筛选项）</div>
+              )}
+            </div>
+
+            {/* ✅ 去掉“复制分享链接”按钮（按你要求） */}
+          </div>
+        </div>
+
+        {/* 卡片列表 */}
+        <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
+          {items.map((it) => {
+            const isBookmarked = bookmarkIds.has(it.id);
+            const busy = bookmarkBusyId === it.id;
+            const accessTone = it.access_tier === "vip" ? "vip" : "free";
+            const diffText = it.difficulty || "unknown";
+
+            return (
+              <a
+                key={it.id}
+                href={`/clips/${it.id}`}
+                className="card"
+                onClick={(e) => handleCardClick(e, it)}
+                title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
+              >
+                <div style={{ position: "relative" }}>
+                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={16} />
+
+                  <button
+                    type="button"
+                    className="bmBtn"
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleBookmark(it.id);
+                    }}
+                    title={me.logged_in ? "" : "请先登录"}
+                  >
+                    {busy ? "…" : isBookmarked ? "★" : "☆"}
+                  </button>
+
+                  <div className="cardCorner">
+                    <span className={`cornerTag ${it.access_tier === "vip" ? "vip" : "free"}`}>
+                      {it.access_tier === "vip" ? "会员专享" : "免费"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="cardBadges">
+                  <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
+                  <Badge>{diffText}</Badge>
+                  {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
+                </div>
+
+                <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
+
+                <div className="metaLine">
+                  <div>
+                    <span style={{ opacity: 0.7 }}>Topics：</span>
+                    {(it.topics || []).slice(0, 3).join(", ") || "-"}
+                  </div>
+                  <div>
+                    <span style={{ opacity: 0.7 }}>Channels：</span>
+                    {(it.channels || []).slice(0, 3).join(", ") || "-"}
+                  </div>
+                </div>
+
+                {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
+              </a>
+            );
+          })}
+        </div>
+
+        {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
+
+        <div className="footerHint">{loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}</div>
+
+        <div ref={sentinelRef} style={{ height: 1 }} />
+
+        <div className="footNote">
+          <div className="footLine">
+            <span className="footBrand">naila clips</span> · 用真实场景练英语
+          </div>
+          <div className="footSmall">提示：会员内容需要兑换码开通；收藏需要登录。</div>
+        </div>
       </div>
 
-      {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
-
-      <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, opacity: 0.7 }}>
-        {loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}
-      </div>
-
-      <div ref={sentinelRef} style={{ height: 1 }} />
-
-      {/* ✅ 关键：改成 global，保证子组件 UserMenu 也能吃到样式 */}
       <style jsx global>{`
-        .topbar {
+        :root {
+          --bd: rgba(17, 17, 17, 0.08);
+          --bd2: rgba(17, 17, 17, 0.06);
+          --txt: #111;
+          --muted: rgba(17, 17, 17, 0.65);
+          --shadow: 0 18px 60px rgba(0, 0, 0, 0.08);
+        }
+
+        html,
+        body {
+          background: #f6f7fb;
+        }
+
+        .page {
+          min-height: 100vh;
+        }
+
+        .container {
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 14px 16px 28px;
+        }
+
+        /* Topbar */
+        .topbarShell {
           position: sticky;
           top: 0;
-          z-index: 20;
-          background: rgba(255, 255, 255, 0.85);
-          backdrop-filter: blur(10px);
-          border: 1px solid #eee;
-          border-radius: 16px;
-          padding: 12px 12px;
+          z-index: 50;
+          padding: 10px 10px 0;
+        }
+
+        .topbar {
+          max-width: 1120px;
+          margin: 0 auto;
+          border: 1px solid var(--bd);
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.82);
+          backdrop-filter: blur(12px);
+          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.06);
+          padding: 12px 14px;
           display: flex;
-          gap: 10px;
+          gap: 12px;
           align-items: center;
           justify-content: space-between;
         }
+
+        .brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .logoMark {
+          width: 34px;
+          height: 34px;
+          border-radius: 14px;
+          border: 1px solid var(--bd);
+          background: linear-gradient(135deg, rgba(19, 109, 255, 0.14), rgba(255, 82, 82, 0.08));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
         .logoDot {
-          width: 14px;
-          height: 14px;
+          width: 10px;
+          height: 10px;
           border-radius: 999px;
           background: #111;
         }
+        .logoDot.soft {
+          background: rgba(17, 17, 17, 0.35);
+        }
+
+        .brandName {
+          font-size: 14px;
+          font-weight: 1000;
+          letter-spacing: 0.2px;
+          line-height: 1.1;
+        }
+        .brandSub {
+          margin-top: 2px;
+          font-size: 12px;
+          opacity: 0.7;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
         .topbarRight {
           display: flex;
           align-items: center;
           gap: 8px;
-          flex-wrap: wrap;
           justify-content: flex-end;
         }
 
+        .topActions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
         .topBtn {
-          border: 1px solid #eee;
-          background: white;
+          border: 1px solid var(--bd);
+          background: rgba(255, 255, 255, 0.95);
           border-radius: 12px;
-          padding: 8px 12px;
+          padding: 9px 12px;
           cursor: pointer;
           text-decoration: none;
-          color: #111;
-          font-weight: 900;
+          color: var(--txt);
+          font-weight: 950;
           font-size: 12px;
           line-height: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
+          transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
         }
         .topBtn:hover {
-          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+          transform: translateY(-1px);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
         }
         .topBtn.dark {
           background: #111;
@@ -860,10 +1066,10 @@ export default function HomePage() {
           color: white;
         }
 
-        /* 头像菜单 */
+        /* Avatar menu */
         .avatarBtn {
-          border: 1px solid #eee;
-          background: white;
+          border: 1px solid var(--bd);
+          background: rgba(255, 255, 255, 0.95);
           border-radius: 999px;
           padding: 6px 10px;
           cursor: pointer;
@@ -880,7 +1086,7 @@ export default function HomePage() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-weight: 950;
+          font-weight: 1000;
           font-size: 12px;
           line-height: 1;
         }
@@ -898,21 +1104,22 @@ export default function HomePage() {
           top: calc(100% + 10px);
           right: 0;
           width: 220px;
-          border: 1px solid #eee;
-          background: white;
+          border: 1px solid var(--bd);
+          background: rgba(255, 255, 255, 0.96);
           border-radius: 16px;
-          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+          box-shadow: var(--shadow);
           overflow: hidden;
-          z-index: 50;
+          z-index: 80;
+          backdrop-filter: blur(12px);
         }
         .menuHead {
           padding: 12px;
-          border-bottom: 1px solid #eee;
-          background: #fafafa;
+          border-bottom: 1px solid var(--bd2);
+          background: rgba(17, 17, 17, 0.03);
         }
         .menuEmail {
           font-size: 13px;
-          font-weight: 950;
+          font-weight: 1000;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -926,38 +1133,41 @@ export default function HomePage() {
         .menuItem {
           width: 100%;
           text-align: left;
-          border: 1px solid #eee;
+          border: 1px solid var(--bd);
           background: white;
           border-radius: 12px;
           padding: 10px 10px;
           cursor: pointer;
           text-decoration: none;
-          color: #111;
-          font-weight: 900;
+          color: var(--txt);
+          font-weight: 950;
           font-size: 12px;
           display: inline-flex;
           align-items: center;
           gap: 8px;
         }
         .menuItem:hover {
-          background: #fafafa;
+          background: rgba(17, 17, 17, 0.03);
         }
         .menuItem.danger {
-          border-color: #ffd5d5;
-          background: #fff5f5;
+          border-color: rgba(255, 82, 82, 0.25);
+          background: rgba(255, 82, 82, 0.08);
           color: #b00000;
         }
 
+        /* Toast */
         .toast {
           margin-top: 10px;
           margin-bottom: 10px;
           padding: 10px 12px;
-          border: 1px solid #eee;
-          border-radius: 12px;
-          background: white;
+          border: 1px solid var(--bd);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.92);
           font-size: 13px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
         }
 
+        /* Modal */
         .modalMask {
           position: fixed;
           inset: 0;
@@ -972,18 +1182,383 @@ export default function HomePage() {
           width: 100%;
           max-width: 420px;
           background: white;
-          border-radius: 16px;
-          border: 1px solid #eee;
+          border-radius: 18px;
+          border: 1px solid var(--bd);
           padding: 16px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.22);
         }
 
-        .filterWrap {
-          border: 1px solid #eee;
+        /* Hero */
+        .heroWrap {
+          position: relative;
+          border-radius: 26px;
+          border: 1px solid var(--bd);
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.6);
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.06);
+          margin-top: 12px;
+        }
+        .heroBg {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(900px 360px at 20% 15%, rgba(19, 109, 255, 0.18), transparent 60%),
+            radial-gradient(700px 320px at 85% 20%, rgba(255, 82, 82, 0.14), transparent 55%),
+            radial-gradient(900px 500px at 60% 95%, rgba(17, 17, 17, 0.06), transparent 55%);
+          pointer-events: none;
+        }
+        .heroGrid {
+          position: relative;
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 14px;
+          padding: 18px;
+        }
+        @media (min-width: 980px) {
+          .heroGrid {
+            grid-template-columns: 1.12fr 0.88fr;
+            gap: 18px;
+            padding: 20px;
+          }
+        }
+
+        .heroLeft {
+          padding: 6px 4px;
+        }
+        .heroKicker {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          border: 1px solid rgba(19, 109, 255, 0.22);
+          background: rgba(19, 109, 255, 0.08);
+          color: #0b5aa6;
+          padding: 7px 10px;
+          border-radius: 999px;
+          font-weight: 950;
+          font-size: 12px;
+        }
+        .heroTitle {
+          margin: 12px 0 0;
+          font-size: 30px;
+          line-height: 1.15;
+          font-weight: 1100;
+          letter-spacing: -0.6px;
+        }
+        @media (min-width: 980px) {
+          .heroTitle {
+            font-size: 36px;
+          }
+        }
+        .heroSub {
+          margin-top: 10px;
+          font-size: 14px;
+          line-height: 1.7;
+          color: rgba(17, 17, 17, 0.72);
+          max-width: 56ch;
+        }
+        .heroPills {
+          margin-top: 12px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .pill {
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.7);
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+          font-weight: 900;
+          color: rgba(17, 17, 17, 0.75);
+        }
+        .heroCtas {
+          margin-top: 14px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+        }
+        .ctaPrimary {
+          border-radius: 14px;
+          padding: 10px 14px;
+          font-weight: 1000;
+          font-size: 13px;
+          border: 1px solid rgba(17, 17, 17, 0.12);
+          background: #111;
+          color: white;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .ctaPrimary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.18);
+        }
+        .ctaGhost {
+          border-radius: 14px;
+          padding: 10px 14px;
+          font-weight: 1000;
+          font-size: 13px;
+          border: 1px solid rgba(17, 17, 17, 0.12);
+          background: rgba(255, 255, 255, 0.85);
+          color: #111;
+          text-decoration: none;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .ctaGhost:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.1);
+        }
+        .ctaHint {
+          font-size: 12px;
+          font-weight: 900;
+          color: rgba(17, 17, 17, 0.68);
+        }
+
+        .heroSteps {
+          margin-top: 14px;
+        }
+        .stepsTitle {
+          font-weight: 1000;
+          font-size: 13px;
+          opacity: 0.9;
+        }
+        .stepsGrid {
+          margin-top: 10px;
+          display: grid;
+          gap: 10px;
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 980px) {
+          .stepsGrid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .stepCard {
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.72);
           border-radius: 16px;
           padding: 12px;
-          margin-bottom: 16px;
-          background: white;
+        }
+        .stepNo {
+          width: 28px;
+          height: 28px;
+          border-radius: 10px;
+          border: 1px solid rgba(17, 17, 17, 0.1);
+          background: rgba(17, 17, 17, 0.04);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 1100;
+        }
+        .stepT {
+          font-weight: 1000;
+          font-size: 13px;
+        }
+        .stepD {
+          margin-top: 3px;
+          font-size: 12px;
+          line-height: 1.55;
+          color: rgba(17, 17, 17, 0.68);
+        }
+
+        .heroRight {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .demoCard {
+          border-radius: 22px;
+          border: 1px solid rgba(17, 17, 17, 0.1);
+          background: rgba(255, 255, 255, 0.86);
+          overflow: hidden;
+          box-shadow: 0 22px 60px rgba(0, 0, 0, 0.08);
+        }
+        .demoTop {
+          padding: 12px 12px 10px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+        .demoDot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          background: rgba(19, 109, 255, 0.8);
+          box-shadow: 0 0 0 6px rgba(19, 109, 255, 0.12);
+        }
+        .demoTitle {
+          font-weight: 1000;
+          font-size: 13px;
+        }
+        .demoTag {
+          font-size: 12px;
+          font-weight: 1000;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(17, 17, 17, 0.03);
+        }
+        .demoOverlay {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 10px;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.86);
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          padding: 10px 10px;
+          backdrop-filter: blur(10px);
+        }
+        .demoOverlayTitle {
+          font-weight: 1000;
+          font-size: 13px;
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .demoOverlayMeta {
+          margin-top: 6px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .demoChip {
+          font-size: 12px;
+          font-weight: 900;
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: rgba(17, 17, 17, 0.04);
+          border: 1px solid rgba(17, 17, 17, 0.06);
+        }
+        .demoBody {
+          padding: 12px 12px 14px;
+        }
+        .demoLine {
+          display: flex;
+          gap: 8px;
+          font-size: 12px;
+          line-height: 1.4;
+          margin-top: 6px;
+        }
+        .demoKey {
+          opacity: 0.65;
+          font-weight: 900;
+          width: 68px;
+          flex: 0 0 auto;
+        }
+        .demoVal {
+          opacity: 0.9;
+          font-weight: 900;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .demoHint {
+          margin-top: 10px;
+          font-size: 12px;
+          line-height: 1.5;
+          color: rgba(17, 17, 17, 0.66);
+          padding: 10px 10px;
+          border-radius: 14px;
+          border: 1px dashed rgba(17, 17, 17, 0.14);
+          background: rgba(17, 17, 17, 0.02);
+        }
+
+        .heroMini {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: 1fr;
+        }
+        @media (min-width: 560px) {
+          .heroMini {
+            grid-template-columns: 1fr 1fr 1fr;
+          }
+        }
+        .miniItem {
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.68);
+          border-radius: 18px;
+          padding: 12px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+        }
+        .miniNum {
+          width: 34px;
+          height: 34px;
+          border-radius: 14px;
+          border: 1px solid rgba(17, 17, 17, 0.1);
+          background: rgba(17, 17, 17, 0.04);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 1100;
+        }
+        .miniT {
+          font-weight: 1000;
+          font-size: 13px;
+        }
+        .miniD {
+          margin-top: 2px;
+          font-size: 12px;
+          color: rgba(17, 17, 17, 0.65);
+        }
+
+        /* Section head */
+        .sectionHead {
+          margin-top: 18px;
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .sectionTitle {
+          font-size: 16px;
+          font-weight: 1100;
+        }
+        .sectionSub {
+          margin-top: 3px;
+          font-size: 12px;
+          color: rgba(17, 17, 17, 0.62);
+        }
+        .statsPills {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+        }
+        .statPill {
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.75);
+          border-radius: 999px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 950;
+          color: rgba(17, 17, 17, 0.78);
+        }
+
+        /* Filter */
+        .filterWrap {
+          margin-top: 10px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          border-radius: 20px;
+          padding: 14px;
+          background: rgba(255, 255, 255, 0.82);
+          box-shadow: 0 18px 60px rgba(0, 0, 0, 0.06);
         }
         .filterGrid {
           display: grid;
@@ -1009,32 +1584,37 @@ export default function HomePage() {
           align-items: center;
         }
         .chip {
-          border: 1px solid #eee;
-          background: #fafafa;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(17, 17, 17, 0.03);
           border-radius: 999px;
-          padding: 6px 10px;
+          padding: 7px 10px;
           font-size: 12px;
-          font-weight: 900;
+          font-weight: 950;
           cursor: pointer;
         }
 
         .fLabel {
           font-size: 12px;
-          opacity: 0.7;
+          opacity: 0.75;
           margin-bottom: 6px;
-          font-weight: 800;
+          font-weight: 900;
         }
         .fBtn {
           width: 100%;
           text-align: left;
-          padding: 10px 12px;
-          border-radius: 14px;
-          border: 1px solid #eee;
-          background: white;
+          padding: 11px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.92);
           cursor: pointer;
           display: flex;
           gap: 8px;
           align-items: center;
+          transition: box-shadow 0.12s ease, transform 0.12s ease;
+        }
+        .fBtn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 44px rgba(0, 0, 0, 0.07);
         }
         .fBtnText {
           flex: 1;
@@ -1043,55 +1623,90 @@ export default function HomePage() {
           text-overflow: ellipsis;
           white-space: nowrap;
           font-size: 13px;
-          font-weight: 800;
+          font-weight: 900;
         }
         .fPanel {
           position: absolute;
           top: calc(100% + 8px);
           left: 0;
           right: 0;
-          border: 1px solid #eee;
-          background: white;
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.98);
           border-radius: 16px;
-          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
-          z-index: 50;
+          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12);
+          z-index: 80;
           overflow: hidden;
+          backdrop-filter: blur(12px);
+        }
+        .fPanelTop {
+          padding: 8px;
+          border-bottom: 1px solid rgba(17, 17, 17, 0.06);
+          display: flex;
+          gap: 8px;
+          background: rgba(17, 17, 17, 0.02);
         }
         .miniBtn {
-          border: 1px solid #eee;
+          border: 1px solid rgba(17, 17, 17, 0.1);
           border-radius: 12px;
-          padding: 6px 10px;
+          padding: 7px 10px;
           cursor: pointer;
-          font-weight: 900;
+          font-weight: 950;
           font-size: 12px;
+          background: rgba(255, 255, 255, 0.95);
         }
         .fSelect {
           width: 100%;
-          padding: 10px 12px;
+          padding: 11px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.92);
+          font-weight: 950;
+        }
+
+        .checkRow {
+          display: flex;
+          gap: 10px;
+          padding: 10px 10px;
           border-radius: 14px;
-          border: 1px solid #eee;
-          background: white;
+          cursor: pointer;
+          align-items: center;
+          border: 1px solid transparent;
+        }
+        .checkRow.on {
+          border-color: rgba(19, 109, 255, 0.22);
+        }
+        .checkName {
+          font-size: 13px;
+          font-weight: 900;
+        }
+        .checkCount {
+          margin-left: auto;
+          font-size: 12px;
+          opacity: 0.6;
           font-weight: 900;
         }
 
+        /* Cards */
         .cardGrid {
+          margin-top: 12px;
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 12px;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+          gap: 14px;
         }
         .card {
-          border: 1px solid #eee;
-          border-radius: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          border-radius: 18px;
           padding: 12px;
-          background: white;
+          background: rgba(255, 255, 255, 0.9);
           display: block;
           color: inherit;
           text-decoration: none;
           cursor: pointer;
           transition: box-shadow 0.18s ease, transform 0.18s ease;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
         }
         .card:hover {
-          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 22px 70px rgba(0, 0, 0, 0.12);
           transform: translateY(-2px);
         }
         .bmBtn {
@@ -1099,17 +1714,50 @@ export default function HomePage() {
           top: 10px;
           right: 10px;
           border: 1px solid rgba(255, 255, 255, 0.7);
-          background: rgba(255, 255, 255, 0.88);
+          background: rgba(255, 255, 255, 0.9);
           border-radius: 12px;
           padding: 8px 10px;
-          font-weight: 900;
+          font-weight: 1000;
           cursor: pointer;
+          backdrop-filter: blur(10px);
+        }
+        .cardCorner {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+        }
+        .cornerTag {
+          font-size: 12px;
+          font-weight: 1000;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.9);
+          backdrop-filter: blur(10px);
+        }
+        .cornerTag.vip {
+          border-color: rgba(255, 82, 82, 0.25);
+          background: rgba(255, 82, 82, 0.1);
+          color: #b00000;
+        }
+        .cornerTag.free {
+          border-color: rgba(19, 109, 255, 0.25);
+          background: rgba(19, 109, 255, 0.1);
+          color: #0b5aa6;
+        }
+
+        .cardBadges {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
         }
 
         .titleLine {
           margin-top: 10px;
           font-size: 14px;
-          font-weight: 950;
+          font-weight: 1100;
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -1120,7 +1768,7 @@ export default function HomePage() {
         .metaLine {
           margin-top: 8px;
           font-size: 12px;
-          opacity: 0.8;
+          opacity: 0.85;
           line-height: 1.5;
           display: flex;
           flex-direction: column;
@@ -1129,14 +1777,43 @@ export default function HomePage() {
         .vipHint {
           margin-top: 10px;
           font-size: 12px;
-          font-weight: 900;
+          font-weight: 1000;
           color: #b00000;
         }
         .okHint {
           margin-top: 10px;
           font-size: 12px;
-          font-weight: 900;
+          font-weight: 1000;
           color: #0b5aa6;
+        }
+
+        .footerHint {
+          margin-top: 14px;
+          text-align: center;
+          font-size: 12px;
+          opacity: 0.7;
+        }
+
+        .footNote {
+          margin-top: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          border-radius: 18px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.75);
+          text-align: center;
+        }
+        .footLine {
+          font-weight: 1000;
+          font-size: 12px;
+          opacity: 0.85;
+        }
+        .footBrand {
+          font-weight: 1100;
+        }
+        .footSmall {
+          margin-top: 4px;
+          font-size: 12px;
+          opacity: 0.65;
         }
       `}</style>
     </div>
