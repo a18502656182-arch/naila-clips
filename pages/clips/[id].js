@@ -372,7 +372,7 @@ export default function ClipDetailPage() {
         }
 
         try {
-          const d2 = await fetchJson(`/api/clip_details?id=${clipId}`);
+          const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
           if (!mounted) return;
           setDetails(d2?.details_json ?? null);
         } catch {
