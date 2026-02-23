@@ -2,13 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
-import UserMenu from "../components/UserMenu";
 
 /**
- * ✅ 首页 UI 对齐 v2（不闪屏）
- * - filters 改变：不清空旧卡片，只显示“正在筛选…”遮罩
- * - clips 拉取：依赖正确，筛选即时生效
- * - 收藏/登录态/弹窗：保留
+ * ✅ 首页 UI 对齐 v2（不闪屏）+ 账号菜单/会员卡片拦截
+ * - 未登录点“会员视频卡片” -> 弹窗引导登录/注册
+ * - 顶栏改为“头像下拉菜单”：未登录显示登录/注册；已登录显示头像 -> 收藏/退出
+ * - 收藏弹窗复用同一套弹窗
  */
 
 function splitParam(v) {
@@ -184,6 +183,84 @@ function Badge({ children, tone = "gray" }) {
   );
 }
 
+/** 顶栏用户菜单：未登录=登录/注册；已登录=头像下拉（收藏/退出） */
+function UserMenu({ me, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useOutsideClick(wrapRef, () => setOpen(false));
+
+  const initial = useMemo(() => {
+    const email = String(me?.email || "");
+    const ch = (email.split("@")[0] || "U").trim().slice(0, 1) || "U";
+    return ch.toUpperCase();
+  }, [me?.email]);
+
+  if (!me?.logged_in) {
+    return (
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <a className="topBtn" href="/login">
+          登录
+        </a>
+        <a className="topBtn dark" href="/register">
+          注册
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={me?.email || "账号"}>
+        <span className="avatarCircle">{initial}</span>
+        <span style={{ opacity: 0.75, fontSize: 12 }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open ? (
+        <div className="menuPanel">
+          <div className="menuHead">
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span className="avatarCircle" style={{ width: 34, height: 34, fontSize: 14 }}>
+                {initial}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 950,
+                    fontSize: 13,
+                    lineHeight: 1.2,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {me?.email || "（无邮箱）"}
+                </div>
+                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>{me?.is_member ? "会员" : "非会员"}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="menuBody">
+            <a className="menuItem" href="/bookmarks" onClick={() => setOpen(false)}>
+              ❤️ 视频收藏
+            </a>
+            <button
+              type="button"
+              className="menuItem danger"
+              onClick={() => {
+                setOpen(false);
+                onLogout?.();
+              }}
+            >
+              退出
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
 
@@ -227,9 +304,9 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
-  // 未登录收藏弹窗
+  // ✅ 通用弹窗（收藏未登录 / 点击会员视频未登录 / 已登录但非会员点击会员视频）
   const [showAuthModal, setShowAuthModal] = useState(false);
-const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' | 'vip_click' | 'vip_need_member', clipId }
+  const [pendingAction, setPendingAction] = useState(null); // { type:'bookmark'|'vip_click'|'vip_need_member', clipId }
 
   function showToast(s) {
     setToast(s);
@@ -275,10 +352,10 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
     if (!clipId) return;
 
     if (!me.logged_in) {
-  setPendingAction({ type: "bookmark", clipId });
-  setShowAuthModal(true);
-  return;
-}
+      setPendingAction({ type: "bookmark", clipId });
+      setShowAuthModal(true);
+      return;
+    }
 
     const has = bookmarkIds.has(clipId);
     setBookmarkBusyId(clipId);
@@ -411,10 +488,7 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
         const totalCount = d?.total || 0;
 
         setTotal(totalCount);
-
         setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
-
-        // ✅ 用 offset 计算 hasMore，避免旧 items 引起计算错误
         setHasMore(offset + newItems.length < totalCount);
       } catch (e) {
         showToast("拉取失败：" + e.message);
@@ -481,6 +555,15 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
     if (chip.k === "channel") setChannel((arr) => arr.filter((x) => x !== chip.slug));
   }
 
+  // 弹窗文本
+  const modalText = useMemo(() => {
+    if (!pendingAction?.type) return "";
+    if (pendingAction.type === "vip_need_member") return "该视频为会员专享，请先兑换码开通会员后再观看。";
+    if (pendingAction.type === "vip_click")
+      return "该视频为会员专享。请先登录/注册，然后使用兑换码开通会员。";
+    return "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。";
+  }, [pendingAction]);
+
   return (
     <div style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
       {/* 顶部栏 */}
@@ -504,50 +587,83 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           </div>
         </div>
 
+        {/* ✅ 右上角：头像下拉 / 登录注册 */}
         <div className="topbarRight">
-  <UserMenu me={me} onLogout={logout} />
-</div>
+          <UserMenu me={me} onLogout={logout} />
+        </div>
       </div>
 
       {/* toast */}
       {toast ? <div className="toast">{toast}</div> : null}
 
-      {/* 未登录收藏弹窗 */}
+      {/* ✅ 通用弹窗 */}
       {showAuthModal ? (
-        <div onClick={() => setShowAuthModal(false)} className="modalMask">
+        <div
+          onClick={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          className="modalMask"
+        >
           <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
+              <div style={{ fontWeight: 900, fontSize: 16 }}>
+                {pendingAction?.type === "vip_need_member"
+                  ? "需要会员"
+                  : pendingAction?.type === "vip_click"
+                  ? "需要登录"
+                  : "需要登录"}
+              </div>
               <button
                 type="button"
                 className="topBtn"
-                onClick={() => setShowAuthModal(false)}
+                onClick={() => {
+                  setShowAuthModal(false);
+                  setPendingAction(null);
+                }}
                 style={{ marginLeft: "auto" }}
               >
                 关闭
               </button>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-              收藏功能需要登录。登录后你可以在「我的收藏」里随时找到这些视频。
-            </div>
+            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>{modalText}</div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
-                去登录
-              </a>
-              <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
-                去注册
-              </a>
+              {pendingAction?.type === "vip_need_member" ? (
+                <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                  去兑换/开通
+                </a>
+              ) : (
+                <>
+                  <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
+                    去登录
+                  </a>
+                  <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                    去注册
+                  </a>
+                </>
+              )}
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingBookmarkId || "-"}）</div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
+              （刚刚点击的 clip：{pendingAction?.clipId || "-"}）
+            </div>
           </div>
         </div>
       ) : null}
 
       {/* 统计 */}
-      <div style={{ opacity: 0.75, margin: "14px 0 10px", fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div
+        style={{
+          opacity: 0.75,
+          margin: "14px 0 10px",
+          fontSize: 13,
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
         <div>{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
         {me.logged_in ? <div>收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
       </div>
@@ -564,28 +680,10 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
               { value: "oldest", label: "最早" },
             ]}
           />
-          <MultiSelectDropdown
-            label="难度"
-            placeholder="选择难度"
-            options={tax.difficulties}
-            value={difficulty}
-            onChange={setDifficulty}
-          />
-          <MultiSelectDropdown
-            label="权限"
-            placeholder="免费/会员"
-            options={accessOptions}
-            value={access}
-            onChange={setAccess}
-          />
+          <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
+          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
           <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
-          <MultiSelectDropdown
-            label="Channel"
-            placeholder="选择 Channel"
-            options={tax.channels}
-            value={channel}
-            onChange={setChannel}
-          />
+          <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
         </div>
 
         <div className="filterBottom">
@@ -636,8 +734,6 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
 
       {/* 卡片列表（✅不闪屏：loading 时不清空，只加遮罩） */}
       <div style={{ position: "relative" }}>
-        
-
         <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
           {items.map((it) => {
             const isBookmarked = bookmarkIds.has(it.id);
@@ -647,7 +743,26 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
             const diffText = it.difficulty || "unknown";
 
             return (
-              <a key={it.id} href={`/clips/${it.id}`} className="card">
+              <a
+                key={it.id}
+                href={`/clips/${it.id}`}
+                className="card"
+                onClick={(e) => {
+                  // ✅ 未登录点会员视频：弹窗引导（和收藏一样）
+                  if (!me.logged_in && it.access_tier === "vip") {
+                    e.preventDefault();
+                    setPendingAction({ type: "vip_click", clipId: it.id });
+                    setShowAuthModal(true);
+                    return;
+                  }
+                  // ✅ 已登录但非会员点会员视频：引导去兑换（现在你暂时没做兑换页也没关系，先去 login）
+                  if (me.logged_in && it.access_tier === "vip" && !it.can_access) {
+                    e.preventDefault();
+                    setPendingAction({ type: "vip_need_member", clipId: it.id });
+                    setShowAuthModal(true);
+                  }
+                }}
+              >
                 <div style={{ position: "relative" }}>
                   <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
 
@@ -728,12 +843,7 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           flex-wrap: wrap;
           justify-content: flex-end;
         }
-        .meText {
-          font-size: 12px;
-          opacity: 0.75;
-          margin-right: 6px;
-          white-space: nowrap;
-        }
+
         .topBtn {
           border: 1px solid #eee;
           background: white;
@@ -755,6 +865,72 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           border-color: #111;
           color: white;
         }
+
+        /* 头像菜单 */
+        .avatarBtn {
+          border: 1px solid #eee;
+          background: white;
+          border-radius: 999px;
+          padding: 6px 10px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 900;
+        }
+        .avatarCircle {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          background: #111;
+          color: white;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 950;
+          font-size: 13px;
+        }
+        .menuPanel {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 10px);
+          width: 240px;
+          border: 1px solid #eee;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+          overflow: hidden;
+          z-index: 60;
+        }
+        .menuHead {
+          padding: 12px;
+          border-bottom: 1px solid #eee;
+          background: #fafafa;
+        }
+        .menuBody {
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .menuItem {
+          width: 100%;
+          border: 1px solid #eee;
+          background: white;
+          border-radius: 12px;
+          padding: 10px 10px;
+          cursor: pointer;
+          font-weight: 900;
+          text-decoration: none;
+          color: #111;
+          text-align: left;
+        }
+        .menuItem.danger {
+          border-color: #ffd5d5;
+          background: #fff5f5;
+          color: #b00000;
+        }
+
         .toast {
           margin-top: 10px;
           margin-bottom: 10px;
@@ -764,6 +940,7 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           background: white;
           font-size: 13px;
         }
+
         .modalMask {
           position: fixed;
           inset: 0;
@@ -897,7 +1074,7 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           transition: box-shadow 0.18s ease, transform 0.18s ease;
         }
         .card:hover {
-          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.10);
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.1);
           transform: translateY(-2px);
         }
         .bmBtn {
@@ -943,28 +1120,6 @@ const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' 
           font-size: 12px;
           font-weight: 900;
           color: #0b5aa6;
-        }
-
-        /* ✅ 不闪屏：加载遮罩 */
-        .loadingMask {
-          position: absolute;
-          inset: 0;
-          z-index: 30;
-          display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          padding-top: 16px;
-          pointer-events: none;
-        }
-        .loadingBox {
-          border: 1px solid #eee;
-          background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(8px);
-          border-radius: 999px;
-          padding: 8px 12px;
-          font-size: 12px;
-          font-weight: 950;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
         }
       `}</style>
     </div>
