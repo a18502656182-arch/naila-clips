@@ -4,12 +4,11 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * 首页（成品风格版）
- * - 不改功能：筛选/无限滚动/收藏/登录弹窗/会员弹窗/右上角菜单 都保留
- * - 改 UI：背景更丰富、卡片更大、标签更美观、去掉 Topics/Channels 文本行
- * - 顶部条不 sticky
- * - 加一个固定“推荐示例视频”：单独请求不带筛选参数，不参与筛选
- * - 去掉“复制分享链接”按钮
+ * 首页（美化版 v3）
+ * ✅ 卡片标签统一做成彩色 pill
+ * ✅ 背景更丰富（柔和渐变+光斑）
+ * ✅ Hero 示例视频可点击进详情页，并固定不参与筛选（只初始化一次）
+ * ✅ 不动既有功能：筛选、无限滚动、收藏、登录态、弹窗、会员拦截
  */
 
 function splitParam(v) {
@@ -60,28 +59,18 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
     <div ref={wrapRef} style={{ position: "relative" }}>
       <div className="fLabel">{label}</div>
 
-      <button
-        type="button"
-        onClick={() => setOpen((x) => !x)}
-        className="fBtn"
-        style={{ justifyContent: "space-between" }}
-      >
+      <button type="button" onClick={() => setOpen((x) => !x)} className="fBtn" style={{ justifyContent: "space-between" }}>
         <div className="fBtnText">{selectedLabels || <span style={{ opacity: 0.55 }}>{placeholder}</span>}</div>
         <div style={{ opacity: 0.65 }}>{open ? "▲" : "▼"}</div>
       </button>
 
       {open ? (
         <div className="fPanel">
-          <div style={{ padding: 8, borderBottom: "1px solid #eee", display: "flex", gap: 8 }}>
-            <button type="button" className="miniBtn" onClick={() => onChange([])} style={{ background: "white" }}>
+          <div className="fPanelTop">
+            <button type="button" className="miniBtn" onClick={() => onChange([])}>
               清空
             </button>
-            <button
-              type="button"
-              className="miniBtn"
-              onClick={() => onChange((options || []).map((o) => o.slug))}
-              style={{ background: "white" }}
-            >
+            <button type="button" className="miniBtn" onClick={() => onChange((options || []).map((o) => o.slug))}>
               全选
             </button>
             <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
@@ -89,32 +78,14 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
             </div>
           </div>
 
-          <div style={{ maxHeight: 280, overflow: "auto", padding: 8 }}>
+          <div style={{ maxHeight: 260, overflow: "auto", padding: 8 }}>
             {(options || []).map((opt) => {
               const checked = selected.has(opt.slug);
               return (
-                <label
-                  key={opt.slug}
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    padding: "10px 10px",
-                    borderRadius: 12,
-                    cursor: "pointer",
-                    alignItems: "center",
-                    background: checked ? "rgba(99,102,241,0.08)" : "transparent",
-                    border: checked ? "1px solid rgba(99,102,241,0.35)" : "1px solid transparent",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => onChange(toggleInArray(value || [], opt.slug))}
-                  />
-                  <div style={{ fontSize: 13, fontWeight: 800 }}>{opt.name || opt.slug}</div>
-                  {typeof opt.count === "number" ? (
-                    <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.65 }}>{opt.count}</div>
-                  ) : null}
+                <label key={opt.slug} className={`checkRow ${checked ? "on" : ""}`}>
+                  <input type="checkbox" checked={checked} onChange={() => onChange(toggleInArray(value || [], opt.slug))} />
+                  <div className="checkName">{opt.name || opt.slug}</div>
+                  {typeof opt.count === "number" ? <div className="checkCount">{opt.count}</div> : null}
                 </label>
               );
             })}
@@ -157,38 +128,25 @@ async function fetchJson(url, options) {
   return data;
 }
 
-/** 彩色标签（更丰富） */
-function Tag({ children, tone = "gray", size = "md" }) {
+/** 彩色标签（统一风格） */
+function Tag({ children, tone = "gray" }) {
   const map = {
-    gray: { bg: "rgba(17,24,39,0.06)", bd: "rgba(17,24,39,0.10)", tx: "rgba(17,24,39,0.92)" },
-    vip: { bg: "rgba(239,68,68,0.10)", bd: "rgba(239,68,68,0.25)", tx: "rgba(185,28,28,0.95)" },
-    free: { bg: "rgba(59,130,246,0.10)", bd: "rgba(59,130,246,0.25)", tx: "rgba(29,78,216,0.95)" },
-
-    diff: { bg: "rgba(245,158,11,0.14)", bd: "rgba(245,158,11,0.28)", tx: "rgba(146,64,14,0.95)" },
-    dur: { bg: "rgba(16,185,129,0.12)", bd: "rgba(16,185,129,0.26)", tx: "rgba(4,120,87,0.95)" },
-
-    topic: { bg: "rgba(168,85,247,0.12)", bd: "rgba(168,85,247,0.26)", tx: "rgba(107,33,168,0.95)" },
-    channel: { bg: "rgba(6,182,212,0.12)", bd: "rgba(6,182,212,0.26)", tx: "rgba(14,116,144,0.95)" },
+    gray: { bg: "rgba(17,17,17,.05)", bd: "rgba(17,17,17,.08)", tx: "rgba(17,17,17,.85)" },
+    free: { bg: "rgba(19,109,255,.10)", bd: "rgba(19,109,255,.22)", tx: "#0b5aa6" },
+    vip: { bg: "rgba(255,82,82,.10)", bd: "rgba(255,82,82,.24)", tx: "#b00000" },
+    diff: { bg: "rgba(255,193,7,.14)", bd: "rgba(255,193,7,.26)", tx: "rgba(120,80,0,.95)" },
+    time: { bg: "rgba(76,175,80,.12)", bd: "rgba(76,175,80,.26)", tx: "rgba(20,90,35,.95)" },
+    topic: { bg: "rgba(156,39,176,.10)", bd: "rgba(156,39,176,.22)", tx: "rgba(92,20,105,.95)" },
+    channel: { bg: "rgba(0,188,212,.10)", bd: "rgba(0,188,212,.22)", tx: "rgba(0,92,104,.95)" },
   };
   const s = map[tone] || map.gray;
-  const pad = size === "sm" ? "4px 9px" : "5px 10px";
-  const fs = size === "sm" ? 11 : 12;
-
   return (
     <span
-      className="tag"
+      className="tagPill"
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: pad,
-        borderRadius: 999,
-        fontSize: fs,
-        fontWeight: 900,
         background: s.bg,
-        border: `1px solid ${s.bd}`,
+        borderColor: s.bd,
         color: s.tx,
-        whiteSpace: "nowrap",
-        lineHeight: 1,
       }}
     >
       {children}
@@ -204,7 +162,7 @@ function UserMenu({ me, onLogout }) {
 
   if (!me?.logged_in) {
     return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <div className="topActions">
         <a className="topBtn" href="/login">
           登录
         </a>
@@ -220,12 +178,7 @@ function UserMenu({ me, onLogout }) {
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <button
-        type="button"
-        className="avatarBtn"
-        onClick={() => setOpen((v) => !v)}
-        title={email || "账号"}
-      >
+      <button type="button" className="avatarBtn" onClick={() => setOpen((v) => !v)} title={email || "账号"}>
         <span className="avatarCircle">{initial}</span>
         <span className="caret">{open ? "▲" : "▼"}</span>
       </button>
@@ -237,9 +190,7 @@ function UserMenu({ me, onLogout }) {
               <span className="avatarCircle big">{initial}</span>
               <div style={{ minWidth: 0 }}>
                 <div className="menuEmail">{email || "（无邮箱）"}</div>
-                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.75 }}>
-                  {me?.is_member ? "会员" : "非会员"}
-                </div>
+                <div style={{ marginTop: 2, fontSize: 12, opacity: 0.7 }}>{me?.is_member ? "会员" : "非会员"}</div>
               </div>
             </div>
           </div>
@@ -266,13 +217,127 @@ function UserMenu({ me, onLogout }) {
   );
 }
 
-function HowToCard({ step, title, desc }) {
+/** Hero：示例视频（固定，不参与筛选） */
+function HeroSection({ me, sample }) {
+  const steps = [
+    { t: "选一个你感兴趣的场景", d: "从难度 / Topic / Channel 快速筛选，找到适合你的内容。" },
+    { t: "看 1 分钟，跟读 3 遍", d: "短视频更适合碎片化学习，练听力 + 口语输出更快。" },
+    { t: "收藏进「视频收藏」", d: "遇到喜欢的 clip 一键收藏，回看复习更方便。" },
+  ];
+
+  const sampleHref = sample?.id ? `/clips/${sample.id}` : "#all";
+
   return (
-    <div className="howCard">
-      <div className="howNum">{step}</div>
-      <div style={{ minWidth: 0 }}>
-        <div className="howTitle">{title}</div>
-        <div className="howDesc">{desc}</div>
+    <div className="heroWrap">
+      <div className="heroBg" />
+      <div className="heroGrid">
+        <div className="heroLeft">
+          <div className="heroKicker">🎬 场景化英语短视频库</div>
+
+          <h1 className="heroTitle">
+            用真实场景练口语，
+            <br />
+            每天 5 分钟就有进步
+          </h1>
+
+          <div className="heroCtas">
+            <a className="ctaPrimary" href="#all">
+              立即开始筛选
+            </a>
+
+            {!me?.logged_in ? (
+              <a className="ctaGhost" href="/register">
+                注册并兑换会员
+              </a>
+            ) : me?.is_member ? (
+              <span className="ctaHint">✅ 你已是会员，可直接观看会员内容</span>
+            ) : (
+              <a className="ctaGhost" href="/login">
+                去兑换/开通会员
+              </a>
+            )}
+          </div>
+
+          <div className="heroSteps">
+            <div className="stepsTitle">怎么用更有效？</div>
+            <div className="stepsGrid">
+              {steps.map((s, idx) => (
+                <div key={idx} className="stepCard">
+                  <div className="stepNo">{idx + 1}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="stepT">{s.t}</div>
+                    <div className="stepD">{s.d}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="heroRight">
+          {/* ✅ 整张示例卡可点击进入详情页 */}
+          <a className="demoCard" href={sampleHref} style={{ textDecoration: "none", color: "inherit" }}>
+            <div className="demoTop">
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div className="demoDot" />
+                <div className="demoTitle">推荐示例</div>
+              </div>
+
+              {sample?.access_tier ? (
+                <Tag tone={sample.access_tier === "vip" ? "vip" : "free"}>
+                  {sample.access_tier === "vip" ? "会员" : "免费"}
+                </Tag>
+              ) : (
+                <Tag>示例</Tag>
+              )}
+            </div>
+
+            <div className="demoVideo">
+              <HoverPreview coverUrl={sample?.cover_url} videoUrl={sample?.video_url} alt={sample?.title || ""} borderRadius={18} />
+            </div>
+
+            <div className="demoBody">
+              <div className="demoName">{sample?.title || "从下方列表选择任意 clip"}</div>
+
+              <div className="demoBadges">
+                {sample?.difficulty ? <Tag tone="diff">{sample.difficulty}</Tag> : null}
+                {sample?.duration_sec ? <Tag tone="time">{sample.duration_sec}s</Tag> : null}
+                {sample?.access_tier ? (
+                  <Tag tone={sample.access_tier === "vip" ? "vip" : "free"}>
+                    {sample.access_tier === "vip" ? "会员专享" : "免费可看"}
+                  </Tag>
+                ) : null}
+              </div>
+
+              <div className="demoLines">
+                <div className="kvRow">
+                  <span className="kvKey">Topics</span>
+                  <span className="kvVal">
+                    {(sample?.topics || []).slice(0, 3).map((t) => (
+                      <Tag key={t} tone="topic">
+                        {t}
+                      </Tag>
+                    ))}
+                    {(sample?.topics || []).length ? null : <span style={{ opacity: 0.6 }}>-</span>}
+                  </span>
+                </div>
+                <div className="kvRow">
+                  <span className="kvKey">Channels</span>
+                  <span className="kvVal">
+                    {(sample?.channels || []).slice(0, 3).map((c) => (
+                      <Tag key={c} tone="channel">
+                        {c}
+                      </Tag>
+                    ))}
+                    {(sample?.channels || []).length ? null : <span style={{ opacity: 0.6 }}>-</span>}
+                  </span>
+                </div>
+              </div>
+
+              <div className="demoHint">点击卡片进入详情页 →</div>
+            </div>
+          </a>
+        </div>
       </div>
     </div>
   );
@@ -321,6 +386,10 @@ export default function HomePage() {
   const [toast, setToast] = useState("");
   const [clipsReloadKey, setClipsReloadKey] = useState(0);
 
+  // ✅ 固定 Hero 示例（只设置一次，不随筛选变化）
+  const [heroSample, setHeroSample] = useState(null);
+  const heroFixedRef = useRef(false);
+
   // 弹窗：未登录（收藏/会员卡片共用）
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingId, setPendingId] = useState(null);
@@ -329,10 +398,6 @@ export default function HomePage() {
   // 弹窗：已登录但非会员点会员卡
   const [showVipModal, setShowVipModal] = useState(false);
   const [pendingVipClipId, setPendingVipClipId] = useState(null);
-
-  // 固定推荐示例视频（不参与筛选）
-  const [featured, setFeatured] = useState(null);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
 
   function showToast(s) {
     setToast(s);
@@ -431,20 +496,6 @@ export default function HomePage() {
     }
   }
 
-  async function loadFeatured() {
-    try {
-      setFeaturedLoading(true);
-      // 固定推荐：不带筛选参数，只取最新 1 条
-      const d = await fetchJson(`/api/clips?limit=1&offset=0&sort=newest`);
-      const first = (d?.items || [])[0] || null;
-      setFeatured(first);
-    } catch {
-      setFeatured(null);
-    } finally {
-      setFeaturedLoading(false);
-    }
-  }
-
   // ---------------- 初始：读 URL 参数 -> 写到 state ----------------
   useEffect(() => {
     if (!router.isReady) return;
@@ -473,11 +524,9 @@ export default function HomePage() {
     };
   }, []);
 
-  // ---------------- 登录态 + 收藏 + 推荐视频 ----------------
+  // ---------------- 登录态 + 收藏 ----------------
   useEffect(() => {
     loadMe();
-    loadFeatured();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -498,6 +547,7 @@ export default function HomePage() {
 
     router.replace({ pathname: "/", query: q }, undefined, { shallow: true });
 
+    // reset paging（不清空 items 避免闪屏）
     setOffset(0);
     setHasMore(false);
     setTotal(0);
@@ -532,6 +582,15 @@ export default function HomePage() {
         setTotal(totalCount);
         setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
         setHasMore(offset + newItems.length < totalCount);
+
+        // ✅ 固定 Hero 示例：只在第一次拿到列表时设置一次
+        if (!heroFixedRef.current) {
+          const picked = newItems.find((x) => x?.access_tier === "free") || newItems[0] || null;
+          if (picked) {
+            setHeroSample(picked);
+            heroFixedRef.current = true;
+          }
+        }
       } catch (e) {
         showToast("拉取失败：" + e.message);
       } finally {
@@ -567,7 +626,7 @@ export default function HomePage() {
         if (fetchingRef.current) return;
         setOffset((x) => x + PAGE_SIZE);
       },
-      { root: null, rootMargin: "420px", threshold: 0.01 }
+      { root: null, rootMargin: "400px", threshold: 0.01 }
     );
 
     obs.observe(el);
@@ -613,36 +672,16 @@ export default function HomePage() {
     setShowVipModal(true);
   }
 
-  const howTo = useMemo(
-    () => [
-      {
-        step: 1,
-        title: "选一个你感兴趣的场景",
-        desc: "从 难度 / Topic / Channel 快速筛选，找到最适合你的内容。",
-      },
-      {
-        step: 2,
-        title: "看 1 分钟，跟读 3 遍",
-        desc: "短视频更适合碎片化学习，练听力 + 口语输出更快。",
-      },
-      {
-        step: 3,
-        title: "收藏进「视频收藏」",
-        desc: "遇到喜欢的 clip 一键收藏，回看复习更方便。",
-      },
-    ],
-    []
-  );
-
   return (
-    <div className="pageBg">
-      <div className="shell">
-        {/* 顶部栏（不 sticky） */}
+    <div className="page">
+      <div className="bgFx" aria-hidden="true" />
+
+      <div className="topbarShell">
         <div className="topbar">
           <div className="brand">
-            <div className="brandIcon">
-              <span className="dot" />
-              <span className="dot faint" />
+            <div className="logoMark">
+              <div className="logoDot" />
+              <div className="logoDot soft" />
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="brandName">naila clips</div>
@@ -654,163 +693,83 @@ export default function HomePage() {
             <UserMenu me={me} onLogout={logout} />
           </div>
         </div>
+      </div>
 
+      <div className="container">
         {toast ? <div className="toast">{toast}</div> : null}
 
-        {/* Hero */}
-        <div className="hero">
-          {/* 左侧：文案 + how-to（手机端会被放到下面） */}
-          <div className="heroLeft">
-            <div className="pill">
-              <span className="pillDot" />
-              场景化英语短视频数据库
-            </div>
+        <HeroSection me={me} sample={heroSample} />
 
-            <h1 className="heroTitle">
-              用真实场景练口语，
-              <br />
-              每天 5 分钟就有进步
-            </h1>
-
-            <div className="heroDesc">
-              这里的 clip 都是「短 · 清晰 · 可复习」的英语片段。你可以按难度、Topic、Channel 快速筛选，马上找到要学的内容。
-            </div>
-
-            <div className="howWrap">
-              {howTo.map((x) => (
-                <HowToCard key={x.step} step={x.step} title={x.title} desc={x.desc} />
-              ))}
-            </div>
-          </div>
-
-          {/* 右侧：固定推荐示例视频（不参与筛选） */}
-          <div className="heroRight">
-            <div className="featuredCard">
-              <div className="featuredHead">
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="radioOn" />
-                  <div style={{ fontWeight: 950 }}>推荐示例</div>
-                </div>
-                <div>
-                  {featured?.access_tier === "vip" ? (
-                    <Tag tone="vip" size="sm">
-                      会员
-                    </Tag>
-                  ) : (
-                    <Tag tone="free" size="sm">
-                      免费
-                    </Tag>
-                  )}
-                </div>
+        {/* 未登录弹窗 */}
+        {showAuthModal ? (
+          <div onClick={() => setShowAuthModal(false)} className="modalMask">
+            <div onClick={(e) => e.stopPropagation()} className="modalCard">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontWeight: 950, fontSize: 16 }}>需要登录</div>
+                <button type="button" className="topBtn" onClick={() => setShowAuthModal(false)} style={{ marginLeft: "auto" }}>
+                  关闭
+                </button>
               </div>
 
-              {featuredLoading ? (
-                <div className="featuredSkeleton">加载示例视频中...</div>
-              ) : featured ? (
-                <a
-                  href={`/clips/${featured.id}`}
-                  className="featuredBody"
-                  onClick={(e) => handleCardClick(e, featured)}
-                  title={!featured.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : "打开详情页"}
-                >
-                  <div style={{ position: "relative" }}>
-                    <HoverPreview
-                      coverUrl={featured.cover_url}
-                      videoUrl={featured.video_url}
-                      alt={featured.title || ""}
-                      borderRadius={16}
-                    />
-                    {/* 收藏按钮 */}
-                    <button
-                      type="button"
-                      className="bmBtn"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleBookmark(featured.id);
-                      }}
-                      title={me.logged_in ? "" : "请先登录"}
-                      disabled={bookmarkBusyId === featured.id}
-                    >
-                      {bookmarkBusyId === featured.id
-                        ? "…"
-                        : bookmarkIds.has(featured.id)
-                        ? "★"
-                        : "☆"}
-                    </button>
-                  </div>
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                {pendingReason === "bookmark"
+                  ? "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"
+                  : "该视频为会员专享。请先登录（并在登录页兑换码开通会员）后再观看。"}
+              </div>
 
-                  <div className="featuredTitle">{featured.title || `Clip #${featured.id}`}</div>
-
-                  {/* 标签一行：不显示 Topics/Channels 文本行 */}
-                  <div className="tagRow featuredTags">
-                    <Tag tone={featured.access_tier === "vip" ? "vip" : "free"} size="md">
-                      {featured.access_tier === "vip" ? "会员可看" : "免费可看"}
-                    </Tag>
-                    <Tag tone="diff" size="md">
-                      {featured.difficulty || "unknown"}
-                    </Tag>
-                    {featured.duration_sec ? (
-                      <Tag tone="dur" size="md">
-                        {featured.duration_sec}s
-                      </Tag>
-                    ) : null}
-                    {(featured.topics || []).slice(0, 2).map((t) => (
-                      <Tag key={`ft:${t}`} tone="topic" size="md">
-                        {t}
-                      </Tag>
-                    ))}
-                    {(featured.channels || []).slice(0, 2).map((c) => (
-                      <Tag key={`fc:${c}`} tone="channel" size="md">
-                        {c}
-                      </Tag>
-                    ))}
-                  </div>
-
-                  {!featured.can_access ? (
-                    <div className="vipHint">会员专享：请登录并兑换码激活</div>
-                  ) : (
-                    <div className="okHint">点击进入详情页</div>
-                  )}
-
-                  <div className="tipLine">小技巧：把鼠标移到封面上可预览播放；喜欢的 clip 点右上角「☆/★」收藏。</div>
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
+                  去登录
                 </a>
-              ) : (
-                <div className="featuredSkeleton">暂无示例视频</div>
-              )}
-            </div>
+                <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                  去注册
+                </a>
+              </div>
 
-            {/* 小亮点（保留少量，不要你标红那种大块） */}
-            <div className="miniGrid">
-              <div className="miniItem">
-                <div className="miniIcon">⚡</div>
-                <div className="miniT">秒级筛选</div>
-                <div className="miniD">筛选立即刷新，不整页重载</div>
-              </div>
-              <div className="miniItem">
-                <div className="miniIcon">🔒</div>
-                <div className="miniT">权限分层</div>
-                <div className="miniD">免费/会员内容清晰标识</div>
-              </div>
-              <div className="miniItem">
-                <div className="miniIcon">📌</div>
-                <div className="miniT">收藏复习</div>
-                <div className="miniD">积累你的「专属学习清单」</div>
-              </div>
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingId || "-"}）</div>
             </div>
+          </div>
+        ) : null}
+
+        {/* 已登录但非会员 */}
+        {showVipModal ? (
+          <div onClick={() => setShowVipModal(false)} className="modalMask">
+            <div onClick={(e) => e.stopPropagation()} className="modalCard">
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontWeight: 950, fontSize: 16 }}>需要会员</div>
+                <button type="button" className="topBtn" onClick={() => setShowVipModal(false)} style={{ marginLeft: "auto" }}>
+                  关闭
+                </button>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
+                该视频为会员专享，请先在「登录/兑换」页面输入兑换码开通会员后再观看。
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
+                  去兑换/开通
+                </a>
+              </div>
+
+              <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingVipClipId || "-"}）</div>
+            </div>
+          </div>
+        ) : null}
+
+        <div id="all" className="sectionHead">
+          <div>
+            <div className="sectionTitle">全部视频</div>
+            <div className="sectionSub">按难度 / 权限 / Topic / Channel 筛选，找到更适合你的练习片段</div>
+          </div>
+
+          <div className="statsPills">
+            <div className="statPill">{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
+            {me.logged_in ? <div className="statPill">收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
           </div>
         </div>
 
-        {/* 统计 */}
-        <div className="statLine">
-          <div>{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
-          {me.logged_in ? <div>收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
-        </div>
-
-        {/* 筛选区 */}
         <div className="filterWrap">
-          <div className="filterTitle">全部视频</div>
-
           <div className="filterGrid">
             <SingleSelectDropdown
               label="排序"
@@ -821,28 +780,10 @@ export default function HomePage() {
                 { value: "oldest", label: "最早" },
               ]}
             />
-            <MultiSelectDropdown
-              label="难度"
-              placeholder="选择难度"
-              options={tax.difficulties}
-              value={difficulty}
-              onChange={setDifficulty}
-            />
-            <MultiSelectDropdown
-              label="权限"
-              placeholder="免费/会员"
-              options={accessOptions}
-              value={access}
-              onChange={setAccess}
-            />
+            <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
+            <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
             <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
-            <MultiSelectDropdown
-              label="Channel"
-              placeholder="选择 Channel"
-              options={tax.channels}
-              value={channel}
-              onChange={setChannel}
-            />
+            <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
           </div>
 
           <div className="filterBottom">
@@ -868,26 +809,16 @@ export default function HomePage() {
                   </button>
                 ))
               ) : (
-                <div style={{ fontSize: 12, opacity: 0.65 }}>（未选择筛选项）</div>
+                <div style={{ fontSize: 12, opacity: 0.6 }}>（未选择筛选项）</div>
               )}
             </div>
-
-            {/* ✅ 已按要求删除“复制分享链接”按钮 */}
           </div>
         </div>
 
-        {/* 卡片列表 */}
-        <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.58 : 1 }}>
+        <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
           {items.map((it) => {
             const isBookmarked = bookmarkIds.has(it.id);
             const busy = bookmarkBusyId === it.id;
-
-            const tags = [];
-            tags.push({ text: it.access_tier === "vip" ? "会员可看" : "免费可看", tone: it.access_tier === "vip" ? "vip" : "free" });
-            tags.push({ text: it.difficulty || "unknown", tone: "diff" });
-            if (it.duration_sec) tags.push({ text: `${it.duration_sec}s`, tone: "dur" });
-            (it.topics || []).slice(0, 2).forEach((t) => tags.push({ text: t, tone: "topic" }));
-            (it.channels || []).slice(0, 2).forEach((c) => tags.push({ text: c, tone: "channel" }));
 
             return (
               <a
@@ -895,10 +826,10 @@ export default function HomePage() {
                 href={`/clips/${it.id}`}
                 className="card"
                 onClick={(e) => handleCardClick(e, it)}
-                title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : "打开详情页"}
+                title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
               >
                 <div style={{ position: "relative" }}>
-                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={16} />
+                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={18} />
 
                   <button
                     type="button"
@@ -913,184 +844,145 @@ export default function HomePage() {
                   >
                     {busy ? "…" : isBookmarked ? "★" : "☆"}
                   </button>
+
+                  <div className="cardCorner">
+                    <Tag tone={it.access_tier === "vip" ? "vip" : "free"}>{it.access_tier === "vip" ? "会员专享" : "免费"}</Tag>
+                  </div>
+                </div>
+
+                <div className="cardBadges">
+                  <Tag tone={it.access_tier === "vip" ? "vip" : "free"}>{it.access_tier === "vip" ? "会员" : "免费"}</Tag>
+                  <Tag tone="diff">{it.difficulty || "unknown"}</Tag>
+                  {it.duration_sec ? <Tag tone="time">{it.duration_sec}s</Tag> : null}
                 </div>
 
                 <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
 
-                {/* ✅ 不显示 Topics/Channels 文本行，直接彩色标签横排 */}
-                <div className="tagRow">
-                  {tags.map((t, idx) => (
-                    <Tag key={`${it.id}:${idx}`} tone={t.tone} size="md">
-                      {t.text}
-                    </Tag>
-                  ))}
+                <div className="metaLine">
+                  <div className="kv">
+                    <span className="kvK">Topics</span>
+                    <span className="kvV">
+                      {(it.topics || []).slice(0, 3).map((t) => (
+                        <Tag key={t} tone="topic">
+                          {t}
+                        </Tag>
+                      ))}
+                      {(it.topics || []).length ? null : <span style={{ opacity: 0.6 }}>-</span>}
+                    </span>
+                  </div>
+                  <div className="kv">
+                    <span className="kvK">Channels</span>
+                    <span className="kvV">
+                      {(it.channels || []).slice(0, 3).map((c) => (
+                        <Tag key={c} tone="channel">
+                          {c}
+                        </Tag>
+                      ))}
+                      {(it.channels || []).length ? null : <span style={{ opacity: 0.6 }}>-</span>}
+                    </span>
+                  </div>
                 </div>
 
-                {!it.can_access ? (
-                  <div className="vipHint">会员专享：请登录并兑换码激活</div>
-                ) : (
-                  <div className="okHint">可播放</div>
-                )}
+                {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
               </a>
             );
           })}
         </div>
 
-        {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.75 }}>没有结果（请换筛选条件）</div> : null}
+        {!loading && items.length === 0 ? <div style={{ marginTop: 16, opacity: 0.7 }}>没有结果（请换筛选条件）</div> : null}
 
-        <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, opacity: 0.75 }}>
-          {loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}
-        </div>
+        <div className="footerHint">{loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}</div>
 
         <div ref={sentinelRef} style={{ height: 1 }} />
       </div>
 
-      {/* 未登录弹窗 */}
-      {showAuthModal ? (
-        <div onClick={() => setShowAuthModal(false)} className="modalMask">
-          <div onClick={(e) => e.stopPropagation()} className="modalCard">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 950, fontSize: 16 }}>需要登录</div>
-              <button
-                type="button"
-                className="topBtn"
-                onClick={() => setShowAuthModal(false)}
-                style={{ marginLeft: "auto" }}
-              >
-                关闭
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
-              {pendingReason === "bookmark"
-                ? "收藏功能需要登录。登录后你可以在「视频收藏」里随时找到这些视频。"
-                : "该视频为会员专享。请先登录（并在登录页兑换码开通会员）后再观看。"}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
-                去登录
-              </a>
-              <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
-                去注册
-              </a>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingId || "-"}）</div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* 已登录但非会员 */}
-      {showVipModal ? (
-        <div onClick={() => setShowVipModal(false)} className="modalMask">
-          <div onClick={(e) => e.stopPropagation()} className="modalCard">
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 950, fontSize: 16 }}>需要会员</div>
-              <button
-                type="button"
-                className="topBtn"
-                onClick={() => setShowVipModal(false)}
-                style={{ marginLeft: "auto" }}
-              >
-                关闭
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
-              该视频为会员专享，请先在「登录/兑换」页面输入兑换码开通会员后再观看。
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a href="/login" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
-                去兑换/开通
-              </a>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingVipClipId || "-"}）</div>
-          </div>
-        </div>
-      ) : null}
-
       <style jsx global>{`
-        * {
-          box-sizing: border-box;
-        }
+        html,
         body {
-          margin: 0;
-          font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
-            "Segoe UI Emoji";
-          color: #0b1020;
-          background: radial-gradient(900px 500px at 14% 0%, rgba(59, 130, 246, 0.22), transparent 55%),
-            radial-gradient(900px 500px at 88% 12%, rgba(236, 72, 153, 0.18), transparent 55%),
-            radial-gradient(900px 520px at 70% 95%, rgba(16, 185, 129, 0.16), transparent 55%),
-            linear-gradient(180deg, rgba(248, 250, 252, 1), rgba(246, 247, 251, 1));
-        }
-        a {
-          color: inherit;
+          background: #f6f7fb;
         }
 
-        .pageBg {
-          padding: 22px 14px 60px;
+        .page {
+          min-height: 100vh;
+          position: relative;
         }
-        .shell {
-          max-width: 1160px;
+
+        /* ✅ 更丰富的整体背景（柔和渐变+光斑） */
+        .bgFx {
+          position: fixed;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          background: radial-gradient(1000px 500px at 18% 8%, rgba(19, 109, 255, 0.22), transparent 60%),
+            radial-gradient(900px 500px at 92% 12%, rgba(255, 82, 82, 0.18), transparent 60%),
+            radial-gradient(900px 560px at 50% 95%, rgba(156, 39, 176, 0.12), transparent 60%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(17, 17, 17, 0.02));
+        }
+
+        .container {
+          position: relative;
+          z-index: 1;
+          max-width: 1120px;
           margin: 0 auto;
+          padding: 14px 16px 28px;
         }
 
-        /* 顶部条：不 sticky */
+        /* 顶部栏 */
+        .topbarShell {
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          padding: 10px 10px 0;
+        }
         .topbar {
-          background: rgba(255, 255, 255, 0.78);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(15, 23, 42, 0.08);
+          max-width: 1120px;
+          margin: 0 auto;
+          border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 18px;
+          background: rgba(255, 255, 255, 0.82);
+          backdrop-filter: blur(12px);
+          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.06);
           padding: 12px 14px;
           display: flex;
-          gap: 10px;
+          gap: 12px;
           align-items: center;
           justify-content: space-between;
-          box-shadow: 0 16px 44px rgba(0, 0, 0, 0.06);
         }
         .brand {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           min-width: 0;
         }
-        .brandIcon {
-          width: 40px;
-          height: 40px;
+        .logoMark {
+          width: 34px;
+          height: 34px;
           border-radius: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.08);
-          background: linear-gradient(135deg, rgba(59, 130, 246, 0.16), rgba(236, 72, 153, 0.10));
-          display: grid;
-          place-items: center;
-          position: relative;
-          overflow: hidden;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: linear-gradient(135deg, rgba(19, 109, 255, 0.14), rgba(255, 82, 82, 0.08));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
         }
-        .dot {
+        .logoDot {
           width: 10px;
           height: 10px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.88);
-          position: absolute;
-          left: 12px;
-          top: 15px;
+          background: #111;
         }
-        .dot.faint {
-          left: 22px;
-          top: 15px;
-          opacity: 0.25;
+        .logoDot.soft {
+          background: rgba(17, 17, 17, 0.35);
         }
         .brandName {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 1000;
           line-height: 1.1;
         }
         .brandSub {
+          margin-top: 2px;
           font-size: 12px;
           opacity: 0.7;
-          margin-top: 3px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -1099,18 +991,22 @@ export default function HomePage() {
           display: flex;
           align-items: center;
           gap: 8px;
-          flex-wrap: wrap;
           justify-content: flex-end;
+        }
+        .topActions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
         .topBtn {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.9);
-          border-radius: 999px;
-          padding: 9px 14px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.95);
+          border-radius: 12px;
+          padding: 9px 12px;
           cursor: pointer;
           text-decoration: none;
-          color: rgba(15, 23, 42, 0.92);
+          color: #111;
           font-weight: 950;
           font-size: 12px;
           line-height: 1;
@@ -1118,35 +1014,34 @@ export default function HomePage() {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.04);
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
         }
         .topBtn:hover {
-          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
           transform: translateY(-1px);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
         }
         .topBtn.dark {
-          background: rgba(15, 23, 42, 0.95);
-          border-color: rgba(15, 23, 42, 0.95);
+          background: #111;
+          border-color: #111;
           color: white;
         }
 
         /* 头像菜单 */
         .avatarBtn {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.95);
           border-radius: 999px;
           padding: 6px 10px;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          box-shadow: 0 10px 26px rgba(0, 0, 0, 0.04);
         }
         .avatarCircle {
           width: 26px;
           height: 26px;
           border-radius: 999px;
-          background: rgba(15, 23, 42, 0.92);
+          background: #111;
           color: white;
           display: inline-flex;
           align-items: center;
@@ -1169,18 +1064,18 @@ export default function HomePage() {
           top: calc(100% + 10px);
           right: 0;
           width: 220px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
+          border: 1px solid rgba(17, 17, 17, 0.08);
           background: rgba(255, 255, 255, 0.96);
-          backdrop-filter: blur(10px);
           border-radius: 16px;
-          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
+          box-shadow: 0 18px 60px rgba(0, 0, 0, 0.12);
           overflow: hidden;
-          z-index: 50;
+          z-index: 80;
+          backdrop-filter: blur(12px);
         }
         .menuHead {
           padding: 12px;
-          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-          background: rgba(248, 250, 252, 0.8);
+          border-bottom: 1px solid rgba(17, 17, 17, 0.06);
+          background: rgba(17, 17, 17, 0.03);
         }
         .menuEmail {
           font-size: 13px;
@@ -1198,13 +1093,13 @@ export default function HomePage() {
         .menuItem {
           width: 100%;
           text-align: left;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: white;
           border-radius: 12px;
           padding: 10px 10px;
           cursor: pointer;
           text-decoration: none;
-          color: rgba(15, 23, 42, 0.92);
+          color: #111;
           font-weight: 950;
           font-size: 12px;
           display: inline-flex;
@@ -1212,214 +1107,311 @@ export default function HomePage() {
           gap: 8px;
         }
         .menuItem:hover {
-          background: rgba(248, 250, 252, 1);
+          background: rgba(17, 17, 17, 0.03);
         }
         .menuItem.danger {
-          border-color: rgba(239, 68, 68, 0.22);
-          background: rgba(239, 68, 68, 0.08);
-          color: rgba(185, 28, 28, 0.95);
+          border-color: rgba(255, 82, 82, 0.25);
+          background: rgba(255, 82, 82, 0.08);
+          color: #b00000;
         }
 
+        /* toast */
         .toast {
-          margin-top: 12px;
-          margin-bottom: 12px;
+          margin-top: 10px;
+          margin-bottom: 10px;
           padding: 10px 12px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
+          border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 14px;
           background: rgba(255, 255, 255, 0.92);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
           font-size: 13px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
         }
 
-        /* Hero */
-        .hero {
-          margin-top: 16px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          border-radius: 22px;
-          background: rgba(255, 255, 255, 0.72);
-          backdrop-filter: blur(12px);
-          box-shadow: 0 18px 60px rgba(0, 0, 0, 0.07);
-          padding: 18px;
+        /* modal */
+        .modalMask {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          z-index: 9999;
+        }
+        .modalCard {
+          width: 100%;
+          max-width: 420px;
+          background: white;
+          border-radius: 18px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          padding: 16px;
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.22);
+        }
+
+        /* hero */
+        .heroWrap {
+          position: relative;
+          border-radius: 26px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.65);
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.06);
+          margin-top: 12px;
+        }
+        .heroBg {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(900px 360px at 20% 15%, rgba(19, 109, 255, 0.18), transparent 60%),
+            radial-gradient(700px 320px at 85% 20%, rgba(255, 82, 82, 0.14), transparent 55%),
+            radial-gradient(900px 500px at 60% 95%, rgba(17, 17, 17, 0.06), transparent 55%);
+          pointer-events: none;
+        }
+        .heroGrid {
+          position: relative;
           display: grid;
-          grid-template-columns: 1.1fr 0.9fr;
-          gap: 16px;
+          grid-template-columns: 1fr;
+          gap: 14px;
+          padding: 18px;
         }
-        .heroLeft {
-          min-width: 0;
-          padding: 6px 6px 4px;
+        @media (min-width: 980px) {
+          .heroGrid {
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+            padding: 20px;
+            align-items: start;
+          }
         }
-        .pill {
+        .heroKicker {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          font-size: 12px;
-          font-weight: 950;
+          border: 1px solid rgba(19, 109, 255, 0.22);
+          background: rgba(19, 109, 255, 0.08);
+          color: #0b5aa6;
           padding: 7px 10px;
           border-radius: 999px;
-          border: 1px solid rgba(59, 130, 246, 0.22);
-          background: rgba(59, 130, 246, 0.10);
-          color: rgba(29, 78, 216, 0.95);
-        }
-        .pillDot {
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: rgba(29, 78, 216, 0.9);
+          font-weight: 950;
+          font-size: 12px;
         }
         .heroTitle {
           margin: 12px 0 0;
-          font-size: 40px;
-          line-height: 1.05;
-          letter-spacing: -0.02em;
-          font-weight: 1000;
+          font-size: 30px;
+          line-height: 1.15;
+          font-weight: 1100;
+          letter-spacing: -0.6px;
         }
-        .heroDesc {
-          margin-top: 10px;
-          font-size: 14px;
-          line-height: 1.7;
-          opacity: 0.82;
-          max-width: 540px;
+        @media (min-width: 980px) {
+          .heroTitle {
+            font-size: 36px;
+          }
+        }
+        .heroCtas {
+          margin-top: 14px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          align-items: center;
+        }
+        .ctaPrimary,
+        .ctaGhost {
+          border-radius: 14px;
+          padding: 10px 14px;
+          font-weight: 1000;
+          font-size: 13px;
+          border: 1px solid rgba(17, 17, 17, 0.12);
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.12s ease, box-shadow 0.12s ease;
+        }
+        .ctaPrimary {
+          background: #111;
+          color: white;
+        }
+        .ctaPrimary:hover,
+        .ctaGhost:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 44px rgba(0, 0, 0, 0.12);
+        }
+        .ctaGhost {
+          background: rgba(255, 255, 255, 0.85);
+          color: #111;
+          cursor: pointer;
+        }
+        .ctaHint {
+          font-size: 12px;
+          font-weight: 900;
+          color: rgba(17, 17, 17, 0.68);
         }
 
-        .howWrap {
-          margin-top: 12px;
+        .heroSteps {
+          margin-top: 14px;
+        }
+        .stepsTitle {
+          font-weight: 1000;
+          font-size: 13px;
+          opacity: 0.9;
+        }
+        .stepsGrid {
+          margin-top: 10px;
           display: grid;
           gap: 10px;
+          grid-template-columns: 1fr;
         }
-        .howCard {
+        .stepCard {
           display: flex;
           gap: 10px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.86);
+          align-items: flex-start;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.72);
           border-radius: 16px;
-          padding: 10px 12px;
+          padding: 12px;
         }
-        .howNum {
-          width: 30px;
-          height: 30px;
-          border-radius: 12px;
-          display: grid;
-          place-items: center;
-          font-weight: 1000;
-          background: rgba(15, 23, 42, 0.06);
-          border: 1px solid rgba(15, 23, 42, 0.10);
+        .stepNo {
+          width: 28px;
+          height: 28px;
+          border-radius: 10px;
+          border: 1px solid rgba(17, 17, 17, 0.1);
+          background: rgba(17, 17, 17, 0.04);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 1100;
         }
-        .howTitle {
+        .stepT {
           font-weight: 1000;
           font-size: 13px;
         }
-        .howDesc {
+        .stepD {
           margin-top: 3px;
           font-size: 12px;
-          opacity: 0.78;
           line-height: 1.55;
+          color: rgba(17, 17, 17, 0.68);
         }
 
-        .heroRight {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-        }
-        .featuredCard {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          border-radius: 20px;
+        .demoCard {
+          display: block;
+          border-radius: 22px;
+          border: 1px solid rgba(17, 17, 17, 0.1);
+          background: rgba(255, 255, 255, 0.86);
           overflow: hidden;
-          background: rgba(255, 255, 255, 0.90);
-          box-shadow: 0 18px 54px rgba(0, 0, 0, 0.10);
+          box-shadow: 0 22px 60px rgba(0, 0, 0, 0.08);
         }
-        .featuredHead {
-          padding: 12px 12px;
+        .demoTop {
+          padding: 12px 12px 10px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: linear-gradient(135deg, rgba(59, 130, 246, 0.10), rgba(236, 72, 153, 0.06));
-          border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+          gap: 10px;
         }
-        .radioOn {
+        .demoDot {
           width: 10px;
           height: 10px;
           border-radius: 999px;
-          background: rgba(59, 130, 246, 0.95);
-          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+          background: rgba(19, 109, 255, 0.8);
+          box-shadow: 0 0 0 6px rgba(19, 109, 255, 0.12);
         }
-        .featuredSkeleton {
-          padding: 18px 12px;
-          opacity: 0.7;
+        .demoTitle {
+          font-weight: 1000;
           font-size: 13px;
         }
-        .featuredBody {
-          display: block;
-          text-decoration: none;
-          color: inherit;
-          padding: 12px;
+        .demoVideo {
+          padding: 0 12px 0;
         }
-        .featuredTitle {
-          margin-top: 10px;
-          font-weight: 1000;
+        .demoBody {
+          padding: 12px 12px 14px;
+        }
+        .demoName {
+          font-weight: 1100;
           font-size: 14px;
-          line-height: 1.3;
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
-        .featuredTags {
+        .demoBadges {
           margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
         }
-        .tipLine {
+        .demoLines {
           margin-top: 10px;
-          font-size: 12px;
-          opacity: 0.74;
-          line-height: 1.55;
-        }
-
-        .miniGrid {
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          display: flex;
+          flex-direction: column;
           gap: 10px;
         }
-        .miniItem {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.84);
-          padding: 10px 10px;
-        }
-        .miniIcon {
-          font-size: 16px;
-        }
-        .miniT {
-          margin-top: 6px;
-          font-size: 12px;
-          font-weight: 1000;
-        }
-        .miniD {
-          margin-top: 2px;
-          font-size: 11px;
-          opacity: 0.78;
-          line-height: 1.45;
-        }
-
-        .statLine {
-          margin: 14px 2px 10px;
-          font-size: 13px;
-          opacity: 0.82;
+        .kvRow {
           display: flex;
           gap: 10px;
+          align-items: flex-start;
+        }
+        .kvKey {
+          width: 72px;
+          font-size: 12px;
+          font-weight: 950;
+          opacity: 0.65;
+          padding-top: 2px;
+        }
+        .kvVal {
+          display: flex;
+          gap: 8px;
           flex-wrap: wrap;
+          align-items: center;
+        }
+        .demoHint {
+          margin-top: 10px;
+          font-size: 12px;
+          font-weight: 950;
+          opacity: 0.7;
         }
 
-        /* 筛选 */
+        /* section */
+        .sectionHead {
+          margin-top: 18px;
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .sectionTitle {
+          font-size: 16px;
+          font-weight: 1100;
+        }
+        .sectionSub {
+          margin-top: 3px;
+          font-size: 12px;
+          color: rgba(17, 17, 17, 0.62);
+        }
+        .statsPills {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: flex-end;
+        }
+        .statPill {
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(255, 255, 255, 0.75);
+          border-radius: 999px;
+          padding: 7px 10px;
+          font-size: 12px;
+          font-weight: 950;
+          color: rgba(17, 17, 17, 0.78);
+        }
+
+        /* filter */
         .filterWrap {
-          border: 1px solid rgba(15, 23, 42, 0.10);
+          margin-top: 10px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 20px;
           padding: 14px;
-          margin-bottom: 14px;
           background: rgba(255, 255, 255, 0.82);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 18px 55px rgba(0, 0, 0, 0.06);
-        }
-        .filterTitle {
-          font-weight: 1000;
-          margin-bottom: 10px;
-          opacity: 0.9;
+          box-shadow: 0 18px 60px rgba(0, 0, 0, 0.06);
         }
         .filterGrid {
           display: grid;
@@ -1445,8 +1437,8 @@ export default function HomePage() {
           align-items: center;
         }
         .chip {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(248, 250, 252, 1);
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          background: rgba(17, 17, 17, 0.03);
           border-radius: 999px;
           padding: 7px 10px;
           font-size: 12px;
@@ -1463,14 +1455,19 @@ export default function HomePage() {
         .fBtn {
           width: 100%;
           text-align: left;
-          padding: 10px 12px;
-          border-radius: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.9);
+          padding: 11px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.92);
           cursor: pointer;
           display: flex;
           gap: 8px;
           align-items: center;
+          transition: box-shadow 0.12s ease, transform 0.12s ease;
+        }
+        .fBtn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 44px rgba(0, 0, 0, 0.07);
         }
         .fBtnText {
           flex: 1;
@@ -1486,95 +1483,170 @@ export default function HomePage() {
           top: calc(100% + 8px);
           left: 0;
           right: 0;
-          border: 1px solid rgba(15, 23, 42, 0.12);
-          background: rgba(255, 255, 255, 0.96);
-          backdrop-filter: blur(10px);
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.98);
           border-radius: 16px;
-          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.14);
-          z-index: 50;
+          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12);
+          z-index: 80;
           overflow: hidden;
+          backdrop-filter: blur(12px);
+        }
+        .fPanelTop {
+          padding: 8px;
+          border-bottom: 1px solid rgba(17, 17, 17, 0.06);
+          display: flex;
+          gap: 8px;
+          background: rgba(17, 17, 17, 0.02);
         }
         .miniBtn {
-          border: 1px solid rgba(15, 23, 42, 0.10);
+          border: 1px solid rgba(17, 17, 17, 0.1);
           border-radius: 12px;
-          padding: 6px 10px;
+          padding: 7px 10px;
           cursor: pointer;
           font-weight: 950;
           font-size: 12px;
-          background: rgba(255, 255, 255, 0.92);
+          background: rgba(255, 255, 255, 0.95);
         }
         .fSelect {
           width: 100%;
-          padding: 10px 12px;
-          border-radius: 14px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          background: rgba(255, 255, 255, 0.9);
+          padding: 11px 12px;
+          border-radius: 16px;
+          border: 1px solid rgba(17, 17, 17, 0.09);
+          background: rgba(255, 255, 255, 0.92);
           font-weight: 950;
         }
+        .checkRow {
+          display: flex;
+          gap: 10px;
+          padding: 10px 10px;
+          border-radius: 14px;
+          cursor: pointer;
+          align-items: center;
+          border: 1px solid transparent;
+        }
+        .checkRow:hover {
+          background: rgba(17, 17, 17, 0.02);
+        }
+        .checkRow.on {
+          border-color: rgba(19, 109, 255, 0.22);
+          background: rgba(19, 109, 255, 0.06);
+        }
+        .checkName {
+          font-size: 13px;
+          font-weight: 900;
+        }
+        .checkCount {
+          margin-left: auto;
+          font-size: 12px;
+          opacity: 0.6;
+          font-weight: 900;
+        }
 
-        /* 卡片：桌面端一行 3 个 */
+        /* tags */
+        .tagPill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          font-size: 12px;
+          font-weight: 950;
+          line-height: 1;
+          white-space: nowrap;
+        }
+
+        /* cards */
         .cardGrid {
+          margin-top: 12px;
           display: grid;
-          gap: 14px;
+          gap: 16px;
           grid-template-columns: 1fr;
         }
-        @media (min-width: 720px) {
+        @media (min-width: 640px) {
           .cardGrid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(2, 1fr);
           }
         }
         @media (min-width: 1024px) {
           .cardGrid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(3, 1fr);
           }
         }
-
         .card {
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          border-radius: 20px;
+          border: 1px solid rgba(17, 17, 17, 0.08);
+          border-radius: 18px;
           padding: 12px;
-          background: rgba(255, 255, 255, 0.90);
+          background: rgba(255, 255, 255, 0.9);
           display: block;
           color: inherit;
           text-decoration: none;
           cursor: pointer;
           transition: box-shadow 0.18s ease, transform 0.18s ease;
-          box-shadow: 0 18px 55px rgba(0, 0, 0, 0.08);
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
         }
         .card:hover {
-          box-shadow: 0 24px 70px rgba(0, 0, 0, 0.12);
+          box-shadow: 0 22px 70px rgba(0, 0, 0, 0.12);
           transform: translateY(-2px);
         }
         .bmBtn {
           position: absolute;
           top: 10px;
           right: 10px;
-          border: 1px solid rgba(255, 255, 255, 0.70);
-          background: rgba(255, 255, 255, 0.90);
+          border: 1px solid rgba(255, 255, 255, 0.7);
+          background: rgba(255, 255, 255, 0.9);
           border-radius: 12px;
           padding: 8px 10px;
           font-weight: 1000;
           cursor: pointer;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10);
+          backdrop-filter: blur(10px);
         }
-
+        .cardCorner {
+          position: absolute;
+          top: 10px;
+          left: 10px;
+        }
+        .cardBadges {
+          margin-top: 10px;
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
         .titleLine {
           margin-top: 10px;
-          font-size: 15px;
-          font-weight: 1000;
+          font-size: 14px;
+          font-weight: 1100;
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          min-height: 42px;
+          min-height: 38px;
         }
-
-        .tagRow {
+        .metaLine {
           margin-top: 10px;
           display: flex;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 10px;
+          font-size: 12px;
+        }
+        .kv {
+          display: flex;
+          gap: 10px;
+          align-items: flex-start;
+        }
+        .kvK {
+          width: 72px;
+          font-weight: 950;
+          opacity: 0.65;
+          padding-top: 4px;
+        }
+        .kvV {
+          display: flex;
           gap: 8px;
+          flex-wrap: wrap;
           align-items: center;
         }
 
@@ -1582,66 +1654,20 @@ export default function HomePage() {
           margin-top: 10px;
           font-size: 12px;
           font-weight: 1000;
-          color: rgba(185, 28, 28, 0.95);
+          color: #b00000;
         }
         .okHint {
           margin-top: 10px;
           font-size: 12px;
           font-weight: 1000;
-          color: rgba(29, 78, 216, 0.95);
+          color: #0b5aa6;
         }
 
-        /* 弹窗 */
-        .modalMask {
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.35);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 16px;
-          z-index: 9999;
-        }
-        .modalCard {
-          width: 100%;
-          max-width: 420px;
-          background: rgba(255, 255, 255, 0.96);
-          border-radius: 16px;
-          border: 1px solid rgba(15, 23, 42, 0.10);
-          padding: 16px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
-          backdrop-filter: blur(10px);
-        }
-
-        /* 手机端：hero 变单列，并把“示例视频”放到上面，文案卡片更紧凑 */
-        @media (max-width: 980px) {
-          .hero {
-            grid-template-columns: 1fr;
-          }
-          .heroRight {
-            order: 1;
-          }
-          .heroLeft {
-            order: 2;
-          }
-          .heroTitle {
-            font-size: 34px;
-          }
-          .howCard {
-            padding: 9px 10px;
-          }
-        }
-        @media (max-width: 520px) {
-          .heroTitle {
-            font-size: 30px;
-          }
-          /* 手机端标签字体略小 */
-          .tag {
-            font-size: 11px !important;
-          }
-          .miniGrid {
-            grid-template-columns: 1fr;
-          }
+        .footerHint {
+          margin-top: 14px;
+          text-align: center;
+          font-size: 12px;
+          opacity: 0.7;
         }
       `}</style>
     </div>
