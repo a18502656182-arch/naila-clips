@@ -187,16 +187,17 @@ function UserMenu({ me, onLogout }) {
   }, [me?.email]);
 
   if (!me?.logged_in) {
-    // ✅ 必须用 topBtn，保证样式一致
-    return (
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <a className="topBtn" href="/login">
-          登录
-        </a>
-        <a className="topBtn dark" href="/register">
-          注册
-        </a>
-      </div>
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <a className="topBtn" href="/login">
+        登录
+      </a>
+      <a className="topBtn dark" href="/register">
+        注册
+      </a>
+    </div>
+  );
+}
     );
   }
 
