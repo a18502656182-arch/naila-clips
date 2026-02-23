@@ -665,11 +665,7 @@ export default function HomePage() {
 
       {/* 卡片列表（✅不闪屏：loading 时不清空，只加遮罩） */}
       <div style={{ position: "relative" }}>
-        {loading && offset === 0 ? (
-          <div className="loadingMask">
-            <div className="loadingBox">正在筛选…</div>
-          </div>
-        ) : null}
+        
 
         <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
           {items.map((it) => {
