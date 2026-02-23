@@ -126,6 +126,17 @@ function findSegIdxForTerm(segments, term) {
   return -1;
 }
 
+// ✅ 优先通过 segment_id 精准找到对应字幕
+function findSegIdxBySegmentId(segments, segmentId) {
+  if (!segmentId) return -1;
+  const sid = String(segmentId).trim();
+  if (!sid) return -1;
+  for (let i = 0; i < (segments || []).length; i++) {
+    if (String(segments[i]?.id || "").trim() === sid) return i;
+  }
+  return -1;
+}
+
 function TinyIconBtn({ title, onClick, children, active }) {
   return (
     <button
@@ -149,7 +160,54 @@ function TinyIconBtn({ title, onClick, children, active }) {
   );
 }
 
-/** ✅ 词汇卡：适配 words / phrases / expressions */
+// ========== 字幕高亮：只高亮当前 tab ==========
+function escapeRegExp(str) {
+  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function buildHighlighter(terms) {
+  const clean = Array.from(
+    new Set(
+      (terms || [])
+        .map((t) => String(t || "").trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => b.length - a.length);
+
+  if (!clean.length) return (text) => (text ? text : "-");
+
+  const pattern = clean.map(escapeRegExp).join("|");
+  const re = new RegExp(`(${pattern})`, "ig");
+
+  return (text) => {
+    const s = String(text || "");
+    if (!s) return "-";
+    const parts = s.split(re);
+
+    return parts.map((p, i) => {
+      const hit = clean.some(
+        (t) => t.toLowerCase() === String(p).toLowerCase()
+      );
+      if (!hit) return <span key={i}>{p}</span>;
+
+      return (
+        <mark
+          key={i}
+          style={{
+            background: "#fff1b8",
+            padding: "0 3px",
+            borderRadius: 6,
+          }}
+        >
+          {p}
+        </mark>
+      );
+    });
+  };
+}
+
+/** ✅ 词汇卡：适配 words / phrases / expressions
+ *  ✅ expressions：例句块改成字幕原句（优先 segment_id）
+ */
 function VocabCard({
   v,
   kind, // "words" | "phrases" | "expressions"
@@ -164,9 +222,22 @@ function VocabCard({
   const isFav = favSet?.has(term);
 
   const meaningZh = v.meaning_zh || v.zh || "";
-  const exampleEn = v.example_en || "";
-  const exampleZh = v.example_zh || "";
-  const useCaseZh = v.use_case_zh || ""; // expressions 专用：详细解析（多行）
+  const rawExampleEn = v.example_en || "";
+  const rawExampleZh = v.example_zh || "";
+  const useCaseZh = v.use_case_zh || "";
+
+  // ✅ expressions：例句块使用字幕原句
+  let exampleEn = rawExampleEn;
+  let exampleZh = rawExampleZh;
+  if (kind === "expressions") {
+    const byId = findSegIdxBySegmentId(segments, v.segment_id);
+    const idx =
+      byId !== -1 ? byId : findSegIdxForTerm(segments, term);
+    if (idx !== -1) {
+      exampleEn = segments[idx]?.en || rawExampleEn;
+      exampleZh = segments[idx]?.zh || rawExampleZh;
+    }
+  }
 
   return (
     <Card style={{ padding: 14 }}>
@@ -205,7 +276,9 @@ function VocabCard({
           <TinyIconBtn
             title="定位到视频字幕"
             onClick={() => {
-              const idx = findSegIdxForTerm(segments, term);
+              const byId = findSegIdxBySegmentId(segments, v.segment_id);
+              const idx =
+                byId !== -1 ? byId : findSegIdxForTerm(segments, term);
               if (idx !== -1) onLocate(idx);
             }}
           >
@@ -234,7 +307,7 @@ function VocabCard({
         </div>
       ) : null}
 
-      {/* 例句（words/phrases/expressions 都可显示） */}
+      {/* ✅ 例句（expressions 显示字幕原句） */}
       {exampleEn || exampleZh ? (
         <div
           style={{
@@ -246,7 +319,7 @@ function VocabCard({
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 900, color: "#0b5aa6" }}>
-            例句
+            {kind === "expressions" ? "字幕原句" : "例句"}
           </div>
           {exampleEn ? (
             <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>
@@ -268,7 +341,7 @@ function VocabCard({
         </div>
       ) : null}
 
-      {/* ✅ expressions 的详细解析（你的截图那种“长文块”） */}
+      {/* ✅ expressions 的详细解析 */}
       {kind === "expressions" && showZh && useCaseZh ? (
         <div
           style={{
@@ -307,6 +380,7 @@ function SubtitleRow({
   rowRef,
   loopIdx,
   onToggleLoopForIdx,
+  renderEn, // ✅ 新增：用于高亮当前tab词条
 }) {
   const loopingThis = loopIdx === idx;
   return (
@@ -352,7 +426,9 @@ function SubtitleRow({
       </div>
 
       <div style={{ marginTop: 8, lineHeight: 1.55 }}>
-        <div style={{ fontSize: 14, fontWeight: 900 }}>{seg.en || "-"}</div>
+        <div style={{ fontSize: 14, fontWeight: 900 }}>
+          {renderEn ? renderEn(seg.en || "") : seg.en || "-"}
+        </div>
         {showZh ? (
           <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>
             {seg.zh || "（暂无中文）"}
@@ -433,7 +509,9 @@ export default function ClipDetailPage() {
         }
 
         try {
-          const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
+          const d2 = await fetchJson(
+            `/api/clip_details?id=${clipId}&_t=${Date.now()}`
+          );
           if (!mounted) return;
           setDetails(d2?.details_json ?? null);
         } catch {
@@ -460,13 +538,16 @@ export default function ClipDetailPage() {
   }, [details]);
 
   // ✅ vocab 结构：words / phrases / expressions
-  // 兼容：如果你旧数据用 idioms，也能显示（合并到 expressions）
+  // 兼容：如果旧数据用 idioms，也合并到 expressions
   const vocab = useMemo(() => {
     const v = details?.vocab || {};
     const words = Array.isArray(v.words) ? v.words : [];
     const phrases = Array.isArray(v.phrases) ? v.phrases : [];
-    const expressions =
-      Array.isArray(v.expressions) ? v.expressions : Array.isArray(v.idioms) ? v.idioms : [];
+    const expressions = Array.isArray(v.expressions)
+      ? v.expressions
+      : Array.isArray(v.idioms)
+      ? v.idioms
+      : [];
     return { words, phrases, expressions };
   }, [details]);
 
@@ -475,6 +556,15 @@ export default function ClipDetailPage() {
     if (vocabTab === "expressions") return vocab.expressions;
     return vocab.words;
   }, [vocabTab, vocab]);
+
+  // ✅ 只高亮当前 tab
+  const tabTerms = useMemo(() => {
+    const pick = (x) => String(x?.term || x?.word || "").trim();
+    const arr = (vocabList || []).map(pick).filter(Boolean);
+    return Array.from(new Set(arr)).sort((a, b) => b.length - a.length);
+  }, [vocabList]);
+
+  const renderEn = useMemo(() => buildHighlighter(tabTerms), [tabTerms]);
 
   const canAccess = !!item?.can_access;
 
@@ -611,7 +701,9 @@ export default function ClipDetailPage() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
       {/* 顶部栏 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
+      >
         <Link
           href="/"
           style={{
@@ -672,8 +764,17 @@ export default function ClipDetailPage() {
                   自动跟随 {follow ? "ON" : "OFF"}
                 </Pill>
 
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>倍速</div>
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>
+                    倍速
+                  </div>
                   <select
                     value={rate}
                     onChange={(e) => setRate(Number(e.target.value))}
@@ -773,6 +874,7 @@ export default function ClipDetailPage() {
                     onClick={() => jumpTo(seg, idx)}
                     loopIdx={loopIdx}
                     onToggleLoopForIdx={onToggleLoopForIdx}
+                    renderEn={renderEn}
                     rowRef={(el) => {
                       if (el) rowRefs.current[idx] = el;
                     }}
@@ -826,7 +928,10 @@ export default function ClipDetailPage() {
               <Pill active={showZhExplain} onClick={() => setShowZhExplain(true)}>
                 中文解释
               </Pill>
-              <Pill active={!showZhExplain} onClick={() => setShowZhExplain(false)}>
+              <Pill
+                active={!showZhExplain}
+                onClick={() => setShowZhExplain(false)}
+              >
                 关闭中文
               </Pill>
             </div>
@@ -835,10 +940,16 @@ export default function ClipDetailPage() {
               <Pill active={vocabTab === "words"} onClick={() => setVocabTab("words")}>
                 单词 ({vocab.words.length})
               </Pill>
-              <Pill active={vocabTab === "phrases"} onClick={() => setVocabTab("phrases")}>
+              <Pill
+                active={vocabTab === "phrases"}
+                onClick={() => setVocabTab("phrases")}
+              >
                 短语 ({vocab.phrases.length})
               </Pill>
-              <Pill active={vocabTab === "expressions"} onClick={() => setVocabTab("expressions")}>
+              <Pill
+                active={vocabTab === "expressions"}
+                onClick={() => setVocabTab("expressions")}
+              >
                 地道表达 ({vocab.expressions.length})
               </Pill>
             </div>
