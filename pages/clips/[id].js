@@ -258,7 +258,6 @@ function VocabCard({
           ) : null}
         </div>
 
-        {/* 3个小按钮：听/收藏/定位 + 收起小三角 */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <TinyIconBtn
             title="听发音"
@@ -289,7 +288,6 @@ function VocabCard({
             📍
           </TinyIconBtn>
 
-          {/* ✅ 收起/展开小三角 */}
           <button
             type="button"
             onClick={() => setCollapsed((x) => !x)}
@@ -315,7 +313,6 @@ function VocabCard({
 
       {!collapsed ? (
         <>
-          {/* 中文含义 */}
           {showZh ? (
             <div
               style={{
@@ -335,7 +332,6 @@ function VocabCard({
             </div>
           ) : null}
 
-          {/* ✅ 例句（expressions 显示字幕原句） */}
           {exampleEn || exampleZh ? (
             <div
               style={{
@@ -369,7 +365,6 @@ function VocabCard({
             </div>
           ) : null}
 
-          {/* ✅ expressions 的详细解析 */}
           {kind === "expressions" && showZh && useCaseZh ? (
             <div
               style={{
@@ -499,7 +494,7 @@ export default function ClipDetailPage() {
   const [subLang, setSubLang] = useState("zh");
   const showZhSub = subLang === "zh";
 
-  const [vocabOpen, setVocabOpen] = useState(true); // desktop右栏；mobile用它作为bottom sheet开关
+  const [vocabOpen, setVocabOpen] = useState(true);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
 
@@ -519,6 +514,10 @@ export default function ClipDetailPage() {
   const [vCur, setVCur] = useState(0);
   const [vDur, setVDur] = useState(0);
   const [vPlaying, setVPlaying] = useState(false);
+
+  // ✅ 为了“可拖动”更稳：拖动时暂停由 timeupdate 控制滑块
+  const [dragging, setDragging] = useState(false);
+  const [dragValue, setDragValue] = useState(0);
 
   useEffect(() => {
     setFavSet(loadFavVocab());
@@ -720,7 +719,8 @@ export default function ClipDetailPage() {
     if (!v) return;
 
     function sync() {
-      setVCur(v.currentTime || 0);
+      // ✅ 拖动中不抢滑块
+      if (!dragging) setVCur(v.currentTime || 0);
       setVDur(v.duration || 0);
       setVPlaying(!v.paused);
     }
@@ -732,11 +732,13 @@ export default function ClipDetailPage() {
     }
     function onLoaded() {
       setVDur(v.duration || 0);
-      setVCur(v.currentTime || 0);
+      if (!dragging) setVCur(v.currentTime || 0);
     }
+
     v.addEventListener("timeupdate", sync);
     v.addEventListener("durationchange", sync);
     v.addEventListener("loadedmetadata", onLoaded);
+    v.addEventListener("loadeddata", onLoaded);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
 
@@ -747,10 +749,11 @@ export default function ClipDetailPage() {
       v.removeEventListener("timeupdate", sync);
       v.removeEventListener("durationchange", sync);
       v.removeEventListener("loadedmetadata", onLoaded);
+      v.removeEventListener("loadeddata", onLoaded);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [item?.video_url, canAccess]);
+  }, [item?.video_url, canAccess, dragging]);
 
   function togglePlay() {
     const v = videoRef.current;
@@ -764,7 +767,8 @@ export default function ClipDetailPage() {
   function seekTo(t) {
     const v = videoRef.current;
     if (!v) return;
-    const next = Math.max(0, Math.min(Number(t || 0), Number(v.duration || 0)));
+    const dur = Number(v.duration || 0);
+    const next = Math.max(0, Math.min(Number(t || 0), dur || 0));
     try {
       v.currentTime = next;
     } catch {}
@@ -805,14 +809,12 @@ export default function ClipDetailPage() {
     );
   }
 
-  // ✅ Tab 按钮：稍微放大
   const tabPillStyle = {
     padding: "8px 14px",
     fontSize: 13,
     fontWeight: 950,
   };
 
-  // ✅ 中文开关按钮：更小、颜色区分（蓝色系）
   const zhToggleStyle = (on) => ({
     padding: "6px 10px",
     fontSize: 11,
@@ -823,12 +825,16 @@ export default function ClipDetailPage() {
   });
 
   // =========================
-  // ✅ 手机版布局（接近 englishclips 的“固定区 + 只滚字幕 + 底部播放条 + 词汇卡底部弹出”）
+  // ✅ 手机版
   // =========================
   if (isMobile) {
+    const sliderMax = Math.max(0, Number(vDur || 0));
+    const sliderValue = dragging
+      ? Math.min(Number(dragValue || 0), sliderMax || 0)
+      : Math.min(Number(vCur || 0), sliderMax || 0);
+
     return (
       <div
-        className="mRoot"
         style={{
           height: "100vh",
           background: "#fff",
@@ -836,7 +842,6 @@ export default function ClipDetailPage() {
           flexDirection: "column",
         }}
       >
-        {/* 顶部：返回 + 标题 + 状态（不改你的元素风格） */}
         <div
           style={{
             padding: 12,
@@ -879,7 +884,6 @@ export default function ClipDetailPage() {
           </div>
         </div>
 
-        {/* 固定：视频 + 上方小控件（sticky） */}
         <div
           style={{
             position: "sticky",
@@ -895,7 +899,7 @@ export default function ClipDetailPage() {
               <>
                 <video
                   ref={videoRef}
-                  controls={false} // ✅ mobile底部播放条接管；视频本身不显示控件
+                  controls={false}
                   playsInline
                   style={{
                     width: "100%",
@@ -950,7 +954,6 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
-          {/* 固定：字幕头部 + EN/中 按钮（你原本元素，不换设计） */}
           <div
             style={{
               marginTop: 10,
@@ -990,13 +993,12 @@ export default function ClipDetailPage() {
           </div>
         </div>
 
-        {/* 只滚动：字幕列表 */}
         <div
           style={{
             flex: 1,
             overflow: "auto",
             padding: 12,
-            paddingBottom: canAccess ? 84 : 16, // 留给底部播放条
+            paddingBottom: canAccess ? 84 : 16,
           }}
           ref={listWrapRef}
         >
@@ -1037,7 +1039,7 @@ export default function ClipDetailPage() {
           )}
         </div>
 
-        {/* 底部固定播放条（只在可播放时显示） */}
+        {/* ✅ 底部固定播放条：可拖动 */}
         {canAccess ? (
           <div
             style={{
@@ -1049,6 +1051,7 @@ export default function ClipDetailPage() {
               background: "white",
               borderTop: "1px solid #eee",
               padding: 10,
+              touchAction: "none",
             }}
           >
             <div
@@ -1082,10 +1085,44 @@ export default function ClipDetailPage() {
                 <input
                   type="range"
                   min={0}
-                  max={Math.max(0, Number(vDur || 0))}
+                  max={sliderMax || 0.000001}
                   step="0.01"
-                  value={Math.min(Number(vCur || 0), Number(vDur || 0))}
-                  onChange={(e) => seekTo(e.target.value)}
+                  value={sliderValue}
+                  onPointerDown={() => {
+                    setDragging(true);
+                    setDragValue(sliderValue);
+                  }}
+                  onPointerUp={() => {
+                    setDragging(false);
+                    seekTo(dragValue);
+                  }}
+                  onTouchStart={() => {
+                    setDragging(true);
+                    setDragValue(sliderValue);
+                  }}
+                  onTouchEnd={() => {
+                    setDragging(false);
+                    seekTo(dragValue);
+                  }}
+                  onMouseDown={() => {
+                    setDragging(true);
+                    setDragValue(sliderValue);
+                  }}
+                  onMouseUp={() => {
+                    setDragging(false);
+                    seekTo(dragValue);
+                  }}
+                  onInput={(e) => {
+                    const val = Number(e.target.value || 0);
+                    setDragValue(val);
+                    // ✅ 实时拖动就 seek（手势触发更容易成功）
+                    seekTo(val);
+                  }}
+                  onChange={(e) => {
+                    const val = Number(e.target.value || 0);
+                    setDragValue(val);
+                    seekTo(val);
+                  }}
                   style={{ width: "100%" }}
                 />
                 <div
@@ -1098,7 +1135,7 @@ export default function ClipDetailPage() {
                     marginTop: 4,
                   }}
                 >
-                  <div>{fmtSec(vCur)}</div>
+                  <div>{fmtSec(dragging ? dragValue : vCur)}</div>
                   <div>{fmtSec(vDur)}</div>
                 </div>
               </div>
@@ -1147,7 +1184,7 @@ export default function ClipDetailPage() {
           </div>
         ) : null}
 
-        {/* ✅ mobile 词汇卡 bottom sheet（弹出方式） */}
+        {/* ✅ 词汇卡：固定半屏，不挡住顶部固定区 */}
         {vocabOpen ? (
           <div
             role="dialog"
@@ -1156,7 +1193,7 @@ export default function ClipDetailPage() {
               position: "fixed",
               inset: 0,
               zIndex: 50,
-              background: "rgba(0,0,0,0.35)",
+              background: "rgba(0,0,0,0.18)",
               display: "flex",
               justifyContent: "center",
               alignItems: "flex-end",
@@ -1173,12 +1210,11 @@ export default function ClipDetailPage() {
                 border: "1px solid #eee",
                 boxShadow: "0 -20px 50px rgba(0,0,0,0.12)",
                 padding: 12,
-                maxHeight: "82vh",
+                height: "50vh", // ✅ 固定半屏
                 overflow: "hidden",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 顶部拖拽条（视觉） */}
               <div
                 style={{
                   width: 46,
@@ -1210,7 +1246,6 @@ export default function ClipDetailPage() {
                 </button>
               </div>
 
-              {/* 中文开关 */}
               <div
                 style={{
                   display: "flex",
@@ -1229,7 +1264,6 @@ export default function ClipDetailPage() {
                 </Pill>
               </div>
 
-              {/* tab */}
               <div
                 style={{
                   display: "flex",
@@ -1261,7 +1295,14 @@ export default function ClipDetailPage() {
                 </Pill>
               </div>
 
-              <div style={{ marginTop: 12, overflow: "auto", maxHeight: "62vh" }}>
+              <div
+                style={{
+                  marginTop: 12,
+                  overflow: "auto",
+                  height: "calc(50vh - 170px)", // ✅ 半屏内：留出头部/按钮空间
+                  paddingBottom: 10,
+                }}
+              >
                 {vocabList.length ? (
                   <div
                     style={{
@@ -1269,7 +1310,6 @@ export default function ClipDetailPage() {
                       flexDirection: "column",
                       gap: 12,
                       paddingRight: 4,
-                      paddingBottom: 10,
                     }}
                   >
                     {vocabList.map((v, idx) => (
@@ -1281,7 +1321,6 @@ export default function ClipDetailPage() {
                         segments={segments}
                         onLocate={(i) => {
                           setVocabOpen(false);
-                          // 关闭词卡后定位到字幕
                           setTimeout(() => locateToSegIdx(i), 80);
                         }}
                         favSet={favSet}
@@ -1315,7 +1354,7 @@ export default function ClipDetailPage() {
   }
 
   // =========================
-  // ✅ 电脑版：保持你现在的结构（不动）
+  // ✅ 电脑版：保持原结构不动
   // =========================
   const gridCols = vocabOpen
     ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
@@ -1547,7 +1586,6 @@ export default function ClipDetailPage() {
               </button>
             </div>
 
-            {/* ✅ 合并成一个：中文开关 */}
             <div
               style={{
                 display: "flex",
@@ -1566,7 +1604,6 @@ export default function ClipDetailPage() {
               </Pill>
             </div>
 
-            {/* ✅ tab按钮稍微放大 */}
             <div
               style={{
                 display: "flex",
@@ -1646,7 +1683,6 @@ export default function ClipDetailPage() {
       </div>
 
       <style jsx>{`
-        /* 你原本的：小屏回落到1列（保留，确保电脑版不受影响） */
         @media (max-width: 1100px) {
           div[style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
@@ -1655,8 +1691,6 @@ export default function ClipDetailPage() {
             position: static !important;
           }
         }
-
-        /* range在部分浏览器更舒服一点（不改配色） */
         input[type="range"] {
           width: 100%;
         }
