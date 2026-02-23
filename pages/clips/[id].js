@@ -31,10 +31,11 @@ function fmtSec(s) {
   return `${mm}:${String(ss).padStart(2, "0")}`;
 }
 
-function Pill({ active, children, onClick }) {
+function Pill({ active, children, onClick, style, title }) {
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       style={{
         border: "1px solid #eee",
@@ -45,6 +46,7 @@ function Pill({ active, children, onClick }) {
         cursor: "pointer",
         fontSize: 12,
         fontWeight: 900,
+        ...style,
       }}
     >
       {children}
@@ -287,7 +289,7 @@ function VocabCard({
             📍
           </TinyIconBtn>
 
-          {/* ✅ 收起/展开小三角（只影响内容块，不影响标题和按钮） */}
+          {/* ✅ 收起/展开小三角 */}
           <button
             type="button"
             onClick={() => setCollapsed((x) => !x)}
@@ -311,7 +313,6 @@ function VocabCard({
         </div>
       </div>
 
-      {/* ✅ 可收起的内容区 */}
       {!collapsed ? (
         <>
           {/* 中文含义 */}
@@ -715,6 +716,23 @@ export default function ClipDetailPage() {
     ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
     : "minmax(420px, 1.15fr) minmax(420px, 1fr)";
 
+  // ✅ Tab 按钮：稍微放大
+  const tabPillStyle = {
+    padding: "8px 14px",
+    fontSize: 13,
+    fontWeight: 950,
+  };
+
+  // ✅ 中文开关按钮：更小、颜色区分（蓝色系）
+  const zhToggleStyle = (on) => ({
+    padding: "6px 10px",
+    fontSize: 11,
+    fontWeight: 950,
+    border: on ? "1px solid #9ecbff" : "1px solid #cfe6ff",
+    background: on ? "#0b5aa6" : "#f3fbff",
+    color: on ? "white" : "#0b5aa6",
+  });
+
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -888,23 +906,34 @@ export default function ClipDetailPage() {
               </button>
             </div>
 
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <Pill active={showZhExplain} onClick={() => setShowZhExplain(true)}>
-                中文解释
+            {/* ✅ 合并成一个：中文开关 */}
+            <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+              <Pill
+                active={showZhExplain}
+                onClick={() => setShowZhExplain((x) => !x)}
+                style={zhToggleStyle(showZhExplain)}
+                title="点一下显示中文，再点一下关闭中文"
+              >
+                {showZhExplain ? "中文 ON" : "中文 OFF"}
               </Pill>
-              <Pill active={!showZhExplain} onClick={() => setShowZhExplain(false)}>
-                关闭中文
-              </Pill>
+              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 800 }}>
+                （点一下切换）
+              </div>
             </div>
 
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <Pill active={vocabTab === "words"} onClick={() => setVocabTab("words")}>
+            {/* ✅ tab按钮稍微放大 */}
+            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+              <Pill active={vocabTab === "words"} onClick={() => setVocabTab("words")} style={tabPillStyle}>
                 单词 ({vocab.words.length})
               </Pill>
-              <Pill active={vocabTab === "phrases"} onClick={() => setVocabTab("phrases")}>
+              <Pill active={vocabTab === "phrases"} onClick={() => setVocabTab("phrases")} style={tabPillStyle}>
                 短语 ({vocab.phrases.length})
               </Pill>
-              <Pill active={vocabTab === "expressions"} onClick={() => setVocabTab("expressions")}>
+              <Pill
+                active={vocabTab === "expressions"}
+                onClick={() => setVocabTab("expressions")}
+                style={tabPillStyle}
+              >
                 地道表达 ({vocab.expressions.length})
               </Pill>
             </div>
