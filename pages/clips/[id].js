@@ -240,7 +240,7 @@ const end = rawEnd + 0.08;                  // 句尾往后放 0.08s
 if (t >= end - 0.03) {
   try {
     v.currentTime = start;
-    if (!v.paused) v.play?.();
+    if (!v.paused) v.play?.()
   } catch {}
 }
           // 如果正在播放，继续播放；如果暂停，就只定位不强行播放
