@@ -117,7 +117,6 @@ function normForMatch(s) {
     .trim();
 }
 
-// 找到包含 term 的第一条字幕索引
 function findSegIdxForTerm(segments, term) {
   const q = normForMatch(term);
   if (!q) return -1;
@@ -128,7 +127,6 @@ function findSegIdxForTerm(segments, term) {
   return -1;
 }
 
-// ✅ 优先通过 segment_id 精准找到对应字幕
 function findSegIdxBySegmentId(segments, segmentId) {
   if (!segmentId) return -1;
   const sid = String(segmentId).trim();
@@ -162,7 +160,7 @@ function TinyIconBtn({ title, onClick, children, active }) {
   );
 }
 
-// ========== 字幕高亮：只高亮当前 tab ==========
+// ========== 字幕高亮 ==========
 function escapeRegExp(str) {
   return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -207,13 +205,9 @@ function buildHighlighter(terms) {
   };
 }
 
-/** ✅ 词汇卡：适配 words / phrases / expressions
- *  ✅ expressions：例句块改成字幕原句（优先 segment_id）
- *  ✅ 每条卡片可收起：小三角按钮
- */
 function VocabCard({
   v,
-  kind, // "words" | "phrases" | "expressions"
+  kind,
   showZh,
   segments,
   onLocate,
@@ -229,7 +223,6 @@ function VocabCard({
   const rawExampleZh = v.example_zh || "";
   const useCaseZh = v.use_case_zh || "";
 
-  // ✅ expressions：例句块使用字幕原句
   let exampleEn = rawExampleEn;
   let exampleZh = rawExampleZh;
   if (kind === "expressions") {
@@ -241,7 +234,6 @@ function VocabCard({
     }
   }
 
-  // ✅ 每条词汇卡：收起/展开
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -494,7 +486,7 @@ export default function ClipDetailPage() {
   const [subLang, setSubLang] = useState("zh");
   const showZhSub = subLang === "zh";
 
-  const [vocabOpen, setVocabOpen] = useState(true);
+  const [vocabOpen, setVocabOpen] = useState(false);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
 
@@ -510,12 +502,10 @@ export default function ClipDetailPage() {
 
   const [favSet, setFavSet] = useState(() => new Set());
 
-  // mobile底部播放条状态
+  // mobile底部播放条
   const [vCur, setVCur] = useState(0);
   const [vDur, setVDur] = useState(0);
   const [vPlaying, setVPlaying] = useState(false);
-
-  // ✅ 为了“可拖动”更稳：拖动时暂停由 timeupdate 控制滑块
   const [dragging, setDragging] = useState(false);
   const [dragValue, setDragValue] = useState(0);
 
@@ -529,6 +519,7 @@ export default function ClipDetailPage() {
     return Number.isFinite(n) ? n : null;
   }, [router.query?.id]);
 
+  // ✅✅✅ 关键：保留你原来“从后台拉 JSON”的逻辑
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
@@ -560,6 +551,7 @@ export default function ClipDetailPage() {
             `/api/clip_details?id=${clipId}&_t=${Date.now()}`
           );
           if (!mounted) return;
+          // ✅ 这里就是你后期运营要编辑的 Supabase JSON
           setDetails(d2?.details_json ?? null);
         } catch {
           setDetails(null);
@@ -579,11 +571,13 @@ export default function ClipDetailPage() {
     };
   }, [router.isReady, clipId]);
 
+  // ✅ details_json -> segments
   const segments = useMemo(() => {
     const arr = details?.segments;
     return Array.isArray(arr) ? arr : [];
   }, [details]);
 
+  // ✅ details_json -> vocab
   const vocab = useMemo(() => {
     const v = details?.vocab || {};
     const words = Array.isArray(v.words) ? v.words : [];
@@ -656,7 +650,7 @@ export default function ClipDetailPage() {
     } catch {}
   }, [rate]);
 
-  // 监听视频用于：高亮字幕 + 循环
+  // timeupdate：高亮+循环
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -694,7 +688,7 @@ export default function ClipDetailPage() {
     return () => v.removeEventListener("timeupdate", onTime);
   }, [segments, loopIdx, activeSegIdx]);
 
-  // 自动跟随滚动字幕
+  // follow滚动
   useEffect(() => {
     if (!follow) return;
     if (activeSegIdx < 0) return;
@@ -713,26 +707,26 @@ export default function ClipDetailPage() {
     setLoopIdx((prev) => (prev === idx ? -1 : idx));
   }
 
-  // ======== mobile：底部播放条同步 ========
+  // mobile：底部播放条同步 + 可拖动
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
 
     function sync() {
-      // ✅ 拖动中不抢滑块
       if (!dragging) setVCur(v.currentTime || 0);
       setVDur(v.duration || 0);
       setVPlaying(!v.paused);
+    }
+
+    function onLoaded() {
+      setVDur(v.duration || 0);
+      if (!dragging) setVCur(v.currentTime || 0);
     }
     function onPlay() {
       setVPlaying(true);
     }
     function onPause() {
       setVPlaying(false);
-    }
-    function onLoaded() {
-      setVDur(v.duration || 0);
-      if (!dragging) setVCur(v.currentTime || 0);
     }
 
     v.addEventListener("timeupdate", sync);
@@ -742,9 +736,7 @@ export default function ClipDetailPage() {
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
 
-    // 初始同步
     sync();
-
     return () => {
       v.removeEventListener("timeupdate", sync);
       v.removeEventListener("durationchange", sync);
@@ -774,7 +766,7 @@ export default function ClipDetailPage() {
     } catch {}
   }
 
-  // mobile：打开词汇卡时锁背景滚动
+  // mobile：打开词汇卡锁背景
   useEffect(() => {
     if (!isMobile) return;
     const on = !!vocabOpen;
@@ -814,7 +806,6 @@ export default function ClipDetailPage() {
     fontSize: 13,
     fontWeight: 950,
   };
-
   const zhToggleStyle = (on) => ({
     padding: "6px 10px",
     fontSize: 11,
@@ -824,9 +815,9 @@ export default function ClipDetailPage() {
     color: on ? "white" : "#0b5aa6",
   });
 
-  // =========================
-  // ✅ 手机版
-  // =========================
+  // =======================
+  // ✅ 手机版布局（固定顶+字幕可滚+底部播放条）
+  // =======================
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderValue = dragging
@@ -842,6 +833,7 @@ export default function ClipDetailPage() {
           flexDirection: "column",
         }}
       >
+        {/* 顶部栏 */}
         <div
           style={{
             padding: 12,
@@ -884,6 +876,7 @@ export default function ClipDetailPage() {
           </div>
         </div>
 
+        {/* 固定区：视频+字幕按钮 */}
         <div
           style={{
             position: "sticky",
@@ -993,6 +986,7 @@ export default function ClipDetailPage() {
           </div>
         </div>
 
+        {/* 只让字幕列表滚动 */}
         <div
           style={{
             flex: 1,
@@ -1039,7 +1033,7 @@ export default function ClipDetailPage() {
           )}
         </div>
 
-        {/* ✅ 底部固定播放条：可拖动 */}
+        {/* 底部固定播放条：可拖动 */}
         {canAccess ? (
           <div
             style={{
@@ -1115,7 +1109,6 @@ export default function ClipDetailPage() {
                   onInput={(e) => {
                     const val = Number(e.target.value || 0);
                     setDragValue(val);
-                    // ✅ 实时拖动就 seek（手势触发更容易成功）
                     seekTo(val);
                   }}
                   onChange={(e) => {
@@ -1184,7 +1177,7 @@ export default function ClipDetailPage() {
           </div>
         ) : null}
 
-        {/* ✅ 词汇卡：固定半屏，不挡住顶部固定区 */}
+        {/* 词汇卡：半屏 bottom sheet */}
         {vocabOpen ? (
           <div
             role="dialog"
@@ -1210,7 +1203,7 @@ export default function ClipDetailPage() {
                 border: "1px solid #eee",
                 boxShadow: "0 -20px 50px rgba(0,0,0,0.12)",
                 padding: 12,
-                height: "50vh", // ✅ 固定半屏
+                height: "50vh",
                 overflow: "hidden",
               }}
               onClick={(e) => e.stopPropagation()}
@@ -1299,7 +1292,7 @@ export default function ClipDetailPage() {
                 style={{
                   marginTop: 12,
                   overflow: "auto",
-                  height: "calc(50vh - 170px)", // ✅ 半屏内：留出头部/按钮空间
+                  height: "calc(50vh - 170px)",
                   paddingBottom: 10,
                 }}
               >
@@ -1349,13 +1342,19 @@ export default function ClipDetailPage() {
             </div>
           </div>
         ) : null}
+
+        <style jsx>{`
+          input[type="range"] {
+            width: 100%;
+          }
+        `}</style>
       </div>
     );
   }
 
-  // =========================
-  // ✅ 电脑版：保持原结构不动
-  // =========================
+  // =======================
+  // ✅ 电脑版：保持你原来结构
+  // =======================
   const gridCols = vocabOpen
     ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
     : "minmax(420px, 1.15fr) minmax(420px, 1fr)";
