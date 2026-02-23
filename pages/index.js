@@ -4,10 +4,11 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * 首页（修改版）
- * 1. 删除红框区域（副标题、胶囊按钮、右下角特性、小技巧提示）。
- * 2. 黄框内容（元数据）下移至视频下方。
- * 3. 视频卡片放大，PC端一行3个。
+ * 首页（成品美化版 v2）
+ * ✅ 红框区域已删除（左侧说明+pill、右侧小技巧、右下角三小卡）
+ * ✅ 黄框内容移到视频下方（标题/徽章/topic/channel）
+ * ✅ 卡片放大，桌面端一行固定3个
+ * ✅ 保留原有全部功能：筛选、无限滚动、收藏、登录态、弹窗、会员拦截、HoverPreview
  */
 
 function splitParam(v) {
@@ -233,9 +234,9 @@ function UserMenu({ me, onLogout }) {
 
 function HeroSection({ me, sample, onTryVip }) {
   const steps = [
-    { t: "选一个你感兴趣的场景", d: "从难度 / Topic / Channel 快速筛选，找到更适合你的内容。" },
+    { t: "选一个你感兴趣的场景", d: "从难度 / Topic / Channel 快速筛选，找到适合你的内容。" },
     { t: "看 1 分钟，跟读 3 遍", d: "短视频更适合碎片化学习，练听力 + 口语输出更快。" },
-    { t: "收藏进「视频收藏」", d: "遇到喜欢的 clip 一键收藏，随时回看复习。" },
+    { t: "收藏进「视频收藏」", d: "遇到喜欢的 clip 一键收藏，回看复习更方便。" },
   ];
 
   return (
@@ -251,8 +252,6 @@ function HeroSection({ me, sample, onTryVip }) {
             <br />
             每天 5 分钟就有进步
           </h1>
-
-          {/* 删除了 heroSub 和 heroPills */}
 
           <div className="heroCtas">
             <a className="ctaPrimary" href="#all">
@@ -272,6 +271,7 @@ function HeroSection({ me, sample, onTryVip }) {
             )}
           </div>
 
+          {/* ✅ 保留步骤区（不是红框内的那段说明） */}
           <div className="heroSteps">
             <div className="stepsTitle">怎么用更有效？</div>
             <div className="stepsGrid">
@@ -299,31 +299,30 @@ function HeroSection({ me, sample, onTryVip }) {
               <div className="demoTag">{sample?.access_tier === "vip" ? "会员" : "免费"}</div>
             </div>
 
-            {/* 视频部分，去掉了 Overlay */}
-            <div style={{ position: "relative" }}>
+            {/* ✅ 视频区域放大 */}
+            <div className="demoVideo">
               <HoverPreview
                 coverUrl={sample?.cover_url}
                 videoUrl={sample?.video_url}
                 alt={sample?.title || ""}
-                borderRadius={16}
+                borderRadius={18}
               />
             </div>
 
-            {/* 黄框内容下移到这里 */}
+            {/* ✅ 黄框内容全部下移到视频下方（标题/徽章/topic/channel） */}
             <div className="demoBody">
-              {/* 标题 */}
-              <div className="demoBigTitle">{sample?.title || "从下方列表选择任意 clip"}</div>
-              
-              {/* 元数据：难度、时长、权限 */}
-              <div className="demoMetaRow">
-                 {sample?.difficulty ? <Badge>{sample.difficulty}</Badge> : null}
-                 {sample?.duration_sec ? <Badge>{sample.duration_sec}s</Badge> : null}
-                 {sample?.access_tier ? <Badge tone={sample.access_tier === "vip" ? "vip" : "free"}>{sample.access_tier === "vip" ? "会员专享" : "免费可看"}</Badge> : null}
+              <div className="demoName">{sample?.title || "从下方列表选择任意 clip"}</div>
+
+              <div className="demoBadges">
+                {sample?.difficulty ? <Badge>难度：{sample.difficulty}</Badge> : null}
+                {sample?.duration_sec ? <Badge>{sample.duration_sec}s</Badge> : null}
+                {sample?.access_tier ? (
+                  <Badge tone={sample.access_tier === "vip" ? "vip" : "free"}>
+                    {sample.access_tier === "vip" ? "会员专享" : "免费可看"}
+                  </Badge>
+                ) : null}
               </div>
 
-              <div className="demoDivider" />
-
-              {/* Topic & Channel */}
               <div className="demoLine">
                 <span className="demoKey">Topic：</span>
                 <span className="demoVal">{(sample?.topics || []).slice(0, 3).join(", ") || "-"}</span>
@@ -332,12 +331,10 @@ function HeroSection({ me, sample, onTryVip }) {
                 <span className="demoKey">Channel：</span>
                 <span className="demoVal">{(sample?.channels || []).slice(0, 3).join(", ") || "-"}</span>
               </div>
-            
-              {/* 删除了 demoHint */}
             </div>
           </div>
 
-          {/* 删除了 heroMini (右下角的三个特性块) */}
+          {/* ✅ 右下角三张小卡（红框）已删除 */}
         </div>
       </div>
     </div>
@@ -662,7 +659,6 @@ export default function HomePage() {
     setShowVipModal(true);
   }
 
-  // Hero：挑一个“示例”卡片展示（优先免费，否则第一条）
   const heroSample = useMemo(() => {
     if (!items?.length) return null;
     const free = items.find((x) => x.access_tier === "free");
@@ -847,7 +843,7 @@ export default function HomePage() {
                 title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
               >
                 <div style={{ position: "relative" }}>
-                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={16} />
+                  <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={18} />
 
                   <button
                     type="button"
@@ -881,12 +877,12 @@ export default function HomePage() {
                 <div className="metaLine">
                   <div>
                     <span style={{ opacity: 0.7 }}>Topics：</span>
-                    {(it.topics || []).slice(0, 3).join(", ") || "-"}
-                  </div>
+                    {(it.topics || []).slice(0, 3).join(", ") || "-"
+                  }</div>
                   <div>
                     <span style={{ opacity: 0.7 }}>Channels：</span>
-                    {(it.channels || []).slice(0, 3).join(", ") || "-"}
-                  </div>
+                    {(it.channels || []).slice(0, 3).join(", ") || "-"
+                  }</div>
                 </div>
 
                 {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
@@ -900,13 +896,6 @@ export default function HomePage() {
         <div className="footerHint">{loadingMore ? "加载更多中..." : hasMore ? "下滑自动加载更多" : "没有更多了"}</div>
 
         <div ref={sentinelRef} style={{ height: 1 }} />
-
-        <div className="footNote">
-          <div className="footLine">
-            <span className="footBrand">naila clips</span> · 用真实场景练英语
-          </div>
-          <div className="footSmall">提示：会员内容需要兑换码开通；收藏需要登录。</div>
-        </div>
       </div>
 
       <style jsx global>{`
@@ -928,7 +917,7 @@ export default function HomePage() {
         }
 
         .container {
-          max-width: 1200px; /* 加宽容器以便放大卡片 */
+          max-width: 1120px;
           margin: 0 auto;
           padding: 14px 16px 28px;
         }
@@ -942,7 +931,7 @@ export default function HomePage() {
         }
 
         .topbar {
-          max-width: 1200px;
+          max-width: 1120px;
           margin: 0 auto;
           border: 1px solid var(--bd);
           border-radius: 18px;
@@ -1188,16 +1177,15 @@ export default function HomePage() {
         }
         @media (min-width: 980px) {
           .heroGrid {
-            grid-template-columns: 1.12fr 0.88fr;
+            grid-template-columns: 1fr 1fr; /* ✅ 右侧更宽 */
             gap: 18px;
             padding: 20px;
+            align-items: start;
           }
         }
 
         .heroLeft {
           padding: 6px 4px;
-          display: flex;
-          flex-direction: column;
         }
         .heroKicker {
           display: inline-flex;
@@ -1210,7 +1198,6 @@ export default function HomePage() {
           border-radius: 999px;
           font-weight: 950;
           font-size: 12px;
-          align-self: flex-start;
         }
         .heroTitle {
           margin: 12px 0 0;
@@ -1224,9 +1211,9 @@ export default function HomePage() {
             font-size: 36px;
           }
         }
-        
+
         .heroCtas {
-          margin-top: 20px;
+          margin-top: 14px;
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
@@ -1276,7 +1263,7 @@ export default function HomePage() {
         }
 
         .heroSteps {
-          margin-top: 24px;
+          margin-top: 14px;
         }
         .stepsTitle {
           font-weight: 1000;
@@ -1288,11 +1275,6 @@ export default function HomePage() {
           display: grid;
           gap: 10px;
           grid-template-columns: 1fr;
-        }
-        @media (min-width: 980px) {
-          .stepsGrid {
-            grid-template-columns: 1fr;
-          }
         }
         .stepCard {
           display: flex;
@@ -1330,6 +1312,7 @@ export default function HomePage() {
           flex-direction: column;
           gap: 12px;
         }
+
         .demoCard {
           border-radius: 22px;
           border: 1px solid rgba(17, 17, 17, 0.1);
@@ -1363,40 +1346,45 @@ export default function HomePage() {
           border: 1px solid rgba(17, 17, 17, 0.08);
           background: rgba(17, 17, 17, 0.03);
         }
-        
+
+        /* ✅ 放大示例视频（让它更像参考站的“主视觉卡”） */
+        .demoVideo {
+          padding: 0 12px 0;
+        }
+        .demoVideo > :global(*) {
+          /* 不依赖 HoverPreview 内部结构，外层给到足够空间即可 */
+        }
+
         .demoBody {
-          padding: 14px 16px 16px;
+          padding: 12px 12px 14px;
         }
-        .demoBigTitle {
-          font-size: 15px;
+        .demoName {
           font-weight: 1100;
-          line-height: 1.4;
-          margin-bottom: 10px;
-          color: #111;
+          font-size: 14px;
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
-        .demoMetaRow {
+        .demoBadges {
+          margin-top: 10px;
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
-          margin-bottom: 12px;
+          align-items: center;
         }
-        .demoDivider {
-          height: 1px;
-          background: rgba(17,17,17,0.06);
-          margin-bottom: 12px;
-        }
-
         .demoLine {
           display: flex;
           gap: 8px;
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.4;
-          margin-top: 6px;
+          margin-top: 10px;
         }
         .demoKey {
           opacity: 0.65;
           font-weight: 900;
-          width: 70px;
+          width: 68px;
           flex: 0 0 auto;
         }
         .demoVal {
@@ -1409,7 +1397,7 @@ export default function HomePage() {
 
         /* Section head */
         .sectionHead {
-          margin-top: 24px;
+          margin-top: 18px;
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
@@ -1417,12 +1405,12 @@ export default function HomePage() {
           flex-wrap: wrap;
         }
         .sectionTitle {
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 1100;
         }
         .sectionSub {
           margin-top: 3px;
-          font-size: 13px;
+          font-size: 12px;
           color: rgba(17, 17, 17, 0.62);
         }
         .statsPills {
@@ -1444,10 +1432,10 @@ export default function HomePage() {
 
         /* Filter */
         .filterWrap {
-          margin-top: 12px;
+          margin-top: 10px;
           border: 1px solid rgba(17, 17, 17, 0.08);
           border-radius: 20px;
-          padding: 16px;
+          padding: 14px;
           background: rgba(255, 255, 255, 0.82);
           box-shadow: 0 18px 60px rgba(0, 0, 0, 0.06);
         }
@@ -1462,7 +1450,7 @@ export default function HomePage() {
           }
         }
         .filterBottom {
-          margin-top: 14px;
+          margin-top: 12px;
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
@@ -1577,28 +1565,28 @@ export default function HomePage() {
           font-weight: 900;
         }
 
-        /* Cards - Adjusted for size and 3 per row */
+        /* Cards */
         .cardGrid {
-          margin-top: 16px;
+          margin-top: 12px;
           display: grid;
-          gap: 20px;
-          grid-template-columns: 1fr;
+          gap: 16px;
+          grid-template-columns: 1fr; /* mobile */
         }
         @media (min-width: 640px) {
-           .cardGrid {
-             grid-template-columns: repeat(2, 1fr);
-           }
+          .cardGrid {
+            grid-template-columns: repeat(2, 1fr);
+          }
         }
         @media (min-width: 1024px) {
-           .cardGrid {
-             grid-template-columns: repeat(3, 1fr); /* 强制一行3个 */
-           }
+          .cardGrid {
+            grid-template-columns: repeat(3, 1fr); /* ✅ 桌面端固定一行3个 */
+          }
         }
 
         .card {
           border: 1px solid rgba(17, 17, 17, 0.08);
-          border-radius: 20px; /* 圆角加大 */
-          padding: 14px; /* 内边距加大 */
+          border-radius: 18px;
+          padding: 12px;
           background: rgba(255, 255, 255, 0.9);
           display: block;
           color: inherit;
@@ -1649,7 +1637,7 @@ export default function HomePage() {
         }
 
         .cardBadges {
-          margin-top: 12px;
+          margin-top: 10px;
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
@@ -1657,19 +1645,19 @@ export default function HomePage() {
         }
 
         .titleLine {
-          margin-top: 12px;
-          font-size: 16px; /* 字体加大 */
+          margin-top: 10px;
+          font-size: 14px;
           font-weight: 1100;
           line-height: 1.35;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          min-height: 44px;
+          min-height: 38px;
         }
         .metaLine {
-          margin-top: 10px;
-          font-size: 13px; /* 字体加大 */
+          margin-top: 8px;
+          font-size: 12px;
           opacity: 0.85;
           line-height: 1.5;
           display: flex;
@@ -1677,45 +1665,23 @@ export default function HomePage() {
           gap: 4px;
         }
         .vipHint {
-          margin-top: 12px;
-          font-size: 13px;
+          margin-top: 10px;
+          font-size: 12px;
           font-weight: 1000;
           color: #b00000;
         }
         .okHint {
-          margin-top: 12px;
-          font-size: 13px;
+          margin-top: 10px;
+          font-size: 12px;
           font-weight: 1000;
           color: #0b5aa6;
         }
 
         .footerHint {
-          margin-top: 20px;
+          margin-top: 14px;
           text-align: center;
-          font-size: 13px;
+          font-size: 12px;
           opacity: 0.7;
-        }
-
-        .footNote {
-          margin-top: 20px;
-          border: 1px solid rgba(17, 17, 17, 0.08);
-          border-radius: 18px;
-          padding: 12px;
-          background: rgba(255, 255, 255, 0.75);
-          text-align: center;
-        }
-        .footLine {
-          font-weight: 1000;
-          font-size: 12px;
-          opacity: 0.85;
-        }
-        .footBrand {
-          font-weight: 1100;
-        }
-        .footSmall {
-          margin-top: 4px;
-          font-size: 12px;
-          opacity: 0.65;
         }
       `}</style>
     </div>
