@@ -4,11 +4,9 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * ✅ 只改你这次说的：Hero 区域（电脑版/手机版）“不要套很多层卡片”
- * - 电脑版：按你截图那种布局（左：标题+按钮+3条卡片；右：示例视频卡片），只保留最外层一层 Hero 容器
- * - 手机版：位置不动（示例视频与 1/2/3 互换的顺序保持），同样减少层级，只保留最外层一层 Hero 容器
- * - 其它功能/内容/样式（筛选、无限滚动、收藏、登录弹窗、会员拦截、示例固定免费、3列卡片、z-index 修复等）不动
- * - 仍然：不显示 Topics/Channels 文本行；用彩色 Tag 横排显示；去掉“复制分享链接”
+ * ✅ 本次只修复：电脑版 Hero 区标题/按钮重复渲染
+ * - 让 heroLeftHead 只在手机端显示（桌面端隐藏）
+ * - 其它全部不动（功能、筛选、卡片、示例固定免费、样式等）
  */
 
 function splitParam(v) {
@@ -427,7 +425,6 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me.loading, me.logged_in]);
 
-  // 固定示例视频：永远免费，不参与筛选
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -590,14 +587,11 @@ export default function HomePage() {
       </Badge>
     );
     if (it.duration_sec) tags.push(<Badge key="dur">{it.duration_sec}s</Badge>);
-
     (it.topics || []).slice(0, 3).forEach((t) => tags.push(<Badge key={`t:${t}`} tone="topic">{t}</Badge>));
     (it.channels || []).slice(0, 2).forEach((c) => tags.push(<Badge key={`c:${c}`} tone="channel">{c}</Badge>));
-
     return <div className="tagsRow">{tags}</div>;
   }
 
-  // ✅ 这次核心：Hero 电脑端按截图布局“平铺”，不要多层卡片
   const HeroDesktop = (
     <div className="heroGrid">
       <div className="heroLeft">
@@ -675,7 +669,6 @@ export default function HomePage() {
     </div>
   );
 
-  // ✅ 手机端：位置不动（示例在上，小卡片在下），但同样不要套很多层
   const HeroMobile = (
     <div className="heroMobile">
       <div className="exampleHeadPlain">
@@ -736,7 +729,6 @@ export default function HomePage() {
   return (
     <div className="pageBg">
       <div className="container">
-        {/* 顶部栏（不 sticky） */}
         <div className="topbar">
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             <div className="brandMark">
@@ -756,9 +748,9 @@ export default function HomePage() {
 
         {toast ? <div className="toast">{toast}</div> : null}
 
-        {/* ✅ Hero 最外层只保留一层（按你要求） */}
         <div className="heroShell">
-          <div className="heroLeftHead">
+          {/* ✅ 修复点：这一块只在手机端显示，桌面端隐藏，防止重复 */}
+          <div className="heroLeftHead mobileOnly">
             <div className="heroPill">🎬 场景化英语短视频数据库</div>
             <h1 className="heroTitle">
               用真实场景练口语，
@@ -779,7 +771,6 @@ export default function HomePage() {
           <div className="heroMobileOnly">{HeroMobile}</div>
         </div>
 
-        {/* 筛选区 */}
         <div id="filters" className="filterWrap">
           <div className="filterGrid">
             <SingleSelectDropdown
@@ -826,13 +817,11 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 统计 */}
         <div className="statsRow">
           <div>{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
           {me.logged_in ? <div>收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
         </div>
 
-        {/* 未登录弹窗 */}
         {showAuthModal ? (
           <div onClick={() => setShowAuthModal(false)} className="modalMask">
             <div onClick={(e) => e.stopPropagation()} className="modalCard">
@@ -863,7 +852,6 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        {/* 已登录但非会员 */}
         {showVipModal ? (
           <div onClick={() => setShowVipModal(false)} className="modalMask">
             <div onClick={(e) => e.stopPropagation()} className="modalCard">
@@ -889,7 +877,6 @@ export default function HomePage() {
           </div>
         ) : null}
 
-        {/* 卡片列表 */}
         <div className="cardGrid" style={{ opacity: loading && offset === 0 ? 0.55 : 1 }}>
           {items.map((it) => {
             const isBookmarked = bookmarkIds.has(it.id);
@@ -1144,7 +1131,6 @@ export default function HomePage() {
           box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
         }
 
-        /* ✅ Hero：只保留最外层一层容器（内部用“平铺布局”，不再套卡片） */
         .heroShell {
           margin-top: 14px;
           border-radius: 22px;
@@ -1162,6 +1148,12 @@ export default function HomePage() {
         .heroLeftHead {
           padding: 6px 6px 10px 6px;
         }
+
+        /* ✅ 新增：只给手机显示 */
+        .mobileOnly {
+          display: none;
+        }
+
         .heroPill {
           display: inline-flex;
           align-items: center;
@@ -1219,7 +1211,6 @@ export default function HomePage() {
           display: none;
         }
 
-        /* 电脑版：按截图左右布局 */
         .heroGrid {
           display: grid;
           grid-template-columns: 1.15fr 0.85fr;
@@ -1340,7 +1331,6 @@ export default function HomePage() {
           }
         }
 
-        /* 筛选区 */
         .filterWrap {
           margin-top: 16px;
           border: 1px solid rgba(17, 17, 17, 0.08);
@@ -1482,7 +1472,6 @@ export default function HomePage() {
           flex-wrap: wrap;
         }
 
-        /* 卡片列表：桌面 3 列 */
         .cardGrid {
           position: relative;
           z-index: 1;
@@ -1578,12 +1567,14 @@ export default function HomePage() {
           backdrop-filter: blur(10px);
         }
 
-        /* ✅ 手机端：位置不动，但同样扁平 */
         @media (max-width: 900px) {
           .heroDesktopOnly {
             display: none;
           }
           .heroMobileOnly {
+            display: block;
+          }
+          .mobileOnly {
             display: block;
           }
           .heroGrid {
