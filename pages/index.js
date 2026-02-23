@@ -537,33 +537,31 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
-      {/* 顶部栏 */}
-      <div className="topbar">
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div className="logoDot" />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
-            <div
-              style={{
-                fontSize: 12,
-                opacity: 0.65,
-                marginTop: 2,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              像 englishclips 一样的接口式筛选（UI 对齐中）
-            </div>
-          </div>
-        </div>
-
-        <div className="topbarRight" style={{ outline: "3px solid red", padding: 6, borderRadius: 12 }}>
-  <div style={{ fontSize: 12, fontWeight: 900, marginRight: 8 }}>NEW MENU:</div>
-  <UserMenu me={me} onLogout={logout} />
-</div>
+    {/* 顶部栏 */}
+<div className="topbar">
+  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+    <div className="logoDot" />
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
+      <div
+        style={{
+          fontSize: 12,
+          opacity: 0.65,
+          marginTop: 2,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        像 englishclips 一样的接口式筛选（UI 对齐中）
       </div>
+    </div>
+  </div>
+
+  <div className="topbarRight">
+    <UserMenu me={me} onLogout={logout} />
+  </div>
+</div>
 
       {/* toast */}
       {toast ? <div className="toast">{toast}</div> : null}
