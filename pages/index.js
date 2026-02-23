@@ -4,14 +4,11 @@ import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
 
 /**
- * ✅ 筛选/无限滚动
- * ✅ 收藏系统（bookmarks）
- * ✅ 登录状态 /api/me
- * ✅ 退出登录（POST /api/logout）
- * ✅ 未登录点收藏：弹窗引导登录/注册
- * ✅ 我的收藏入口 /bookmarks
- * ✅ 整张卡片可点进详情页 /clips/[id]
- * ✅ 悬停卡片轻微阴影
+ * ✅ UI 对齐 v1（更像 englishclips）
+ * - 顶部栏：品牌/登录状态/按钮
+ * - 筛选区：更紧凑 + 选中条件 chips
+ * - 卡片：封面(hover 预览) + badges + 收藏按钮
+ * - 不改任何接口逻辑（保持你现有 /api/clips /api/taxonomies /api/me /api/bookmarks...）
  */
 
 function splitParam(v) {
@@ -60,136 +57,83 @@ function MultiSelectDropdown({ label, placeholder = "请选择", options, value,
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
+      <div className="fLabel">{label}</div>
 
       <button
         type="button"
         onClick={() => setOpen((x) => !x)}
-        style={{
-          width: "100%",
-          textAlign: "left",
-          padding: "10px 12px",
-          borderRadius: 10,
-          border: "1px solid #e5e5e5",
-          background: "white",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-        }}
+        className="fBtn"
+        style={{ justifyContent: "space-between" }}
       >
-        <div style={{ minWidth: 0 }}>
-          {value?.length ? (
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 600,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {selectedLabels}
-            </div>
-          ) : (
-            <div style={{ fontSize: 13, opacity: 0.6 }}>{placeholder}</div>
-          )}
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>已选 {value?.length || 0} 项</div>
-        </div>
-        <div style={{ opacity: 0.6, flex: "0 0 auto" }}>{open ? "▲" : "▼"}</div>
+        <div className="fBtnText">{selectedLabels || <span style={{ opacity: 0.55 }}>{placeholder}</span>}</div>
+        <div style={{ opacity: 0.65 }}>{open ? "▲" : "▼"}</div>
       </button>
 
       {open ? (
-        <div
-          style={{
-            position: "absolute",
-            zIndex: 50,
-            left: 0,
-            right: 0,
-            marginTop: 8,
-            border: "1px solid #e5e5e5",
-            borderRadius: 12,
-            background: "white",
-            boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
-            padding: 10,
-            maxHeight: 260,
-            overflow: "auto",
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <div className="fPanel">
+          <div style={{ padding: 8, borderBottom: "1px solid #eee", display: "flex", gap: 8 }}>
             <button
               type="button"
+              className="miniBtn"
               onClick={() => onChange([])}
-              style={{
-                border: "1px solid #eee",
-                background: "white",
-                borderRadius: 10,
-                padding: "6px 10px",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
+              style={{ background: "white" }}
             >
               清空
             </button>
             <button
               type="button"
-              onClick={() => setOpen(false)}
-              style={{
-                marginLeft: "auto",
-                border: "1px solid #eee",
-                background: "white",
-                borderRadius: 10,
-                padding: "6px 10px",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
+              className="miniBtn"
+              onClick={() => onChange((options || []).map((o) => o.slug))}
+              style={{ background: "white" }}
             >
-              完成
+              全选
             </button>
+            <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
+              {value?.length || 0}/{options?.length || 0}
+            </div>
           </div>
 
-          {options?.length ? (
-            options.map((o) => (
-              <label
-                key={o.slug}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "8px 8px",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                }}
-              >
-                <input type="checkbox" checked={selected.has(o.slug)} onChange={() => onChange(toggleInArray(value || [], o.slug))} />
-                <div style={{ fontSize: 13 }}>{o.name || o.slug}</div>
-              </label>
-            ))
-          ) : (
-            <div style={{ fontSize: 12, opacity: 0.6, padding: 6 }}>暂无选项（请检查 /api/taxonomies）</div>
-          )}
+          <div style={{ maxHeight: 260, overflow: "auto", padding: 8 }}>
+            {(options || []).map((opt) => {
+              const checked = selected.has(opt.slug);
+              return (
+                <label
+                  key={opt.slug}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    padding: "10px 10px",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    alignItems: "center",
+                    background: checked ? "#f3fbff" : "transparent",
+                    border: checked ? "1px solid #bfe3ff" : "1px solid transparent",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onChange(toggleInArray(value || [], opt.slug))}
+                  />
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{opt.name || opt.slug}</div>
+                  {typeof opt.count === "number" ? (
+                    <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>{opt.count}</div>
+                  ) : null}
+                </label>
+              );
+            })}
+          </div>
         </div>
       ) : null}
     </div>
   );
 }
 
-function SingleSelectDropdown({ label, value, onChange, options }) {
+function SingleSelectDropdown({ label, options, value, onChange }) {
   return (
     <div>
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>{label}</div>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          borderRadius: 10,
-          border: "1px solid #e5e5e5",
-          background: "white",
-        }}
-      >
+      <div className="fLabel">{label}</div>
+      <select className="fSelect" value={value} onChange={(e) => onChange(e.target.value)}>
         {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -215,6 +159,35 @@ async function fetchJson(url, options) {
     throw err;
   }
   return data;
+}
+
+function Badge({ children, tone = "gray" }) {
+  const map = {
+    gray: { bg: "#f5f5f5", bd: "#eee", tx: "#111" },
+    vip: { bg: "#fff5f5", bd: "#ffd5d5", tx: "#b00000" },
+    free: { bg: "#f3fbff", bd: "#bfe3ff", tx: "#0b5aa6" },
+    dark: { bg: "#111", bd: "#111", tx: "#fff" },
+  };
+  const s = map[tone] || map.gray;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "4px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 800,
+        background: s.bg,
+        border: `1px solid ${s.bd}`,
+        color: s.tx,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children}
+    </span>
+  );
 }
 
 export default function HomePage() {
@@ -348,32 +321,34 @@ export default function HomePage() {
     }
   }
 
-  // 退出登录
   async function logout() {
     try {
       await fetchJson("/api/logout", { method: "POST" });
-      showToast("已退出登录");
-
+      setMe({ loading: false, logged_in: false, is_member: false, email: null });
       setBookmarkIds(new Set());
-      setHasMore(false);
-      setTotal(0);
-      setOffset(0);
-      setItems([]);
-
-      await loadMe();
-
-      fetchingRef.current = false;
       setClipsReloadKey((x) => x + 1);
+      showToast("已退出");
     } catch (e) {
       showToast("退出失败：" + e.message);
     }
   }
 
-  // 拉 taxonomies
+  // ---------------- 初始：读 URL 参数 -> 写到 state ----------------
   useEffect(() => {
-    fetch("/api/taxonomies")
-      .then((r) => r.json())
+    if (!router.isReady) return;
+    setDifficulty(splitParam(router.query.difficulty));
+    setTopic(splitParam(router.query.topic));
+    setChannel(splitParam(router.query.channel));
+    setAccess(splitParam(router.query.access));
+    setSort(router.query.sort === "oldest" ? "oldest" : "newest");
+  }, [router.isReady]);
+
+  // ---------------- taxonomies ----------------
+  useEffect(() => {
+    let mounted = true;
+    fetchJson("/api/taxonomies")
       .then((d) => {
+        if (!mounted) return;
         setTax({
           difficulties: d?.difficulties || [],
           topics: d?.topics || [],
@@ -381,123 +356,87 @@ export default function HomePage() {
         });
       })
       .catch(() => {});
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // 拉 /api/me
+  // ---------------- 登录态 + 收藏 ----------------
   useEffect(() => {
     loadMe();
   }, []);
 
-  // 登录后拉收藏
   useEffect(() => {
-    if (me.loading) return;
-    if (me.logged_in) loadBookmarks();
-    else setBookmarkIds(new Set());
+    if (!me.loading) loadBookmarks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me.loading, me.logged_in]);
 
-  // 从 URL 还原筛选
-  useEffect(() => {
-    if (!router.isReady) return;
-    const q = router.query;
-    setDifficulty(splitParam(q.difficulty));
-    setTopic(splitParam(q.topic));
-    setChannel(splitParam(q.channel));
-    setAccess(splitParam(q.access));
-    setSort(q.sort === "oldest" ? "oldest" : "newest");
-  }, [router.isReady]);
-
-  // ✅✅✅ 关键修复：筛选/登录态变化时，清空列表后必须“解锁并强制重拉”
+  // ---------------- filters -> url ----------------
   useEffect(() => {
     if (!router.isReady) return;
 
+    const q = {};
+    if (difficulty.length) q.difficulty = difficulty.join(",");
+    if (topic.length) q.topic = topic.join(",");
+    if (channel.length) q.channel = channel.join(",");
+    if (access.length) q.access = access.join(",");
+    if (sort && sort !== "newest") q.sort = sort;
+
+    router.replace({ pathname: "/", query: q }, undefined, { shallow: true });
+
+    // reset paging
     setOffset(0);
     setItems([]);
-    setTotal(0);
     setHasMore(false);
+    setTotal(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [difficulty, topic, channel, access, sort]);
 
-    // 关键：否则会出现“清空了但被 fetchingRef 挡住没重拉”的偶发空白
-    fetchingRef.current = false;
-
-    // 关键：强制触发重新拉取 clips
-    setClipsReloadKey((x) => x + 1);
-  }, [
-    router.isReady,
-    difficulty.join(","),
-    topic.join(","),
-    channel.join(","),
-    access.join(","),
-    sort,
-    me.logged_in,
-    me.is_member,
-  ]);
-
-  // 请求 qs
-  const qs = useMemo(() => {
-    const p = new URLSearchParams();
-    if (difficulty.length) p.set("difficulty", difficulty.join(","));
-    if (topic.length) p.set("topic", topic.join(","));
-    if (channel.length) p.set("channel", channel.join(","));
-    if (access.length) p.set("access", access.join(","));
-    if (sort) p.set("sort", sort);
-    p.set("limit", String(PAGE_SIZE));
-    p.set("offset", String(offset));
-    return p.toString();
-  }, [difficulty, topic, channel, access, sort, offset]);
-
-  // 同步 URL（不写 offset）
+  // ---------------- 拉 clips ----------------
   useEffect(() => {
     if (!router.isReady) return;
-    const nextQuery = {};
-    if (difficulty.length) nextQuery.difficulty = difficulty.join(",");
-    if (topic.length) nextQuery.topic = topic.join(",");
-    if (channel.length) nextQuery.channel = channel.join(",");
-    if (access.length) nextQuery.access = access.join(",");
-    if (sort && sort !== "newest") nextQuery.sort = sort;
-    router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
-  }, [router.isReady, difficulty, topic, channel, access, sort]);
 
-  // 请求 clips
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (fetchingRef.current) return;
+    async function run() {
+      if (fetchingRef.current) return;
+      fetchingRef.current = true;
 
-    const isFirstPage = offset === 0;
-    fetchingRef.current = true;
+      try {
+        if (offset === 0) setLoading(true);
+        else setLoadingMore(true);
 
-    if (isFirstPage) setLoading(true);
-    else setLoadingMore(true);
+        const params = new URLSearchParams();
+        params.set("limit", String(PAGE_SIZE));
+        params.set("offset", String(offset));
+        params.set("sort", sort);
+        if (difficulty.length) params.set("difficulty", difficulty.join(","));
+        if (topic.length) params.set("topic", topic.join(","));
+        if (channel.length) params.set("channel", channel.join(","));
+        if (access.length) params.set("access", access.join(","));
 
-    fetch(`/api/clips?${qs}`)
-      .then((r) => r.json())
-      .then((d) => {
+        const d = await fetchJson(`/api/clips?${params.toString()}`);
         const newItems = d?.items || [];
-        const nextTotal = d?.total || 0;
-        setTotal(nextTotal);
+        const totalCount = d?.total || 0;
 
-        const apiHasMore =
-          typeof d?.has_more === "boolean"
-            ? d.has_more
-            : offset + PAGE_SIZE < nextTotal;
+        setTotal(totalCount);
 
-        setHasMore(Boolean(apiHasMore));
-        setItems((prev) => (isFirstPage ? newItems : [...prev, ...newItems]));
-      })
-      .catch(() => {
-        if (isFirstPage) {
-          setItems([]);
-          setTotal(0);
-          setHasMore(false);
-        }
-      })
-      .finally(() => {
+        setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
+
+        const shown = (offset === 0 ? newItems.length : items.length + newItems.length);
+        setHasMore(shown < totalCount);
+      } catch (e) {
+        showToast("拉取失败：" + e.message);
+      } finally {
+        fetchingRef.current = false;
         setLoading(false);
         setLoadingMore(false);
-        fetchingRef.current = false;
-      });
-  }, [router.isReady, qs, clipsReloadKey, offset]);
+      }
+    }
 
-  // 无限滚动
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, offset, clipsReloadKey]);
+
+  // ---------------- 无限滚动 ----------------
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -518,72 +457,65 @@ export default function HomePage() {
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore]);
 
-  return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 8 }}>视频库（接口式筛选测试版）</h1>
+  const selectedChips = useMemo(() => {
+    const chips = [];
 
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: 10,
-          opacity: 0.85,
-          fontSize: 13,
-        }}
-      >
-        <div>
-          {me.loading ? "登录状态：检查中..." : me.logged_in ? `已登录：${me.email || "（无邮箱）"}` : "未登录"}
-          {me.logged_in ? <span style={{ marginLeft: 8 }}>会员：{me.is_member ? "✅ 是" : "❌ 否"}</span> : null}
+    const mapName = (arr, opts) => {
+      const m = new Map((opts || []).map((o) => [o.slug, o.name || o.slug]));
+      return (arr || []).map((x) => ({ slug: x, name: m.get(x) || x }));
+    };
+
+    mapName(difficulty, tax.difficulties).forEach((x) => chips.push({ k: "difficulty", ...x }));
+    mapName(access, accessOptions).forEach((x) => chips.push({ k: "access", ...x }));
+    mapName(topic, tax.topics).forEach((x) => chips.push({ k: "topic", ...x }));
+    mapName(channel, tax.channels).forEach((x) => chips.push({ k: "channel", ...x }));
+
+    return chips;
+  }, [difficulty, access, topic, channel, tax, accessOptions]);
+
+  function removeChip(chip) {
+    if (chip.k === "difficulty") setDifficulty((arr) => arr.filter((x) => x !== chip.slug));
+    if (chip.k === "access") setAccess((arr) => arr.filter((x) => x !== chip.slug));
+    if (chip.k === "topic") setTopic((arr) => arr.filter((x) => x !== chip.slug));
+    if (chip.k === "channel") setChannel((arr) => arr.filter((x) => x !== chip.slug));
+  }
+
+  return (
+    <div style={{ maxWidth: 1120, margin: "0 auto", padding: 16 }}>
+      {/* 顶部栏 */}
+      <div className="topbar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <div className="logoDot" />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 950, lineHeight: 1.1 }}>naila clips</div>
+            <div style={{ fontSize: 12, opacity: 0.65, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              像 englishclips 一样的接口式筛选（UI 对齐中）
+            </div>
+          </div>
         </div>
 
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <a
-            href="/bookmarks"
-            style={{
-              border: "1px solid #eee",
-              background: "white",
-              borderRadius: 10,
-              padding: "6px 10px",
-              textDecoration: "none",
-              color: "#111",
-            }}
-          >
+        <div className="topbarRight">
+          <div className="meText">
+            {me.loading ? "登录状态：检查中..." : me.logged_in ? `已登录：${me.email || "（无邮箱）"}` : "未登录"}
+            {me.logged_in ? <span style={{ marginLeft: 8 }}>会员：{me.is_member ? "✅" : "❌"}</span> : null}
+          </div>
+
+          <a className="topBtn" href="/bookmarks">
             我的收藏
           </a>
 
           {!me.logged_in ? (
-            <a
-              href="/login"
-              style={{
-                border: "1px solid #eee",
-                background: "white",
-                borderRadius: 10,
-                padding: "6px 10px",
-                textDecoration: "none",
-                color: "#111",
-              }}
-            >
+            <a className="topBtn dark" href="/login">
               去登录/兑换
             </a>
           ) : (
-            <button
-              type="button"
-              onClick={logout}
-              style={{
-                border: "1px solid #eee",
-                background: "white",
-                borderRadius: 10,
-                padding: "6px 10px",
-                cursor: "pointer",
-              }}
-            >
+            <button className="topBtn" type="button" onClick={logout}>
               退出登录
             </button>
           )}
 
           <button
+            className="topBtn"
             type="button"
             onClick={() => {
               loadMe().then(() => {
@@ -591,75 +523,22 @@ export default function HomePage() {
                 showToast("已刷新登录状态");
               });
             }}
-            style={{
-              border: "1px solid #eee",
-              background: "white",
-              borderRadius: 10,
-              padding: "6px 10px",
-              cursor: "pointer",
-            }}
           >
-            刷新登录状态
+            刷新
           </button>
         </div>
       </div>
 
-      {toast ? (
-        <div
-          style={{
-            marginBottom: 10,
-            padding: "10px 12px",
-            border: "1px solid #eee",
-            borderRadius: 12,
-            background: "white",
-            fontSize: 13,
-          }}
-        >
-          {toast}
-        </div>
-      ) : null}
+      {/* toast */}
+      {toast ? <div className="toast">{toast}</div> : null}
 
       {/* 未登录收藏弹窗 */}
       {showAuthModal ? (
-        <div
-          onClick={() => setShowAuthModal(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-            zIndex: 9999,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              background: "white",
-              borderRadius: 16,
-              border: "1px solid #eee",
-              padding: 16,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-            }}
-          >
+        <div onClick={() => setShowAuthModal(false)} className="modalMask">
+          <div onClick={(e) => e.stopPropagation()} className="modalCard">
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 800, fontSize: 16 }}>需要登录</div>
-              <button
-                type="button"
-                onClick={() => setShowAuthModal(false)}
-                style={{
-                  marginLeft: "auto",
-                  border: "1px solid #eee",
-                  background: "white",
-                  borderRadius: 10,
-                  padding: "6px 10px",
-                  cursor: "pointer",
-                }}
-              >
+              <div style={{ fontWeight: 900, fontSize: 16 }}>需要登录</div>
+              <button type="button" className="topBtn" onClick={() => setShowAuthModal(false)} style={{ marginLeft: "auto" }}>
                 关闭
               </button>
             </div>
@@ -669,90 +548,28 @@ export default function HomePage() {
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <a
-                href="/login"
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  border: "1px solid #eee",
-                  background: "white",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  textDecoration: "none",
-                  color: "#111",
-                  fontWeight: 700,
-                }}
-              >
+              <a href="/login" className="topBtn" style={{ flex: 1, textAlign: "center" }}>
                 去登录
               </a>
-              <a
-                href="/register"
-                style={{
-                  flex: 1,
-                  textAlign: "center",
-                  border: "none",
-                  background: "#111",
-                  color: "white",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                }}
-              >
+              <a href="/register" className="topBtn dark" style={{ flex: 1, textAlign: "center" }}>
                 去注册
               </a>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>
-              （刚刚点击的 clip：{pendingBookmarkId || "-"}）
-            </div>
+            <div style={{ marginTop: 10, fontSize: 12, opacity: 0.6 }}>（刚刚点击的 clip：{pendingBookmarkId || "-"}）</div>
           </div>
         </div>
       ) : null}
 
-      <div style={{ opacity: 0.7, marginBottom: 16 }}>
-        {loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}
-        {me.logged_in ? (
-          <span style={{ marginLeft: 10 }}>
-            收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}
-          </span>
-        ) : null}
+      {/* 统计 */}
+      <div style={{ opacity: 0.75, margin: "14px 0 10px", fontSize: 13, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div>{loading ? "加载中..." : `共 ${total} 条（已显示 ${items.length} 条）`}</div>
+        {me.logged_in ? <div>收藏：{bookmarkLoading ? "加载中..." : `${bookmarkIds.size} 条`}</div> : null}
       </div>
 
-      {/* 电脑 5 列一行 */}
-      <style jsx>{`
-        @media (min-width: 1024px) {
-          .filterGrid {
-            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-          }
-        }
-        .cardLink {
-          transition: box-shadow 0.18s ease, transform 0.18s ease;
-        }
-        .cardLink:hover {
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.10);
-          transform: translateY(-2px);
-        }
-      `}</style>
-
       {/* 筛选区 */}
-      <div
-        style={{
-          border: "1px solid #eee",
-          borderRadius: 14,
-          padding: 12,
-          marginBottom: 16,
-          background: "white",
-        }}
-      >
-        <div
-          className="filterGrid"
-          style={{
-            display: "grid",
-            gap: 12,
-            gridTemplateColumns: "repeat(2, minmax(140px, 1fr))",
-          }}
-        >
+      <div className="filterWrap">
+        <div className="filterGrid">
           <SingleSelectDropdown
             label="排序"
             value={sort}
@@ -762,16 +579,16 @@ export default function HomePage() {
               { value: "oldest", label: "最早" },
             ]}
           />
-
-          <MultiSelectDropdown label="难度（多选）" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
-          <MultiSelectDropdown label="权限（多选）" placeholder="选择权限" options={accessOptions} value={access} onChange={setAccess} />
-          <MultiSelectDropdown label="Topic（多选）" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
-          <MultiSelectDropdown label="Channel（多选）" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
+          <MultiSelectDropdown label="难度" placeholder="选择难度" options={tax.difficulties} value={difficulty} onChange={setDifficulty} />
+          <MultiSelectDropdown label="权限" placeholder="免费/会员" options={accessOptions} value={access} onChange={setAccess} />
+          <MultiSelectDropdown label="Topic" placeholder="选择 Topic" options={tax.topics} value={topic} onChange={setTopic} />
+          <MultiSelectDropdown label="Channel" placeholder="选择 Channel" options={tax.channels} value={channel} onChange={setChannel} />
         </div>
 
-        <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="filterBottom">
           <button
             type="button"
+            className="topBtn"
             onClick={() => {
               setDifficulty([]);
               setTopic([]);
@@ -779,111 +596,91 @@ export default function HomePage() {
               setAccess([]);
               setSort("newest");
             }}
-            style={{
-              border: "1px solid #eee",
-              background: "white",
-              borderRadius: 12,
-              padding: "8px 12px",
-              cursor: "pointer",
-            }}
           >
-            一键清空所有筛选
+            清空全部
           </button>
 
-          <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
-            {typeof window !== "undefined" ? window.location.search : ""}
+          <div className="chips">
+            {selectedChips.length ? (
+              selectedChips.map((c) => (
+                <button key={`${c.k}:${c.slug}`} type="button" className="chip" onClick={() => removeChip(c)} title="点我移除">
+                  {c.name} <span style={{ opacity: 0.6 }}>×</span>
+                </button>
+              ))
+            ) : (
+              <div style={{ fontSize: 12, opacity: 0.6 }}>（未选择筛选项）</div>
+            )}
           </div>
+
+          <button
+            type="button"
+            className="topBtn"
+            onClick={() => {
+              try {
+                const url = window.location.href;
+                navigator.clipboard?.writeText(url);
+                showToast("已复制分享链接");
+              } catch {
+                showToast("复制失败（请手动复制地址栏）");
+              }
+            }}
+            style={{ marginLeft: "auto" }}
+          >
+            复制分享链接
+          </button>
         </div>
       </div>
 
-      {/* List */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-          gap: 12,
-        }}
-      >
+      {/* 卡片列表 */}
+      <div className="cardGrid">
         {items.map((it) => {
           const isBookmarked = bookmarkIds.has(it.id);
           const busy = bookmarkBusyId === it.id;
 
-          return (
-            <a
-              key={it.id}
-              href={`/clips/${it.id}`}
-              className="cardLink"
-              style={{
-                border: "1px solid #eee",
-                borderRadius: 14,
-                padding: 12,
-                background: "white",
-                display: "block",
-                color: "inherit",
-                textDecoration: "none",
-                cursor: "pointer",
-              }}
-            >
-              <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-                <div style={{ fontWeight: 800, marginBottom: 6, flex: 1 }}>
-                  {it.title || `Clip #${it.id}`}
-                </div>
+          const accessTone = it.access_tier === "vip" ? "vip" : "free";
+          const diffText = it.difficulty || "unknown";
 
-                {/* 收藏按钮：阻止跳详情页 */}
+          return (
+            <a key={it.id} href={`/clips/${it.id}`} className="card">
+              <div style={{ position: "relative" }}>
+                <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={14} />
+
+                {/* 收藏 */}
                 <button
                   type="button"
+                  className="bmBtn"
+                  disabled={busy}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     toggleBookmark(it.id);
                   }}
-                  disabled={busy}
                   title={me.logged_in ? "" : "请先登录"}
-                  style={{
-                    border: "1px solid #eee",
-                    background: "white",
-                    borderRadius: 10,
-                    padding: "6px 10px",
-                    cursor: busy ? "not-allowed" : "pointer",
-                    fontSize: 12,
-                    opacity: busy ? 0.6 : 1,
-                    whiteSpace: "nowrap",
-                  }}
                 >
-                  {busy ? "处理中..." : isBookmarked ? "★ 已收藏" : "☆ 收藏"}
+                  {busy ? "…" : isBookmarked ? "★" : "☆"}
                 </button>
               </div>
 
-              <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-                {it.access_tier} · {it.difficulty || "unknown"} · {it.duration_sec ? `${it.duration_sec}s` : ""}
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <Badge tone={accessTone}>{it.access_tier === "vip" ? "会员" : "免费"}</Badge>
+                <Badge>{diffText}</Badge>
+                {it.duration_sec ? <Badge>{it.duration_sec}s</Badge> : null}
               </div>
 
-              <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} />
-              <div style={{ height: 8 }} />
+              <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
 
-              <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
-                Topics: {(it.topics || []).join(", ") || "-"}
-                <br />
-                Channels: {(it.channels || []).join(", ") || "-"}
+              <div className="metaLine">
+                <div>
+                  <span style={{ opacity: 0.7 }}>Topics：</span>
+                  {(it.topics || []).slice(0, 3).join(", ") || "-"}
+                </div>
+                <div>
+                  <span style={{ opacity: 0.7 }}>Channels：</span>
+                  {(it.channels || []).slice(0, 3).join(", ") || "-"}
+                </div>
               </div>
 
-              {it.can_access ? (
-                <a
-                  href={it.video_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(it.video_url, "_blank", "noopener,noreferrer");
-                  }}
-                  style={{ fontSize: 13 }}
-                >
-                  播放视频
-                </a>
-              ) : (
-                <div style={{ color: "#b00", fontSize: 12 }}>会员专享：请登录并兑换码激活</div>
-              )}
+              {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
             </a>
           );
         })}
@@ -896,6 +693,252 @@ export default function HomePage() {
       </div>
 
       <div ref={sentinelRef} style={{ height: 1 }} />
+
+      <style jsx>{`
+        .topbar {
+          position: sticky;
+          top: 0;
+          z-index: 20;
+          background: rgba(255, 255, 255, 0.85);
+          backdrop-filter: blur(10px);
+          border: 1px solid #eee;
+          border-radius: 16px;
+          padding: 12px 12px;
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .logoDot {
+          width: 14px;
+          height: 14px;
+          border-radius: 999px;
+          background: #111;
+        }
+        .topbarRight {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .meText {
+          font-size: 12px;
+          opacity: 0.75;
+          margin-right: 6px;
+          white-space: nowrap;
+        }
+        .topBtn {
+          border: 1px solid #eee;
+          background: white;
+          border-radius: 12px;
+          padding: 8px 12px;
+          cursor: pointer;
+          text-decoration: none;
+          color: #111;
+          font-weight: 900;
+          font-size: 12px;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+        .topBtn.dark {
+          background: #111;
+          border-color: #111;
+          color: white;
+        }
+        .toast {
+          marginTop: 10px;
+          margin-bottom: 10px;
+          padding: 10px 12px;
+          border: 1px solid #eee;
+          border-radius: 12px;
+          background: white;
+          font-size: 13px;
+        }
+        .modalMask {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          z-index: 9999;
+        }
+        .modalCard {
+          width: 100%;
+          max-width: 420px;
+          background: white;
+          border-radius: 16px;
+          border: 1px solid #eee;
+          padding: 16px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .filterWrap {
+          border: 1px solid #eee;
+          border-radius: 16px;
+          padding: 12px;
+          margin-bottom: 16px;
+          background: white;
+        }
+        .filterGrid {
+          display: grid;
+          gap: 12px;
+          grid-template-columns: repeat(2, minmax(140px, 1fr));
+        }
+        @media (min-width: 1024px) {
+          .filterGrid {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+          }
+        }
+        .filterBottom {
+          margin-top: 12px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .chips {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          align-items: center;
+        }
+        .chip {
+          border: 1px solid #eee;
+          background: #fafafa;
+          border-radius: 999px;
+          padding: 6px 10px;
+          font-size: 12px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .fLabel {
+          font-size: 12px;
+          opacity: 0.7;
+          margin-bottom: 6px;
+          font-weight: 800;
+        }
+        .fBtn {
+          width: 100%;
+          text-align: left;
+          padding: 10px 12px;
+          borderRadius: 14px;
+          border: 1px solid #eee;
+          background: white;
+          cursor: pointer;
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .fBtnText {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 13px;
+          font-weight: 800;
+        }
+        .fPanel {
+          position: absolute;
+          top: calc(100% + 8px);
+          left: 0;
+          right: 0;
+          border: 1px solid #eee;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 18px 50px rgba(0, 0, 0, 0.12);
+          z-index: 50;
+          overflow: hidden;
+        }
+        .miniBtn {
+          border: 1px solid #eee;
+          border-radius: 12px;
+          padding: 6px 10px;
+          cursor: pointer;
+          font-weight: 900;
+          font-size: 12px;
+        }
+        .fSelect {
+          width: 100%;
+          padding: 10px 12px;
+          border-radius: 14px;
+          border: 1px solid #eee;
+          background: white;
+          font-weight: 900;
+        }
+
+        .cardGrid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 12px;
+        }
+        .card {
+          border: 1px solid #eee;
+          border-radius: 16px;
+          padding: 12px;
+          background: white;
+          display: block;
+          color: inherit;
+          text-decoration: none;
+          cursor: pointer;
+          transition: box-shadow 0.18s ease, transform 0.18s ease;
+        }
+        .card:hover {
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.10);
+          transform: translateY(-2px);
+        }
+        .bmBtn {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.7);
+          background: rgba(255, 255, 255, 0.88);
+          border-radius: 12px;
+          padding: 8px 10px;
+          font-weight: 900;
+          cursor: pointer;
+        }
+
+        .titleLine {
+          margin-top: 10px;
+          font-size: 14px;
+          font-weight: 950;
+          line-height: 1.35;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          min-height: 38px;
+        }
+        .metaLine {
+          margin-top: 8px;
+          font-size: 12px;
+          opacity: 0.8;
+          line-height: 1.5;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .vipHint {
+          margin-top: 10px;
+          font-size: 12px;
+          font-weight: 900;
+          color: #b00000;
+        }
+        .okHint {
+          margin-top: 10px;
+          font-size: 12px;
+          font-weight: 900;
+          color: #0b5aa6;
+        }
+      `}</style>
     </div>
   );
 }
