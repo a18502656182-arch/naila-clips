@@ -41,7 +41,7 @@ function Pill({ active, children, onClick }) {
         padding: "6px 12px",
         cursor: "pointer",
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 900,
       }}
     >
       {children}
@@ -65,9 +65,10 @@ function Card({ children, style }) {
   );
 }
 
-function SubtitleRow({ seg, active, onClick, showZh }) {
+function SubtitleRow({ seg, active, onClick, showZh, rowRef }) {
   return (
     <div
+      ref={rowRef}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -83,42 +84,13 @@ function SubtitleRow({ seg, active, onClick, showZh }) {
         <div style={{ fontSize: 12, opacity: 0.7, whiteSpace: "nowrap" }}>
           {fmtSec(seg.start)} – {fmtSec(seg.end)}
         </div>
-        {seg.repeat ? <div style={{ fontSize: 12, opacity: 0.6, marginLeft: "auto" }}>{seg.repeat}</div> : null}
       </div>
 
       <div style={{ marginTop: 8, lineHeight: 1.55 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{seg.en || "-"}</div>
+        <div style={{ fontSize: 14, fontWeight: 900 }}>{seg.en || "-"}</div>
         {showZh ? <div style={{ marginTop: 6, fontSize: 13, opacity: 0.85 }}>{seg.zh || "（暂无中文）"}</div> : null}
       </div>
     </div>
-  );
-}
-
-function VocabCard({ v, showZh }) {
-  return (
-    <Card style={{ padding: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 18, fontWeight: 900, lineHeight: 1.2 }}>{v.term || v.word || "-"}</div>
-          {v.ipa ? <div style={{ marginTop: 6, fontSize: 12, opacity: 0.7 }}>/ {v.ipa} /</div> : null}
-        </div>
-      </div>
-
-      {showZh ? (
-        <div style={{ marginTop: 10, border: "1px solid #ffe3a3", background: "#fff8e8", borderRadius: 14, padding: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.meaning_zh || v.zh || "（暂无）"}</div>
-        </div>
-      ) : null}
-
-      {(v.example_en || v.example_zh) && (
-        <div style={{ marginTop: 10, border: "1px solid #cfe6ff", background: "#f3fbff", borderRadius: 14, padding: 10 }}>
-          <div style={{ fontSize: 12, fontWeight: 900, color: "#0b5aa6" }}>例句</div>
-          {v.example_en ? <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.example_en}</div> : null}
-          {showZh && v.example_zh ? <div style={{ marginTop: 6, fontSize: 13, opacity: 0.9, lineHeight: 1.55 }}>{v.example_zh}</div> : null}
-        </div>
-      )}
-    </Card>
   );
 }
 
@@ -132,15 +104,19 @@ export default function ClipDetailPage() {
   const [me, setMe] = useState(null);
   const [details, setDetails] = useState(null);
 
-  const [subLang, setSubLang] = useState("zh");
+  // 字幕语言
+  const [subLang, setSubLang] = useState("zh"); // "en" | "zh"
   const showZhSub = subLang === "zh";
 
-  const [vocabOpen, setVocabOpen] = useState(false);
-  const [vocabTab, setVocabTab] = useState("words");
-  const [showZhExplain, setShowZhExplain] = useState(true);
-
+  // 学习体验
   const videoRef = useRef(null);
   const [activeSegIdx, setActiveSegIdx] = useState(-1);
+  const [follow, setFollow] = useState(true); // 自动跟随
+  const [loopSeg, setLoopSeg] = useState(false); // 循环当前句
+  const [rate, setRate] = useState(1);
+
+  const listWrapRef = useRef(null);
+  const rowRefs = useRef({}); // idx -> element
 
   const clipId = useMemo(() => {
     const raw = router.query?.id;
@@ -148,22 +124,7 @@ export default function ClipDetailPage() {
     return Number.isFinite(n) ? n : null;
   }, [router.query?.id]);
 
-  // ✅ 单独拉 details：先试 clip_detail，再试 clip_details；失败当 null（不影响整页）
-  async function loadDetailsSafe(id) {
-    try {
-      const d2 = await fetchJson(`/api/clip_detail?id=${id}`);
-      return d2?.details_json ?? null;
-    } catch (e1) {
-      // 如果 clip_detail 不存在，就试 clip_details
-      try {
-        const d3 = await fetchJson(`/api/clip_details?id=${id}`);
-        return d3?.details_json ?? null;
-      } catch {
-        return null;
-      }
-    }
-  }
-
+  // 拉 clip + details
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
@@ -178,7 +139,6 @@ export default function ClipDetailPage() {
       setDetails(null);
 
       try {
-        // ✅ 先拉 clip：只有这个失败才算 notFound
         const d1 = await fetchJson(`/api/clip?id=${clipId}`);
         if (!mounted) return;
 
@@ -191,13 +151,17 @@ export default function ClipDetailPage() {
           return;
         }
 
-        // ✅ details 失败不影响整页
-        const dj = await loadDetailsSafe(clipId);
-        if (!mounted) return;
-        setDetails(dj);
+        // ✅ 只用你真实存在的接口：/api/clip_details
+        try {
+          const d2 = await fetchJson(`/api/clip_details?id=${clipId}`);
+          if (!mounted) return;
+          setDetails(d2?.details_json ?? null);
+        } catch {
+          // details 不影响整页
+          setDetails(null);
+        }
       } catch (e) {
         if (!mounted) return;
-        // 只有 /api/clip 真的 404 才 notFound
         if (e?.status === 404) setNotFound(true);
       } finally {
         if (!mounted) return;
@@ -216,20 +180,9 @@ export default function ClipDetailPage() {
     return Array.isArray(arr) ? arr : [];
   }, [details]);
 
-  const vocab = useMemo(() => {
-    const v = details?.vocab || {};
-    const words = Array.isArray(v.words) ? v.words : [];
-    const phrases = Array.isArray(v.phrases) ? v.phrases : [];
-    const idioms = Array.isArray(v.idioms) ? v.idioms : [];
-    return { words, phrases, idioms };
-  }, [details]);
+  const canAccess = !!item?.can_access;
 
-  const vocabList = useMemo(() => {
-    if (vocabTab === "phrases") return vocab.phrases;
-    if (vocabTab === "idioms") return vocab.idioms;
-    return vocab.words;
-  }, [vocabTab, vocab]);
-
+  // 点击字幕：跳转到该句并播放
   function jumpTo(seg, idx) {
     setActiveSegIdx(idx);
     const v = videoRef.current;
@@ -240,6 +193,109 @@ export default function ClipDetailPage() {
       v.play?.();
     } catch {}
   }
+
+  // 播放倍速
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    try {
+      v.playbackRate = rate;
+    } catch {}
+  }, [rate]);
+
+  // 自动高亮当前句 + 循环当前句
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (!segments.length) return;
+
+    function findActiveIdx(t) {
+      // 线性扫描：segments 一般几十条，够用
+      for (let i = 0; i < segments.length; i++) {
+        const s = Number(segments[i]?.start || 0);
+        const e = Number(segments[i]?.end || 0);
+        if (t >= s && t <= e + 0.05) return i;
+      }
+      return -1;
+    }
+
+    function onTime() {
+      const t = v.currentTime || 0;
+      const idx = findActiveIdx(t);
+
+      if (idx !== -1 && idx !== activeSegIdx) {
+        setActiveSegIdx(idx);
+      }
+
+      if (loopSeg && idx !== -1) {
+        const seg = segments[idx];
+        const end = Number(seg?.end || 0);
+        const start = Number(seg?.start || 0);
+        if (t > end + 0.06) {
+          try {
+            v.currentTime = start;
+            v.play?.();
+          } catch {}
+        }
+      }
+    }
+
+    v.addEventListener("timeupdate", onTime);
+    return () => v.removeEventListener("timeupdate", onTime);
+  }, [segments, loopSeg, activeSegIdx]);
+
+  // 自动滚动跟随
+  useEffect(() => {
+    if (!follow) return;
+    if (activeSegIdx < 0) return;
+    const el = rowRefs.current[activeSegIdx];
+    const wrap = listWrapRef.current;
+    if (!el || !wrap) return;
+
+    const top = el.offsetTop;
+    const h = el.offsetHeight;
+    const wh = wrap.clientHeight;
+    const target = Math.max(0, top - wh * 0.35 + h * 0.5);
+    wrap.scrollTo({ top: target, behavior: "smooth" });
+  }, [activeSegIdx, follow]);
+
+  // 快捷键：空格播放暂停；J/K 上一句下一句；L 循环
+  useEffect(() => {
+    function onKey(e) {
+      const tag = (e.target && e.target.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      const v = videoRef.current;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!v) return;
+        try {
+          if (v.paused) v.play?.();
+          else v.pause?.();
+        } catch {}
+      }
+
+      if (e.key === "k" || e.key === "K") {
+        if (!segments.length) return;
+        const next = Math.min((activeSegIdx < 0 ? 0 : activeSegIdx + 1), segments.length - 1);
+        jumpTo(segments[next], next);
+      }
+
+      if (e.key === "j" || e.key === "J") {
+        if (!segments.length) return;
+        const prev = Math.max((activeSegIdx <= 0 ? 0 : activeSegIdx - 1), 0);
+        jumpTo(segments[prev], prev);
+      }
+
+      if (e.key === "l" || e.key === "L") {
+        setLoopSeg((x) => !x);
+      }
+    }
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [segments, activeSegIdx]);
 
   if (loading) {
     return (
@@ -256,24 +312,17 @@ export default function ClipDetailPage() {
           <Link href="/" style={{ textDecoration: "none" }}>
             ← 返回
           </Link>
-          <div style={{ fontWeight: 900 }}>Clip #{clipId || "-"}</div>
+          <div style={{ fontWeight: 950 }}>Clip #{clipId || "-"}</div>
         </div>
-        <Card style={{ padding: 14, marginTop: 14 }}>
-          未找到该视频（id={clipId || "-"}）
-        </Card>
+        <Card style={{ padding: 14, marginTop: 14 }}>未找到该视频（id={clipId || "-"}）</Card>
       </div>
     );
   }
 
-  const canAccess = !!item.can_access;
-
-  const gridCols = vocabOpen
-    ? "minmax(320px, 1.05fr) minmax(360px, 1fr) minmax(340px, 0.95fr)"
-    : "minmax(420px, 1.15fr) minmax(420px, 1fr)";
-
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* 顶部栏 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <Link
           href="/"
           style={{
@@ -283,67 +332,82 @@ export default function ClipDetailPage() {
             padding: "8px 12px",
             textDecoration: "none",
             color: "#111",
-            fontWeight: 800,
+            fontWeight: 950,
           }}
         >
           ← 返回
         </Link>
 
-        <div style={{ fontSize: 20, fontWeight: 900 }}>{item.title || `Clip #${item.id}`}</div>
-
-        <div style={{ marginLeft: "auto" }}>
-          <Link
-            href="/"
-            style={{
-              border: "1px solid #eee",
-              background: "white",
-              borderRadius: 12,
-              padding: "8px 12px",
-              textDecoration: "none",
-              color: "#111",
-              fontWeight: 800,
-            }}
-          >
-            回首页
-          </Link>
+        <div style={{ fontSize: 20, fontWeight: 950, flex: 1, minWidth: 220 }}>
+          {item.title || `Clip #${item.id}`}
         </div>
       </div>
 
-      <Card style={{ padding: 12, marginTop: 14 }}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>难度：{item?.difficulty_slugs?.[0] || "unknown"}</div>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>时长：{item.duration_sec ? `${item.duration_sec}s` : "-"}</div>
-          <div style={{ fontSize: 13, opacity: 0.85 }}>权限：{item.access_tier || "-"}</div>
-
-          <div style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>登录：{me?.logged_in ? "✅" : "❌"}</div>
-            <div style={{ fontSize: 13, opacity: 0.85 }}>会员：{me?.is_member ? "✅" : "❌"}</div>
-          </div>
-        </div>
-      </Card>
-
-      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: gridCols, gap: 14, alignItems: "start" }}>
-        <Card style={{ padding: 12 }}>
+      {/* 主体 */}
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(420px, 1.1fr)", gap: 14, alignItems: "start" }}>
+        {/* 播放器 */}
+        <Card style={{ padding: 12, position: "sticky", top: 12 }}>
           {canAccess ? (
-            <video
-              ref={videoRef}
-              controls
-              playsInline
-              style={{ width: "100%", borderRadius: 14, background: "#000" }}
-              src={item.video_url}
-              poster={item.cover_url || undefined}
-            />
+            <>
+              <video
+                ref={videoRef}
+                controls
+                playsInline
+                style={{ width: "100%", borderRadius: 14, background: "#000" }}
+                src={item.video_url}
+                poster={item.cover_url || undefined}
+              />
+
+              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <Pill active={follow} onClick={() => setFollow((x) => !x)}>
+                  自动跟随 {follow ? "ON" : "OFF"}
+                </Pill>
+                <Pill active={loopSeg} onClick={() => setLoopSeg((x) => !x)}>
+                  循环当前句 {loopSeg ? "ON" : "OFF"}
+                </Pill>
+
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 12, opacity: 0.7, fontWeight: 900 }}>倍速</div>
+                  <select
+                    value={rate}
+                    onChange={(e) => setRate(Number(e.target.value))}
+                    style={{ border: "1px solid #eee", borderRadius: 12, padding: "8px 10px", fontWeight: 900 }}
+                  >
+                    {[0.75, 1, 1.25, 1.5, 2].map((r) => (
+                      <option key={r} value={r}>
+                        {r}x
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 8, fontSize: 12, opacity: 0.65, lineHeight: 1.6 }}>
+                快捷键：空格 播放/暂停；J 上一句；K 下一句；L 循环开关
+              </div>
+            </>
           ) : (
-            <div style={{ border: "1px solid #ffd5d5", background: "#fff5f5", borderRadius: 14, padding: 12, color: "#b00", fontSize: 13, lineHeight: 1.6, fontWeight: 700 }}>
-              会员专享
-              <div style={{ marginTop: 6, fontWeight: 500, color: "#b00" }}>该视频需要登录并先兑换码激活后观看。</div>
+            <div
+              style={{
+                border: "1px solid #ffd5d5",
+                background: "#fff5f5",
+                borderRadius: 14,
+                padding: 12,
+                color: "#b00",
+                fontSize: 13,
+                lineHeight: 1.6,
+                fontWeight: 900,
+              }}
+            >
+              会员专享：该视频需要登录并兑换码激活后观看。
             </div>
           )}
         </Card>
 
+        {/* 字幕 */}
         <Card style={{ padding: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>字幕</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 950, fontSize: 16 }}>字幕</div>
 
             <div style={{ display: "flex", gap: 8, marginLeft: 6 }}>
               <Pill active={subLang === "en"} onClick={() => setSubLang("en")}>
@@ -354,110 +418,46 @@ export default function ClipDetailPage() {
               </Pill>
             </div>
 
-            {!vocabOpen ? (
-              <button
-                type="button"
-                onClick={() => setVocabOpen(true)}
-                style={{
-                  marginLeft: "auto",
-                  border: "none",
-                  background: "#111",
-                  color: "white",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                  fontSize: 12,
-                }}
-              >
-                词汇卡
-              </button>
-            ) : (
-              <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>词汇卡已打开 →</div>
-            )}
+            <div style={{ marginLeft: "auto", fontSize: 12, opacity: 0.6 }}>
+              {me?.logged_in ? "已登录" : "未登录"} / {me?.is_member ? "会员" : "非会员"}
+            </div>
           </div>
 
           <div style={{ marginTop: 10 }}>
             {segments.length ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 540, overflow: "auto", paddingRight: 4 }}>
+              <div
+                ref={listWrapRef}
+                style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 620, overflow: "auto", paddingRight: 4 }}
+              >
                 {segments.map((seg, idx) => (
-                  <SubtitleRow key={idx} seg={seg} active={idx === activeSegIdx} showZh={showZhSub} onClick={() => jumpTo(seg, idx)} />
+                  <SubtitleRow
+                    key={idx}
+                    seg={seg}
+                    active={idx === activeSegIdx}
+                    showZh={showZhSub}
+                    onClick={() => jumpTo(seg, idx)}
+                    rowRef={(el) => {
+                      if (el) rowRefs.current[idx] = el;
+                    }}
+                  />
                 ))}
               </div>
             ) : (
               <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-                {details ? "details_json 里没有 segments 字幕段" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
+                {details ? "details_json 里没有 segments" : "暂无详情内容（details_json）。后续把 AI 生成 JSON 写入 clip_details.details_json 即可。"}
               </div>
             )}
           </div>
         </Card>
-
-        {vocabOpen ? (
-          <Card style={{ padding: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 900, fontSize: 16 }}>词汇卡</div>
-
-              <button
-                type="button"
-                onClick={() => setVocabOpen(false)}
-                style={{
-                  marginLeft: "auto",
-                  border: "1px solid #eee",
-                  background: "white",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                  fontWeight: 900,
-                  fontSize: 12,
-                }}
-              >
-                收起
-              </button>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <Pill active={showZhExplain} onClick={() => setShowZhExplain(true)}>
-                中文解释
-              </Pill>
-              <Pill active={!showZhExplain} onClick={() => setShowZhExplain(false)}>
-                关闭中文
-              </Pill>
-            </div>
-
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <Pill active={vocabTab === "words"} onClick={() => setVocabTab("words")}>
-                单词 ({vocab.words.length})
-              </Pill>
-              <Pill active={vocabTab === "phrases"} onClick={() => setVocabTab("phrases")}>
-                短语 ({vocab.phrases.length})
-              </Pill>
-              <Pill active={vocabTab === "idioms"} onClick={() => setVocabTab("idioms")}>
-                地道表达 ({vocab.idioms.length})
-              </Pill>
-            </div>
-
-            <div style={{ marginTop: 12 }}>
-              {vocabList.length ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 540, overflow: "auto", paddingRight: 4 }}>
-                  {vocabList.map((v, idx) => (
-                    <VocabCard key={idx} v={v} showZh={showZhExplain} />
-                  ))}
-                </div>
-              ) : (
-                <div style={{ border: "1px solid #eee", borderRadius: 14, padding: 12, fontSize: 13, opacity: 0.8, lineHeight: 1.6 }}>
-                  当前分类暂无词汇卡内容。
-                  <div style={{ marginTop: 6, opacity: 0.75 }}>（后续你把 AI 输出的 vocab 写入 details_json 即可）</div>
-                </div>
-              )}
-            </div>
-          </Card>
-        ) : null}
       </div>
 
       <style jsx>{`
-        @media (max-width: 1100px) {
+        @media (max-width: 980px) {
           div[style*="grid-template-columns"] {
             grid-template-columns: 1fr !important;
+          }
+          div[style*="position: sticky"] {
+            position: static !important;
           }
         }
       `}</style>
