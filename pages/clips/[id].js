@@ -230,13 +230,19 @@ useEffect(() => {
     // 2) 循环（✅关键：以 activeSegIdx 为准，不再依赖 idx）
     if (loopSeg && activeSegIdx !== -1) {
       const seg = segments[activeSegIdx];
-      const start = Number(seg?.start || 0);
-      const end = Number(seg?.end || 0);
+      const rawStart = Number(seg?.start || 0);
+const rawEnd = Number(seg?.end || 0);
 
-      // 到达句尾就回到句首（留一点点余量避免抖动）
-      if (t >= end - 0.02) {
-        try {
-          v.currentTime = start;
+// ✅ padding：补齐首尾词（你可以微调这两个数字）
+const start = Math.max(0, rawStart - 0.20); // 句首往前退 0.20s
+const end = rawEnd + 0.08;                  // 句尾往后放 0.08s
+
+if (t >= end - 0.03) {
+  try {
+    v.currentTime = start;
+    if (!v.paused) v.play?.();
+  } catch {}
+}
           // 如果正在播放，继续播放；如果暂停，就只定位不强行播放
           if (!v.paused) v.play?.();
         } catch {}
