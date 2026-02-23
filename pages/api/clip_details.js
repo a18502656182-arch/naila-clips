@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store");
   try {
     // 只允许 GET
     if (req.method !== "GET") {
