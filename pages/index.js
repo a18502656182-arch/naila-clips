@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import HoverPreview from "../components/HoverPreview";
+import UserMenu from "../components/UserMenu";
 
 /**
  * ✅ 首页 UI 对齐 v2（不闪屏）
@@ -228,7 +229,7 @@ export default function HomePage() {
 
   // 未登录收藏弹窗
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingBookmarkId, setPendingBookmarkId] = useState(null);
+const [pendingAction, setPendingAction] = useState(null); // { type: 'bookmark' | 'vip_click' | 'vip_need_member', clipId }
 
   function showToast(s) {
     setToast(s);
@@ -274,10 +275,10 @@ export default function HomePage() {
     if (!clipId) return;
 
     if (!me.logged_in) {
-      setPendingBookmarkId(clipId);
-      setShowAuthModal(true);
-      return;
-    }
+  setPendingAction({ type: "bookmark", clipId });
+  setShowAuthModal(true);
+  return;
+}
 
     const has = bookmarkIds.has(clipId);
     setBookmarkBusyId(clipId);
@@ -504,38 +505,8 @@ export default function HomePage() {
         </div>
 
         <div className="topbarRight">
-          <div className="meText">
-            {me.loading ? "登录状态：检查中..." : me.logged_in ? `已登录：${me.email || "（无邮箱）"}` : "未登录"}
-            {me.logged_in ? <span style={{ marginLeft: 8 }}>会员：{me.is_member ? "✅" : "❌"}</span> : null}
-          </div>
-
-          <a className="topBtn" href="/bookmarks">
-            我的收藏
-          </a>
-
-          {!me.logged_in ? (
-            <a className="topBtn dark" href="/login">
-              去登录/兑换
-            </a>
-          ) : (
-            <button className="topBtn" type="button" onClick={logout}>
-              退出登录
-            </button>
-          )}
-
-          <button
-            className="topBtn"
-            type="button"
-            onClick={() => {
-              loadMe().then(() => {
-                setClipsReloadKey((x) => x + 1);
-                showToast("已刷新登录状态");
-              });
-            }}
-          >
-            刷新
-          </button>
-        </div>
+  <UserMenu me={me} onLogout={logout} />
+</div>
       </div>
 
       {/* toast */}
