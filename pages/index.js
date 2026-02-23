@@ -558,9 +558,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="topbarRight">
-          <UserMenu me={me} onLogout={logout} />
-        </div>
+        <div className="topbarRight" style={{ outline: "3px solid red", padding: 6, borderRadius: 12 }}>
+  <div style={{ fontSize: 12, fontWeight: 900, marginRight: 8 }}>NEW MENU:</div>
+  <UserMenu me={me} onLogout={logout} />
+</div>
       </div>
 
       {/* toast */}
