@@ -204,20 +204,7 @@ function VocabCard({ v, showZh, segments, onLocate, favSet, onToggleFav }) {
         </div>
       ) : null}
 
-      {v.explain_en ? (
-        <div
-          style={{
-            marginTop: 10,
-            border: "1px solid #e7e7e7",
-            background: "#fbfbfb",
-            borderRadius: 14,
-            padding: 10,
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.8 }}>英文解释</div>
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.55 }}>{v.explain_en}</div>
-        </div>
-      ) : null}
+      v.explain_en ?
 
       {(v.example_en || v.example_zh) ? (
         <div
