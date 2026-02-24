@@ -526,83 +526,77 @@ export default function ClipDetailPage() {
     return Number.isFinite(n) ? n : null;
   }, [router.query?.id]);
 
-  // ✅✅✅ 关键：保留你原来“从后台拉 JSON”的逻辑
+   // ✅✅✅ 关键：从后台拉 JSON（只保留一个 useEffect，不能嵌套）
   useEffect(() => {
     if (!router.isReady) return;
     if (!clipId) return;
 
     let mounted = true;
 
-   useEffect(() => {
-  if (!router.isReady) return;
-  if (!clipId) return;
-
-  let mounted = true;
-
-  async function run() {
-    setLoading(true);
-    setNotFound(false);
-    setItem(null);
-    setMe(null);
-    setDetails(null);
-
-    try {
-      const d1 = await fetchJson(`/api/clip?id=${clipId}`);
-      if (!mounted) return;
-
-      const gotItem = d1?.item || null;
-      setItem(gotItem);
-      setMe(d1?.me || null);
-
-      if (!gotItem) {
-        setNotFound(true);
-        return;
-      }
-
-      // 拉详情 JSON
-      const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
-      if (!mounted) return;
-
-      let dj = d2?.details_json ?? null;
-
-      // 如果后端把 details_json 存成了字符串，这里自动 parse
-      if (typeof dj === "string") {
-        try {
-          dj = JSON.parse(dj);
-        } catch (e) {
-          console.log("[clip_details] details_json parse failed:", e);
-          dj = null;
-        }
-      }
-
-      // 调试日志（可留可删）
-      try {
-        console.log("[clip_details] has_details:", !!dj);
-        console.log(
-          "[clip_details] segments:",
-          Array.isArray(dj?.segments) ? dj.segments.length : "no"
-        );
-        console.log(
-          "[clip_details] vocab_words:",
-          Array.isArray(dj?.vocab?.words) ? dj.vocab.words.length : "no"
-        );
-      } catch {}
-
-      setDetails(dj ?? null);
-    } catch (e) {
-      console.log("[clip_details] failed:", e);
-      if (e?.status === 404) setNotFound(true);
+    async function run() {
+      setLoading(true);
+      setNotFound(false);
+      setItem(null);
+      setMe(null);
       setDetails(null);
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  }
 
-  run();
-  return () => {
-    mounted = false;
-  };
-}, [router.isReady, clipId]);
+      try {
+        const d1 = await fetchJson(`/api/clip?id=${clipId}`);
+        if (!mounted) return;
+
+        const gotItem = d1?.item || null;
+        setItem(gotItem);
+        setMe(d1?.me || null);
+
+        if (!gotItem) {
+          setNotFound(true);
+          return;
+        }
+
+        // 拉详情 JSON
+        const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
+        if (!mounted) return;
+
+        let dj = d2?.details_json ?? null;
+
+        // 如果后端把 details_json 存成了字符串，这里自动 parse
+        if (typeof dj === "string") {
+          try {
+            dj = JSON.parse(dj);
+          } catch (e) {
+            console.log("[clip_details] details_json parse failed:", e);
+            dj = null;
+          }
+        }
+
+        // 调试日志（可留可删）
+        try {
+          console.log("[clip_details] has_details:", !!dj);
+          console.log(
+            "[clip_details] segments:",
+            Array.isArray(dj?.segments) ? dj.segments.length : "no"
+          );
+          console.log(
+            "[clip_details] vocab_words:",
+            Array.isArray(dj?.vocab?.words) ? dj.vocab.words.length : "no"
+          );
+        } catch {}
+
+        if (mounted) setDetails(dj ?? null);
+      } catch (e) {
+        console.log("[clip_details] failed:", e);
+        if (e?.status === 404) setNotFound(true);
+        if (mounted) setDetails(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [router.isReady, clipId]);
 
   // ✅ details_json -> segments
   const segments = useMemo(() => {
