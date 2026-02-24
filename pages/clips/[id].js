@@ -533,81 +533,76 @@ export default function ClipDetailPage() {
 
     let mounted = true;
 
-    async function run() {
-      setLoading(true);
-      setNotFound(false);
-      setItem(null);
-      setMe(null);
-      setDetails(null);
+   useEffect(() => {
+  if (!router.isReady) return;
+  if (!clipId) return;
 
-      try {
-        const d1 = await fetchJson(`/api/clip?id=${clipId}`);
-        if (!mounted) return;
+  let mounted = true;
 
-        const gotItem = d1?.item || null;
-        setItem(gotItem);
-        setMe(d1?.me || null);
+  async function run() {
+    setLoading(true);
+    setNotFound(false);
+    setItem(null);
+    setMe(null);
+    setDetails(null);
 
-        if (!gotItem) {
-          setNotFound(true);
-          return;
-        }
-
-        try {
-  const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
-  if (!mounted) return;
-
-  // ✅ 兼容不同返回结构（你截图是 d2.details_json）
-  let dj =
-    d2?.details_json ??
-    d2?.details?.details_json ??
-    d2?.details ??
-    d2?.item?.details_json ??
-    null;
-
-  // ✅ 如果后端把 details_json 存成 text 字符串，这里自动解析
-  if (typeof dj === "string") {
     try {
-      dj = JSON.parse(dj);
-    } catch {}
+      const d1 = await fetchJson(`/api/clip?id=${clipId}`);
+      if (!mounted) return;
+
+      const gotItem = d1?.item || null;
+      setItem(gotItem);
+      setMe(d1?.me || null);
+
+      if (!gotItem) {
+        setNotFound(true);
+        return;
+      }
+
+      // 拉详情 JSON
+      const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
+      if (!mounted) return;
+
+      let dj = d2?.details_json ?? null;
+
+      // 如果后端把 details_json 存成了字符串，这里自动 parse
+      if (typeof dj === "string") {
+        try {
+          dj = JSON.parse(dj);
+        } catch (e) {
+          console.log("[clip_details] details_json parse failed:", e);
+          dj = null;
+        }
+      }
+
+      // 调试日志（可留可删）
+      try {
+        console.log("[clip_details] has_details:", !!dj);
+        console.log(
+          "[clip_details] segments:",
+          Array.isArray(dj?.segments) ? dj.segments.length : "no"
+        );
+        console.log(
+          "[clip_details] vocab_words:",
+          Array.isArray(dj?.vocab?.words) ? dj.vocab.words.length : "no"
+        );
+      } catch {}
+
+      setDetails(dj ?? null);
+    } catch (e) {
+      console.log("[clip_details] failed:", e);
+      if (e?.status === 404) setNotFound(true);
+      setDetails(null);
+    } finally {
+      if (mounted) setLoading(false);
+    }
   }
 
-  // ✅ 打印：你一眼就能看到 details_json 到底有没有拿到
-  try {
-    console.log("[clip_details] has_details:", !!dj);
-    console.log(
-      "[clip_details] segments:",
-      Array.isArray(dj?.segments) ? dj.segments.length : "no"
-    );
-    console.log(
-      "[clip_details] vocab_words:",
-      Array.isArray(dj?.vocab?.words) ? dj.vocab.words.length : "no"
-    );
-  } catch {}
-
-  setDetails(dj ?? null);
-} catch (e) {
-  try {
-    console.log("[clip_details] failed:", e);
-  } catch {}
-  setDetails(null);
-} catch {
-          setDetails(null);
-        }
-      } catch (e) {
-        if (!mounted) return;
-        if (e?.status === 404) setNotFound(true);
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
-    }
-
-    run();
-    return () => {
-      mounted = false;
-    };
-  }, [router.isReady, clipId]);
+  run();
+  return () => {
+    mounted = false;
+  };
+}, [router.isReady, clipId]);
 
   // ✅ details_json -> segments
   const segments = useMemo(() => {
