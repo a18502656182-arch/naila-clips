@@ -6,10 +6,17 @@ import { useRouter } from "next/router";
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
   const text = await res.text();
+
+  // ✅ 强制在控制台打印：请求 URL + 状态码 + 原始返回前 200 字
+  try {
+    console.log("[fetchJson]", res.status, url, text.slice(0, 200));
+  } catch {}
+
   let data = null;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {}
+
   if (!res.ok) {
     const msg =
       (data && (data.error || data.message || data.detail)) ||
@@ -547,13 +554,44 @@ export default function ClipDetailPage() {
         }
 
         try {
-          const d2 = await fetchJson(
-            `/api/clip_details?id=${clipId}&_t=${Date.now()}`
-          );
-          if (!mounted) return;
-          // ✅ 这里就是你后期运营要编辑的 Supabase JSON
-          setDetails(d2?.details_json ?? null);
-        } catch {
+  const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
+  if (!mounted) return;
+
+  // ✅ 兼容不同返回结构（你截图是 d2.details_json）
+  let dj =
+    d2?.details_json ??
+    d2?.details?.details_json ??
+    d2?.details ??
+    d2?.item?.details_json ??
+    null;
+
+  // ✅ 如果后端把 details_json 存成 text 字符串，这里自动解析
+  if (typeof dj === "string") {
+    try {
+      dj = JSON.parse(dj);
+    } catch {}
+  }
+
+  // ✅ 打印：你一眼就能看到 details_json 到底有没有拿到
+  try {
+    console.log("[clip_details] has_details:", !!dj);
+    console.log(
+      "[clip_details] segments:",
+      Array.isArray(dj?.segments) ? dj.segments.length : "no"
+    );
+    console.log(
+      "[clip_details] vocab_words:",
+      Array.isArray(dj?.vocab?.words) ? dj.vocab.words.length : "no"
+    );
+  } catch {}
+
+  setDetails(dj ?? null);
+} catch (e) {
+  try {
+    console.log("[clip_details] failed:", e);
+  } catch {}
+  setDetails(null);
+} catch {
           setDetails(null);
         }
       } catch (e) {
