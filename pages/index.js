@@ -491,9 +491,11 @@ export default function HomePage() {
         const newItems = d?.items || [];
         const totalCount = d?.total || 0;
 
-        setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
-setHasMore(!!d?.has_more);
-setTotal((prev) => (offset === 0 ? newItems.length : prev + newItems.length));
+        const totalCount = d?.total || 0;
+
+setTotal(totalCount);
+setItems((prev) => (offset === 0 ? newItems : [...prev, ...newItems]));
+setHasMore(offset + newItems.length < totalCount);
       } catch (e) {
         showToast("拉取失败：" + e.message);
       } finally {
