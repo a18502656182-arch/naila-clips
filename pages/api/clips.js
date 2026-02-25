@@ -12,7 +12,7 @@ function parseList(v) {
 export default async function handler(req, res) {
   try {
     // ✅ 先不动缓存（等你验证提速后我再带你做 Cloudflare HIT）
-    // res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
+    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
