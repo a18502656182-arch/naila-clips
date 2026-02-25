@@ -73,14 +73,34 @@ export default async function handler(req, res) {
     if (!clip) return res.status(404).json({ error: "Clip not found", id });
 
     const can_access = clip.access_tier === "free" ? true : Boolean(is_member);
+    // ✅ 取 clip_details.details_json（严格按你 JSON 格式原样返回）
+const { data: detailRow, error: dErr } = await supabase
+  .from("clip_details")
+  .select("details_json")
+  .eq("clip_id", id)
+  .maybeSingle();
+
+if (dErr) return res.status(500).json({ error: dErr.message });
+
+// details_json 可能是 jsonb（对象）也可能是 text（字符串）——两者都兼容
+let details_json = detailRow?.details_json ?? null;
+if (typeof details_json === "string") {
+  try {
+    details_json = JSON.parse(details_json);
+  } catch {
+    // 如果是坏字符串，就当作没有
+    details_json = null;
+  }
+}
 
     return res.status(200).json({
-      clip: {
-        ...clip,
-        can_access,
-      },
-      is_member,
-    });
+  clip: {
+    ...clip,
+    can_access,
+  },
+  details_json, // ✅ 前端就是读这个字段名
+  is_member,
+});
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Unknown error" });
   }
