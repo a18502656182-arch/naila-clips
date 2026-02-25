@@ -1,50 +1,87 @@
 // pages/api/clip_details.js
-import { createClient } from "@supabase/supabase-js";
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+
+async function getMembership(supabase, userId) {
+  const now = Date.now();
+
+  const tryQuery = async (dateCol) => {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select(`status, plan, ${dateCol}`)
+      .eq("user_id", userId)
+      .order(dateCol, { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error, dateCol };
+  };
+
+  let r = await tryQuery("ends_at");
+  if (r.error && String(r.error.message || "").toLowerCase().includes("column") && String(r.error.message || "").includes("ends_at")) {
+    r = await tryQuery("expires_at");
+  }
+
+  if (r.error) return { is_member: false };
+  const sub = r.data;
+  if (!sub) return { is_member: false };
+
+  const status = sub.status ?? null;
+  const end_at = sub[r.dateCol] ?? null;
+
+  if (status !== "active") return { is_member: false };
+  if (!end_at) return { is_member: true }; // 长期有效
+  const endMs = new Date(end_at).getTime();
+  if (!Number.isNaN(endMs) && endMs > now) return { is_member: true };
+  return { is_member: false };
+}
 
 export default async function handler(req, res) {
-  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
-    // 只允许 GET
-    if (req.method !== "GET") {
-      return res.status(405).json({ ok: false, error: "Method Not Allowed" });
+    const supabase = createPagesServerClient({ req, res });
+
+    // ✅ 兼容 id / clip_id 两种参数名
+    const raw = req.query.id ?? req.query.clip_id ?? req.query.clipId ?? null;
+    const id = raw ? Number(raw) : NaN;
+    if (!id || Number.isNaN(id)) return res.status(400).json({ error: "Missing id" });
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    let is_member = false;
+    if (user?.id) {
+      const m = await getMembership(supabase, user.id);
+      is_member = !!m.is_member;
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return res.status(500).json({ ok: false, error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-    // 支持 ?id=1 或 ?clip_id=1
-    const idRaw = req.query.id ?? req.query.clip_id;
-    const clipId = Number(idRaw);
-
-    if (!clipId || Number.isNaN(clipId)) {
-      return res.status(400).json({ ok: false, error: "Missing or invalid id" });
-    }
-
-    // 读 clip_details
-    const { data, error } = await supabase
-      .from("clip_details")
-      .select("clip_id, details_json, updated_at")
-      .eq("clip_id", clipId)
+    const { data: clip, error } = await supabase
+      .from("clips")
+      .select(
+        `
+        id, title, description, duration_sec, created_at, upload_time,
+        access_tier, cover_url, video_url,
+        clip_taxonomies(taxonomies(type, slug))
+      `
+      )
+      .eq("id", id)
       .maybeSingle();
 
-    if (error) {
-      return res.status(500).json({ ok: false, error: error.message });
-    }
+    if (error) return res.status(500).json({ error: error.message });
+    if (!clip) return res.status(404).json({ error: "Clip not found", id });
 
-    // 没有也算正常：details_json=null
+    const can_access = clip.access_tier === "free" ? true : Boolean(is_member);
+
     return res.status(200).json({
-      ok: true,
-      clip_id: clipId,
-      details_json: data?.details_json ?? null,
-      updated_at: data?.updated_at ?? null,
+      clip: {
+        ...clip,
+        can_access,
+      },
+      is_member,
     });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e?.message || String(e) });
+    return res.status(500).json({ error: e?.message || "Unknown error" });
   }
 }
