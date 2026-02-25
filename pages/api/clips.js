@@ -11,7 +11,7 @@ function parseList(v) {
 }
 
 export default async function handler(req, res) {
-  // ✅ 根因修复：这个接口返回 can_access（和用户有关），不能用 s-maxage 公共缓存
+  // ✅ 这个接口返回 can_access（与用户有关），不能用公共缓存
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -28,22 +28,22 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // 1) 登录态 -> is_member（统一用 subscriptions.expires_at）
+    // ✅ 修复点：统一用 subscriptions.ends_at（与你的 /api/me 完全一致）
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
 
     let is_member = false;
-    let sub_debug = { ok: false, status: null, expires_at: null, plan: null };
+    let sub_debug = { ok: false, status: null, ends_at: null, plan: null };
 
     if (user?.id && !userErr) {
       const { data: sub, error: subErr } = await supabase
         .from("subscriptions")
-        .select("status, expires_at, plan")
+        .select("status, ends_at, plan")
         .eq("user_id", user.id)
-        .not("expires_at", "is", null)
-        .order("expires_at", { ascending: false })
+        .not("ends_at", "is", null)
+        .order("ends_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -51,16 +51,16 @@ export default async function handler(req, res) {
         sub_debug = {
           ok: true,
           status: sub.status || null,
-          expires_at: sub.expires_at || null,
+          ends_at: sub.ends_at || null,
           plan: sub.plan || null,
         };
 
-        const exp = sub.expires_at ? new Date(sub.expires_at).getTime() : null;
-        if (sub.status === "active" && exp && !Number.isNaN(exp) && exp > Date.now()) {
+        const endMs = sub.ends_at ? new Date(sub.ends_at).getTime() : null;
+        if (sub.status === "active" && endMs && !Number.isNaN(endMs) && endMs > Date.now()) {
           is_member = true;
         }
       } else {
-        sub_debug = { ok: false, status: null, expires_at: null, plan: null };
+        sub_debug = { ok: false, status: null, ends_at: null, plan: null };
       }
     }
 
@@ -171,6 +171,7 @@ export default async function handler(req, res) {
         const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
         const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
+        // ✅ 关键：前端卡片点击只看 can_access，所以这里必须正确
         const can_access = row.access_tier === "free" ? true : Boolean(is_member);
 
         return {
