@@ -557,22 +557,34 @@ export default function HomePage() {
     if (chip.k === "channel") setChannel((arr) => arr.filter((x) => x !== chip.slug));
   }
 
-  function handleCardClick(e, clip) {
-    if (!clip || clip.can_access) return;
+  function canUserAccess(clip) {
+  if (!clip) return true;
+  // ✅ 免费永远可看
+  if (clip.access_tier !== "vip") return true;
+  // ✅ 会员片：只有会员可看
+  return !!me?.is_member;
+}
 
-    e.preventDefault();
-    e.stopPropagation();
+function handleCardClick(e, clip) {
+  if (!clip) return;
 
-    if (!me.logged_in) {
-      setPendingId(clip.id);
-      setPendingReason("vip");
-      setShowAuthModal(true);
-      return;
-    }
+  // ✅ 允许访问就正常跳转，不拦截
+  if (canUserAccess(clip)) return;
 
-    setPendingVipClipId(clip.id);
-    setShowVipModal(true);
+  // ❌ 不可访问才拦截并弹窗
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!me.logged_in) {
+    setPendingId(clip.id);
+    setPendingReason("vip");
+    setShowAuthModal(true);
+    return;
   }
+
+  setPendingVipClipId(clip.id);
+  setShowVipModal(true);
+}
 
   function renderTagsRow(it) {
     const tags = [];
@@ -888,7 +900,7 @@ export default function HomePage() {
                 href={`/clips/${it.id}`}
                 className="card"
                 onClick={(e) => handleCardClick(e, it)}
-                title={!it.can_access ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
+                title={!canUserAccess(it) ? (me.logged_in ? "会员专享：去兑换开通" : "会员专享：请先登录") : ""}
               >
                 <div style={{ position: "relative" }}>
                   <HoverPreview coverUrl={it.cover_url} videoUrl={it.video_url} alt={it.title || ""} borderRadius={18} />
@@ -912,7 +924,11 @@ export default function HomePage() {
                   {renderTagsRow(it)}
                   <div className="titleLine">{it.title || `Clip #${it.id}`}</div>
 
-                  {!it.can_access ? <div className="vipHint">会员专享：请登录并兑换码激活</div> : <div className="okHint">可播放</div>}
+                  {!canUserAccess(it) ? (
+  <div className="vipHint">会员专享：请登录并兑换码激活</div>
+) : (
+  <div className="okHint">可播放</div>
+)}
                 </div>
               </a>
             );
