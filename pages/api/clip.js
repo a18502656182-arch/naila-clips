@@ -67,7 +67,7 @@ export default async function handler(req, res) {
     const { data: rows, error: e1 } = await supabase
       .from("clips_view")
       .select(
-        "id,title,description,duration_sec,upload_time,access_tier,cover_url,video_url,created_at,difficulty_slugs,topic_slugs,channel_slugs"
+        "id,title,description,duration_sec,upload_time,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs"
       )
       .eq("id", id)
       .limit(1);
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
         cover_url: clip.cover_url,
         video_url: clip.video_url,
         created_at: clip.created_at,
-        difficulty_slugs: clip.difficulty_slugs || [],
+        difficulty_slugs: clip.difficulty_slug ? [clip.difficulty_slug] : [],
         topic_slugs: clip.topic_slugs || [],
         channel_slugs: clip.channel_slugs || [],
         can_access, // ✅ 这里给前端用
