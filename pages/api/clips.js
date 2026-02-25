@@ -10,8 +10,50 @@ function parseList(v) {
     .filter(Boolean);
 }
 
+async function getMembership(supabase, userId) {
+  const now = Date.now();
+
+  const tryQuery = async (dateCol) => {
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select(`status, plan, ${dateCol}`)
+      .eq("user_id", userId)
+      .order(dateCol, { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error, dateCol };
+  };
+
+  let r = await tryQuery("ends_at");
+  if (r.error && String(r.error.message || "").toLowerCase().includes("column") && String(r.error.message || "").includes("ends_at")) {
+    r = await tryQuery("expires_at");
+  }
+
+  if (r.error) {
+    return { is_member: false, debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol } };
+  }
+
+  const sub = r.data;
+  if (!sub) return { is_member: false, debug: { ok: false, reason: "no_subscription_row", used: r.dateCol } };
+
+  const status = sub.status ?? null;
+  const plan = sub.plan ?? null;
+  const end_at = sub[r.dateCol] ?? null;
+
+  let is_member = false;
+  if (status === "active") {
+    if (!end_at) {
+      is_member = true;
+    } else {
+      const endMs = new Date(end_at).getTime();
+      if (!Number.isNaN(endMs) && endMs > now) is_member = true;
+    }
+  }
+
+  return { is_member, debug: { ok: true, used: r.dateCol, raw: { status, plan, end_at } } };
+}
+
 export default async function handler(req, res) {
-  // ✅ 这个接口返回 can_access（与用户有关），不能用公共缓存
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -20,7 +62,7 @@ export default async function handler(req, res) {
     const supabase = createPagesServerClient({ req, res });
 
     const difficulty = parseList(req.query.difficulty);
-    const access = parseList(req.query.access); // free,vip
+    const access = parseList(req.query.access);
     const topic = parseList(req.query.topic);
     const channel = parseList(req.query.channel);
 
@@ -28,43 +70,21 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // ✅ 修复点：统一用 subscriptions.ends_at（与你的 /api/me 完全一致）
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
 
     let is_member = false;
-    let sub_debug = { ok: false, status: null, ends_at: null, plan: null };
+    let sub_debug = { ok: false, reason: "not_logged_in" };
 
     if (user?.id && !userErr) {
-      const { data: sub, error: subErr } = await supabase
-        .from("subscriptions")
-        .select("status, ends_at, plan")
-        .eq("user_id", user.id)
-        .not("ends_at", "is", null)
-        .order("ends_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (!subErr && sub) {
-        sub_debug = {
-          ok: true,
-          status: sub.status || null,
-          ends_at: sub.ends_at || null,
-          plan: sub.plan || null,
-        };
-
-        const endMs = sub.ends_at ? new Date(sub.ends_at).getTime() : null;
-        if (sub.status === "active" && endMs && !Number.isNaN(endMs) && endMs > Date.now()) {
-          is_member = true;
-        }
-      } else {
-        sub_debug = { ok: false, status: null, ends_at: null, plan: null };
-      }
+      const m = await getMembership(supabase, user.id);
+      is_member = !!m.is_member;
+      sub_debug = m.debug;
     }
 
-    // 2) 先拿轻量候选集合
+    // 轻量候选集合
     let q = supabase
       .from("clips")
       .select(
@@ -82,22 +102,13 @@ export default async function handler(req, res) {
     const { data: lightRows, error: lightErr } = await q;
     if (lightErr) return res.status(500).json({ error: lightErr.message });
 
-    // 3) 后端匹配 difficulty/topic/channel
     const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
-
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
       const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
-      return {
-        id: row.id,
-        created_at: row.created_at,
-        access_tier: row.access_tier,
-        difficulty: diff,
-        topics,
-        channels,
-      };
+      return { id: row.id, created_at: row.created_at, access_tier: row.access_tier, difficulty: diff, topics, channels };
     });
 
     function matches(clip) {
@@ -114,8 +125,6 @@ export default async function handler(req, res) {
     }
 
     const matched = normalized.filter(matches);
-
-    // 4) 分页
     const total = matched.length;
     const page = matched.slice(offset, offset + limit);
     const pageIds = page.map((x) => x.id);
@@ -123,14 +132,7 @@ export default async function handler(req, res) {
 
     if (!pageIds.length) {
       return res.status(200).json({
-        debug: {
-          mode: "db_paged",
-          has_cookie: true,
-          has_user: !!user?.id,
-          user_id: user?.id || null,
-          userErr: userErr?.message || null,
-          sub_debug,
-        },
+        debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
         items: [],
         total,
         limit,
@@ -142,7 +144,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // 5) 查这一页详情
     const { data: fullRows, error: fullErr } = await supabase
       .from("clips")
       .select(
@@ -166,12 +167,10 @@ export default async function handler(req, res) {
         if (!row) return null;
 
         const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
-
         const diff = all.find((t) => t.type === "difficulty")?.slug || null;
         const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
         const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
-        // ✅ 关键：前端卡片点击只看 can_access，所以这里必须正确
         const can_access = row.access_tier === "free" ? true : Boolean(is_member);
 
         return {
@@ -193,14 +192,7 @@ export default async function handler(req, res) {
       .filter(Boolean);
 
     return res.status(200).json({
-      debug: {
-        mode: "db_paged",
-        has_cookie: true,
-        has_user: !!user?.id,
-        user_id: user?.id || null,
-        userErr: userErr?.message || null,
-        sub_debug,
-      },
+      debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
       items,
       total,
       limit,
