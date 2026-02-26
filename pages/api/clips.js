@@ -34,23 +34,11 @@ async function getMembership(supabase, userId) {
   }
 
   if (r.error) {
-    return {
-      is_member: false,
-      debug: {
-        ok: false,
-        reason: "query_error",
-        message: r.error.message,
-        used: r.dateCol,
-      },
-    };
+    return { is_member: false, debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol } };
   }
 
   const sub = r.data;
-  if (!sub)
-    return {
-      is_member: false,
-      debug: { ok: false, reason: "no_subscription_row", used: r.dateCol },
-    };
+  if (!sub) return { is_member: false, debug: { ok: false, reason: "no_subscription_row", used: r.dateCol } };
 
   const status = sub.status ?? null;
   const plan = sub.plan ?? null;
@@ -70,23 +58,10 @@ async function getMembership(supabase, userId) {
 }
 
 export default async function handler(req, res) {
-  // ✅ 关键：区分“游客 vs 登录用户”缓存策略
-  // - 游客（无 cookie）：允许 Vercel Edge 短缓存（提升大陆首屏/卡片速度）
-  // - 登录用户（有 cookie）：保持 private no-store，避免会员态混淆
-  const hasCookie = !!(req.headers.cookie && String(req.headers.cookie).trim());
-  const hasAuthHeader = !!(req.headers.authorization && String(req.headers.authorization).trim());
-  const isGuestRequest = !hasCookie && !hasAuthHeader;
-
-  if (isGuestRequest) {
-    // 游客：短缓存 + SWR（URL 不同会自动分缓存：limit/offset/sort/filters 都会区分）
-    // 60 秒足够提升体感，又不会造成“内容长时间不更新”的问题
-    res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-  } else {
-    // 登录态：不缓存（避免 can_access / is_member 相关结果被误缓存）
-    res.setHeader("Cache-Control", "private, no-store, max-age=0");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-  }
+  // 先默认：不缓存（避免任何异常情况下误缓存会员态）
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
 
   try {
     const supabase = createPagesServerClient({ req, res });
@@ -100,14 +75,17 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // ✅ 性能点：游客请求不必调用 getUser（省一次 auth 往返）
-    let user = null;
-    let userErr = null;
+    // ✅ 关键：永远用 getUser 判断登录态（不再用 cookie 推断）
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
 
-    if (!isGuestRequest) {
-      const r = await supabase.auth.getUser();
-      user = r?.data?.user || null;
-      userErr = r?.error || null;
+    const isGuest = !user?.id || !!userErr;
+
+    // ✅ 只有“明确未登录”才允许短缓存（不影响会员）
+    if (isGuest) {
+      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
     }
 
     let is_member = false;
