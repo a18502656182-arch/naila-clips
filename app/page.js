@@ -7,6 +7,7 @@ import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
+import { THEME } from "./components/home/theme";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -64,7 +65,6 @@ export default async function Page({ searchParams }) {
   };
   const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
 
-  // 首屏固定 12（和接口默认一致）
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
   const take = limit + 1;
@@ -101,30 +101,29 @@ export default async function Page({ searchParams }) {
 
   const items = pageRows.map(normRow);
 
-  // taxonomies counts 已经改成客户端异步加载（FiltersClient 内部 fetch /rsc-api/taxonomies）
-  // 所以这里给空结构即可，首屏更快
+  // counts 仍由 FiltersClient mount 后异步加载（你已完成）
   const tax = { difficulties: [], topics: [], channels: [] };
 
   const featured = items[0] || null;
 
   return (
-    <div style={{ background: "#fff" }}>
-      {/* 顶部导航（静态壳：不依赖 API） */}
+    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
+      {/* 顶部：产品化工具感（更克制、更精致） */}
       <div
         style={{
           position: "sticky",
           top: 0,
           zIndex: 20,
-          background: "rgba(255,255,255,0.9)",
-          backdropFilter: "blur(8px)",
-          borderBottom: "1px solid rgba(0,0,0,0.06)",
+          background: "rgba(246,247,251,0.86)",
+          backdropFilter: "blur(10px)",
+          borderBottom: `1px solid ${THEME.colors.border}`,
         }}
       >
         <div
           style={{
-            maxWidth: 1200,
+            maxWidth: THEME.spacing.pageW,
             margin: "0 auto",
-            padding: "14px 16px",
+            padding: "12px 16px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -134,40 +133,44 @@ export default async function Page({ searchParams }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: "linear-gradient(135deg, #2563eb, #06b6d4)",
+                width: 34,
+                height: 34,
+                borderRadius: 12,
+                background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
+                boxShadow: "0 10px 24px rgba(79,70,229,0.20)",
                 display: "grid",
                 placeItems: "center",
                 color: "#fff",
                 fontWeight: 900,
                 userSelect: "none",
+                letterSpacing: "-0.02em",
               }}
               aria-hidden
             >
-              ▶
+              EC
             </div>
 
-            <div style={{ lineHeight: 1.1 }}>
-              <div style={{ fontSize: 18, fontWeight: 900 }}>油管英语场景库</div>
-              <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-                精选 YouTube 场景短片，边看边学地道英语。
+            <div style={{ lineHeight: 1.15 }}>
+              <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>
+                油管英语场景库
+              </div>
+              <div style={{ fontSize: 12, color: THEME.colors.faint }}>
+                精选场景短片 · 双语字幕 · 词汇卡片
               </div>
             </div>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* 先做 UI 复刻：不接现网登录态逻辑，避免破坏；后续再接入 */}
             <a
               href="/login"
               style={{
                 fontSize: 13,
                 padding: "8px 12px",
-                borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.12)",
-                color: "rgba(0,0,0,0.75)",
+                borderRadius: THEME.radii.pill,
+                border: `1px solid ${THEME.colors.border2}`,
+                color: THEME.colors.ink,
                 textDecoration: "none",
+                background: "rgba(255,255,255,0.7)",
               }}
             >
               登录
@@ -177,10 +180,11 @@ export default async function Page({ searchParams }) {
               style={{
                 fontSize: 13,
                 padding: "8px 12px",
-                borderRadius: 999,
-                background: "#111827",
+                borderRadius: THEME.radii.pill,
+                background: THEME.colors.ink,
                 color: "#fff",
                 textDecoration: "none",
+                boxShadow: "0 10px 22px rgba(11,18,32,0.18)",
               }}
             >
               注册
@@ -189,9 +193,8 @@ export default async function Page({ searchParams }) {
         </div>
       </div>
 
-      {/* 主体容器 */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 40px" }}>
-        {/* Hero 大区（结构复刻：Hero + 左侧说明卡 + 右侧示例卡） */}
+      <div style={{ maxWidth: THEME.spacing.pageW, margin: "0 auto", padding: "18px 16px 40px" }}>
+        {/* Hero：更产品化（结构像参考站，但视觉更“高级工具感”） */}
         <HeroSection>
           <HowItWorks />
           <FeaturedExamples featured={featured} />
@@ -201,12 +204,10 @@ export default async function Page({ searchParams }) {
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
 
-          {/* 筛选条（保持你已有 FiltersClient 逻辑不变） */}
           <div style={{ marginTop: 10 }}>
             <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
           </div>
 
-          {/* 列表（保持你已有护栏/极速分页逻辑不变） */}
           <div style={{ marginTop: 14 }}>
             <ClipsGridClient
               key={JSON.stringify(searchParams || {})}
