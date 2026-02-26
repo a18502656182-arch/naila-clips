@@ -34,11 +34,23 @@ async function getMembership(supabase, userId) {
   }
 
   if (r.error) {
-    return { is_member: false, debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol } };
+    return {
+      is_member: false,
+      debug: {
+        ok: false,
+        reason: "query_error",
+        message: r.error.message,
+        used: r.dateCol,
+      },
+    };
   }
 
   const sub = r.data;
-  if (!sub) return { is_member: false, debug: { ok: false, reason: "no_subscription_row", used: r.dateCol } };
+  if (!sub)
+    return {
+      is_member: false,
+      debug: { ok: false, reason: "no_subscription_row", used: r.dateCol },
+    };
 
   const status = sub.status ?? null;
   const plan = sub.plan ?? null;
@@ -54,11 +66,14 @@ async function getMembership(supabase, userId) {
     }
   }
 
-  return { is_member, debug: { ok: true, used: r.dateCol, raw: { status, plan, end_at } } };
+  return {
+    is_member,
+    debug: { ok: true, used: r.dateCol, raw: { status, plan, end_at } },
+  };
 }
 
 export default async function handler(req, res) {
-  // ✅ 关键：永远不缓存 /api/clips（避免会员态被边缘缓存污染）
+  // ✅ 会员权限护栏：/api/clips 永远不做 public 缓存
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -75,6 +90,7 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
+    // ✅ 永远用 getUser 判断登录态（避免误判）
     const {
       data: { user },
       error: userErr,
@@ -89,115 +105,68 @@ export default async function handler(req, res) {
       sub_debug = m.debug;
     }
 
-    // 轻量候选集合
+    // ✅ 性能关键：用 clips_view 在数据库侧完成过滤 + 分页 + count
+    // 假设 clips_view 含：difficulty_slugs/topic_slugs/channel_slugs（数组）
     let q = supabase
-      .from("clips")
+      .from("clips_view")
       .select(
         `
-        id, access_tier, created_at,
-        clip_taxonomies (
-          taxonomies ( type, slug )
-        )
-      `
+        id, title, description, duration_sec, created_at, upload_time,
+        access_tier, cover_url, video_url,
+        difficulty_slugs, topic_slugs, channel_slugs
+      `,
+        { count: "exact" }
       )
       .order("created_at", { ascending: sort === "oldest" });
 
     if (access.length) q = q.in("access_tier", access);
 
-    const { data: lightRows, error: lightErr } = await q;
-    if (lightErr) return res.status(500).json({ error: lightErr.message });
+    // 数组过滤：overlaps 表示“与筛选集合有交集”
+    if (difficulty.length) q = q.overlaps("difficulty_slugs", difficulty);
+    if (topic.length) q = q.overlaps("topic_slugs", topic);
+    if (channel.length) q = q.overlaps("channel_slugs", channel);
 
-    const normalized = (lightRows || []).map((row) => {
-      const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
-      const diff = all.find((t) => t.type === "difficulty")?.slug || null;
-      const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
+    // 分页
+    q = q.range(offset, offset + limit - 1);
 
-      return { id: row.id, created_at: row.created_at, access_tier: row.access_tier, difficulty: diff, topics, channels };
-    });
+    const { data: rows, error: err, count } = await q;
+    if (err) return res.status(500).json({ error: err.message });
 
-    function matches(clip) {
-      if (difficulty.length) {
-        if (!clip.difficulty || !difficulty.includes(clip.difficulty)) return false;
-      }
-      if (topic.length) {
-        if (!(clip.topics || []).some((t) => topic.includes(t))) return false;
-      }
-      if (channel.length) {
-        if (!(clip.channels || []).some((c) => channel.includes(c))) return false;
-      }
-      return true;
-    }
-
-    const matched = normalized.filter(matches);
-    const total = matched.length;
-    const page = matched.slice(offset, offset + limit);
-    const pageIds = page.map((x) => x.id);
+    const total = count || 0;
     const has_more = offset + limit < total;
 
-    if (!pageIds.length) {
-      return res.status(200).json({
-        debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
-        items: [],
-        total,
-        limit,
-        offset,
-        has_more,
-        sort,
-        filters: { difficulty, access, topic, channel },
-        is_member,
-      });
-    }
+    const items = (rows || []).map((row) => {
+      const diffArr = row.difficulty_slugs || [];
+      const topicArr = row.topic_slugs || [];
+      const channelArr = row.channel_slugs || [];
 
-    const { data: fullRows, error: fullErr } = await supabase
-      .from("clips")
-      .select(
-        `
-        id, title, description, duration_sec, created_at, upload_time,
-        access_tier, cover_url, video_url,
-        clip_taxonomies(
-          taxonomies(type, slug)
-        )
-      `
-      )
-      .in("id", pageIds);
+      const can_access = row.access_tier === "free" ? true : Boolean(is_member);
 
-    if (fullErr) return res.status(500).json({ error: fullErr.message });
-
-    const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
-
-    const items = pageIds
-      .map((id) => {
-        const row = fullMap.get(id);
-        if (!row) return null;
-
-        const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
-        const diff = all.find((t) => t.type === "difficulty")?.slug || null;
-        const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-        const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
-
-        const can_access = row.access_tier === "free" ? true : Boolean(is_member);
-
-        return {
-          id: row.id,
-          title: row.title,
-          description: row.description ?? null,
-          duration_sec: row.duration_sec ?? null,
-          created_at: row.created_at,
-          upload_time: row.upload_time ?? null,
-          access_tier: row.access_tier,
-          cover_url: row.cover_url ?? null,
-          video_url: row.video_url ?? null,
-          difficulty: diff,
-          topics,
-          channels,
-          can_access,
-        };
-      })
-      .filter(Boolean);
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description ?? null,
+        duration_sec: row.duration_sec ?? null,
+        created_at: row.created_at,
+        upload_time: row.upload_time ?? null,
+        access_tier: row.access_tier,
+        cover_url: row.cover_url ?? null,
+        video_url: row.video_url ?? null,
+        difficulty: (diffArr && diffArr[0]) ? diffArr[0] : null,
+        topics: Array.isArray(topicArr) ? topicArr : [],
+        channels: Array.isArray(channelArr) ? channelArr : [],
+        can_access,
+      };
+    });
 
     return res.status(200).json({
-      debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
+      debug: {
+        mode: "clips_view_paged",
+        has_user: !!user?.id,
+        user_id: user?.id || null,
+        userErr: userErr?.message || null,
+        sub_debug,
+      },
       items,
       total,
       limit,
