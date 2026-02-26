@@ -58,34 +58,36 @@ export async function GET(req) {
 
   const supabase = getSupabaseAdmin();
 
+  // ✅ 极速：取 limit+1 条，用来判断 has_more
+  const take = Math.min(limit + 1, 51);
+
   let q = supabase
     .from("clips_view")
     .select(
-      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs",
-      { count: "exact" }
+      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
     );
 
   if (access.length) q = q.in("access_tier", access);
-
-  // ✅ difficulty_slug 是单值字段，用 in
   if (difficulty.length) q = q.in("difficulty_slug", difficulty);
-
-  // ✅ topic_slugs / channel_slugs 是数组字段，用 overlaps
   if (topic.length) q = q.overlaps("topic_slugs", topic);
   if (channel.length) q = q.overlaps("channel_slugs", channel);
 
-  q = q.order("created_at", { ascending: sort === "oldest" }).range(offset, offset + limit - 1);
+  q = q
+    .order("created_at", { ascending: sort === "oldest" })
+    .range(offset, offset + take - 1);
 
-  const { data, error, count } = await q;
+  const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const items = (data || []).map(normRow);
-  const total = typeof count === "number" ? count : null;
-  const has_more = total == null ? items.length === limit : offset + limit < total;
+  const rows = data || [];
+  const has_more = rows.length > limit;
+  const pageRows = has_more ? rows.slice(0, limit) : rows;
+
+  const items = pageRows.map(normRow);
 
   return NextResponse.json({
     items,
-    total,
+    total: null, // ✅ 极速版不返回 total
     limit,
     offset,
     has_more,
