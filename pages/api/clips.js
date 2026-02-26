@@ -58,7 +58,7 @@ async function getMembership(supabase, userId) {
 }
 
 export default async function handler(req, res) {
-  // 先默认：不缓存（避免任何异常情况下误缓存会员态）
+  // ✅ 关键：永远不缓存 /api/clips（避免会员态被边缘缓存污染）
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -75,18 +75,10 @@ export default async function handler(req, res) {
     const limit = Math.min(Math.max(parseInt(req.query.limit || "12", 10), 1), 50);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    // ✅ 关键：永远用 getUser 判断登录态（不再用 cookie 推断）
     const {
       data: { user },
       error: userErr,
     } = await supabase.auth.getUser();
-
-    const isGuest = !user?.id || !!userErr;
-
-    // ✅ 只有“明确未登录”才允许短缓存（不影响会员）
-    if (isGuest) {
-      res.setHeader("Cache-Control", "public, s-maxage=60, stale-while-revalidate=300");
-    }
 
     let is_member = false;
     let sub_debug = { ok: false, reason: "not_logged_in" };
