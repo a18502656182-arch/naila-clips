@@ -20,9 +20,29 @@ function getSupabaseAdmin() {
 }
 
 function normRow(r) {
-  const difficulty = Array.isArray(r.difficulty_slugs) ? (r.difficulty_slugs[0] || null) : (r.difficulty_slugs || null);
-  const topics = Array.isArray(r.topic_slugs) ? r.topic_slugs : [];
-  const channels = Array.isArray(r.channel_slugs) ? r.channel_slugs : [];
+  // 兼容：difficulty 可能是 difficulty_slugs / difficulty_slug / difficulty
+  const diffArr =
+    r.difficulty_slugs ??
+    r.difficulty_slug ??
+    r.difficulty ??
+    null;
+
+  const difficulty = Array.isArray(diffArr)
+    ? (diffArr[0] || null)
+    : (typeof diffArr === "string" ? diffArr : null);
+
+  const topics = Array.isArray(r.topic_slugs)
+    ? r.topic_slugs
+    : Array.isArray(r.topics)
+      ? r.topics
+      : [];
+
+  const channels = Array.isArray(r.channel_slugs)
+    ? r.channel_slugs
+    : Array.isArray(r.channels)
+      ? r.channels
+      : [];
+
   return {
     id: r.id,
     title: r.title ?? "",
@@ -139,8 +159,7 @@ export default async function Page({ searchParams }) {
 
   let q = supabase
     .from("clips_view")
-    .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slugs,topic_slugs,channel_slugs", { count: "exact" });
-
+    .select("*", { count: "exact" })
   if (filters.access.length) q = q.in("access_tier", filters.access);
   if (filters.difficulty.length) q = q.overlaps("difficulty_slugs", filters.difficulty);
   if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
