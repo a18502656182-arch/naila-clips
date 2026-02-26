@@ -252,7 +252,11 @@ export default async function Page({ searchParams }) {
 
       <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
 
-      <ClipsGridClient initialItems={items} initialHasMore={has_more} />
+      <ClipsGridClient
+  key={JSON.stringify(searchParams || {})}
+  initialItems={items}
+  initialHasMore={has_more}
+/>
     </div>
   );
 }
