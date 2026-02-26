@@ -67,7 +67,14 @@ export async function GET(req) {
       "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
     );
 
-  if (access.length) q = q.in("access_tier", access);
+  if (access.length) {
+  const expanded = [];
+  for (const a of access) {
+    if (a === "member") expanded.push("member", "vip");
+    else expanded.push(a);
+  }
+  q = q.in("access_tier", Array.from(new Set(expanded)));
+}
   if (difficulty.length) q = q.in("difficulty_slug", difficulty);
   if (topic.length) q = q.overlaps("topic_slugs", topic);
   if (channel.length) q = q.overlaps("channel_slugs", channel);
