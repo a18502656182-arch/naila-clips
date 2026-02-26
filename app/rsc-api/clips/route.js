@@ -53,7 +53,7 @@ export async function GET(req) {
   const channel = parseList(searchParams.get("channel"));
 
   const sort = searchParams.get("sort") === "oldest" ? "oldest" : "newest";
-  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "12", 10), 1), 50);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "1", 10), 1), 50);
   const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10), 0);
 
   const supabase = getSupabaseAdmin();
