@@ -34,7 +34,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   const [tax, setTax] = useState(() => taxonomies || { difficulties: [], topics: [], channels: [] });
   const [taxLoading, setTaxLoading] = useState(false);
 
-  // URL 变化（RSC 重新渲染）后，同步本地 filters
   useEffect(() => {
     setFilters({
       difficulty: initialFilters?.difficulty || [],
@@ -46,11 +45,9 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     setTax(taxonomies || { difficulties: [], topics: [], channels: [] });
   }, [initialFilters, taxonomies]);
 
-  // ✅ 护栏：任何筛选变化都必须清掉 offset（永远从第 1 页开始）
-  // ✅ 同时：异步拉最新 counts（首屏更快）
   const cleanedQueryString = useMemo(() => {
     const params = new URLSearchParams(sp.toString());
-    params.delete("offset");
+    params.delete("offset"); // ✅ 护栏：筛选变化永远从第 1 页开始
     return params.toString();
   }, [sp]);
 
@@ -60,7 +57,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     async function run() {
       setTaxLoading(true);
       try {
-        // 只用当前 URL 的参数（已删除 offset）
         const url = `/rsc-api/taxonomies?${cleanedQueryString}`;
         const r = await fetch(url, { cache: "no-store" });
         const data = await r.json();
@@ -72,7 +68,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           channels: data.channels || [],
         });
       } catch {
-        // 失败不影响使用（保留旧 tax）
+        // 失败不影响使用
       } finally {
         if (!aborted) setTaxLoading(false);
       }
@@ -87,7 +83,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   function pushWith(next) {
     const params = new URLSearchParams();
 
-    // ✅ 永远不带 offset
     // sort
     if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
 
@@ -100,7 +95,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     const qs = params.toString();
     router.push(qs ? `/?${qs}` : `/`);
 
-    // ✅ 参考站体验：筛选后回到顶部
     try {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {}
@@ -109,7 +103,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   function update(patch) {
     const next = { ...filters, ...patch };
 
-    // 防止无意义 push
     const same =
       next.sort === filters.sort &&
       sameArray(next.access, filters.access) &&
@@ -167,8 +160,8 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             免费
           </div>
           <div
-            style={chipStyle(filters.access.includes("member"))}
-            onClick={() => update({ access: toggleInArray(filters.access, "member") })}
+            style={chipStyle(filters.access.includes("vip"))}
+            onClick={() => update({ access: toggleInArray(filters.access, "vip") })}
           >
             会员
           </div>
@@ -186,10 +179,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
                 onClick={() => update({ difficulty: toggleInArray(filters.difficulty, x.slug) })}
                 title={taxLoading ? "计数加载中..." : ""}
               >
-                {x.slug}{" "}
-                <span style={{ opacity: 0.8 }}>
-                  ({typeof x.count === "number" ? x.count : 0})
-                </span>
+                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
               </div>
             ))}
           </div>
@@ -205,10 +195,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
                 onClick={() => update({ topic: toggleInArray(filters.topic, x.slug) })}
                 title={taxLoading ? "计数加载中..." : ""}
               >
-                {x.slug}{" "}
-                <span style={{ opacity: 0.8 }}>
-                  ({typeof x.count === "number" ? x.count : 0})
-                </span>
+                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
               </div>
             ))}
           </div>
@@ -224,10 +211,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
                 onClick={() => update({ channel: toggleInArray(filters.channel, x.slug) })}
                 title={taxLoading ? "计数加载中..." : ""}
               >
-                {x.slug}{" "}
-                <span style={{ opacity: 0.8 }}>
-                  ({typeof x.count === "number" ? x.count : 0})
-                </span>
+                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
               </div>
             ))}
           </div>
@@ -236,9 +220,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
 
       <div style={{ marginTop: 6 }}>
         <button
-          onClick={() =>
-            update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })
-          }
+          onClick={() => update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })}
           style={{
             padding: "7px 12px",
             borderRadius: 10,
