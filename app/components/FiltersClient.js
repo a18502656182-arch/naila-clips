@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { THEME } from "./home/theme";
 
 function toggleInArray(arr, value) {
   const set = new Set(arr || []);
@@ -83,10 +84,8 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   function pushWith(next) {
     const params = new URLSearchParams();
 
-    // sort
     if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
 
-    // access/difficulty/topic/channel
     if (next.access?.length) params.set("access", next.access.join(","));
     if (next.difficulty?.length) params.set("difficulty", next.difficulty.join(","));
     if (next.topic?.length) params.set("topic", next.topic.join(","));
@@ -114,124 +113,254 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (!same) pushWith(next);
   }
 
-  const chipStyle = (active) => ({
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: `1px solid ${active ? "#111" : "#ddd"}`,
-    background: active ? "#111" : "#fff",
-    color: active ? "#fff" : "#111",
-    cursor: "pointer",
-    fontSize: 13,
-    userSelect: "none",
-    whiteSpace: "nowrap",
-  });
-
-  const groupBox = {
-    border: "1px solid #eee",
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 10,
-    background: "#fff",
-  };
-
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontWeight: 700 }}>筛选</div>
+    <div>
+      <style jsx>{`
+        .wrap {
+          border: 1px solid ${THEME.colors.border};
+          border-radius: ${THEME.radii.lg}px;
+          background: rgba(255, 255, 255, 0.72);
+          box-shadow: 0 10px 26px rgba(11, 18, 32, 0.08);
+          padding: 12px;
+        }
 
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ opacity: 0.7 }}>排序</span>
-          <select
-            value={filters.sort}
-            onChange={(e) => update({ sort: e.target.value })}
-            style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
+        .topRow {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
+
+        .title {
+          font-weight: 950;
+          color: ${THEME.colors.ink};
+          margin-right: 4px;
+        }
+
+        .control {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .label {
+          font-size: 12px;
+          color: ${THEME.colors.faint};
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .select {
+          padding: 7px 10px;
+          border-radius: 12px;
+          border: 1px solid ${THEME.colors.border2};
+          background: ${THEME.colors.surface};
+          color: ${THEME.colors.ink};
+          font-size: 13px;
+          outline: none;
+        }
+
+        .chip {
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid ${THEME.colors.border2};
+          background: rgba(255, 255, 255, 0.9);
+          color: ${THEME.colors.ink};
+          cursor: pointer;
+          font-size: 13px;
+          user-select: none;
+          white-space: nowrap;
+          transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
+        }
+        .chip:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.10);
+          border-color: ${THEME.colors.border2};
+        }
+
+        .chipActive {
+          border-color: rgba(79, 70, 229, 0.30);
+          background: rgba(79, 70, 229, 0.12);
+          color: #3730a3;
+        }
+
+        .chipCount {
+          opacity: 0.7;
+          margin-left: 6px;
+          font-size: 12px;
+        }
+
+        .grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 10px;
+        }
+
+        .group {
+          border: 1px solid ${THEME.colors.border};
+          border-radius: ${THEME.radii.md}px;
+          padding: 12px;
+          background: rgba(255, 255, 255, 0.88);
+        }
+
+        .groupTitle {
+          font-weight: 900;
+          color: ${THEME.colors.ink};
+          margin-bottom: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+        }
+
+        .chips {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .foot {
+          margin-top: 10px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .clearBtn {
+          padding: 7px 12px;
+          border-radius: 999px;
+          border: 1px solid ${THEME.colors.border2};
+          background: ${THEME.colors.surface};
+          cursor: pointer;
+          color: ${THEME.colors.ink};
+          font-size: 13px;
+        }
+        .clearBtn:hover {
+          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.10);
+        }
+
+        .loadingHint {
+          opacity: 0.65;
+          color: ${THEME.colors.faint};
+          font-size: 12px;
+        }
+
+        @media (max-width: 960px) {
+          .grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <div className="wrap">
+        <div className="topRow">
+          <div className="title">筛选</div>
+
+          <div className="control">
+            <span className="label">排序</span>
+            <select
+              value={filters.sort}
+              onChange={(e) => update({ sort: e.target.value })}
+              className="select"
+            >
+              <option value="newest">最新</option>
+              <option value="oldest">最早</option>
+            </select>
+          </div>
+
+          <div className="control">
+            <span className="label">权限</span>
+            <div
+              className={`chip ${filters.access.includes("free") ? "chipActive" : ""}`}
+              onClick={() => update({ access: toggleInArray(filters.access, "free") })}
+            >
+              免费
+            </div>
+            <div
+              className={`chip ${filters.access.includes("vip") ? "chipActive" : ""}`}
+              onClick={() => update({ access: toggleInArray(filters.access, "vip") })}
+            >
+              会员
+            </div>
+          </div>
+
+          {taxLoading ? <span className="loadingHint">计数更新中…</span> : null}
+        </div>
+
+        <div className="grid">
+          <div className="group">
+            <div className="groupTitle">难度</div>
+            <div className="chips">
+              {(tax?.difficulties || []).map((x) => {
+                const active = filters.difficulty.includes(x.slug);
+                return (
+                  <div
+                    key={x.slug}
+                    className={`chip ${active ? "chipActive" : ""}`}
+                    onClick={() => update({ difficulty: toggleInArray(filters.difficulty, x.slug) })}
+                    title={taxLoading ? "计数加载中..." : ""}
+                  >
+                    {x.slug}
+                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="group">
+            <div className="groupTitle">Topic</div>
+            <div className="chips">
+              {(tax?.topics || []).map((x) => {
+                const active = filters.topic.includes(x.slug);
+                return (
+                  <div
+                    key={x.slug}
+                    className={`chip ${active ? "chipActive" : ""}`}
+                    onClick={() => update({ topic: toggleInArray(filters.topic, x.slug) })}
+                    title={taxLoading ? "计数加载中..." : ""}
+                  >
+                    {x.slug}
+                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="group">
+            <div className="groupTitle">Channel</div>
+            <div className="chips">
+              {(tax?.channels || []).map((x) => {
+                const active = filters.channel.includes(x.slug);
+                return (
+                  <div
+                    key={x.slug}
+                    className={`chip ${active ? "chipActive" : ""}`}
+                    onClick={() => update({ channel: toggleInArray(filters.channel, x.slug) })}
+                    title={taxLoading ? "计数加载中..." : ""}
+                  >
+                    {x.slug}
+                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="foot">
+          <button
+            onClick={() => update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })}
+            className="clearBtn"
           >
-            <option value="newest">最新</option>
-            <option value="oldest">最早</option>
-          </select>
+            清空筛选
+          </button>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ opacity: 0.7 }}>权限</span>
-          <div
-            style={chipStyle(filters.access.includes("free"))}
-            onClick={() => update({ access: toggleInArray(filters.access, "free") })}
-          >
-            免费
-          </div>
-          <div
-            style={chipStyle(filters.access.includes("vip"))}
-            onClick={() => update({ access: toggleInArray(filters.access, "vip") })}
-          >
-            会员
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <div style={groupBox}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>难度</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(tax?.difficulties || []).map((x) => (
-              <div
-                key={x.slug}
-                style={chipStyle(filters.difficulty.includes(x.slug))}
-                onClick={() => update({ difficulty: toggleInArray(filters.difficulty, x.slug) })}
-                title={taxLoading ? "计数加载中..." : ""}
-              >
-                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={groupBox}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Topic</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(tax?.topics || []).map((x) => (
-              <div
-                key={x.slug}
-                style={chipStyle(filters.topic.includes(x.slug))}
-                onClick={() => update({ topic: toggleInArray(filters.topic, x.slug) })}
-                title={taxLoading ? "计数加载中..." : ""}
-              >
-                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={groupBox}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Channel</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(tax?.channels || []).map((x) => (
-              <div
-                key={x.slug}
-                style={chipStyle(filters.channel.includes(x.slug))}
-                onClick={() => update({ channel: toggleInArray(filters.channel, x.slug) })}
-                title={taxLoading ? "计数加载中..." : ""}
-              >
-                {x.slug} <span style={{ opacity: 0.8 }}>({typeof x.count === "number" ? x.count : 0})</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: 6 }}>
-        <button
-          onClick={() => update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })}
-          style={{
-            padding: "7px 12px",
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            background: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          清空筛选
-        </button>
-        {taxLoading ? <span style={{ marginLeft: 10, opacity: 0.6 }}>计数更新中…</span> : null}
       </div>
     </div>
   );
