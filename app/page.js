@@ -8,8 +8,16 @@ export const revalidate = 0;
 
 function parseList(v) {
   if (!v) return [];
-  if (Array.isArray(v)) return v.flatMap((x) => String(x).split(",")).map((s) => s.trim()).filter(Boolean);
-  return String(v).split(",").map((s) => s.trim()).filter(Boolean);
+  if (Array.isArray(v)) {
+    return v
+      .flatMap((x) => String(x).split(","))
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return String(v)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function getSupabaseAdmin() {
@@ -19,17 +27,23 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-function normRow(r) {
-  // 兼容：difficulty 可能是 difficulty_slugs / difficulty_slug / difficulty
-  const diffArr =
-    r.difficulty_slugs ??
-    r.difficulty_slug ??
-    r.difficulty ??
-    null;
+function isMissingColumnOrOperator(errMsg = "") {
+  const s = String(errMsg).toLowerCase();
+  return (
+    s.includes("does not exist") ||
+    s.includes("unknown column") ||
+    s.includes("could not find") ||
+    s.includes("operator does not exist")
+  );
+}
 
+function normRow(r) {
+  const diffArr = r.difficulty_slugs ?? r.difficulty_slug ?? r.difficulty ?? null;
   const difficulty = Array.isArray(diffArr)
-    ? (diffArr[0] || null)
-    : (typeof diffArr === "string" ? diffArr : null);
+    ? diffArr[0] || null
+    : typeof diffArr === "string"
+      ? diffArr
+      : null;
 
   const topics = Array.isArray(r.topic_slugs)
     ? r.topic_slugs
@@ -59,89 +73,6 @@ function normRow(r) {
   };
 }
 
-async function getTaxonomiesWithCounts(supabase, filters, sort) {
-  // 读取所有 taxonomies（type+slug）
-  const { data: taxRows, error: taxErr } = await supabase
-    .from("taxonomies")
-    .select("type, slug")
-    .order("type", { ascending: true })
-    .order("slug", { ascending: true });
-
-  if (taxErr) throw new Error(taxErr.message);
-
-  const difficulties = (taxRows || []).filter((t) => t.type === "difficulty");
-  const topics = (taxRows || []).filter((t) => t.type === "topic");
-  const channels = (taxRows || []).filter((t) => t.type === "channel");
-
-  // 用 clips_view 计算 counts（只取轻字段）
-  let q = supabase
-    .from("clips_view")
-    .select("access_tier,difficulty_slugs,topic_slugs,channel_slugs,created_at")
-    .order("created_at", { ascending: sort === "oldest" });
-
-  // 只对 access 先过滤（与你 pages/api/taxonomies 思路一致）
-  if (filters.access.length) q = q.in("access_tier", filters.access);
-
-  const { data: rows, error } = await q;
-  if (error) throw new Error(error.message);
-
-  const normalized = (rows || []).map((r) => ({
-    access_tier: r.access_tier,
-    difficulty: Array.isArray(r.difficulty_slugs) ? (r.difficulty_slugs[0] || null) : null,
-    topics: Array.isArray(r.topic_slugs) ? r.topic_slugs : [],
-    channels: Array.isArray(r.channel_slugs) ? r.channel_slugs : [],
-  }));
-
-  const counts = { difficulty: {}, access: {}, topic: {}, channel: {} };
-  const inc = (m, k) => { if (!k) return; m[k] = (m[k] || 0) + 1; };
-
-  const matches = (clip, f) => {
-    if (f.access?.length && !f.access.includes(clip.access_tier)) return false;
-    if (f.difficulty?.length) { if (!clip.difficulty || !f.difficulty.includes(clip.difficulty)) return false; }
-    if (f.topic?.length) { if (!(clip.topics || []).some((t) => f.topic.includes(t))) return false; }
-    if (f.channel?.length) { if (!(clip.channels || []).some((c) => f.channel.includes(c))) return false; }
-    return true;
-  };
-
-  // difficulty counts（放开 difficulty）
-  {
-    const f = { access: filters.access, difficulty: [], topic: filters.topic, channel: filters.channel };
-    normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.difficulty, c.difficulty));
-  }
-
-  // access counts（放开 access）
-  {
-    const f = { access: [], difficulty: filters.difficulty, topic: filters.topic, channel: filters.channel };
-    normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.access, c.access_tier));
-  }
-
-  // topic counts（放开 topic）
-  {
-    const f = { access: filters.access, difficulty: filters.difficulty, topic: [], channel: filters.channel };
-    normalized.filter((c) => matches(c, f)).forEach((c) => (c.topics || []).forEach((t) => inc(counts.topic, t)));
-  }
-
-  // channel counts（放开 channel）
-  {
-    const f = { access: filters.access, difficulty: filters.difficulty, topic: filters.topic, channel: [] };
-    normalized.filter((c) => matches(c, f)).forEach((c) => (c.channels || []).forEach((ch) => inc(counts.channel, ch)));
-  }
-
-  const sortByCountThenName = (arr) =>
-    (arr || []).slice().sort((a, b) => {
-      const ca = a.count || 0;
-      const cb = b.count || 0;
-      if (cb !== ca) return cb - ca;
-      return String(a.slug).localeCompare(String(b.slug));
-    });
-
-  return {
-    difficulties: sortByCountThenName(difficulties.map((x) => ({ slug: x.slug, name: x.slug, count: counts.difficulty[x.slug] || 0 }))),
-    topics: sortByCountThenName(topics.map((x) => ({ slug: x.slug, name: x.slug, count: counts.topic[x.slug] || 0 }))),
-    channels: sortByCountThenName(channels.map((x) => ({ slug: x.slug, name: x.slug, count: counts.channel[x.slug] || 0 }))),
-  };
-}
-
 export default async function Page({ searchParams }) {
   const supabase = getSupabaseAdmin();
 
@@ -153,41 +84,57 @@ export default async function Page({ searchParams }) {
   };
   const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
 
-  // 首屏列表：用 clips_view 数据库侧筛选分页（快）
+  // 先固定首屏 12 条，后续滚动加载走 /rsc-api/clips
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
 
-  let q = supabase
-    .from("clips_view")
-    .select("*", { count: "exact" })
+  // 先用 select("*") 保证不因列名不一致而崩
+  let q = supabase.from("clips_view").select("*", { count: "exact" });
+
   if (filters.access.length) q = q.in("access_tier", filters.access);
+
+  // 先尝试按 *_slugs 做 overlaps；如果列不存在就降级为不筛选（但页面必须能出来）
   if (filters.difficulty.length) q = q.overlaps("difficulty_slugs", filters.difficulty);
   if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
   if (filters.channel.length) q = q.overlaps("channel_slugs", filters.channel);
 
   q = q.order("created_at", { ascending: sort === "oldest" }).range(offset, offset + limit - 1);
 
-  const [{ data, error, count }, tax] = await Promise.all([
-    q,
-    getTaxonomiesWithCounts(supabase, filters, sort),
-  ]);
+  let data, error, count;
+  ({ data, error, count } = await q);
+
+  // 如果因为列名/操作符不存在报错：重试一个不带 overlaps 的查询（保活）
+  if (error && isMissingColumnOrOperator(error.message)) {
+    let q2 = supabase.from("clips_view").select("*", { count: "exact" });
+    if (filters.access.length) q2 = q2.in("access_tier", filters.access);
+
+    q2 = q2.order("created_at", { ascending: sort === "oldest" }).range(offset, offset + limit - 1);
+    ({ data, error, count } = await q2);
+  }
 
   if (error) {
+    // 这里不要白屏，直接给出可读错误
     return (
       <div style={{ padding: 16 }}>
-        <h1>Home (RSC 实验版)</h1>
-        <pre style={{ whiteSpace: "pre-wrap" }}>{error.message}</pre>
+        <h1 style={{ fontSize: 24, fontWeight: 800 }}>Home (RSC 实验版)</h1>
+        <pre style={{ whiteSpace: "pre-wrap", color: "crimson" }}>{error.message}</pre>
       </div>
     );
   }
 
   const items = (data || []).map(normRow);
   const total = typeof count === "number" ? count : null;
-  const has_more = total == null ? (items.length === limit) : (offset + limit < total);
+  const has_more = total == null ? items.length === limit : offset + limit < total;
+
+  // taxonomies 统计先不做（最容易因为列名差异/数据量大导致崩）
+  // 等你把 clips_view 实际列名发我，我们再补“完全一致”的计数/排序
+  const tax = { difficulties: [], topics: [], channels: [] };
 
   return (
     <div style={{ padding: 16 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Home (RSC 实验版)</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12 }}>
+        Home (RSC 实验版)
+      </h1>
 
       <FiltersClient
         initialFilters={{ ...filters, sort }}
