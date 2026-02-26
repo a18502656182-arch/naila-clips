@@ -1,4 +1,3 @@
-// app/components/ClipsGridClient.js
 "use client";
 
 import Link from "next/link";
@@ -13,11 +12,11 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // 用于 IntersectionObserver 的哨兵
   const sentinelRef = useRef(null);
-
-  // 防止同一轮触发多次 loadMore
   const inFlightRef = useRef(false);
+
+  // ✅ 版本号：筛选变化会 remount，但这还能防止极端情况下旧请求回写
+  const reqVersionRef = useRef(0);
 
   const queryKey = useMemo(() => sp.toString(), [sp]);
 
@@ -29,36 +28,36 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     setLoading(true);
     setErr("");
 
+    const myVersion = ++reqVersionRef.current;
+
     try {
       const offset = items.length;
-
-      // 继续走我们实验线的 /rsc-api/clips（不和 pages/api 冲突）
       const url = `/rsc-api/clips?${queryKey}${queryKey ? "&" : ""}offset=${offset}`;
-
       const r = await fetch(url, { cache: "no-store" });
       const data = await r.json();
-
       if (!r.ok) throw new Error(data?.error || "Load more failed");
+
+      // ✅ 只接受最新版本的请求结果
+      if (myVersion !== reqVersionRef.current) return;
 
       const newItems = data.items || [];
       setItems((prev) => prev.concat(newItems));
       setHasMore(!!data.has_more);
     } catch (e) {
+      if (myVersion !== reqVersionRef.current) return;
       setErr(e?.message || "Load more failed");
     } finally {
-      setLoading(false);
-      inFlightRef.current = false;
+      if (myVersion === reqVersionRef.current) {
+        setLoading(false);
+        inFlightRef.current = false;
+      }
     }
   }
 
-  // IntersectionObserver：滚动接近底部时自动触发
-  // 这里用 callback ref 的方式，避免 useEffect 依赖复杂
   const setSentinel = (el) => {
     sentinelRef.current = el;
-
     if (!el) return;
 
-    // 每次渲染都会调用一次，先断开旧 observer
     if (el.__io) {
       el.__io.disconnect();
       el.__io = null;
@@ -67,14 +66,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     const io = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
-        if (!first) return;
-        if (first.isIntersecting) {
-          loadMore();
-        }
+        if (first?.isIntersecting) loadMore();
       },
       {
         root: null,
-        // 提前一点触发（更像参考站“无感加载”）
         rootMargin: "600px 0px",
         threshold: 0.01,
       }
@@ -86,13 +81,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
   return (
     <div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-          gap: 12,
-        }}
-      >
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
         {items.map((r) => (
           <Link
             key={r.id}
@@ -114,12 +103,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
               {r.title || `Clip #${r.id}`}
             </div>
             {r.cover_url ? (
-              <img
-                src={r.cover_url}
-                alt=""
-                style={{ width: "100%", borderRadius: 10 }}
-                loading="lazy"
-              />
+              <img src={r.cover_url} alt="" style={{ width: "100%", borderRadius: 10 }} loading="lazy" />
             ) : (
               <div style={{ height: 120, background: "#f3f3f3", borderRadius: 10 }} />
             )}
@@ -127,14 +111,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
         ))}
       </div>
 
-      {/* 哨兵：滚动到这里附近会自动 loadMore */}
-      <div
-        ref={setSentinel}
-        style={{
-          height: 1,
-          marginTop: 1,
-        }}
-      />
+      <div ref={setSentinel} style={{ height: 1, marginTop: 1 }} />
 
       <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
         {err ? (
@@ -142,22 +119,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
             {err}{" "}
             <button
               onClick={loadMore}
-              style={{
-                marginLeft: 8,
-                padding: "6px 10px",
-                borderRadius: 10,
-                border: "1px solid #ddd",
-                background: "#fff",
-                cursor: "pointer",
-              }}
+              style={{ marginLeft: 8, padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}
             >
               重试
             </button>
           </div>
         ) : hasMore ? (
-          <div style={{ opacity: 0.7, padding: 10 }}>
-            {loading ? "加载中..." : "继续下滑自动加载"}
-          </div>
+          <div style={{ opacity: 0.7, padding: 10 }}>{loading ? "加载中..." : "继续下滑自动加载"}</div>
         ) : (
           <div style={{ opacity: 0.6, padding: 10 }}>没有更多了</div>
         )}
