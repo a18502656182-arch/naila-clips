@@ -53,6 +53,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     else params.delete("sort");
 
     router.push(`/?${params.toString()}`);
+try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
   }
 
   function toggle(arr, v) {
