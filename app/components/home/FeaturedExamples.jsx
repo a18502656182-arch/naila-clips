@@ -1,88 +1,113 @@
 // app/components/home/FeaturedExamples.jsx
+import { THEME } from "./theme";
+
 function formatDuration(sec) {
   const s = Number(sec || 0);
   if (!Number.isFinite(s) || s <= 0) return null;
   const m = Math.floor(s / 60);
   const r = s % 60;
-  const mm = String(m);
-  const rr = String(r).padStart(2, "0");
-  return `${mm}:${rr}`;
+  return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-function pill(text, bg, color) {
+function Pill({ children, tone = "neutral" }) {
+  const map = {
+    neutral: { bg: "rgba(11,18,32,0.06)", fg: THEME.colors.ink, bd: THEME.colors.border },
+    free: { bg: "rgba(16,185,129,0.12)", fg: "#065f46", bd: "rgba(16,185,129,0.18)" },
+    vip: { bg: "rgba(124,58,237,0.12)", fg: "#5b21b6", bd: "rgba(124,58,237,0.20)" },
+    info: { bg: "rgba(79,70,229,0.12)", fg: "#3730a3", bd: "rgba(79,70,229,0.20)" },
+    cyan: { bg: "rgba(6,182,212,0.12)", fg: "#155e75", bd: "rgba(6,182,212,0.20)" },
+    warn: { bg: "rgba(245,158,11,0.14)", fg: "#92400e", bd: "rgba(245,158,11,0.20)" },
+  };
+  const t = map[tone] || map.neutral;
   return (
     <span
-      key={text}
       style={{
         display: "inline-flex",
         alignItems: "center",
         padding: "4px 8px",
-        borderRadius: 999,
-        background: bg,
-        color,
+        borderRadius: THEME.radii.pill,
+        background: t.bg,
+        color: t.fg,
         fontSize: 12,
-        border: "1px solid rgba(0,0,0,0.06)",
+        border: `1px solid ${t.bd}`,
         whiteSpace: "nowrap",
       }}
     >
-      {text}
+      {children}
     </span>
   );
 }
 
+function CoverPlaceholder() {
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: 210,
+        background:
+          "linear-gradient(135deg, rgba(79,70,229,0.16), rgba(6,182,212,0.12)), radial-gradient(600px 220px at 20% 0%, rgba(255,255,255,0.55), transparent 55%), rgba(11,18,32,0.06)",
+        position: "relative",
+      }}
+    >
+      {/* 细网格纹理：高级占位，不显廉价 */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(rgba(11,18,32,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(11,18,32,0.08) 1px, transparent 1px)",
+          backgroundSize: "22px 22px",
+          opacity: 0.25,
+          pointerEvents: "none",
+        }}
+      />
+      <div style={{ position: "absolute", left: 14, bottom: 14, color: THEME.colors.ink, opacity: 0.65, fontWeight: 800 }}>
+        示例视频
+      </div>
+    </div>
+  );
+}
+
 export default function FeaturedExamples({ featured }) {
-  // 注意：你说 cover_url 可能是 mp4，这里先“照用”，后续你换封面图/Stream 再优化
   const cover = featured?.cover_url || featured?.video_url || "";
   const duration = formatDuration(featured?.duration_sec);
 
   const title = featured?.title || "示例视频";
   const desc = featured?.description || "打开一条场景短片，边看边学地道表达。";
 
-  const topicPills = Array.isArray(featured?.topics) ? featured.topics.slice(0, 2) : [];
-  const channelPills = Array.isArray(featured?.channels) ? featured.channels.slice(0, 2) : [];
+  const topics = Array.isArray(featured?.topics) ? featured.topics.slice(0, 2) : [];
+  const channels = Array.isArray(featured?.channels) ? featured.channels.slice(0, 2) : [];
 
-  const accessLabel =
-    featured?.access_tier === "vip"
-      ? pill("会员专享", "rgba(168,85,247,0.14)", "rgb(126,34,206)")
-      : pill("免费", "rgba(34,197,94,0.14)", "rgb(21,128,61)");
-
-  const difficultyLabel = featured?.difficulty
-    ? pill(String(featured.difficulty), "rgba(245,158,11,0.14)", "rgb(180,83,9)")
-    : null;
+  const isVip = featured?.access_tier === "vip";
+  const accessPill = isVip ? <Pill tone="vip">会员专享</Pill> : <Pill tone="free">免费</Pill>;
+  const difficultyPill = featured?.difficulty ? <Pill tone="warn">{String(featured.difficulty)}</Pill> : null;
 
   return (
     <div
       style={{
         width: "100%",
-        borderRadius: 16,
-        background: "#fff",
-        border: "1px solid rgba(0,0,0,0.06)",
-        boxShadow: "0 8px 28px rgba(0,0,0,0.08)",
+        borderRadius: THEME.radii.lg,
+        background: THEME.colors.surface,
+        border: `1px solid ${THEME.colors.border}`,
+        boxShadow: THEME.colors.shadow,
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
       }}
     >
-      {/* 封面 */}
-      <div style={{ position: "relative", background: "rgba(0,0,0,0.06)" }}>
+      <div style={{ position: "relative" }}>
         {cover ? (
-          // 先用 img：你后续换封面图后，再切 next/image（避免现在 cover_url=mp4 导致 next/image 不稳定）
           <img
             src={cover}
             alt={title}
-            style={{
-              width: "100%",
-              height: 210,
-              objectFit: "cover",
-              display: "block",
-            }}
+            style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
             loading="eager"
           />
         ) : (
-          <div style={{ height: 210 }} />
+          <CoverPlaceholder />
         )}
 
-        {/* 左上角收藏按钮（只做 UI 复刻占位，不接现网逻辑） */}
+        {/* 收藏按钮：产品化工具感（半透明 + 细边框） */}
         <div
           style={{
             position: "absolute",
@@ -91,10 +116,11 @@ export default function FeaturedExamples({ featured }) {
             width: 34,
             height: 34,
             borderRadius: 999,
-            background: "rgba(0,0,0,0.55)",
+            background: "rgba(255,255,255,0.72)",
+            border: `1px solid ${THEME.colors.border}`,
             display: "grid",
             placeItems: "center",
-            color: "#fff",
+            color: THEME.colors.ink,
             fontSize: 16,
             userSelect: "none",
           }}
@@ -104,45 +130,56 @@ export default function FeaturedExamples({ featured }) {
           ♡
         </div>
 
-        {/* 右下角时长 */}
+        {/* Access 标签 */}
+        <div style={{ position: "absolute", left: 52, top: 12 }}>{accessPill}</div>
+
+        {/* 时长角标 */}
         {duration ? (
           <div
             style={{
               position: "absolute",
               right: 10,
               bottom: 10,
-              background: "rgba(0,0,0,0.7)",
+              background: "rgba(11,18,32,0.78)",
               color: "#fff",
               fontSize: 12,
               padding: "4px 6px",
-              borderRadius: 6,
+              borderRadius: 8,
+              letterSpacing: "0.02em",
             }}
           >
             {duration}
           </div>
         ) : null}
-
-        {/* 顶部标签（免费/会员） */}
-        <div style={{ position: "absolute", left: 52, top: 12 }}>{accessLabel}</div>
       </div>
 
-      {/* 文案区 */}
       <div style={{ padding: 14 }}>
-        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 6 }}>{title}</div>
-        <div style={{ color: "rgba(0,0,0,0.62)", fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
+        <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>
+          {title}
+        </div>
+        <div style={{ color: THEME.colors.muted, fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
 
         <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {channelPills.map((t) => pill(String(t), "rgba(59,130,246,0.10)", "rgb(29,78,216)"))}
-          {topicPills.map((t) => pill(String(t), "rgba(16,185,129,0.12)", "rgb(5,150,105)"))}
+          {channels.map((t) => (
+            <Pill key={`c-${t}`} tone="info">
+              {String(t)}
+            </Pill>
+          ))}
+          {topics.map((t) => (
+            <Pill key={`t-${t}`} tone="cyan">
+              {String(t)}
+            </Pill>
+          ))}
         </div>
 
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {difficultyLabel}
+            {difficultyPill}
           </div>
 
-          {/* 仅做结构对齐：日期占位（不引入额外逻辑） */}
-          <div style={{ color: "rgba(0,0,0,0.45)", fontSize: 12 }}>{featured?.created_at ? String(featured.created_at).slice(0, 10) : ""}</div>
+          <div style={{ color: THEME.colors.faint, fontSize: 12 }}>
+            {featured?.created_at ? String(featured.created_at).slice(0, 10) : ""}
+          </div>
         </div>
       </div>
     </div>
