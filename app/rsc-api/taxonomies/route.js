@@ -89,7 +89,14 @@ export async function GET(req) {
       .select("access_tier,created_at,difficulty_slug,topic_slugs,channel_slugs")
       .order("created_at", { ascending: sort === "oldest" });
 
-    if (selectedAccess.length) q = q.in("access_tier", selectedAccess);
+    if (selectedAccess.length) {
+  const expanded = [];
+  for (const a of selectedAccess) {
+    if (a === "member") expanded.push("member", "vip");
+    else expanded.push(a);
+  }
+  q = q.in("access_tier", Array.from(new Set(expanded)));
+}
 
     const { data: rows, error: rowsErr } = await q;
     if (rowsErr) {
