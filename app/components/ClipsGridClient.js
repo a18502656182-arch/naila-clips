@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function ClipsGridClient({ initialItems, initialHasMore }) {
@@ -14,14 +14,24 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
-
-  // ✅ 触发节流：避免“开页面就一直自动拉完”
   const coolDownRef = useRef(false);
+
+  // ✅ 新增：用户是否发生过滚动（像参考站一样，必须滚动才触发自动加载）
+  const userScrolledRef = useRef(false);
 
   const queryKey = useMemo(() => sp.toString(), [sp]);
 
+  useEffect(() => {
+    const onScroll = () => {
+      userScrolledRef.current = true;
+      window.removeEventListener("scroll", onScroll, { passive: true });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll, { passive: true });
+  }, []);
+
   async function loadMore() {
-    if (loading || !hasMore) return;
+    if (!hasMore || loading) return;
     if (inFlightRef.current) return;
     if (coolDownRef.current) return;
 
@@ -45,11 +55,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
       setItems((prev) => prev.concat(newItems));
       setHasMore(!!data.has_more);
 
-      // ✅ 成功后进入短暂冷却，避免连续触发
       coolDownRef.current = true;
-      setTimeout(() => {
-        coolDownRef.current = false;
-      }, 450);
+      setTimeout(() => (coolDownRef.current = false), 450);
     } catch (e) {
       if (myVersion !== reqVersionRef.current) return;
       setErr(e?.message || "Load more failed");
@@ -72,11 +79,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     const io = new IntersectionObserver(
       (entries) => {
         const first = entries[0];
-        if (first?.isIntersecting) loadMore();
+        if (!first?.isIntersecting) return;
+
+        // ✅ 关键：用户没滚动过，不允许自动加载
+        if (!userScrolledRef.current) return;
+
+        loadMore();
       },
       {
         root: null,
-        // ✅ 改小：更接近“滚到接近底部才加载”
+        // 这个可以保持较小，避免过早触发
         rootMargin: "120px 0px",
         threshold: 0.01,
       }
