@@ -12,17 +12,18 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  const sentinelRef = useRef(null);
   const inFlightRef = useRef(false);
-
-  // ✅ 版本号：筛选变化会 remount，但这还能防止极端情况下旧请求回写
   const reqVersionRef = useRef(0);
+
+  // ✅ 触发节流：避免“开页面就一直自动拉完”
+  const coolDownRef = useRef(false);
 
   const queryKey = useMemo(() => sp.toString(), [sp]);
 
   async function loadMore() {
     if (loading || !hasMore) return;
     if (inFlightRef.current) return;
+    if (coolDownRef.current) return;
 
     inFlightRef.current = true;
     setLoading(true);
@@ -33,16 +34,22 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     try {
       const offset = items.length;
       const url = `/rsc-api/clips?${queryKey}${queryKey ? "&" : ""}offset=${offset}`;
+
       const r = await fetch(url, { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Load more failed");
 
-      // ✅ 只接受最新版本的请求结果
       if (myVersion !== reqVersionRef.current) return;
 
       const newItems = data.items || [];
       setItems((prev) => prev.concat(newItems));
       setHasMore(!!data.has_more);
+
+      // ✅ 成功后进入短暂冷却，避免连续触发
+      coolDownRef.current = true;
+      setTimeout(() => {
+        coolDownRef.current = false;
+      }, 450);
     } catch (e) {
       if (myVersion !== reqVersionRef.current) return;
       setErr(e?.message || "Load more failed");
@@ -55,7 +62,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
   }
 
   const setSentinel = (el) => {
-    sentinelRef.current = el;
     if (!el) return;
 
     if (el.__io) {
@@ -70,7 +76,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
       },
       {
         root: null,
-        rootMargin: "600px 0px",
+        // ✅ 改小：更接近“滚到接近底部才加载”
+        rootMargin: "120px 0px",
         threshold: 0.01,
       }
     );
@@ -81,7 +88,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: 12,
+        }}
+      >
         {items.map((r) => (
           <Link
             key={r.id}
@@ -103,7 +116,12 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
               {r.title || `Clip #${r.id}`}
             </div>
             {r.cover_url ? (
-              <img src={r.cover_url} alt="" style={{ width: "100%", borderRadius: 10 }} loading="lazy" />
+              <img
+                src={r.cover_url}
+                alt=""
+                style={{ width: "100%", borderRadius: 10 }}
+                loading="lazy"
+              />
             ) : (
               <div style={{ height: 120, background: "#f3f3f3", borderRadius: 10 }} />
             )}
@@ -119,13 +137,22 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
             {err}{" "}
             <button
               onClick={loadMore}
-              style={{ marginLeft: 8, padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+              style={{
+                marginLeft: 8,
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid #ddd",
+                background: "#fff",
+                cursor: "pointer",
+              }}
             >
               重试
             </button>
           </div>
         ) : hasMore ? (
-          <div style={{ opacity: 0.7, padding: 10 }}>{loading ? "加载中..." : "继续下滑自动加载"}</div>
+          <div style={{ opacity: 0.7, padding: 10 }}>
+            {loading ? "加载中..." : "继续下滑自动加载"}
+          </div>
         ) : (
           <div style={{ opacity: 0.6, padding: 10 }}>没有更多了</div>
         )}
