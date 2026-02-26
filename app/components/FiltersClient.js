@@ -1,167 +1,255 @@
-// app/components/FiltersClient.js
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-function toComma(v) {
-  if (!v || !v.length) return "";
-  return v.join(",");
+function toggleInArray(arr, value) {
+  const set = new Set(arr || []);
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+  return Array.from(set);
 }
 
-function fromComma(v) {
-  if (!v) return [];
-  return String(v)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+function sameArray(a, b) {
+  const aa = Array.isArray(a) ? a : [];
+  const bb = Array.isArray(b) ? b : [];
+  if (aa.length !== bb.length) return false;
+  const sa = [...aa].sort();
+  const sb = [...bb].sort();
+  return sa.every((x, i) => x === sb[i]);
 }
 
 export default function FiltersClient({ initialFilters, taxonomies }) {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const state = useMemo(() => {
-    // 以 URL 为准（RSC 也会按 URL 渲染）
-    return {
-      difficulty: fromComma(sp.get("difficulty")) || initialFilters.difficulty,
-      topic: fromComma(sp.get("topic")) || initialFilters.topic,
-      channel: fromComma(sp.get("channel")) || initialFilters.channel,
-      access: fromComma(sp.get("access")) || initialFilters.access,
-      sort: sp.get("sort") === "oldest" ? "oldest" : "newest",
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const [filters, setFilters] = useState(() => ({
+    difficulty: initialFilters?.difficulty || [],
+    topic: initialFilters?.topic || [],
+    channel: initialFilters?.channel || [],
+    access: initialFilters?.access || [],
+    sort: initialFilters?.sort || "newest",
+  }));
+
+  const [tax, setTax] = useState(() => taxonomies || { difficulties: [], topics: [], channels: [] });
+  const [taxLoading, setTaxLoading] = useState(false);
+
+  // URL 变化（RSC 重新渲染）后，同步本地 filters
+  useEffect(() => {
+    setFilters({
+      difficulty: initialFilters?.difficulty || [],
+      topic: initialFilters?.topic || [],
+      channel: initialFilters?.channel || [],
+      access: initialFilters?.access || [],
+      sort: initialFilters?.sort || "newest",
+    });
+    setTax(taxonomies || { difficulties: [], topics: [], channels: [] });
+  }, [initialFilters, taxonomies]);
+
+  // ✅ 护栏：任何筛选变化都必须清掉 offset（永远从第 1 页开始）
+  // ✅ 同时：异步拉最新 counts（首屏更快）
+  const cleanedQueryString = useMemo(() => {
+    const params = new URLSearchParams(sp.toString());
+    params.delete("offset");
+    return params.toString();
   }, [sp]);
 
-  function update(next) {
-    const params = new URLSearchParams(sp.toString());
+  useEffect(() => {
+    let aborted = false;
 
-    // 重置分页
-    params.delete("offset");
+    async function run() {
+      setTaxLoading(true);
+      try {
+        // 只用当前 URL 的参数（已删除 offset）
+        const url = `/rsc-api/taxonomies?${cleanedQueryString}`;
+        const r = await fetch(url, { cache: "no-store" });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error || "taxonomies load failed");
+        if (aborted) return;
+        setTax({
+          difficulties: data.difficulties || [],
+          topics: data.topics || [],
+          channels: data.channels || [],
+        });
+      } catch {
+        // 失败不影响使用（保留旧 tax）
+      } finally {
+        if (!aborted) setTaxLoading(false);
+      }
+    }
 
-    const setList = (k, arr) => {
-      if (arr && arr.length) params.set(k, toComma(arr));
-      else params.delete(k);
+    run();
+    return () => {
+      aborted = true;
     };
+  }, [cleanedQueryString]);
 
-    setList("difficulty", next.difficulty);
-    setList("topic", next.topic);
-    setList("channel", next.channel);
-    setList("access", next.access);
+  function pushWith(next) {
+    const params = new URLSearchParams();
 
+    // ✅ 永远不带 offset
+    // sort
     if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
-    else params.delete("sort");
 
-    router.push(`/?${params.toString()}`);
-try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+    // access/difficulty/topic/channel
+    if (next.access?.length) params.set("access", next.access.join(","));
+    if (next.difficulty?.length) params.set("difficulty", next.difficulty.join(","));
+    if (next.topic?.length) params.set("topic", next.topic.join(","));
+    if (next.channel?.length) params.set("channel", next.channel.join(","));
+
+    const qs = params.toString();
+    router.push(qs ? `/?${qs}` : `/`);
+
+    // ✅ 参考站体验：筛选后回到顶部
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {}
   }
 
-  function toggle(arr, v) {
-    const s = new Set(arr || []);
-    if (s.has(v)) s.delete(v);
-    else s.add(v);
-    return Array.from(s);
+  function update(patch) {
+    const next = { ...filters, ...patch };
+
+    // 防止无意义 push
+    const same =
+      next.sort === filters.sort &&
+      sameArray(next.access, filters.access) &&
+      sameArray(next.difficulty, filters.difficulty) &&
+      sameArray(next.topic, filters.topic) &&
+      sameArray(next.channel, filters.channel);
+
+    setFilters(next);
+    if (!same) pushWith(next);
   }
+
+  const chipStyle = (active) => ({
+    padding: "6px 10px",
+    borderRadius: 999,
+    border: `1px solid ${active ? "#111" : "#ddd"}`,
+    background: active ? "#111" : "#fff",
+    color: active ? "#fff" : "#111",
+    cursor: "pointer",
+    fontSize: 13,
+    userSelect: "none",
+    whiteSpace: "nowrap",
+  });
+
+  const groupBox = {
+    border: "1px solid #eee",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+    background: "#fff",
+  };
 
   return (
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 12, marginBottom: 12 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
         <div style={{ fontWeight: 700 }}>筛选</div>
 
-        {/* sort */}
-        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ opacity: 0.7 }}>排序</span>
           <select
-            value={state.sort}
-            onChange={(e) => update({ ...state, sort: e.target.value })}
+            value={filters.sort}
+            onChange={(e) => update({ sort: e.target.value })}
+            style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd" }}
           >
             <option value="newest">最新</option>
             <option value="oldest">最早</option>
           </select>
-        </label>
+        </div>
 
-        {/* access */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ opacity: 0.7 }}>权限</span>
-          {["free", "member"].map((v) => (
-            <button
-              key={v}
-              onClick={() => update({ ...state, access: toggle(state.access, v) })}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: "1px solid #ddd",
-                background: state.access.includes(v) ? "#111" : "#fff",
-                color: state.access.includes(v) ? "#fff" : "#111",
-                cursor: "pointer",
-              }}
-            >
-              {v === "free" ? "免费" : "会员"}
-            </button>
-          ))}
+          <div
+            style={chipStyle(filters.access.includes("free"))}
+            onClick={() => update({ access: toggleInArray(filters.access, "free") })}
+          >
+            免费
+          </div>
+          <div
+            style={chipStyle(filters.access.includes("member"))}
+            onClick={() => update({ access: toggleInArray(filters.access, "member") })}
+          >
+            会员
+          </div>
         </div>
       </div>
 
-      {/* difficulty / topic / channel */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10, marginTop: 10 }}>
-        <Field
-          title="难度"
-          items={taxonomies.difficulties}
-          selected={state.difficulty}
-          onToggle={(slug) => update({ ...state, difficulty: toggle(state.difficulty, slug) })}
-        />
-        <Field
-          title="Topic"
-          items={taxonomies.topics}
-          selected={state.topic}
-          onToggle={(slug) => update({ ...state, topic: toggle(state.topic, slug) })}
-        />
-        <Field
-          title="Channel"
-          items={taxonomies.channels}
-          selected={state.channel}
-          onToggle={(slug) => update({ ...state, channel: toggle(state.channel, slug) })}
-        />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <div style={groupBox}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>难度</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(tax?.difficulties || []).map((x) => (
+              <div
+                key={x.slug}
+                style={chipStyle(filters.difficulty.includes(x.slug))}
+                onClick={() => update({ difficulty: toggleInArray(filters.difficulty, x.slug) })}
+                title={taxLoading ? "计数加载中..." : ""}
+              >
+                {x.slug}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  ({typeof x.count === "number" ? x.count : 0})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={groupBox}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Topic</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(tax?.topics || []).map((x) => (
+              <div
+                key={x.slug}
+                style={chipStyle(filters.topic.includes(x.slug))}
+                onClick={() => update({ topic: toggleInArray(filters.topic, x.slug) })}
+                title={taxLoading ? "计数加载中..." : ""}
+              >
+                {x.slug}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  ({typeof x.count === "number" ? x.count : 0})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={groupBox}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Channel</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(tax?.channels || []).map((x) => (
+              <div
+                key={x.slug}
+                style={chipStyle(filters.channel.includes(x.slug))}
+                onClick={() => update({ channel: toggleInArray(filters.channel, x.slug) })}
+                title={taxLoading ? "计数加载中..." : ""}
+              >
+                {x.slug}{" "}
+                <span style={{ opacity: 0.8 }}>
+                  ({typeof x.count === "number" ? x.count : 0})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div style={{ marginTop: 10 }}>
+      <div style={{ marginTop: 6 }}>
         <button
-          onClick={() => update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })}
-          style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}
+          onClick={() =>
+            update({ difficulty: [], topic: [], channel: [], access: [], sort: "newest" })
+          }
+          style={{
+            padding: "7px 12px",
+            borderRadius: 10,
+            border: "1px solid #ddd",
+            background: "#fff",
+            cursor: "pointer",
+          }}
         >
           清空筛选
         </button>
-      </div>
-    </div>
-  );
-}
-
-function Field({ title, items, selected, onToggle }) {
-  return (
-    <div style={{ border: "1px solid #f0f0f0", borderRadius: 12, padding: 10 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {(items || []).map((it) => {
-          const on = (selected || []).includes(it.slug);
-          return (
-            <button
-              key={it.slug}
-              onClick={() => onToggle(it.slug)}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 999,
-                border: "1px solid #ddd",
-                background: on ? "#111" : "#fff",
-                color: on ? "#fff" : "#111",
-                cursor: "pointer",
-              }}
-              title={typeof it.count === "number" ? `count: ${it.count}` : ""}
-            >
-              {it.name || it.slug}
-              {typeof it.count === "number" ? ` (${it.count})` : ""}
-            </button>
-          );
-        })}
+        {taxLoading ? <span style={{ marginLeft: 10, opacity: 0.6 }}>计数更新中…</span> : null}
       </div>
     </div>
   );
