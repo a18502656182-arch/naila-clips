@@ -48,157 +48,6 @@ function normRow(r) {
   };
 }
 
-function inc(map, key) {
-  if (!key) return;
-  map[key] = (map[key] || 0) + 1;
-}
-
-function sortByCountThenName(arr) {
-  return (arr || []).slice().sort((a, b) => {
-    const ca = a.count || 0;
-    const cb = b.count || 0;
-    if (cb !== ca) return cb - ca;
-    return String(a.slug).localeCompare(String(b.slug));
-  });
-}
-
-function matches(clip, f) {
-  if (f.access?.length && !f.access.includes(clip.access_tier)) return false;
-
-  // difficulty_slug 单值
-  if (f.difficulty?.length) {
-    if (!clip.difficulty || !f.difficulty.includes(clip.difficulty)) return false;
-  }
-
-  // topic/channel 数组
-  if (f.topic?.length) {
-    if (!(clip.topics || []).some((t) => f.topic.includes(t))) return false;
-  }
-  if (f.channel?.length) {
-    if (!(clip.channels || []).some((c) => f.channel.includes(c))) return false;
-  }
-  return true;
-}
-
-async function getTaxonomiesWithCounts(supabase, filters, sort) {
-  // 1) taxonomies 只取 type+slug（你表里没有 name）
-  const { data: taxRows, error: taxErr } = await supabase
-    .from("taxonomies")
-    .select("type, slug")
-    .order("type", { ascending: true })
-    .order("slug", { ascending: true });
-
-  if (taxErr) throw new Error(taxErr.message);
-
-  const difficulties = (taxRows || []).filter((t) => t.type === "difficulty");
-  const topics = (taxRows || []).filter((t) => t.type === "topic");
-  const channels = (taxRows || []).filter((t) => t.type === "channel");
-
-  // 2) 轻量拉 clips_view（用于 counts）
-  let q = supabase
-    .from("clips_view")
-    .select("access_tier,created_at,difficulty_slug,topic_slugs,channel_slugs")
-    .order("created_at", { ascending: sort === "oldest" });
-
-  if (filters.access.length) q = q.in("access_tier", filters.access);
-
-  const { data: rows, error } = await q;
-  if (error) throw new Error(error.message);
-
-  const normalized = (rows || []).map((r) => ({
-    access_tier: r.access_tier,
-    difficulty: typeof r.difficulty_slug === "string" ? r.difficulty_slug : null,
-    topics: Array.isArray(r.topic_slugs) ? r.topic_slugs : [],
-    channels: Array.isArray(r.channel_slugs) ? r.channel_slugs : [],
-  }));
-
-  const counts = {
-    difficulty: {},
-    access: {},
-    topic: {},
-    channel: {},
-  };
-
-  // difficulty counts（放开 difficulty）
-  {
-    const f = {
-      access: filters.access,
-      difficulty: [],
-      topic: filters.topic,
-      channel: filters.channel,
-    };
-    normalized
-      .filter((c) => matches(c, f))
-      .forEach((c) => inc(counts.difficulty, c.difficulty));
-  }
-
-  // access counts（放开 access）
-  {
-    const f = {
-      access: [],
-      difficulty: filters.difficulty,
-      topic: filters.topic,
-      channel: filters.channel,
-    };
-    normalized
-      .filter((c) => matches(c, f))
-      .forEach((c) => inc(counts.access, c.access_tier));
-  }
-
-  // topic counts（放开 topic）
-  {
-    const f = {
-      access: filters.access,
-      difficulty: filters.difficulty,
-      topic: [],
-      channel: filters.channel,
-    };
-    normalized
-      .filter((c) => matches(c, f))
-      .forEach((c) => (c.topics || []).forEach((t) => inc(counts.topic, t)));
-  }
-
-  // channel counts（放开 channel）
-  {
-    const f = {
-      access: filters.access,
-      difficulty: filters.difficulty,
-      topic: filters.topic,
-      channel: [],
-    };
-    normalized
-      .filter((c) => matches(c, f))
-      .forEach((c) => (c.channels || []).forEach((ch) => inc(counts.channel, ch)));
-  }
-
-  // 3) 合并 counts（并排序：count 高的在前）
-  const difficultiesWithCount = sortByCountThenName(
-    difficulties.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.difficulty[x.slug] || 0,
-    }))
-  );
-
-  const topicsWithCount = sortByCountThenName(
-    topics.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.topic[x.slug] || 0,
-    }))
-  );
-
-  const channelsWithCount = sortByCountThenName(
-    channels.map((x) => ({
-      slug: x.slug,
-      name: x.slug,
-      count: counts.channel[x.slug] || 0,
-    }))
-  );
-
-  return { difficulties: difficultiesWithCount, topics: topicsWithCount, channels: channelsWithCount };
-}
-
 export default async function Page({ searchParams }) {
   const supabase = getSupabaseAdmin();
 
@@ -210,15 +59,15 @@ export default async function Page({ searchParams }) {
   };
   const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
 
+  // 首屏固定 12（和接口默认一致）
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
+  const take = limit + 1;
 
-  // 首页首屏列表：clips_view 精确列
   let q = supabase
     .from("clips_view")
     .select(
-      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs",
-      { count: "exact" }
+      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
     );
 
   if (filters.access.length) q = q.in("access_tier", filters.access);
@@ -226,12 +75,11 @@ export default async function Page({ searchParams }) {
   if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
   if (filters.channel.length) q = q.overlaps("channel_slugs", filters.channel);
 
-  q = q.order("created_at", { ascending: sort === "oldest" }).range(offset, offset + limit - 1);
+  q = q
+    .order("created_at", { ascending: sort === "oldest" })
+    .range(offset, offset + take - 1);
 
-  const [{ data, error, count }, tax] = await Promise.all([
-    q,
-    getTaxonomiesWithCounts(supabase, filters, sort),
-  ]);
+  const { data, error } = await q;
 
   if (error) {
     return (
@@ -242,9 +90,15 @@ export default async function Page({ searchParams }) {
     );
   }
 
-  const items = (data || []).map(normRow);
-  const total = typeof count === "number" ? count : null;
-  const has_more = total == null ? items.length === limit : offset + limit < total;
+  const rows = data || [];
+  const has_more = rows.length > limit;
+  const pageRows = has_more ? rows.slice(0, limit) : rows;
+
+  const items = pageRows.map(normRow);
+
+  // taxonomies counts 已经改成客户端异步加载（FiltersClient 内部 fetch /rsc-api/taxonomies）
+  // 所以这里给空结构即可，首屏更快
+  const tax = { difficulties: [], topics: [], channels: [] };
 
   return (
     <div style={{ padding: 16 }}>
@@ -253,10 +107,10 @@ export default async function Page({ searchParams }) {
       <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
 
       <ClipsGridClient
-  key={JSON.stringify(searchParams || {})}
-  initialItems={items}
-  initialHasMore={has_more}
-/>
+        key={JSON.stringify(searchParams || {})}
+        initialItems={items}
+        initialHasMore={has_more}
+      />
     </div>
   );
 }
