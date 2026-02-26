@@ -210,7 +210,7 @@ export default async function Page({ searchParams }) {
   };
   const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
 
-  const limit = 1;
+  const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
 
   // 首页首屏列表：clips_view 精确列
