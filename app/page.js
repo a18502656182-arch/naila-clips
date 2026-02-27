@@ -9,6 +9,7 @@ import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
+export const dynamic = "force-static";
 export const revalidate = 30;
 
 function parseList(v) {
