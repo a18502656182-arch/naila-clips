@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
 function formatDate(d) {
@@ -20,8 +19,7 @@ function formatDuration(sec) {
 
 function isMp4(url) {
   if (!url) return false;
-  const u = String(url).toLowerCase();
-  return u.includes(".mp4");
+  return String(url).toLowerCase().includes(".mp4");
 }
 
 function HoverMedia({ coverUrl, videoUrl, title }) {
@@ -31,18 +29,11 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   useEffect(() => {
     const v = vref.current;
     if (!v) return;
-
     if (!hover) {
-      try {
-        v.pause();
-        v.removeAttribute("src");
-        v.load();
-      } catch {}
+      try { v.pause(); v.removeAttribute("src"); v.load(); } catch {}
       return;
     }
-
     if (!isMp4(videoUrl)) return;
-
     try {
       v.src = videoUrl;
       v.muted = true;
@@ -61,25 +52,15 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
       {coverUrl ? (
-        <img
-          src={coverUrl}
-          alt={title || ""}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-          loading="lazy"
-        />
+        <img src={coverUrl} alt={title || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
       ) : (
         <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
       )}
-
       <video
         ref={vref}
         style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          display: hover && isMp4(videoUrl) ? "block" : "none",
+          position: "absolute", inset: 0, width: "100%", height: "100%",
+          objectFit: "cover", display: hover && isMp4(videoUrl) ? "block" : "none",
         }}
         preload="none"
       />
@@ -87,22 +68,57 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   );
 }
 
-export default function ClipsGridClient({ initialItems, initialHasMore, queryKey }) {
-  const sp = useSearchParams();
-  const clientQueryKey = useMemo(() => sp.toString(), [sp]);
-
+// ✅ 这个组件现在接收 filters 作为 prop（由 FiltersClient 传入）
+// 当 filters 变化时，重新从第一页开始加载
+export default function ClipsGridClient({ initialItems, initialHasMore, filters }) {
   const [items, setItems] = useState(initialItems || []);
   const [hasMore, setHasMore] = useState(!!initialHasMore);
-
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
-
   const userScrolledRef = useRef(false);
   const autoFillOnceRef = useRef(false);
+  const isFirstRender = useRef(true);
+
+  // ✅ filters 变化时重新从头加载
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    // filters 变了，重置并重新请求第一页
+    reqVersionRef.current += 1;
+    const myVersion = reqVersionRef.current;
+
+    setItems([]);
+    setHasMore(false);
+    setLoading(true);
+    setErr("");
+    inFlightRef.current = false;
+    coolDownRef.current = false;
+    userScrolledRef.current = false;
+    autoFillOnceRef.current = false;
+
+    const qs = buildQS(filters, 0);
+    fetch(`/rsc-api/clips?${qs}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (myVersion !== reqVersionRef.current) return;
+        setItems(data.items || []);
+        setHasMore(!!data.has_more);
+      })
+      .catch((e) => {
+        if (myVersion !== reqVersionRef.current) return;
+        setErr(e?.message || "加载失败");
+      })
+      .finally(() => {
+        if (myVersion === reqVersionRef.current) setLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(filters)]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -113,19 +129,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
     return () => window.removeEventListener("scroll", onScroll, { passive: true });
   }, []);
 
-  // ✅ 关键：筛选 URL 变化 → RSC 直出新 initialItems
-  // 这里用 queryKey 作为重置触发点，防止旧列表残留。
-  useEffect(() => {
-    setItems(initialItems || []);
-    setHasMore(!!initialHasMore);
-    setLoading(false);
-    setErr("");
-    inFlightRef.current = false;
-    coolDownRef.current = false;
-    userScrolledRef.current = false;
-    autoFillOnceRef.current = false;
-    reqVersionRef.current += 1;
-  }, [queryKey, initialItems, initialHasMore]);
+  function buildQS(f, offset) {
+    const p = new URLSearchParams();
+    if (f?.sort) p.set("sort", f.sort);
+    if (f?.access?.length) f.access.forEach((v) => p.append("access", v));
+    if (f?.difficulty?.length) f.difficulty.forEach((v) => p.append("difficulty", v));
+    if (f?.topic?.length) f.topic.forEach((v) => p.append("topic", v));
+    if (f?.channel?.length) f.channel.forEach((v) => p.append("channel", v));
+    p.set("offset", String(offset));
+    return p.toString();
+  }
 
   async function loadMore() {
     if (!hasMore || loading || inFlightRef.current || coolDownRef.current) return;
@@ -137,13 +150,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
     const myVersion = ++reqVersionRef.current;
 
     try {
-      const offset = items.length;
-      const url = `/rsc-api/clips?${clientQueryKey}${clientQueryKey ? "&" : ""}offset=${offset}`;
-
-      const r = await fetch(url, { cache: "no-store" });
+      const qs = buildQS(filters, items.length);
+      const r = await fetch(`/rsc-api/clips?${qs}`, { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Load more failed");
-
       if (myVersion !== reqVersionRef.current) return;
 
       setItems((prev) => prev.concat(data.items || []));
@@ -153,7 +163,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
       setTimeout(() => (coolDownRef.current = false), 450);
     } catch (e) {
       if (myVersion !== reqVersionRef.current) return;
-      setErr(e?.message || "Load more failed");
+      setErr(e?.message || "加载失败");
     } finally {
       if (myVersion === reqVersionRef.current) {
         setLoading(false);
@@ -162,43 +172,31 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
     }
   }
 
-  // 自动补满一页（解决“页面不够高滑不动”）
+  // 自动补满一页
   useEffect(() => {
     if (!hasMore || loading) return;
     if (autoFillOnceRef.current) return;
-
     const t = setTimeout(() => {
-      const docH = document.documentElement.scrollHeight || 0;
-      const winH = window.innerHeight || 0;
-
-      if (docH <= winH + 120) {
+      if ((document.documentElement.scrollHeight || 0) <= (window.innerHeight || 0) + 120) {
         autoFillOnceRef.current = true;
         loadMore();
       }
     }, 250);
-
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, hasMore, loading]);
 
   const setSentinel = (el) => {
     if (!el) return;
-
-    if (el.__io) {
-      el.__io.disconnect();
-      el.__io = null;
-    }
-
+    if (el.__io) { el.__io.disconnect(); el.__io = null; }
     const io = new IntersectionObserver(
       (entries) => {
-        const first = entries[0];
-        if (!first?.isIntersecting) return;
+        if (!entries[0]?.isIntersecting) return;
         if (!userScrolledRef.current) return;
         loadMore();
       },
       { root: null, rootMargin: "140px 0px", threshold: 0.01 }
     );
-
     io.observe(el);
     el.__io = io;
   };
@@ -225,50 +223,47 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
       `}</style>
 
-      <div className="grid">
-        {items.map((r) => {
-          const isVip = r.access_tier === "vip";
-          const duration = formatDuration(r.duration_sec);
-          const dateStr = formatDate(r.created_at);
-
-          return (
-            <Link key={r.id} href={`/clips/${r.id}`} className="card">
-              <div className="coverWrap">
-                <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
-
-                <div className="pillRow">
-                  <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>{isVip ? "会员" : "免费"}</span>
-                  {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
+      {loading && items.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>
+      ) : (
+        <div className="grid">
+          {items.map((r) => {
+            const isVip = r.access_tier === "vip";
+            const duration = formatDuration(r.duration_sec);
+            const dateStr = formatDate(r.created_at);
+            return (
+              <Link key={r.id} href={`/clips/${r.id}`} className="card">
+                <div className="coverWrap">
+                  <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
+                  <div className="pillRow">
+                    <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>{isVip ? "会员" : "免费"}</span>
+                    {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
+                  </div>
+                  {duration ? <div className="duration">{duration}</div> : null}
                 </div>
-
-                {duration ? <div className="duration">{duration}</div> : null}
-              </div>
-
-              <div className="body">
-                <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
-                <p className="desc">{r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}</p>
-                <div className="meta">{dateStr}</div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+                <div className="body">
+                  <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
+                  <p className="desc">{r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}</p>
+                  <div className="meta">{dateStr}</div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       <div ref={setSentinel} style={{ height: 1, marginTop: 1 }} />
 
       <div className="foot">
         {err ? <div className="status" style={{ color: "crimson" }}>{err}</div> : null}
-
         {hasMore ? (
           <>
             <div className="status">{loading ? "加载中..." : "继续下滑自动加载"}</div>
-            <button className="btn" onClick={loadMore} disabled={loading}>
-              {loading ? "加载中…" : "加载更多"}
-            </button>
+            <button className="btn" onClick={loadMore} disabled={loading}>{loading ? "加载中…" : "加载更多"}</button>
           </>
-        ) : (
+        ) : items.length > 0 ? (
           <div className="status">没有更多了</div>
-        )}
+        ) : null}
       </div>
     </div>
   );
