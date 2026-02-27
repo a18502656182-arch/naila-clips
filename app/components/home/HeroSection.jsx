@@ -14,21 +14,22 @@ export default function HeroSection({ children }) {
         overflow: "hidden",
       }}
     >
-      <style jsx>{`
-        .grid {
+      {/* ✅ 注意：这里用普通 <style>，不要用 <style jsx> */}
+      <style>{`
+        .heroGrid {
           display: grid;
           grid-template-columns: 1.15fr 0.85fr;
           gap: 16px;
           align-items: stretch;
         }
         @media (max-width: 960px) {
-          .grid {
+          .heroGrid {
             grid-template-columns: 1fr;
           }
         }
       `}</style>
 
-      <div className="grid">
+      <div className="heroGrid">
         <div
           style={{
             borderRadius: THEME.radii.md,
@@ -95,7 +96,6 @@ export default function HeroSection({ children }) {
           <div style={{ marginTop: 14 }}>{children?.[0] || null}</div>
         </div>
 
-        {/* ✅ 移动端会自动变成“示例卡在下面” */}
         <div style={{ display: "flex", alignItems: "stretch" }}>{children?.[1] || null}</div>
       </div>
     </section>
