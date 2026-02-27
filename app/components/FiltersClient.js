@@ -14,7 +14,7 @@ function toggleInArray(arr, value) {
 }
 
 function joinSelected(arr) {
-  const a = Array.isArray(arr) ? a : [];
+  const a = Array.isArray(arr) ? arr : [];
   if (!a.length) return "全部";
   return a.join("、");
 }
