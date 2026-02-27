@@ -101,111 +101,117 @@ export default function FeaturedExamples({ featured }) {
   const difficultyPill = featured.difficulty ? <Pill tone="warn">{String(featured.difficulty)}</Pill> : null;
 
   return (
-    <Link
-      href={`/clips/${featured.id}`}
-      style={{
-        width: "100%",
-        borderRadius: THEME.radii.lg,
-        background: THEME.colors.surface,
-        border: `1px solid ${THEME.colors.border}`,
-        boxShadow: THEME.colors.shadow,
-        overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        textDecoration: "none",
-        color: "inherit",
-        transform: "translateY(0)",
-        transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
-      }}
-    >
-      <style jsx>{`
-        a:hover {
+    <>
+      {/* ✅ 普通 <style>：用于 hover，不用 styled-jsx */}
+      <style>{`
+        a.featuredCard {
+          transform: translateY(0);
+          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }
+        a.featuredCard:hover {
           transform: translateY(-1px);
           box-shadow: ${THEME.colors.shadowHover};
           border-color: ${THEME.colors.border2};
         }
       `}</style>
 
-      <div style={{ position: "relative" }}>
-        {cover ? (
-          <img
-            src={cover}
-            alt={title}
-            style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
-            loading="eager"
-          />
-        ) : (
-          <CoverPlaceholder />
-        )}
+      <Link
+        href={`/clips/${featured.id}`}
+        className="featuredCard"
+        style={{
+          width: "100%",
+          borderRadius: THEME.radii.lg,
+          background: THEME.colors.surface,
+          border: `1px solid ${THEME.colors.border}`,
+          boxShadow: THEME.colors.shadow,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          textDecoration: "none",
+          color: "inherit",
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          {cover ? (
+            <img
+              src={cover}
+              alt={title}
+              style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
+              loading="eager"
+            />
+          ) : (
+            <CoverPlaceholder />
+          )}
 
-        <div
-          style={{
-            position: "absolute",
-            left: 10,
-            top: 10,
-            width: 34,
-            height: 34,
-            borderRadius: 999,
-            background: "rgba(255,255,255,0.72)",
-            border: `1px solid ${THEME.colors.border}`,
-            display: "grid",
-            placeItems: "center",
-            color: THEME.colors.ink,
-            fontSize: 16,
-            userSelect: "none",
-          }}
-          title="收藏（实验线 UI 占位）"
-          aria-label="bookmark"
-          onClick={(e) => e.preventDefault()}
-        >
-          ♡
-        </div>
-
-        <div style={{ position: "absolute", left: 52, top: 12 }}>{accessPill}</div>
-
-        {duration ? (
           <div
             style={{
               position: "absolute",
-              right: 10,
-              bottom: 10,
-              background: "rgba(11,18,32,0.78)",
-              color: "#fff",
-              fontSize: 12,
-              padding: "4px 6px",
-              borderRadius: 8,
-              letterSpacing: "0.02em",
+              left: 10,
+              top: 10,
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.72)",
+              border: `1px solid ${THEME.colors.border}`,
+              display: "grid",
+              placeItems: "center",
+              color: THEME.colors.ink,
+              fontSize: 16,
+              userSelect: "none",
             }}
+            title="收藏（实验线 UI 占位）"
+            aria-label="bookmark"
+            onClick={(e) => e.preventDefault()}
           >
-            {duration}
+            ♡
           </div>
-        ) : null}
-      </div>
 
-      <div style={{ padding: 14 }}>
-        <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>{title}</div>
-        <div style={{ color: THEME.colors.muted, fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
+          <div style={{ position: "absolute", left: 52, top: 12 }}>{accessPill}</div>
 
-        <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {channels.map((t) => (
-            <Pill key={`c-${t}`} tone="info">
-              {String(t)}
-            </Pill>
-          ))}
-          {topics.map((t) => (
-            <Pill key={`t-${t}`} tone="cyan">
-              {String(t)}
-            </Pill>
-          ))}
+          {duration ? (
+            <div
+              style={{
+                position: "absolute",
+                right: 10,
+                bottom: 10,
+                background: "rgba(11,18,32,0.78)",
+                color: "#fff",
+                fontSize: 12,
+                padding: "4px 6px",
+                borderRadius: 8,
+                letterSpacing: "0.02em",
+              }}
+            >
+              {duration}
+            </div>
+          ) : null}
         </div>
 
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{difficultyPill}</div>
-          <div style={{ color: THEME.colors.faint, fontSize: 12 }}>
-            {featured.created_at ? String(featured.created_at).slice(0, 10) : ""}
+        <div style={{ padding: 14 }}>
+          <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>{title}</div>
+          <div style={{ color: THEME.colors.muted, fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
+
+          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {channels.map((t) => (
+              <Pill key={`c-${t}`} tone="info">
+                {String(t)}
+              </Pill>
+            ))}
+            {topics.map((t) => (
+              <Pill key={`t-${t}`} tone="cyan">
+                {String(t)}
+              </Pill>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{difficultyPill}</div>
+            <div style={{ color: THEME.colors.faint, fontSize: 12 }}>
+              {featured.created_at ? String(featured.created_at).slice(0, 10) : ""}
+            </div>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </>
   );
 }
