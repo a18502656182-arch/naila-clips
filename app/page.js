@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 
 import HomeClient from "./components/HomeClient";
+import UserMenuClient from "./components/UserMenuClient";
 import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import FeaturedExamples from "./components/home/FeaturedExamples";
@@ -106,10 +107,7 @@ export default async function Page() {
               <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕 · 词汇卡片</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <a href="/login" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none" }}>登录</a>
-            <a href="/register" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, background: THEME.colors.ink, color: "#fff", textDecoration: "none" }}>注册</a>
-          </div>
+          <UserMenuClient />
         </div>
       </div>
 
