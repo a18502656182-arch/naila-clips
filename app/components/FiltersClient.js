@@ -4,11 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { THEME } from "./home/theme";
 
-function toggleInArray(arr, value) {
-  const set = new Set(arr || []);
-  if (set.has(value)) set.delete(value);
-  else set.add(value);
-  return Array.from(set);
+function firstOrEmpty(arr) {
+  return Array.isArray(arr) && arr.length ? arr[0] : "";
 }
 
 function sameArray(a, b) {
@@ -24,6 +21,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   const router = useRouter();
   const sp = useSearchParams();
 
+  // 内部仍用数组（兼容你原逻辑），但 UI 下拉框只控制“单选”
   const [filters, setFilters] = useState(() => ({
     difficulty: initialFilters?.difficulty || [],
     topic: initialFilters?.topic || [],
@@ -84,12 +82,14 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   function pushWith(next) {
     const params = new URLSearchParams();
 
+    // sort
     if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
 
-    if (next.access?.length) params.set("access", next.access.join(","));
-    if (next.difficulty?.length) params.set("difficulty", next.difficulty.join(","));
-    if (next.topic?.length) params.set("topic", next.topic.join(","));
-    if (next.channel?.length) params.set("channel", next.channel.join(","));
+    // 下拉框单选：如果数组有值，就取第一个写入
+    if (next.access?.length) params.set("access", next.access[0]);
+    if (next.difficulty?.length) params.set("difficulty", next.difficulty[0]);
+    if (next.topic?.length) params.set("topic", next.topic[0]);
+    if (next.channel?.length) params.set("channel", next.channel[0]);
 
     const qs = params.toString();
     router.push(qs ? `/?${qs}` : `/`);
@@ -113,48 +113,74 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (!same) pushWith(next);
   }
 
+  // 当前选中值（单选）
+  const selDifficulty = firstOrEmpty(filters.difficulty);
+  const selTopic = firstOrEmpty(filters.topic);
+  const selChannel = firstOrEmpty(filters.channel);
+  const selAccess = firstOrEmpty(filters.access);
+
   return (
     <div>
       <style jsx>{`
-        .wrap {
+        details.panel {
           border: 1px solid ${THEME.colors.border};
           border-radius: ${THEME.radii.lg}px;
           background: rgba(255, 255, 255, 0.72);
           box-shadow: 0 10px 26px rgba(11, 18, 32, 0.08);
-          padding: 12px;
+          padding: 10px 12px;
         }
 
-        .topRow {
-          display: flex;
-          gap: 10px;
+        summary.head {
+          list-style: none;
+          cursor: pointer;
+          display: none;
           align-items: center;
-          flex-wrap: wrap;
-          margin-bottom: 10px;
+          justify-content: space-between;
+          gap: 10px;
+          user-select: none;
+        }
+        summary.head::-webkit-details-marker {
+          display: none;
         }
 
-        .title {
+        .headLeft {
+          display: flex;
+          align-items: center;
+          gap: 10px;
           font-weight: 950;
           color: ${THEME.colors.ink};
-          margin-right: 4px;
         }
 
-        .control {
+        .badge {
+          font-size: 12px;
+          color: ${THEME.colors.faint};
+        }
+
+        .row {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+          gap: 10px;
+          align-items: end;
+        }
+
+        .field {
           display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
         }
 
         .label {
           font-size: 12px;
           color: ${THEME.colors.faint};
-          display: inline-flex;
+          display: flex;
           align-items: center;
           gap: 6px;
+          white-space: nowrap;
         }
 
         .select {
-          padding: 7px 10px;
+          padding: 8px 10px;
           border-radius: 12px;
           border: 1px solid ${THEME.colors.border2};
           background: ${THEME.colors.surface};
@@ -163,69 +189,11 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           outline: none;
         }
 
-        .chip {
-          padding: 6px 10px;
-          border-radius: 999px;
-          border: 1px solid ${THEME.colors.border2};
-          background: rgba(255, 255, 255, 0.9);
-          color: ${THEME.colors.ink};
-          cursor: pointer;
-          font-size: 13px;
-          user-select: none;
-          white-space: nowrap;
-          transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, border-color 140ms ease;
-        }
-        .chip:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.10);
-          border-color: ${THEME.colors.border2};
-        }
-
-        .chipActive {
-          border-color: rgba(79, 70, 229, 0.30);
-          background: rgba(79, 70, 229, 0.12);
-          color: #3730a3;
-        }
-
-        .chipCount {
-          opacity: 0.7;
-          margin-left: 6px;
-          font-size: 12px;
-        }
-
-        .grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 10px;
-        }
-
-        .group {
-          border: 1px solid ${THEME.colors.border};
-          border-radius: ${THEME.radii.md}px;
-          padding: 12px;
-          background: rgba(255, 255, 255, 0.88);
-        }
-
-        .groupTitle {
-          font-weight: 900;
-          color: ${THEME.colors.ink};
-          margin-bottom: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
-        .chips {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
         .foot {
           margin-top: 10px;
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 10px;
           flex-wrap: wrap;
         }
@@ -240,116 +208,103 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           font-size: 13px;
         }
         .clearBtn:hover {
-          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.10);
+          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.1);
         }
 
-        .loadingHint {
-          opacity: 0.65;
-          color: ${THEME.colors.faint};
+        .hint {
           font-size: 12px;
+          color: ${THEME.colors.faint};
         }
 
+        /* 移动端：变成折叠面板 + 控件上下排列 */
         @media (max-width: 960px) {
-          .grid {
+          summary.head {
+            display: flex;
+            padding: 2px 2px 10px 2px;
+          }
+          .row {
             grid-template-columns: 1fr;
           }
         }
       `}</style>
 
-      <div className="wrap">
-        <div className="topRow">
-          <div className="title">筛选</div>
+      <details className="panel" open>
+        <summary className="head">
+          <div className="headLeft">
+            <span>筛选</span>
+            {taxLoading ? <span className="badge">计数更新中…</span> : <span className="badge">点击展开/收起</span>}
+          </div>
+          <span style={{ color: THEME.colors.faint, fontSize: 12 }}>⌄</span>
+        </summary>
 
-          <div className="control">
-            <span className="label">排序</span>
-            <select
-              value={filters.sort}
-              onChange={(e) => update({ sort: e.target.value })}
-              className="select"
-            >
-              <option value="newest">最新</option>
-              <option value="oldest">最早</option>
+        <div className="row">
+          <div className="field">
+            <div className="label">上传时间</div>
+            <select value={filters.sort} onChange={(e) => update({ sort: e.target.value })} className="select">
+              <option value="newest">最新优先</option>
+              <option value="oldest">最早优先</option>
             </select>
           </div>
 
-          <div className="control">
-            <span className="label">权限</span>
-            <div
-              className={`chip ${filters.access.includes("free") ? "chipActive" : ""}`}
-              onClick={() => update({ access: toggleInArray(filters.access, "free") })}
+          <div className="field">
+            <div className="label">视频难度</div>
+            <select
+              value={selDifficulty}
+              onChange={(e) => update({ difficulty: e.target.value ? [e.target.value] : [] })}
+              className="select"
             >
-              免费
-            </div>
-            <div
-              className={`chip ${filters.access.includes("vip") ? "chipActive" : ""}`}
-              onClick={() => update({ access: toggleInArray(filters.access, "vip") })}
+              <option value="">全部</option>
+              {(tax?.difficulties || []).map((x) => (
+                <option key={x.slug} value={x.slug}>
+                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <div className="label">访问权限</div>
+            <select
+              value={selAccess}
+              onChange={(e) => update({ access: e.target.value ? [e.target.value] : [] })}
+              className="select"
             >
-              会员
-            </div>
+              <option value="">全部</option>
+              <option value="free">免费</option>
+              <option value="vip">会员</option>
+            </select>
           </div>
 
-          {taxLoading ? <span className="loadingHint">计数更新中…</span> : null}
-        </div>
-
-        <div className="grid">
-          <div className="group">
-            <div className="groupTitle">难度</div>
-            <div className="chips">
-              {(tax?.difficulties || []).map((x) => {
-                const active = filters.difficulty.includes(x.slug);
-                return (
-                  <div
-                    key={x.slug}
-                    className={`chip ${active ? "chipActive" : ""}`}
-                    onClick={() => update({ difficulty: toggleInArray(filters.difficulty, x.slug) })}
-                    title={taxLoading ? "计数加载中..." : ""}
-                  >
-                    {x.slug}
-                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="field">
+            <div className="label">视频话题</div>
+            <select
+              value={selTopic}
+              onChange={(e) => update({ topic: e.target.value ? [e.target.value] : [] })}
+              className="select"
+            >
+              <option value="">全部</option>
+              {(tax?.topics || []).map((x) => (
+                <option key={x.slug} value={x.slug}>
+                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="group">
-            <div className="groupTitle">Topic</div>
-            <div className="chips">
-              {(tax?.topics || []).map((x) => {
-                const active = filters.topic.includes(x.slug);
-                return (
-                  <div
-                    key={x.slug}
-                    className={`chip ${active ? "chipActive" : ""}`}
-                    onClick={() => update({ topic: toggleInArray(filters.topic, x.slug) })}
-                    title={taxLoading ? "计数加载中..." : ""}
-                  >
-                    {x.slug}
-                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="group">
-            <div className="groupTitle">Channel</div>
-            <div className="chips">
-              {(tax?.channels || []).map((x) => {
-                const active = filters.channel.includes(x.slug);
-                return (
-                  <div
-                    key={x.slug}
-                    className={`chip ${active ? "chipActive" : ""}`}
-                    onClick={() => update({ channel: toggleInArray(filters.channel, x.slug) })}
-                    title={taxLoading ? "计数加载中..." : ""}
-                  >
-                    {x.slug}
-                    <span className="chipCount">({typeof x.count === "number" ? x.count : 0})</span>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="field">
+            <div className="label">视频频道</div>
+            <select
+              value={selChannel}
+              onChange={(e) => update({ channel: e.target.value ? [e.target.value] : [] })}
+              className="select"
+            >
+              <option value="">全部</option>
+              {(tax?.channels || []).map((x) => (
+                <option key={x.slug} value={x.slug}>
+                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -360,8 +315,10 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           >
             清空筛选
           </button>
+
+          <div className="hint">{taxLoading ? "计数更新中…" : "筛选不会影响示例视频（固定免费示例）"}</div>
         </div>
-      </div>
+      </details>
     </div>
   );
 }
