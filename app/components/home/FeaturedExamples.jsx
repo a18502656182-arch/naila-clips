@@ -102,7 +102,6 @@ export default function FeaturedExamples({ featured }) {
 
   return (
     <>
-      {/* ✅ 普通 <style>：用于 hover，不用 styled-jsx */}
       <style>{`
         a.featuredCard {
           transform: translateY(0);
@@ -143,6 +142,7 @@ export default function FeaturedExamples({ featured }) {
             <CoverPlaceholder />
           )}
 
+          {/* ✅ 收藏按钮：纯展示占位，不绑定 onClick（避免 Server->Client 事件传递报错） */}
           <div
             style={{
               position: "absolute",
@@ -158,10 +158,9 @@ export default function FeaturedExamples({ featured }) {
               color: THEME.colors.ink,
               fontSize: 16,
               userSelect: "none",
+              pointerEvents: "none", // ✅ 防止点到它影响 Link 点击
             }}
-            title="收藏（实验线 UI 占位）"
             aria-label="bookmark"
-            onClick={(e) => e.preventDefault()}
           >
             ♡
           </div>
