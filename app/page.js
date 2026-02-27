@@ -1,17 +1,15 @@
 // app/page.js
-import { Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
+import { Suspense } from "react";
 
-import FiltersClient from "./components/FiltersClient";
-import ClipsGridClient from "./components/ClipsGridClient";
+import HomeClient from "./components/HomeClient";
 import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
-// ✅ 关键：静态页面，不读 searchParams，Vercel 可以边缘缓存
 export const revalidate = 60;
 
 function getSupabaseAdmin() {
@@ -38,7 +36,6 @@ function normRow(r) {
   };
 }
 
-// ✅ 首屏 12 条（纯静态，无筛选参数）
 const fetchInitialClips = unstable_cache(
   async () => {
     const supabase = getSupabaseAdmin();
@@ -46,7 +43,7 @@ const fetchInitialClips = unstable_cache(
       .from("clips_view")
       .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
       .order("created_at", { ascending: false })
-      .range(0, 12); // limit+1=13，判断 has_more
+      .range(0, 12);
     if (error) throw error;
     const rows = data || [];
     const has_more = rows.length > 12;
@@ -56,7 +53,6 @@ const fetchInitialClips = unstable_cache(
   { revalidate: 60 }
 );
 
-// ✅ 固定免费示例
 const fetchFeatured = unstable_cache(
   async () => {
     const supabase = getSupabaseAdmin();
@@ -74,7 +70,6 @@ const fetchFeatured = unstable_cache(
 );
 
 export default async function Page() {
-  // ✅ 不接收 searchParams，页面是纯静态的
   let items = [];
   let has_more = false;
   try {
@@ -82,11 +77,7 @@ export default async function Page() {
     items = r.items;
     has_more = r.has_more;
   } catch (e) {
-    return (
-      <div style={{ padding: 16 }}>
-        <pre style={{ color: "crimson" }}>{e?.message}</pre>
-      </div>
-    );
+    return <div style={{ padding: 16 }}><pre style={{ color: "crimson" }}>{e?.message}</pre></div>;
   }
 
   let featured = null;
@@ -95,43 +86,29 @@ export default async function Page() {
 
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      {/* 顶部导航 */}
-      <div
-        style={{
-          position: "sticky", top: 0, zIndex: 20,
-          background: "rgba(246,247,251,0.86)",
-          backdropFilter: "blur(10px)",
-          borderBottom: `1px solid ${THEME.colors.border}`,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1200, margin: "0 auto", padding: "12px 16px",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-          }}
-        >
+      <div style={{
+        position: "sticky", top: 0, zIndex: 20,
+        background: "rgba(246,247,251,0.86)", backdropFilter: "blur(10px)",
+        borderBottom: `1px solid ${THEME.colors.border}`,
+      }}>
+        <div style={{
+          maxWidth: 1200, margin: "0 auto", padding: "12px 16px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 34, height: 34, borderRadius: 12,
-                background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
-                display: "grid", placeItems: "center", color: "#fff", fontWeight: 900,
-              }}
-            >
-              EC
-            </div>
+            <div style={{
+              width: 34, height: 34, borderRadius: 12,
+              background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
+              display: "grid", placeItems: "center", color: "#fff", fontWeight: 900,
+            }}>EC</div>
             <div style={{ lineHeight: 1.15 }}>
               <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>油管英语场景库</div>
               <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕 · 词汇卡片</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <a href="/login" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none" }}>
-              登录
-            </a>
-            <a href="/register" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, background: THEME.colors.ink, color: "#fff", textDecoration: "none" }}>
-              注册
-            </a>
+            <a href="/login" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none" }}>登录</a>
+            <a href="/register" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, background: THEME.colors.ink, color: "#fff", textDecoration: "none" }}>注册</a>
           </div>
         </div>
       </div>
@@ -146,12 +123,7 @@ export default async function Page() {
           <SectionTitle title="全部视频" />
           <Suspense fallback={<div style={{ padding: 20, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>}>
             <div style={{ marginTop: 10 }}>
-              {/* ✅ FiltersClient 不再接收 initialFilters（筛选完全客户端管理） */}
-              <FiltersClient />
-            </div>
-            <div style={{ marginTop: 14 }}>
-              {/* ✅ 首屏数据由 RSC 提供，后续加载/筛选由客户端接管 */}
-              <ClipsGridClient initialItems={items} initialHasMore={has_more} />
+              <HomeClient initialItems={items} initialHasMore={has_more} />
             </div>
           </Suspense>
         </div>
