@@ -1,5 +1,6 @@
 // app/page.js
 import { createClient } from "@supabase/supabase-js";
+import { Suspense } from "react";
 import FiltersClient from "./components/FiltersClient";
 import ClipsGridClient from "./components/ClipsGridClient";
 
@@ -54,7 +55,7 @@ export default async function Page() {
     const { data, error } = await supabase
       .from("clips_view")
       .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
-      .order("created_at", { ascending: false }) // 默认 newest
+      .order("created_at", { ascending: false })
       .range(0, take - 1);
 
     if (error) throw error;
@@ -90,7 +91,6 @@ export default async function Page() {
 
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      {/* 顶部导航保持原样... */}
       <div style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(246,247,251,0.86)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${THEME.colors.border}` }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -115,12 +115,17 @@ export default async function Page() {
 
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
-          <div style={{ marginTop: 10 }}>
-            <FiltersClient taxonomies={tax} />
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <ClipsGridClient initialItems={items} initialHasMore={has_more} />
-          </div>
+          
+          {/* ✅ 修复打包报错：强制要求带有 useSearchParams 的客户端组件被 Suspense 包裹 */}
+          <Suspense fallback={<div style={{ padding: 20, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>}>
+            <div style={{ marginTop: 10 }}>
+              <FiltersClient taxonomies={tax} />
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <ClipsGridClient initialItems={items} initialHasMore={has_more} />
+            </div>
+          </Suspense>
+          
         </div>
       </div>
     </div>
