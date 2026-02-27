@@ -1,4 +1,5 @@
 // app/components/home/FeaturedExamples.jsx
+import Link from "next/link";
 import { THEME } from "./theme";
 
 function formatDuration(sec) {
@@ -25,7 +26,7 @@ function Pill({ children, tone = "neutral" }) {
         display: "inline-flex",
         alignItems: "center",
         padding: "4px 8px",
-        borderRadius: THEME.radii.pill,
+        borderRadius: 999,
         background: t.bg,
         color: t.fg,
         fontSize: 12,
@@ -49,7 +50,6 @@ function CoverPlaceholder() {
         position: "relative",
       }}
     >
-      {/* 细网格纹理：高级占位，不显廉价 */}
       <div
         style={{
           position: "absolute",
@@ -57,33 +57,52 @@ function CoverPlaceholder() {
           backgroundImage:
             "linear-gradient(rgba(11,18,32,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(11,18,32,0.08) 1px, transparent 1px)",
           backgroundSize: "22px 22px",
-          opacity: 0.25,
+          opacity: 0.22,
           pointerEvents: "none",
         }}
       />
       <div style={{ position: "absolute", left: 14, bottom: 14, color: THEME.colors.ink, opacity: 0.65, fontWeight: 800 }}>
-        示例视频
+        示例视频（免费）
       </div>
     </div>
   );
 }
 
 export default function FeaturedExamples({ featured }) {
-  const cover = featured?.cover_url || featured?.video_url || "";
-  const duration = formatDuration(featured?.duration_sec);
+  if (!featured?.id) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          borderRadius: THEME.radii.lg,
+          background: THEME.colors.surface,
+          border: `1px solid ${THEME.colors.border}`,
+          boxShadow: THEME.colors.shadow,
+          overflow: "hidden",
+        }}
+      >
+        <CoverPlaceholder />
+        <div style={{ padding: 14, color: THEME.colors.faint, fontSize: 13 }}>暂无示例视频</div>
+      </div>
+    );
+  }
 
-  const title = featured?.title || "示例视频";
-  const desc = featured?.description || "打开一条场景短片，边看边学地道表达。";
+  const cover = featured.cover_url || featured.video_url || "";
+  const duration = formatDuration(featured.duration_sec);
 
-  const topics = Array.isArray(featured?.topics) ? featured.topics.slice(0, 2) : [];
-  const channels = Array.isArray(featured?.channels) ? featured.channels.slice(0, 2) : [];
+  const title = featured.title || `Clip #${featured.id}`;
+  const desc = featured.description || "打开一条场景短片，边看边学地道表达。";
 
-  const isVip = featured?.access_tier === "vip";
-  const accessPill = isVip ? <Pill tone="vip">会员专享</Pill> : <Pill tone="free">免费</Pill>;
-  const difficultyPill = featured?.difficulty ? <Pill tone="warn">{String(featured.difficulty)}</Pill> : null;
+  const topics = Array.isArray(featured.topics) ? featured.topics.slice(0, 2) : [];
+  const channels = Array.isArray(featured.channels) ? featured.channels.slice(0, 2) : [];
+
+  const isVip = featured.access_tier === "vip";
+  const accessPill = isVip ? <Pill tone="vip">会员专享</Pill> : <Pill tone="free">免费示例</Pill>;
+  const difficultyPill = featured.difficulty ? <Pill tone="warn">{String(featured.difficulty)}</Pill> : null;
 
   return (
-    <div
+    <Link
+      href={`/clips/${featured.id}`}
       style={{
         width: "100%",
         borderRadius: THEME.radii.lg,
@@ -93,8 +112,20 @@ export default function FeaturedExamples({ featured }) {
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        textDecoration: "none",
+        color: "inherit",
+        transform: "translateY(0)",
+        transition: "transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease",
       }}
     >
+      <style jsx>{`
+        a:hover {
+          transform: translateY(-1px);
+          box-shadow: ${THEME.colors.shadowHover};
+          border-color: ${THEME.colors.border2};
+        }
+      `}</style>
+
       <div style={{ position: "relative" }}>
         {cover ? (
           <img
@@ -107,7 +138,6 @@ export default function FeaturedExamples({ featured }) {
           <CoverPlaceholder />
         )}
 
-        {/* 收藏按钮：产品化工具感（半透明 + 细边框） */}
         <div
           style={{
             position: "absolute",
@@ -126,14 +156,13 @@ export default function FeaturedExamples({ featured }) {
           }}
           title="收藏（实验线 UI 占位）"
           aria-label="bookmark"
+          onClick={(e) => e.preventDefault()}
         >
           ♡
         </div>
 
-        {/* Access 标签 */}
         <div style={{ position: "absolute", left: 52, top: 12 }}>{accessPill}</div>
 
-        {/* 时长角标 */}
         {duration ? (
           <div
             style={{
@@ -154,9 +183,7 @@ export default function FeaturedExamples({ featured }) {
       </div>
 
       <div style={{ padding: 14 }}>
-        <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>
-          {title}
-        </div>
+        <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>{title}</div>
         <div style={{ color: THEME.colors.muted, fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
 
         <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -173,15 +200,12 @@ export default function FeaturedExamples({ featured }) {
         </div>
 
         <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {difficultyPill}
-          </div>
-
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{difficultyPill}</div>
           <div style={{ color: THEME.colors.faint, fontSize: 12 }}>
-            {featured?.created_at ? String(featured.created_at).slice(0, 10) : ""}
+            {featured.created_at ? String(featured.created_at).slice(0, 10) : ""}
           </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
