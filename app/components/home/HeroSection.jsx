@@ -14,14 +14,21 @@ export default function HeroSection({ children }) {
         overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1.15fr 0.85fr",
-          gap: 16,
-          alignItems: "stretch",
-        }}
-      >
+      <style jsx>{`
+        .grid {
+          display: grid;
+          grid-template-columns: 1.15fr 0.85fr;
+          gap: 16px;
+          align-items: stretch;
+        }
+        @media (max-width: 960px) {
+          .grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
+      <div className="grid">
         <div
           style={{
             borderRadius: THEME.radii.md,
@@ -69,7 +76,7 @@ export default function HeroSection({ children }) {
                   color: "#fff",
                   textDecoration: "none",
                   padding: "10px 14px",
-                  borderRadius: THEME.radii.pill,
+                  borderRadius: 999,
                   fontSize: 13,
                   fontWeight: 800,
                   boxShadow: "0 12px 26px rgba(11,18,32,0.18)",
@@ -78,15 +85,7 @@ export default function HeroSection({ children }) {
                 立即观看示例
               </a>
 
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  color: THEME.colors.faint,
-                  fontSize: 13,
-                }}
-              >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: THEME.colors.faint, fontSize: 13 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: THEME.colors.good }} />
                 持续更新中
               </span>
@@ -96,6 +95,7 @@ export default function HeroSection({ children }) {
           <div style={{ marginTop: 14 }}>{children?.[0] || null}</div>
         </div>
 
+        {/* ✅ 移动端会自动变成“示例卡在下面” */}
         <div style={{ display: "flex", alignItems: "stretch" }}>{children?.[1] || null}</div>
       </div>
     </section>
