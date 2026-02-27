@@ -1,9 +1,6 @@
 "use client";
 
 // app/clips/[id]/page.js
-// ✅ 完整详情页：视频播放 + 字幕同步 + 词汇卡 + 会员判断 + 手机/电脑双布局
-// 从 main 分支移植，套用 rsc 分支视觉风格
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -16,8 +13,7 @@ async function fetchJson(url) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch {}
   if (!res.ok) {
-    const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
-    const err = new Error(msg);
+    const err = new Error((data && (data.error || data.message)) || `HTTP ${res.status}`);
     err.status = res.status;
     throw err;
   }
@@ -32,8 +28,7 @@ function fmtSec(s) {
 
 function loadFavVocab() {
   try {
-    const raw = localStorage.getItem("vocab_favs_v1");
-    const arr = raw ? JSON.parse(raw) : [];
+    const arr = JSON.parse(localStorage.getItem("vocab_favs_v1") || "[]");
     return new Set(Array.isArray(arr) ? arr.map(String) : []);
   } catch { return new Set(); }
 }
@@ -71,20 +66,18 @@ function findSegIdxBySegmentId(segments, segmentId) {
   return -1;
 }
 
-function escapeRegExp(str) {
-  return String(str || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 function buildHighlighter(terms) {
   const clean = Array.from(new Set((terms || []).map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
   if (!clean.length) return (text) => text || "-";
-  const re = new RegExp(`(${clean.map(escapeRegExp).join("|")})`, "ig");
+  const re = new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig");
   return (text) => {
     const s = String(text || "");
     if (!s) return "-";
-    return s.split(re).map((p, i) => {
-      const hit = clean.some(t => t.toLowerCase() === p.toLowerCase());
-      return hit ? <mark key={i} style={{ background: "#fff1b8", padding: "0 3px", borderRadius: 6 }}>{p}</mark> : <span key={i}>{p}</span>;
-    });
+    return s.split(re).map((p, i) =>
+      clean.some(t => t.toLowerCase() === p.toLowerCase())
+        ? <mark key={i} style={{ background: "#fff1b8", padding: "0 3px", borderRadius: 6 }}>{p}</mark>
+        : <span key={i}>{p}</span>
+    );
   };
 }
 
@@ -100,7 +93,7 @@ function useIsMobile(bp = 1100) {
   return m;
 }
 
-// ─── UI 组件 ────────────────────────────────────────────────
+// ─── UI 组件（全部定义在组件外，避免每次渲染重建）────────────
 function Btn({ active, onClick, children, style }) {
   return (
     <button type="button" onClick={onClick} style={{
@@ -167,9 +160,8 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
   let exampleEn = v.example_en || "";
   let exampleZh = v.example_zh || "";
   if (kind === "expressions") {
-    const idx = findSegIdxBySegmentId(segments, v.segment_id) !== -1
-      ? findSegIdxBySegmentId(segments, v.segment_id)
-      : findSegIdxForTerm(segments, term);
+    const byId = findSegIdxBySegmentId(segments, v.segment_id);
+    const idx = byId !== -1 ? byId : findSegIdxForTerm(segments, term);
     if (idx !== -1) { exampleEn = segments[idx]?.en || exampleEn; exampleZh = segments[idx]?.zh || exampleZh; }
   }
 
@@ -184,9 +176,8 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
           <IconBtn title="收藏" active={isFav} onClick={() => onToggleFav(term)}>{isFav ? "❤️" : "🤍"}</IconBtn>
           <IconBtn title="定位到字幕" onClick={() => {
-            const idx = findSegIdxBySegmentId(segments, v.segment_id) !== -1
-              ? findSegIdxBySegmentId(segments, v.segment_id)
-              : findSegIdxForTerm(segments, term);
+            const byId = findSegIdxBySegmentId(segments, v.segment_id);
+            const idx = byId !== -1 ? byId : findSegIdxForTerm(segments, term);
             if (idx !== -1) onLocate(idx);
           }}>📍</IconBtn>
           <IconBtn title={collapsed ? "展开" : "收起"} onClick={() => setCollapsed(x => !x)}>
@@ -243,11 +234,13 @@ export default function ClipDetailPage() {
   const [follow, setFollow] = useState(true);
   const [rate, setRate] = useState(1);
   const [loopIdx, setLoopIdx] = useState(-1);
-  const listWrapRef = useRef(null);
+
+  // 桌面和手机用独立的 ref，避免互相干扰
+  const mobileListRef = useRef(null);
   const desktopListRef = useRef(null);
   const rowRefs = useRef({});
-  const [favSet, setFavSet] = useState(() => new Set());
 
+  const [favSet, setFavSet] = useState(() => new Set());
   const [vCur, setVCur] = useState(0);
   const [vDur, setVDur] = useState(0);
   const [vPlaying, setVPlaying] = useState(false);
@@ -267,7 +260,6 @@ export default function ClipDetailPage() {
         const gotItem = d1?.item || null;
         setItem(gotItem); setMe(d1?.me || null);
         if (!gotItem) { setNotFound(true); return; }
-
         const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
         if (!mounted) return;
         let dj = d2?.details_json ?? null;
@@ -293,8 +285,14 @@ export default function ClipDetailPage() {
       expressions: Array.isArray(v.expressions) ? v.expressions : Array.isArray(v.idioms) ? v.idioms : [],
     };
   }, [details]);
-  const vocabList = useMemo(() => vocabTab === "phrases" ? vocab.phrases : vocabTab === "expressions" ? vocab.expressions : vocab.words, [vocabTab, vocab]);
-  const tabTerms = useMemo(() => Array.from(new Set((vocabList || []).map(x => String(x?.term || x?.word || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length), [vocabList]);
+  const vocabList = useMemo(() =>
+    vocabTab === "phrases" ? vocab.phrases : vocabTab === "expressions" ? vocab.expressions : vocab.words,
+    [vocabTab, vocab]
+  );
+  const tabTerms = useMemo(() =>
+    Array.from(new Set((vocabList || []).map(x => String(x?.term || x?.word || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length),
+    [vocabList]
+  );
   const renderEn = useMemo(() => buildHighlighter(tabTerms), [tabTerms]);
   const canAccess = !!item?.can_access;
 
@@ -304,16 +302,19 @@ export default function ClipDetailPage() {
     if (!v) return;
     try {
       v.currentTime = Number(seg?.start || 0);
-      // 只有视频已经在播放时才继续播放，不强制自动播放
       if (!v.paused) v.play?.();
     } catch {}
   }
+
   function locateToSegIdx(idx) {
     if (idx < 0 || idx >= segments.length) return;
     jumpTo(segments[idx], idx);
-    const wrap = listWrapRef.current, el = rowRefs.current[idx];
+    // 滚动到对应字幕行
+    const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
+    const el = rowRefs.current[idx];
     if (wrap && el) wrap.scrollTo({ top: Math.max(0, el.offsetTop - 120), behavior: "smooth" });
   }
+
   function toggleFav(term) {
     const t = String(term || "").trim();
     if (!t) return;
@@ -322,50 +323,86 @@ export default function ClipDetailPage() {
 
   useEffect(() => { try { if (videoRef.current) videoRef.current.playbackRate = rate; } catch {} }, [rate]);
 
+  // 字幕同步 + 循环
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !segments.length) return;
-    function findIdx(t) { for (let i = 0; i < segments.length; i++) { const s = Number(segments[i]?.start || 0), e = Number(segments[i]?.end || 0); if (t >= s && t < e) return i; } return -1; }
+    function findIdx(t) {
+      for (let i = 0; i < segments.length; i++) {
+        const s = Number(segments[i]?.start || 0), e = Number(segments[i]?.end || 0);
+        if (t >= s && t < e) return i;
+      }
+      return -1;
+    }
     function onTime() {
       const t = v.currentTime || 0;
       const idx = findIdx(t);
       if (idx !== -1 && idx !== activeSegIdx) setActiveSegIdx(idx);
       if (loopIdx !== -1) {
         const seg = segments[loopIdx];
-        if (seg && t >= Number(seg.end || 0) - 0.02) { try { v.currentTime = Number(seg.start || 0); if (!v.paused) v.play?.(); } catch {} }
+        if (seg && t >= Number(seg.end || 0) - 0.02) {
+          try { v.currentTime = Number(seg.start || 0); if (!v.paused) v.play?.(); } catch {}
+        }
       }
     }
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
   }, [segments, loopIdx, activeSegIdx]);
 
+  // 自动跟随滚动 — 只滚动字幕列表，不碰视频
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
     const el = rowRefs.current[activeSegIdx];
-    // 桌面用 desktopListRef，手机用 listWrapRef
-    const wrap = desktopListRef.current || listWrapRef.current;
+    const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     if (!el || !wrap) return;
     wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
-  }, [activeSegIdx, follow]);
+  }, [activeSegIdx, follow, isMobile]);
 
+  // 手机播放条同步
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const sync = () => { if (!dragging) setVCur(v.currentTime || 0); setVDur(v.duration || 0); setVPlaying(!v.paused); };
-    ["timeupdate", "durationchange", "loadedmetadata", "loadeddata"].forEach(e => v.addEventListener(e, sync));
-    v.addEventListener("play", () => setVPlaying(true));
-    v.addEventListener("pause", () => setVPlaying(false));
-    sync();
-    return () => ["timeupdate", "durationchange", "loadedmetadata", "loadeddata", "play", "pause"].forEach(e => v.removeEventListener(e, sync));
-  }, [item?.video_url, canAccess, dragging]);
+    const sync = () => { if (!dragging) setVCur(v.currentTime || 0); setVDur(v.duration || 0); };
+    const onPlay = () => setVPlaying(true);
+    const onPause = () => setVPlaying(false);
+    v.addEventListener("timeupdate", sync);
+    v.addEventListener("durationchange", sync);
+    v.addEventListener("loadedmetadata", sync);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    return () => {
+      v.removeEventListener("timeupdate", sync);
+      v.removeEventListener("durationchange", sync);
+      v.removeEventListener("loadedmetadata", sync);
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+    };
+  }, [dragging]);
 
   function togglePlay() { const v = videoRef.current; if (!v) return; try { v.paused ? v.play?.() : v.pause?.(); } catch {} }
   function seekTo(t) { const v = videoRef.current; if (!v) return; try { v.currentTime = Math.max(0, Math.min(Number(t || 0), v.duration || 0)); } catch {} }
 
-  useEffect(() => { if (isMobile) { document.body.style.overflow = vocabOpen ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; } }, [isMobile, vocabOpen]);
+  useEffect(() => {
+    if (!isMobile) return;
+    document.body.style.overflow = vocabOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isMobile, vocabOpen]);
 
-  // ─── Nav bar (shared) ─────────────────────────────────────
-  const NavBar = () => (
+  // ─── Loading / Not found ──────────────────────────────────
+  if (loading) return (
+    <div style={{ background: THEME.colors.bg, minHeight: "100vh", display: "grid", placeItems: "center" }}>
+      <div style={{ color: THEME.colors.faint }}>加载中...</div>
+    </div>
+  );
+  if (notFound || !item) return (
+    <div style={{ background: THEME.colors.bg, minHeight: "100vh", padding: 16 }}>
+      <Link href="/">← 返回</Link>
+      <Card style={{ padding: 20, marginTop: 14 }}>未找到该视频</Card>
+    </div>
+  );
+
+  // ─── 顶部导航栏 ───────────────────────────────────────────
+  const navBar = (
     <div style={{
       position: "sticky", top: 0, zIndex: 20,
       background: "rgba(246,247,251,0.92)", backdropFilter: "blur(10px)",
@@ -379,7 +416,7 @@ export default function ClipDetailPage() {
         }}>← 返回</Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {item?.title || `Clip #${clipId}`}
+            {item.title || `Clip #${clipId}`}
           </div>
           <div style={{ fontSize: 11, color: THEME.colors.faint }}>
             登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
@@ -389,23 +426,27 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── Loading / Not found ──────────────────────────────────
-  if (loading) return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: 40, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>
-    </div>
-  );
-  if (notFound || !item) return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
-        <Link href="/">← 返回</Link>
-        <Card style={{ padding: 20, marginTop: 14 }}>未找到该视频（id={clipId || "-"}）</Card>
+  // ─── 视频区（或会员门槛）────────────────────────────────────
+  const videoOrGate = (maxH) => canAccess ? (
+    <video ref={videoRef} controls playsInline
+      style={{ width: "100%", borderRadius: THEME.radii.md, background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}
+      src={item.video_url} poster={item.cover_url || undefined} />
+  ) : (
+    <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
+      <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
+      <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
+      <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
+        {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
       </div>
+      {!me?.logged_in
+        ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
+        : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
+      }
     </div>
   );
 
-  // ─── Shared: vocab panel content ─────────────────────────
-  const VocabPanel = ({ maxH = 540 }) => (
+  // ─── 词汇卡面板内容 ──────────────────────────────────────
+  const vocabPanel = (maxH) => (
     <>
       <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)}>
@@ -413,10 +454,8 @@ export default function ClipDetailPage() {
         </Btn>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        {[["words", "单词"], ["phrases", "短语"], ["expressions", "地道表达"]].map(([k, label]) => (
-          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>
-            {label} ({vocab[k === "words" ? "words" : k === "phrases" ? "phrases" : "expressions"].length})
-          </Btn>
+        {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
+          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{label} ({arr.length})</Btn>
         ))}
       </div>
       <div style={{ maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
@@ -437,61 +476,20 @@ export default function ClipDetailPage() {
     </>
   );
 
-  // ─── Shared: subtitle list ────────────────────────────────
-  const SubtitleList = ({ maxH }) => (
-    segments.length ? (
-      <div ref={listWrapRef} style={{ display: "flex", flexDirection: "column", gap: 10, ...(maxH ? { maxHeight: maxH, overflow: "auto", paddingRight: 4 } : {}) }}>
-        {segments.map((seg, idx) => (
-          <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
-            showZh={subLang === "zh"} onClick={() => jumpTo(seg, idx)}
-            loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
-            renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }} />
-        ))}
-      </div>
-    ) : (
-      <Card style={{ padding: 14 }}>
-        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>
-          {details ? "暂无字幕段" : "暂无详情内容，上传字幕后即可显示。"}
-        </div>
-      </Card>
-    )
-  );
-
-  // ─── Video or gate ────────────────────────────────────────
-  const VideoOrGate = ({ maxH }) => canAccess ? (
-    <video ref={videoRef} controls playsInline
-      style={{ width: "100%", borderRadius: THEME.radii.md, background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}
-      src={item.video_url} poster={item.cover_url || undefined} />
-  ) : (
-    <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 20, textAlign: "center" }}>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
-      <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
-      <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
-        {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
-      </div>
-      {!me?.logged_in
-        ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
-        : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
-      }
-    </div>
-  );
-
   // ─── MOBILE LAYOUT ────────────────────────────────────────
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
-        <NavBar />
+        {navBar}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
           <Card style={{ padding: 10 }}>
-            <VideoOrGate maxH={220} />
+            {videoOrGate(220)}
             {canAccess && (
               <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
-                <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>
-                  循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}
-                </div>
+                <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
               </div>
             )}
           </Card>
@@ -505,8 +503,21 @@ export default function ClipDetailPage() {
           </div>
         </div>
 
-        <div ref={listWrapRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
-          <SubtitleList />
+        <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
+          {segments.length ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {segments.map((seg, idx) => (
+                <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
+                  showZh={subLang === "zh"} onClick={() => jumpTo(seg, idx)}
+                  loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
+                  renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }} />
+              ))}
+            </div>
+          ) : (
+            <Card style={{ padding: 14 }}>
+              <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>暂无字幕内容。</div>
+            </Card>
+          )}
         </div>
 
         {canAccess && (
@@ -522,8 +533,7 @@ export default function ClipDetailPage() {
                   onChange={e => { const v = Number(e.target.value); setDragValue(v); seekTo(v); }}
                   style={{ width: "100%" }} />
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>
-                  <span>{fmtSec(dragging ? dragValue : vCur)}</span>
-                  <span>{fmtSec(vDur)}</span>
+                  <span>{fmtSec(dragging ? dragValue : vCur)}</span><span>{fmtSec(vDur)}</span>
                 </div>
               </div>
               <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "6px 8px", fontSize: 12, background: THEME.colors.surface }}>
@@ -542,7 +552,7 @@ export default function ClipDetailPage() {
                 <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>词汇卡</div>
                 <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>关闭</button>
               </div>
-              <VocabPanel maxH={`calc(55vh - 130px)`} />
+              {vocabPanel("calc(55vh - 130px)")}
             </div>
           </div>
         )}
@@ -553,13 +563,13 @@ export default function ClipDetailPage() {
   // ─── DESKTOP LAYOUT ───────────────────────────────────────
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      <NavBar />
+      {navBar}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
         <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr 1fr" : "1.1fr 1fr", gap: 16, alignItems: "start" }}>
 
-          {/* 左：视频 */}
+          {/* 左：视频 — key 固定，永远不重建 */}
           <Card style={{ padding: 14, position: "sticky", top: 70 }}>
-            <VideoOrGate />
+            {videoOrGate(null)}
             {canAccess && (
               <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
@@ -573,6 +583,7 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
+          {/* 中：字幕 */}
           <Card style={{ padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
@@ -603,14 +614,14 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
-          {/* 右：词汇卡（可收起）*/}
+          {/* 右：词汇卡 */}
           {vocabOpen && (
             <Card style={{ padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
                 <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
               </div>
-              <VocabPanel maxH={540} />
+              {vocabPanel(540)}
             </Card>
           )}
         </div>
