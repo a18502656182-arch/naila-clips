@@ -114,8 +114,6 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   );
 }
 
-// ✅ 这个组件现在接收 filters 作为 prop（由 FiltersClient 传入）
-// 当 filters 变化时，重新从第一页开始加载
 export default function ClipsGridClient({ initialItems, initialHasMore, filters }) {
   const [items, setItems] = useState(initialItems || []);
   const [hasMore, setHasMore] = useState(!!initialHasMore);
@@ -134,10 +132,15 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   // 会员弹窗
   const [showVipModal, setShowVipModal] = useState(false);
 
+  // ✅ 修复：优先用 me.is_member 判断，避免首页缓存数据缺少 can_access 的问题
   function handleCardClick(e, item) {
-    // can_access=true 或免费视频：直接跳转，不拦截
-    if (item.can_access || item.access_tier !== "vip") return;
-    // 会员视频且无权限：拦截
+    // 免费视频：直接跳转，不拦截
+    if (item.access_tier !== "vip") return;
+    // 会员视频：本人是会员，直接跳转
+    if (me?.is_member) return;
+    // can_access 明确为 true，直接跳转
+    if (item.can_access) return;
+    // 其余情况（未登录 或 登录但非会员）：弹窗拦截
     e.preventDefault();
     e.stopPropagation();
     setShowVipModal(true);
@@ -150,13 +153,12 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const autoFillOnceRef = useRef(false);
   const isFirstRender = useRef(true);
 
-  // ✅ filters 变化时重新从头加载
+  // filters 变化时重新从头加载
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    // filters 变了，重置并重新请求第一页
     reqVersionRef.current += 1;
     const myVersion = reqVersionRef.current;
 
