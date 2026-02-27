@@ -100,8 +100,9 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
 
-  // ✅ 必须用户滚动过才自动加载更多
+  // ✅ 必须用户滚动过才自动加载更多（但：如果页面不够高无法滚动，会自动补一页）
   const userScrolledRef = useRef(false);
+  const autoFillOnceRef = useRef(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -112,8 +113,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
     return () => window.removeEventListener("scroll", onScroll, { passive: true });
   }, []);
 
-  // ✅ 关键：当 RSC 导航完成后，Page 会给新的 initialItems/initialHasMore
-  // 我们在这里用新 props 重置网格（不做客户端拉首屏，符合参考站路线）
+  // RSC 导航后，用新 props 重置网格（参考站路线）
   useEffect(() => {
     setItems(initialItems || []);
     setHasMore(!!initialHasMore);
@@ -121,8 +121,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
     setErr("");
     inFlightRef.current = false;
     coolDownRef.current = false;
-    userScrolledRef.current = false; // 新筛选后重新要求“滚动才加载更多”
-    // 用版本号让旧请求失效
+    userScrolledRef.current = false;
+    autoFillOnceRef.current = false;
     reqVersionRef.current += 1;
   }, [serverQueryKey, initialItems, initialHasMore]);
 
@@ -163,6 +163,26 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
       }
     }
   }
+
+  // ✅ 关键修复：如果页面不够高无法滚动，但 hasMore=true，则自动补一页
+  useEffect(() => {
+    if (!hasMore) return;
+    if (autoFillOnceRef.current) return;
+
+    const t = setTimeout(() => {
+      const docH = document.documentElement.scrollHeight || 0;
+      const winH = window.innerHeight || 0;
+
+      // 不够滚动（给 120px 缓冲），自动补一次
+      if (docH <= winH + 120) {
+        autoFillOnceRef.current = true;
+        loadMore();
+      }
+    }, 250);
+
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, hasMore]);
 
   const setSentinel = (el) => {
     if (!el) return;
@@ -280,7 +300,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
           color: ${THEME.colors.faint};
           white-space: nowrap;
         }
-        .foot { margin-top: 14px; display:flex; justify-content:center; }
+        .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status {
           font-size: 13px;
           color: ${THEME.colors.faint};
@@ -288,6 +308,15 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
           border-radius: ${THEME.radii.md}px;
           border: 1px solid ${THEME.colors.border};
           background: rgba(255,255,255,0.7);
+        }
+        .btn {
+          padding: 9px 12px;
+          border-radius: 999px;
+          border: 1px solid ${THEME.colors.border2};
+          background: ${THEME.colors.surface};
+          cursor: pointer;
+          color: ${THEME.colors.ink};
+          font-size: 13px;
         }
       `}</style>
 
@@ -324,11 +353,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore, queryKey
 
       <div className="foot">
         {err ? (
-          <div className="status" style={{ color: "crimson" }}>
-            {err}
-          </div>
-        ) : hasMore ? (
-          <div className="status">{loading ? "加载中..." : "继续下滑自动加载"}</div>
+          <div className="status" style={{ color: "crimson" }}>{err}</div>
+        ) : null}
+
+        {hasMore ? (
+          <>
+            <div className="status">{loading ? "加载中..." : "继续下滑自动加载"}</div>
+            <button className="btn" onClick={loadMore} disabled={loading}>
+              {loading ? "加载中…" : "加载更多"}
+            </button>
+          </>
         ) : (
           <div className="status">没有更多了</div>
         )}
