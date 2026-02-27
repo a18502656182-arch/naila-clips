@@ -46,20 +46,18 @@ function MultiSelectDropdown({
   selected,
   onToggle,
   onSelectAll,
-  getLabel = (x) => x,
-  disabledHint,
+  renderItemLabel,
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   useOutsideClose(open, setOpen, [wrapRef]);
 
   const allSlugs = useMemo(() => (options || []).map((o) => o.slug), [options]);
-  const isAll = selected.length > 0 && selected.length === allSlugs.length;
+  const isAll = allSlugs.length > 0 && selected.length === allSlugs.length;
 
   const buttonText = useMemo(() => {
-    if (!selected?.length) return "全部";
-    // 不要 “已选：”，直接显示选项（按你要求）
-    return joinSelected(selected.map((s) => String(s)));
+    // ✅ 不要 “已选：”，直接显示选项（按你要求）
+    return selected?.length ? joinSelected(selected) : "全部";
   }, [selected]);
 
   return (
@@ -84,7 +82,6 @@ function MultiSelectDropdown({
           gap: 10,
           cursor: "pointer",
         }}
-        title={disabledHint || ""}
       >
         <span
           style={{
@@ -116,7 +113,6 @@ function MultiSelectDropdown({
             padding: 8,
           }}
         >
-          {/* 全选 */}
           <label
             style={{
               display: "flex",
@@ -157,7 +153,6 @@ function MultiSelectDropdown({
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,18,32,0.04)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                title={typeof o.count === "number" ? `(${o.count})` : ""}
               >
                 <input
                   type="checkbox"
@@ -175,7 +170,7 @@ function MultiSelectDropdown({
                     flex: 1,
                   }}
                 >
-                  {getLabel(o)}
+                  {renderItemLabel ? renderItemLabel(o) : o.slug}
                 </span>
               </label>
             );
@@ -191,6 +186,19 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   const sp = useSearchParams();
   const [isPending, startTransition] = useTransition();
 
+  // ✅ 只用 initialFilters 的“值”做 key，避免因为 taxonomies 传入新对象导致重置闪烁
+  const initKey = useMemo(
+    () =>
+      JSON.stringify({
+        difficulty: initialFilters?.difficulty || [],
+        topic: initialFilters?.topic || [],
+        channel: initialFilters?.channel || [],
+        access: initialFilters?.access || [],
+        sort: initialFilters?.sort || "newest",
+      }),
+    [initialFilters]
+  );
+
   const [filters, setFilters] = useState(() => ({
     difficulty: initialFilters?.difficulty || [],
     topic: initialFilters?.topic || [],
@@ -200,8 +208,8 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   }));
 
   const [tax, setTax] = useState(() => taxonomies || { difficulties: [], topics: [], channels: [] });
-  const [taxLoading, setTaxLoading] = useState(false);
 
+  // ✅ 只在 initKey 变化时同步（不会被 taxonomies 新对象触发）
   useEffect(() => {
     setFilters({
       difficulty: initialFilters?.difficulty || [],
@@ -210,12 +218,12 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
       access: initialFilters?.access || [],
       sort: initialFilters?.sort || "newest",
     });
-    setTax(taxonomies || { difficulties: [], topics: [], channels: [] });
-  }, [initialFilters, taxonomies]);
+  }, [initKey, initialFilters]);
 
+  // taxonomies counts：仍异步拉，但不显示“计数更新中…”
   const cleanedQueryString = useMemo(() => {
     const params = new URLSearchParams(sp.toString());
-    params.delete("offset"); // ✅ 护栏：筛选变化永远从第 1 页开始
+    params.delete("offset");
     return params.toString();
   }, [sp]);
 
@@ -223,7 +231,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     let aborted = false;
 
     async function run() {
-      setTaxLoading(true);
       try {
         const url = `/rsc-api/taxonomies?${cleanedQueryString}`;
         const r = await fetch(url, { cache: "no-store" });
@@ -237,8 +244,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
         });
       } catch {
         // 失败不影响使用
-      } finally {
-        if (!aborted) setTaxLoading(false);
       }
     }
 
@@ -259,8 +264,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (next.channel?.length) params.set("channel", next.channel.join(","));
 
     const qs = params.toString();
-
-    // ✅ 不回顶 + 软导航（参考站体感）
     startTransition(() => {
       router.replace(qs ? `/?${qs}` : `/`, { scroll: false });
     });
@@ -280,11 +283,27 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (!same) pushWith(next);
   }
 
+  // ✅ chips 展示区（你明确要保留）
+  const chips = useMemo(() => {
+    const out = [];
+    (filters.difficulty || []).forEach((v) => out.push({ kind: "difficulty", v, label: v }));
+    (filters.topic || []).forEach((v) => out.push({ kind: "topic", v, label: v }));
+    (filters.channel || []).forEach((v) => out.push({ kind: "channel", v, label: v }));
+    (filters.access || []).forEach((v) =>
+      out.push({ kind: "access", v, label: v === "free" ? "免费" : v === "vip" ? "会员" : v })
+    );
+    return out;
+  }, [filters]);
+
+  function removeChip(kind, v) {
+    if (kind === "difficulty") update({ difficulty: (filters.difficulty || []).filter((x) => x !== v) });
+    if (kind === "topic") update({ topic: (filters.topic || []).filter((x) => x !== v) });
+    if (kind === "channel") update({ channel: (filters.channel || []).filter((x) => x !== v) });
+    if (kind === "access") update({ access: (filters.access || []).filter((x) => x !== v) });
+  }
+
   const accessOptions = useMemo(
-    () => [
-      { slug: "free", count: null },
-      { slug: "vip", count: null },
-    ],
+    () => [{ slug: "free" }, { slug: "vip" }],
     []
   );
 
@@ -299,12 +318,45 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           padding: 10px 12px;
         }
 
+        .chipsRow {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 10px;
+        }
+        .chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid rgba(79,70,229,0.20);
+          background: rgba(79,70,229,0.10);
+          color: #3730a3;
+          font-size: 13px;
+          user-select: none;
+        }
+        .chipX {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          display: grid;
+          place-items: center;
+          border: 1px solid rgba(11,18,32,0.14);
+          background: rgba(255,255,255,0.75);
+          cursor: pointer;
+          line-height: 1;
+          font-size: 12px;
+          color: ${THEME.colors.ink};
+        }
+
         .row {
           display: grid;
           grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
           gap: 10px;
           align-items: end;
         }
+
         .field { display:flex; flex-direction:column; gap:6px; min-width:0; }
         .label { font-size:12px; color:${THEME.colors.faint}; white-space:nowrap; display:flex; gap:8px; align-items:center; }
         .badge { font-size:12px; color:${THEME.colors.faint}; }
@@ -327,6 +379,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           gap:10px;
           flex-wrap:wrap;
         }
+
         .clearBtn {
           padding: 7px 12px;
           border-radius: 999px;
@@ -336,7 +389,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           color: ${THEME.colors.ink};
           font-size: 13px;
         }
-        .hint { font-size: 12px; color:${THEME.colors.faint}; }
 
         @media (max-width: 960px) {
           .row { grid-template-columns: 1fr 1fr; }
@@ -345,11 +397,25 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
       `}</style>
 
       <div className="panel">
+        {/* ✅ chips 区：必须显示 */}
+        {chips.length ? (
+          <div className="chipsRow">
+            {chips.map((c) => (
+              <span key={`${c.kind}:${c.v}`} className="chip">
+                {c.label}
+                <span className="chipX" onClick={() => removeChip(c.kind, c.v)} aria-label="remove">
+                  ×
+                </span>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div className="row">
           <div className="field span2">
             <div className="label">
               上传时间
-              {(isPending || taxLoading) ? <span className="badge">筛选中…</span> : null}
+              {isPending ? <span className="badge">筛选中…</span> : null}
             </div>
             <select value={filters.sort} onChange={(e) => update({ sort: e.target.value })} className="select">
               <option value="newest">最新优先</option>
@@ -362,10 +428,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             options={tax?.difficulties || []}
             selected={filters.difficulty}
             onToggle={(slug) => update({ difficulty: toggleInArray(filters.difficulty, slug) })}
-            onSelectAll={(all) =>
-              update({ difficulty: all ? (tax?.difficulties || []).map((x) => x.slug) : [] })
-            }
-            getLabel={(o) => o.slug}
+            onSelectAll={(all) => update({ difficulty: all ? (tax?.difficulties || []).map((x) => x.slug) : [] })}
           />
 
           <MultiSelectDropdown
@@ -374,7 +437,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             selected={filters.access}
             onToggle={(slug) => update({ access: toggleInArray(filters.access, slug) })}
             onSelectAll={(all) => update({ access: all ? accessOptions.map((x) => x.slug) : [] })}
-            getLabel={(o) => (o.slug === "free" ? "免费" : o.slug === "vip" ? "会员" : o.slug)}
+            renderItemLabel={(o) => (o.slug === "free" ? "免费" : o.slug === "vip" ? "会员" : o.slug)}
           />
 
           <MultiSelectDropdown
@@ -383,7 +446,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             selected={filters.topic}
             onToggle={(slug) => update({ topic: toggleInArray(filters.topic, slug) })}
             onSelectAll={(all) => update({ topic: all ? (tax?.topics || []).map((x) => x.slug) : [] })}
-            getLabel={(o) => o.slug}
           />
 
           <MultiSelectDropdown
@@ -391,10 +453,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             options={tax?.channels || []}
             selected={filters.channel}
             onToggle={(slug) => update({ channel: toggleInArray(filters.channel, slug) })}
-            onSelectAll={(all) =>
-              update({ channel: all ? (tax?.channels || []).map((x) => x.slug) : [] })
-            }
-            getLabel={(o) => o.slug}
+            onSelectAll={(all) => update({ channel: all ? (tax?.channels || []).map((x) => x.slug) : [] })}
           />
         </div>
 
@@ -405,7 +464,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           >
             清空筛选
           </button>
-          <div className="hint">{taxLoading ? "计数更新中…" : ""}</div>
         </div>
       </div>
     </div>
