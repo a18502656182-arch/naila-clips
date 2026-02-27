@@ -25,7 +25,7 @@ function isMp4(url) {
 }
 
 function HoverMedia({ coverUrl, videoUrl, title }) {
-  const[hover, setHover] = useState(false);
+  const [hover, setHover] = useState(false);
   const vref = useRef(null);
 
   useEffect(() => {
@@ -87,22 +87,15 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   );
 }
 
-export default function ClipsGridClient({ initialItems, initialHasMore }) {
+export default function ClipsGridClient({ initialItems, initialHasMore, queryKey }) {
   const sp = useSearchParams();
   const clientQueryKey = useMemo(() => sp.toString(), [sp]);
-  
-  // ✅ 核心逻辑：如果 URL 带有除了 offset 外的筛选参数，抛弃服务端默认 initialItems，防止“先闪一下全部”
-  const hasFilters = useMemo(() => {
-    const params = new URLSearchParams(sp.toString());
-    params.delete("offset");
-    return params.toString().length > 0;
-  }, [sp]);
 
-  const [items, setItems] = useState(hasFilters ? [] : (initialItems || []));
-  const [hasMore, setHasMore] = useState(hasFilters ? false : !!initialHasMore);
-  
-  const [loading, setLoading] = useState(hasFilters);
-  const[err, setErr] = useState("");
+  const [items, setItems] = useState(initialItems || []);
+  const [hasMore, setHasMore] = useState(!!initialHasMore);
+
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
@@ -118,54 +111,22 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll, { passive: true });
-  },[]);
+  }, []);
 
-  // 1️⃣ 监听筛选参数变化
+  // ✅ 关键：筛选 URL 变化 → RSC 直出新 initialItems
+  // 这里用 queryKey 作为重置触发点，防止旧列表残留。
   useEffect(() => {
-    if (!hasFilters) {
-      setItems(initialItems ||[]);
-      setHasMore(!!initialHasMore);
-      setLoading(false);
-      setErr("");
-      return;
-    }
+    setItems(initialItems || []);
+    setHasMore(!!initialHasMore);
+    setLoading(false);
+    setErr("");
+    inFlightRef.current = false;
+    coolDownRef.current = false;
+    userScrolledRef.current = false;
+    autoFillOnceRef.current = false;
+    reqVersionRef.current += 1;
+  }, [queryKey, initialItems, initialHasMore]);
 
-    let aborted = false;
-    const myVersion = ++reqVersionRef.current;
-
-    async function fetchFilteredData() {
-      setLoading(true);
-      inFlightRef.current = true;
-      setErr("");
-
-      try {
-        const url = `/rsc-api/clips?${clientQueryKey}&offset=0`;
-        const r = await fetch(url, { cache: "no-store" });
-        const data = await r.json();
-        if (!r.ok) throw new Error(data?.error || "Load failed");
-
-        if (aborted || myVersion !== reqVersionRef.current) return;
-
-        setItems(data.items ||[]);
-        setHasMore(!!data.has_more);
-        
-        userScrolledRef.current = false;
-        autoFillOnceRef.current = false;
-      } catch (e) {
-        if (!aborted && myVersion === reqVersionRef.current) setErr(e?.message || "Load failed");
-      } finally {
-        if (!aborted && myVersion === reqVersionRef.current) {
-          setLoading(false);
-          inFlightRef.current = false;
-        }
-      }
-    }
-
-    fetchFilteredData();
-    return () => { aborted = true; };
-  },[clientQueryKey, initialItems, initialHasMore, hasFilters]);
-
-  // 2️⃣ 无限滚动加载更多
   async function loadMore() {
     if (!hasMore || loading || inFlightRef.current || coolDownRef.current) return;
 
@@ -185,14 +146,14 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
       if (myVersion !== reqVersionRef.current) return;
 
-      // ✅ 这里是上次被截断的地方，现在已经完整补齐了
-      setItems((prev) => prev.concat(data.items ||[]));
+      setItems((prev) => prev.concat(data.items || []));
       setHasMore(!!data.has_more);
 
       coolDownRef.current = true;
       setTimeout(() => (coolDownRef.current = false), 450);
     } catch (e) {
-      if (myVersion !== reqVersionRef.current) setErr(e?.message || "Load more failed");
+      if (myVersion !== reqVersionRef.current) return;
+      setErr(e?.message || "Load more failed");
     } finally {
       if (myVersion === reqVersionRef.current) {
         setLoading(false);
@@ -201,7 +162,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     }
   }
 
-  // 3️⃣ 自动补满一页
+  // 自动补满一页（解决“页面不够高滑不动”）
   useEffect(() => {
     if (!hasMore || loading) return;
     if (autoFillOnceRef.current) return;
@@ -217,7 +178,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     }, 250);
 
     return () => clearTimeout(t);
-  },[items.length, hasMore, loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, hasMore, loading]);
 
   const setSentinel = (el) => {
     if (!el) return;
@@ -295,9 +257,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
       <div ref={setSentinel} style={{ height: 1, marginTop: 1 }} />
 
       <div className="foot">
-        {err ? (
-          <div className="status" style={{ color: "crimson" }}>{err}</div>
-        ) : null}
+        {err ? <div className="status" style={{ color: "crimson" }}>{err}</div> : null}
 
         {hasMore ? (
           <>
