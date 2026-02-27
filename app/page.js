@@ -1,6 +1,8 @@
 // app/page.js
 import { createClient } from "@supabase/supabase-js";
 import { Suspense } from "react";
+import { unstable_cache } from "next/cache";
+
 import FiltersClient from "./components/FiltersClient";
 import ClipsGridClient from "./components/ClipsGridClient";
 
@@ -10,7 +12,6 @@ import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
-// ✅ 参考站风格：允许边缘复用 + SWR
 export const revalidate = 60;
 
 function parseList(v) {
@@ -55,10 +56,79 @@ function normRow(r) {
   };
 }
 
-export default async function Page({ searchParams }) {
+// ✅ 把“列表查询”包进 unstable_cache（按筛选/排序/offset 分 key 缓存 60s）
+async function fetchClipsRaw({ filters, sort, offset, limit }) {
   const supabase = getSupabaseAdmin();
+  const take = limit + 1;
 
-  // ✅ RSC：服务端按筛选直出列表（回归参考站数据流）
+  let q = supabase
+    .from("clips_view")
+    .select(
+      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
+    );
+
+  if (filters.access.length) q = q.in("access_tier", filters.access);
+  if (filters.difficulty.length) q = q.in("difficulty_slug", filters.difficulty);
+  if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
+  if (filters.channel.length) q = q.overlaps("channel_slugs", filters.channel);
+
+  q = q
+    .order("created_at", { ascending: sort === "oldest" })
+    .range(offset, offset + take - 1);
+
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const rows = data || [];
+  const has_more = rows.length > limit;
+  const pageRows = has_more ? rows.slice(0, limit) : rows;
+  const items = pageRows.map(normRow);
+
+  return { items, has_more };
+}
+
+function fetchClipsCached(params) {
+  const key = [
+    "clips_view:list",
+    `sort=${params.sort}`,
+    `offset=${params.offset}`,
+    `limit=${params.limit}`,
+    `access=${params.filters.access.join(",")}`,
+    `difficulty=${params.filters.difficulty.join(",")}`,
+    `topic=${params.filters.topic.join(",")}`,
+    `channel=${params.filters.channel.join(",")}`,
+  ];
+
+  return unstable_cache(
+    () => fetchClipsRaw(params),
+    key,
+    { revalidate: 60 }
+  )();
+}
+
+// ✅ 固定免费示例卡也缓存 60s
+async function fetchFeaturedRaw() {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("clips_view")
+    .select(
+      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
+    )
+    .eq("access_tier", "free")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (Array.isArray(data) && data[0]) return normRow(data[0]);
+  return null;
+}
+
+const fetchFeaturedCached = unstable_cache(
+  () => fetchFeaturedRaw(),
+  ["clips_view:featured:free_latest"],
+  { revalidate: 60 }
+);
+
+export default async function Page({ searchParams }) {
   const filters = {
     difficulty: parseList(searchParams?.difficulty),
     topic: parseList(searchParams?.topic),
@@ -69,34 +139,14 @@ export default async function Page({ searchParams }) {
 
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
-  const take = limit + 1;
 
   let items = [];
   let has_more = false;
 
   try {
-    let q = supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-      );
-
-    if (filters.access.length) q = q.in("access_tier", filters.access);
-    if (filters.difficulty.length) q = q.in("difficulty_slug", filters.difficulty);
-    if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
-    if (filters.channel.length) q = q.overlaps("channel_slugs", filters.channel);
-
-    q = q
-      .order("created_at", { ascending: sort === "oldest" })
-      .range(offset, offset + take - 1);
-
-    const { data, error } = await q;
-    if (error) throw error;
-
-    const rows = data || [];
-    has_more = rows.length > limit;
-    const pageRows = has_more ? rows.slice(0, limit) : rows;
-    items = pageRows.map(normRow);
+    const r = await fetchClipsCached({ filters, sort, offset, limit });
+    items = r.items;
+    has_more = r.has_more;
   } catch (e) {
     return (
       <div style={{ padding: 16 }}>
@@ -106,26 +156,13 @@ export default async function Page({ searchParams }) {
     );
   }
 
-  // 2) 固定免费示例卡（不跟随筛选，参考站风格 Hero 示例）
   let featured = null;
   try {
-    const { data: fData } = await supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-      )
-      .eq("access_tier", "free")
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (Array.isArray(fData) && fData[0]) featured = normRow(fData[0]);
+    featured = await fetchFeaturedCached();
   } catch {}
   if (!featured) featured = items[0] || null;
 
-  // counts 仍由 FiltersClient 异步拉取（你已有 /rsc-api/taxonomies）
   const tax = { difficulties: [], topics: [], channels: [] };
-
-  // ✅ 传给客户端：用于“筛选变化后重置无限滚动状态”
   const queryKey = new URLSearchParams(searchParams || {}).toString();
 
   return (
@@ -172,31 +209,10 @@ export default async function Page({ searchParams }) {
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <a
-              href="/login"
-              style={{
-                fontSize: 13,
-                padding: "8px 12px",
-                borderRadius: 999,
-                border: `1px solid ${THEME.colors.border2}`,
-                color: THEME.colors.ink,
-                textDecoration: "none",
-                background: "rgba(255,255,255,0.7)",
-              }}
-            >
+            <a href="/login" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none" }}>
               登录
             </a>
-            <a
-              href="/register"
-              style={{
-                fontSize: 13,
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: THEME.colors.ink,
-                color: "#fff",
-                textDecoration: "none",
-              }}
-            >
+            <a href="/register" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, background: THEME.colors.ink, color: "#fff", textDecoration: "none" }}>
               注册
             </a>
           </div>
@@ -212,18 +228,13 @@ export default async function Page({ searchParams }) {
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
 
-          {/* ✅ Client 组件使用 useSearchParams：保持 Suspense 包裹 */}
           <Suspense fallback={<div style={{ padding: 20, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>}>
             <div style={{ marginTop: 10 }}>
               <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
             </div>
 
             <div style={{ marginTop: 14 }}>
-              <ClipsGridClient
-                initialItems={items}
-                initialHasMore={has_more}
-                queryKey={queryKey}
-              />
+              <ClipsGridClient initialItems={items} initialHasMore={has_more} queryKey={queryKey} />
             </div>
           </Suspense>
         </div>
