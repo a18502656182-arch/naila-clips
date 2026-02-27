@@ -20,6 +20,12 @@ function sameArray(a, b) {
   return sa.every((x, i) => x === sb[i]);
 }
 
+function shortJoin(arr, maxLen = 18) {
+  const s = (arr || []).join("、");
+  if (s.length <= maxLen) return s;
+  return s.slice(0, maxLen) + "…";
+}
+
 export default function FiltersClient({ initialFilters, taxonomies }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -49,7 +55,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
 
   const cleanedQueryString = useMemo(() => {
     const params = new URLSearchParams(sp.toString());
-    params.delete("offset"); // ✅ 护栏：筛选变化永远从第 1 页开始
+    params.delete("offset");
     return params.toString();
   }, [sp]);
 
@@ -70,7 +76,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           channels: data.channels || [],
         });
       } catch {
-        // 失败不影响使用
       } finally {
         if (!aborted) setTaxLoading(false);
       }
@@ -85,18 +90,14 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
   function pushWith(next) {
     const params = new URLSearchParams();
 
-    // sort
     if (next.sort && next.sort !== "newest") params.set("sort", next.sort);
 
-    // 多选 -> 逗号拼接（与你最初 parseList 兼容）
     if (next.access?.length) params.set("access", next.access.join(","));
     if (next.difficulty?.length) params.set("difficulty", next.difficulty.join(","));
     if (next.topic?.length) params.set("topic", next.topic.join(","));
     if (next.channel?.length) params.set("channel", next.channel.join(","));
 
     const qs = params.toString();
-
-    // ✅ 不自动回到顶部；保持参考站那种“当前位置更新”
     startTransition(() => {
       router.replace(qs ? `/?${qs}` : `/`, { scroll: false });
     });
@@ -116,7 +117,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (!same) pushWith(next);
   }
 
-  // ✅ 红框 chips：把所有已选项汇总显示
   const selectedChips = useMemo(() => {
     const chips = [];
     (filters.difficulty || []).forEach((v) => chips.push({ kind: "difficulty", v, label: v }));
@@ -134,6 +134,12 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (kind === "channel") update({ channel: (filters.channel || []).filter((x) => x !== v) });
     if (kind === "access") update({ access: (filters.access || []).filter((x) => x !== v) });
   }
+
+  // ✅ 关键：下拉框显示“已选：xxx”
+  const diffSelectValue = filters.difficulty.length ? "__selected__" : "";
+  const accessSelectValue = filters.access.length ? "__selected__" : "";
+  const topicSelectValue = filters.topic.length ? "__selected__" : "";
+  const channelSelectValue = filters.channel.length ? "__selected__" : "";
 
   return (
     <div>
@@ -217,7 +223,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
         }
         .hint { font-size: 12px; color:${THEME.colors.faint}; }
 
-        /* ✅ 手机端两列（参考站风格） */
         @media (max-width: 960px) {
           .row { grid-template-columns: 1fr 1fr; }
           .span2 { grid-column: span 2; }
@@ -225,7 +230,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
       `}</style>
 
       <div className="panel">
-        {/* ✅ 红框：已选 chips（你要“加上”） */}
         {selectedChips.length ? (
           <div className="chipsRow">
             {selectedChips.map((c) => (
@@ -253,17 +257,21 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
 
           <div className="field">
             <div className="label">视频难度</div>
-            {/* ✅ 多选：每次选择一个就 toggle 加入 chips，然后 select 自己回到“全部” */}
             <select
-              value=""
+              value={diffSelectValue}
               onChange={(e) => {
                 const v = e.target.value;
-                if (!v) return;
+                if (!v || v === "__selected__") return;
                 update({ difficulty: toggleInArray(filters.difficulty, v) });
               }}
               className="select"
             >
-              <option value="">全部</option>
+              <option value="">{filters.difficulty.length ? "继续选择…" : "全部"}</option>
+              {filters.difficulty.length ? (
+                <option value="__selected__" disabled>
+                  已选：{shortJoin(filters.difficulty)}
+                </option>
+              ) : null}
               {(tax?.difficulties || []).map((x) => (
                 <option key={x.slug} value={x.slug}>
                   {x.slug} ({typeof x.count === "number" ? x.count : 0})
@@ -275,15 +283,20 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           <div className="field">
             <div className="label">访问权限</div>
             <select
-              value=""
+              value={accessSelectValue}
               onChange={(e) => {
                 const v = e.target.value;
-                if (!v) return;
+                if (!v || v === "__selected__") return;
                 update({ access: toggleInArray(filters.access, v) });
               }}
               className="select"
             >
-              <option value="">全部</option>
+              <option value="">{filters.access.length ? "继续选择…" : "全部"}</option>
+              {filters.access.length ? (
+                <option value="__selected__" disabled>
+                  已选：{shortJoin(filters.access.map((v) => (v === "free" ? "免费" : v === "vip" ? "会员" : v)))}
+                </option>
+              ) : null}
               <option value="free">免费</option>
               <option value="vip">会员</option>
             </select>
@@ -292,15 +305,20 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           <div className="field">
             <div className="label">视频话题</div>
             <select
-              value=""
+              value={topicSelectValue}
               onChange={(e) => {
                 const v = e.target.value;
-                if (!v) return;
+                if (!v || v === "__selected__") return;
                 update({ topic: toggleInArray(filters.topic, v) });
               }}
               className="select"
             >
-              <option value="">全部</option>
+              <option value="">{filters.topic.length ? "继续选择…" : "全部"}</option>
+              {filters.topic.length ? (
+                <option value="__selected__" disabled>
+                  已选：{shortJoin(filters.topic)}
+                </option>
+              ) : null}
               {(tax?.topics || []).map((x) => (
                 <option key={x.slug} value={x.slug}>
                   {x.slug} ({typeof x.count === "number" ? x.count : 0})
@@ -312,15 +330,20 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           <div className="field">
             <div className="label">视频频道</div>
             <select
-              value=""
+              value={channelSelectValue}
               onChange={(e) => {
                 const v = e.target.value;
-                if (!v) return;
+                if (!v || v === "__selected__") return;
                 update({ channel: toggleInArray(filters.channel, v) });
               }}
               className="select"
             >
-              <option value="">全部</option>
+              <option value="">{filters.channel.length ? "继续选择…" : "全部"}</option>
+              {filters.channel.length ? (
+                <option value="__selected__" disabled>
+                  已选：{shortJoin(filters.channel)}
+                </option>
+              ) : null}
               {(tax?.channels || []).map((x) => (
                 <option key={x.slug} value={x.slug}>
                   {x.slug} ({typeof x.count === "number" ? x.count : 0})
