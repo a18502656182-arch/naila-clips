@@ -65,10 +65,12 @@ export default async function Page({ searchParams }) {
   };
   const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
 
+  // 首屏固定 12
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
   const take = limit + 1;
 
+  // ====== 列表查询（保持你原逻辑不变） ======
   let q = supabase
     .from("clips_view")
     .select(
@@ -98,17 +100,33 @@ export default async function Page({ searchParams }) {
   const rows = data || [];
   const has_more = rows.length > limit;
   const pageRows = has_more ? rows.slice(0, limit) : rows;
-
   const items = pageRows.map(normRow);
 
-  // counts 仍由 FiltersClient mount 后异步加载（你已完成）
-  const tax = { difficulties: [], topics: [], channels: [] };
+  // ====== 固定“示例免费卡片”（独立查询，不受筛选影响） ======
+  // 规则：取最新的 free 一条；没有则回退到列表第一条
+  let featured = null;
+  try {
+    const { data: fData } = await supabase
+      .from("clips_view")
+      .select(
+        "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
+      )
+      .eq("access_tier", "free")
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-  const featured = items[0] || null;
+    if (Array.isArray(fData) && fData[0]) featured = normRow(fData[0]);
+  } catch {
+    // 失败也不影响首页渲染
+  }
+  if (!featured) featured = items[0] || null;
+
+  // taxonomies counts 已由 FiltersClient mount 后异步加载
+  const tax = { difficulties: [], topics: [], channels: [] };
 
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      {/* 顶部：产品化工具感（更克制、更精致） */}
+      {/* 顶部栏保持你路线B风格（不动逻辑） */}
       <div
         style={{
           position: "sticky",
@@ -121,7 +139,7 @@ export default async function Page({ searchParams }) {
       >
         <div
           style={{
-            maxWidth: THEME.spacing.pageW,
+            maxWidth: 1200,
             margin: "0 auto",
             padding: "12px 16px",
             display: "flex",
@@ -143,7 +161,6 @@ export default async function Page({ searchParams }) {
                 color: "#fff",
                 fontWeight: 900,
                 userSelect: "none",
-                letterSpacing: "-0.02em",
               }}
               aria-hidden
             >
@@ -151,12 +168,8 @@ export default async function Page({ searchParams }) {
             </div>
 
             <div style={{ lineHeight: 1.15 }}>
-              <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>
-                油管英语场景库
-              </div>
-              <div style={{ fontSize: 12, color: THEME.colors.faint }}>
-                精选场景短片 · 双语字幕 · 词汇卡片
-              </div>
+              <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>油管英语场景库</div>
+              <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕 · 词汇卡片</div>
             </div>
           </div>
 
@@ -166,7 +179,7 @@ export default async function Page({ searchParams }) {
               style={{
                 fontSize: 13,
                 padding: "8px 12px",
-                borderRadius: THEME.radii.pill,
+                borderRadius: 999,
                 border: `1px solid ${THEME.colors.border2}`,
                 color: THEME.colors.ink,
                 textDecoration: "none",
@@ -180,7 +193,7 @@ export default async function Page({ searchParams }) {
               style={{
                 fontSize: 13,
                 padding: "8px 12px",
-                borderRadius: THEME.radii.pill,
+                borderRadius: 999,
                 background: THEME.colors.ink,
                 color: "#fff",
                 textDecoration: "none",
@@ -193,17 +206,17 @@ export default async function Page({ searchParams }) {
         </div>
       </div>
 
-      <div style={{ maxWidth: THEME.spacing.pageW, margin: "0 auto", padding: "18px 16px 40px" }}>
-        {/* Hero：更产品化（结构像参考站，但视觉更“高级工具感”） */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 40px" }}>
+        {/* Hero：移动端会自动上下结构（在 HeroSection 里做响应式） */}
         <HeroSection>
           <HowItWorks />
           <FeaturedExamples featured={featured} />
         </HeroSection>
 
-        {/* 全部视频 */}
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
 
+          {/* 筛选条：改成下拉框（参考站那种形式） */}
           <div style={{ marginTop: 10 }}>
             <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
           </div>
