@@ -32,18 +32,28 @@ function VipModal({ me, onClose }) {
             : "该视频为会员专享，请先登录，再使用兑换码开通会员。"}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          {!me?.logged_in && (
-            <a href="/login" style={{
+          {me?.logged_in ? (
+            // 已登录但非会员：只显示一个"去兑换开通"按钮
+            <a href="/register" style={{
               flex: 1, textAlign: "center", padding: "10px 0",
-              borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
-              color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
-            }}>去登录</a>
+              borderRadius: THEME.radii.pill, background: THEME.colors.vip,
+              color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+            }}>去兑换开通</a>
+          ) : (
+            // 未登录：显示"去登录" + "注册并开通"两个按钮
+            <>
+              <a href="/login" style={{
+                flex: 1, textAlign: "center", padding: "10px 0",
+                borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
+                color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
+              }}>去登录</a>
+              <a href="/register" style={{
+                flex: 1, textAlign: "center", padding: "10px 0",
+                borderRadius: THEME.radii.pill, background: THEME.colors.vip,
+                color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+              }}>注册并开通</a>
+            </>
           )}
-          <a href={me?.logged_in ? "/register" : "/login"} style={{
-            flex: 1, textAlign: "center", padding: "10px 0",
-            borderRadius: THEME.radii.pill, background: THEME.colors.vip,
-            color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
-          }}>{me?.logged_in ? "去兑换开通" : "登录并开通"}</a>
         </div>
       </div>
     </div>
