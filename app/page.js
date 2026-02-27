@@ -1,4 +1,5 @@
 // app/page.js
+import { createClient } from "@supabase/supabase-js";
 import FiltersClient from "./components/FiltersClient";
 import ClipsGridClient from "./components/ClipsGridClient";
 
@@ -8,26 +9,20 @@ import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
-export const revalidate = 30;
+// ✅ 移除 dynamic = "force-dynamic"，让页面可静态化并支持 ISR 刷新
+export const revalidate = 60; 
 
-function parseList(v) {
-  if (!v) return [];
-  if (Array.isArray(v)) {
-    return v
-      .flatMap((x) => String(x).split(","))
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  return String(v)
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 function normRow(r) {
   const difficulty = typeof r.difficulty_slug === "string" ? r.difficulty_slug : null;
-  const topics = Array.isArray(r.topic_slugs) ? r.topic_slugs : [];
-  const channels = Array.isArray(r.channel_slugs) ? r.channel_slugs : [];
+  const topics = Array.isArray(r.topic_slugs) ? r.topic_slugs :[];
+  const channels = Array.isArray(r.channel_slugs) ? r.channel_slugs :[];
 
   return {
     id: r.id,
@@ -45,85 +40,29 @@ function normRow(r) {
   };
 }
 
-function supabaseRestHeaders() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  return {
-    url,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      Accept: "application/json",
-    },
-  };
-}
-
-// PostgREST: array overlaps 用 ov.{a,b}；in 用 in.(a,b)
-function buildClipsViewUrl({ filters, sort, limit, offset }) {
-  const { url } = supabaseRestHeaders();
-  const params = new URLSearchParams();
-
-  params.set(
-    "select",
-    "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-  );
-
-  // 排序：created_at.desc / asc
-  params.set("order", `created_at.${sort === "oldest" ? "asc" : "desc"}`);
-
-  // 极速分页：limit+1 判断 has_more
-  params.set("limit", String(limit + 1));
-  params.set("offset", String(offset));
-
-  // filters
-  if (filters.access?.length) params.set("access_tier", `in.(${filters.access.join(",")})`);
-  if (filters.difficulty?.length) params.set("difficulty_slug", `in.(${filters.difficulty.join(",")})`);
-  if (filters.topic?.length) params.set("topic_slugs", `ov.{${filters.topic.join(",")}}`);
-  if (filters.channel?.length) params.set("channel_slugs", `ov.{${filters.channel.join(",")}}`);
-
-  return `${url}/rest/v1/clips_view?${params.toString()}`;
-}
-
-async function fetchJson(url, headers, revalidateSec) {
-  const res = await fetch(url, {
-    headers,
-    next: { revalidate: revalidateSec },
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`Fetch failed: ${res.status} ${text}`);
-  }
-  return res.json();
-}
-
-export default async function Page({ searchParams }) {
-  const filters = {
-    difficulty: parseList(searchParams?.difficulty),
-    topic: parseList(searchParams?.topic),
-    channel: parseList(searchParams?.channel),
-    access: parseList(searchParams?.access),
-  };
-  const sort = searchParams?.sort === "oldest" ? "oldest" : "newest";
-
+// ✅ 移除 { searchParams }，服务端只负责拉取“默认的全部列表”
+export default async function Page() {
+  const supabase = getSupabaseAdmin();
   const limit = 12;
-  const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
+  const take = limit + 1;
 
-  const { headers } = supabaseRestHeaders();
-
-  // 1) 首页列表（可被 Next fetch cache 推导）
-  let items = [];
+  // 1) 首页默认列表
+  let items =[];
   let has_more = false;
 
   try {
-    const listUrl = buildClipsViewUrl({ filters, sort, limit, offset });
-    const rows = await fetchJson(listUrl, headers, 30);
+    const { data, error } = await supabase
+      .from("clips_view")
+      .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
+      .order("created_at", { ascending: false }) // 默认 newest
+      .range(0, take - 1);
 
-    const hasMore = Array.isArray(rows) && rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
-
-    items = (pageRows || []).map(normRow);
-    has_more = hasMore;
+    if (error) throw error;
+    
+    const rows = data ||[];
+    has_more = rows.length > limit;
+    const pageRows = has_more ? rows.slice(0, limit) : rows;
+    items = pageRows.map(normRow);
   } catch (e) {
     return (
       <div style={{ padding: 16 }}>
@@ -133,104 +72,37 @@ export default async function Page({ searchParams }) {
     );
   }
 
-  // 2) 固定示例卡（free 最新一条）
+  // 2) 固定免费示例卡
   let featured = null;
   try {
-    const { url } = supabaseRestHeaders();
-    const p = new URLSearchParams();
-    p.set(
-      "select",
-      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-    );
-    p.set("access_tier", "eq.free");
-    p.set("order", "created_at.desc");
-    p.set("limit", "1");
+    const { data: fData } = await supabase
+      .from("clips_view")
+      .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
+      .eq("access_tier", "free")
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-    const featUrl = `${url}/rest/v1/clips_view?${p.toString()}`;
-    const fRows = await fetchJson(featUrl, headers, 300);
-    if (Array.isArray(fRows) && fRows[0]) featured = normRow(fRows[0]);
+    if (Array.isArray(fData) && fData[0]) featured = normRow(fData[0]);
   } catch {}
   if (!featured) featured = items[0] || null;
 
-  const tax = { difficulties: [], topics: [], channels: [] };
+  const tax = { difficulties: [], topics: [], channels:[] };
 
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      <div
-        style={{
-          position: "sticky",
-          top: 0,
-          zIndex: 20,
-          background: "rgba(246,247,251,0.86)",
-          backdropFilter: "blur(10px)",
-          borderBottom: `1px solid ${THEME.colors.border}`,
-        }}
-      >
-        <div
-          style={{
-            maxWidth: 1200,
-            margin: "0 auto",
-            padding: "12px 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
+      {/* 顶部导航保持原样... */}
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(246,247,251,0.86)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${THEME.colors.border}` }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
-              style={{
-                width: 34,
-                height: 34,
-                borderRadius: 12,
-                background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
-                boxShadow: "0 10px 24px rgba(79,70,229,0.20)",
-                display: "grid",
-                placeItems: "center",
-                color: "#fff",
-                fontWeight: 900,
-                userSelect: "none",
-              }}
-              aria-hidden
-            >
-              EC
-            </div>
-
+            <div style={{ width: 34, height: 34, borderRadius: 12, background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900 }}>EC</div>
             <div style={{ lineHeight: 1.15 }}>
               <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>油管英语场景库</div>
               <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕 · 词汇卡片</div>
             </div>
           </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <a
-              href="/login"
-              style={{
-                fontSize: 13,
-                padding: "8px 12px",
-                borderRadius: 999,
-                border: `1px solid ${THEME.colors.border2}`,
-                color: THEME.colors.ink,
-                textDecoration: "none",
-                background: "rgba(255,255,255,0.7)",
-              }}
-            >
-              登录
-            </a>
-            <a
-              href="/register"
-              style={{
-                fontSize: 13,
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: THEME.colors.ink,
-                color: "#fff",
-                textDecoration: "none",
-                boxShadow: "0 10px 22px rgba(11,18,32,0.18)",
-              }}
-            >
-              注册
-            </a>
+            <a href="/login" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none" }}>登录</a>
+            <a href="/register" style={{ fontSize: 13, padding: "8px 12px", borderRadius: 999, background: THEME.colors.ink, color: "#fff", textDecoration: "none" }}>注册</a>
           </div>
         </div>
       </div>
@@ -244,14 +116,10 @@ export default async function Page({ searchParams }) {
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
           <div style={{ marginTop: 10 }}>
-            <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
+            <FiltersClient taxonomies={tax} />
           </div>
           <div style={{ marginTop: 14 }}>
-            <ClipsGridClient
-              initialItems={items}
-              initialHasMore={has_more}
-              queryKey={new URLSearchParams(searchParams || {}).toString()}
-            />
+            <ClipsGridClient initialItems={items} initialHasMore={has_more} />
           </div>
         </div>
       </div>
