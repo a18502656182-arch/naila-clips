@@ -1,0 +1,32 @@
+"use client";
+
+// app/components/HomeClient.js
+// ✅ 把筛选 + 列表合并成一个客户端组件，共享 filters 状态
+// URL 不变，筛选完全在客户端管理
+
+import { useState } from "react";
+import FiltersClient from "./FiltersClient";
+import ClipsGridClient from "./ClipsGridClient";
+
+export default function HomeClient({ initialItems, initialHasMore }) {
+  const [filters, setFilters] = useState({
+    sort: "newest",
+    access: [],
+    difficulty: [],
+    topic: [],
+    channel: [],
+  });
+
+  return (
+    <>
+      <FiltersClient filters={filters} onFiltersChange={setFilters} />
+      <div style={{ marginTop: 14 }}>
+        <ClipsGridClient
+          initialItems={initialItems}
+          initialHasMore={initialHasMore}
+          filters={filters}
+        />
+      </div>
+    </>
+  );
+}
