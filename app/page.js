@@ -1,7 +1,4 @@
 // app/page.js
-import { createClient } from "@supabase/supabase-js";
-import { unstable_cache } from "next/cache";
-
 import FiltersClient from "./components/FiltersClient";
 import ClipsGridClient from "./components/ClipsGridClient";
 
@@ -11,8 +8,6 @@ import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
-// ✅ 关键：给 Vercel/Next 一个“可复用窗口”
-//（不要 force-dynamic）
 export const revalidate = 30;
 
 function parseList(v) {
@@ -27,13 +22,6 @@ function parseList(v) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function getSupabaseAdmin() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 function normRow(r) {
@@ -57,59 +45,57 @@ function normRow(r) {
   };
 }
 
-// ✅ 把“首页列表查询”包进 Next 缓存
-const getHomeListCached = unstable_cache(
-  async ({ filters, sort, limit, offset }) => {
-    const supabase = getSupabaseAdmin();
-    const take = limit + 1;
+function supabaseRestHeaders() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  return {
+    url,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      Accept: "application/json",
+    },
+  };
+}
 
-    let q = supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-      );
+// PostgREST: array overlaps 用 ov.{a,b}；in 用 in.(a,b)
+function buildClipsViewUrl({ filters, sort, limit, offset }) {
+  const { url } = supabaseRestHeaders();
+  const params = new URLSearchParams();
 
-    if (filters.access.length) q = q.in("access_tier", filters.access);
-    if (filters.difficulty.length) q = q.in("difficulty_slug", filters.difficulty);
-    if (filters.topic.length) q = q.overlaps("topic_slugs", filters.topic);
-    if (filters.channel.length) q = q.overlaps("channel_slugs", filters.channel);
+  params.set(
+    "select",
+    "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
+  );
 
-    q = q
-      .order("created_at", { ascending: sort === "oldest" })
-      .range(offset, offset + take - 1);
+  // 排序：created_at.desc / asc
+  params.set("order", `created_at.${sort === "oldest" ? "asc" : "desc"}`);
 
-    const { data, error } = await q;
-    if (error) throw new Error(error.message);
+  // 极速分页：limit+1 判断 has_more
+  params.set("limit", String(limit + 1));
+  params.set("offset", String(offset));
 
-    const rows = data || [];
-    const has_more = rows.length > limit;
-    const pageRows = has_more ? rows.slice(0, limit) : rows;
-    return { items: pageRows.map(normRow), has_more };
-  },
-  ["home-list-v1"],
-  { revalidate: 30 }
-);
+  // filters
+  if (filters.access?.length) params.set("access_tier", `in.(${filters.access.join(",")})`);
+  if (filters.difficulty?.length) params.set("difficulty_slug", `in.(${filters.difficulty.join(",")})`);
+  if (filters.topic?.length) params.set("topic_slugs", `ov.{${filters.topic.join(",")}}`);
+  if (filters.channel?.length) params.set("channel_slugs", `ov.{${filters.channel.join(",")}}`);
 
-// ✅ 把“示例卡片查询”也包进缓存
-const getFeaturedCached = unstable_cache(
-  async () => {
-    const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
-      )
-      .eq("access_tier", "free")
-      .order("created_at", { ascending: false })
-      .limit(1);
+  return `${url}/rest/v1/clips_view?${params.toString()}`;
+}
 
-    if (error) throw new Error(error.message);
-    if (Array.isArray(data) && data[0]) return normRow(data[0]);
-    return null;
-  },
-  ["home-featured-v1"],
-  { revalidate: 300 } // 示例卡更稳定，给 5 分钟也行
-);
+async function fetchJson(url, headers, revalidateSec) {
+  const res = await fetch(url, {
+    headers,
+    next: { revalidate: revalidateSec },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Fetch failed: ${res.status} ${text}`);
+  }
+  return res.json();
+}
 
 export default async function Page({ searchParams }) {
   const filters = {
@@ -123,13 +109,21 @@ export default async function Page({ searchParams }) {
   const limit = 12;
   const offset = Math.max(parseInt(searchParams?.offset || "0", 10), 0);
 
+  const { headers } = supabaseRestHeaders();
+
+  // 1) 首页列表（可被 Next fetch cache 推导）
   let items = [];
   let has_more = false;
 
   try {
-    const res = await getHomeListCached({ filters, sort, limit, offset });
-    items = res.items;
-    has_more = res.has_more;
+    const listUrl = buildClipsViewUrl({ filters, sort, limit, offset });
+    const rows = await fetchJson(listUrl, headers, 30);
+
+    const hasMore = Array.isArray(rows) && rows.length > limit;
+    const pageRows = hasMore ? rows.slice(0, limit) : rows;
+
+    items = (pageRows || []).map(normRow);
+    has_more = hasMore;
   } catch (e) {
     return (
       <div style={{ padding: 16 }}>
@@ -139,9 +133,22 @@ export default async function Page({ searchParams }) {
     );
   }
 
+  // 2) 固定示例卡（free 最新一条）
   let featured = null;
   try {
-    featured = await getFeaturedCached();
+    const { url } = supabaseRestHeaders();
+    const p = new URLSearchParams();
+    p.set(
+      "select",
+      "id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs"
+    );
+    p.set("access_tier", "eq.free");
+    p.set("order", "created_at.desc");
+    p.set("limit", "1");
+
+    const featUrl = `${url}/rest/v1/clips_view?${p.toString()}`;
+    const fRows = await fetchJson(featUrl, headers, 300);
+    if (Array.isArray(fRows) && fRows[0]) featured = normRow(fRows[0]);
   } catch {}
   if (!featured) featured = items[0] || null;
 
@@ -236,11 +243,9 @@ export default async function Page({ searchParams }) {
 
         <div style={{ marginTop: 18 }}>
           <SectionTitle title="全部视频" />
-
           <div style={{ marginTop: 10 }}>
             <FiltersClient initialFilters={{ ...filters, sort }} taxonomies={tax} />
           </div>
-
           <div style={{ marginTop: 14 }}>
             <ClipsGridClient
               initialItems={items}
