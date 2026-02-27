@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { THEME } from "./home/theme";
 
@@ -20,10 +20,170 @@ function sameArray(a, b) {
   return sa.every((x, i) => x === sb[i]);
 }
 
-function shortJoin(arr, maxLen = 18) {
-  const s = (arr || []).join("、");
-  if (s.length <= maxLen) return s;
-  return s.slice(0, maxLen) + "…";
+function joinSelected(arr) {
+  const a = Array.isArray(arr) ? arr : [];
+  if (!a.length) return "全部";
+  return a.join("、");
+}
+
+function useOutsideClose(open, setOpen, refs = []) {
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e) {
+      for (const r of refs) {
+        if (r?.current && r.current.contains(e.target)) return;
+      }
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open, setOpen, refs]);
+}
+
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onToggle,
+  onSelectAll,
+  getLabel = (x) => x,
+  disabledHint,
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  useOutsideClose(open, setOpen, [wrapRef]);
+
+  const allSlugs = useMemo(() => (options || []).map((o) => o.slug), [options]);
+  const isAll = selected.length > 0 && selected.length === allSlugs.length;
+
+  const buttonText = useMemo(() => {
+    if (!selected?.length) return "全部";
+    // 不要 “已选：”，直接显示选项（按你要求）
+    return joinSelected(selected.map((s) => String(s)));
+  }, [selected]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative", minWidth: 0 }}>
+      <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>{label}</div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          width: "100%",
+          textAlign: "left",
+          padding: "8px 10px",
+          borderRadius: 12,
+          border: `1px solid ${THEME.colors.border2}`,
+          background: THEME.colors.surface,
+          color: THEME.colors.ink,
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          cursor: "pointer",
+        }}
+        title={disabledHint || ""}
+      >
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {buttonText}
+        </span>
+        <span style={{ color: THEME.colors.faint, fontSize: 12 }}>▾</span>
+      </button>
+
+      {open ? (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 30,
+            top: "calc(100% + 8px)",
+            left: 0,
+            width: "100%",
+            minWidth: 220,
+            maxHeight: 280,
+            overflow: "auto",
+            borderRadius: 12,
+            border: `1px solid ${THEME.colors.border}`,
+            background: "rgba(255,255,255,0.98)",
+            boxShadow: "0 18px 46px rgba(11,18,32,0.18)",
+            padding: 8,
+          }}
+        >
+          {/* 全选 */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 8px",
+              borderRadius: 10,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,18,32,0.04)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <input
+              type="checkbox"
+              checked={isAll}
+              onChange={() => onSelectAll(!isAll)}
+              style={{ width: 14, height: 14 }}
+            />
+            <span style={{ fontSize: 13, color: THEME.colors.ink }}>全选</span>
+          </label>
+
+          <div style={{ height: 1, background: THEME.colors.border, margin: "6px 0 6px" }} />
+
+          {(options || []).map((o) => {
+            const checked = selected.includes(o.slug);
+            return (
+              <label
+                key={o.slug}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 8px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,18,32,0.04)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                title={typeof o.count === "number" ? `(${o.count})` : ""}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => onToggle(o.slug)}
+                  style={{ width: 14, height: 14 }}
+                />
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: THEME.colors.ink,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                  }}
+                >
+                  {getLabel(o)}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function FiltersClient({ initialFilters, taxonomies }) {
@@ -55,7 +215,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
 
   const cleanedQueryString = useMemo(() => {
     const params = new URLSearchParams(sp.toString());
-    params.delete("offset");
+    params.delete("offset"); // ✅ 护栏：筛选变化永远从第 1 页开始
     return params.toString();
   }, [sp]);
 
@@ -76,6 +236,7 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           channels: data.channels || [],
         });
       } catch {
+        // 失败不影响使用
       } finally {
         if (!aborted) setTaxLoading(false);
       }
@@ -98,6 +259,8 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (next.channel?.length) params.set("channel", next.channel.join(","));
 
     const qs = params.toString();
+
+    // ✅ 不回顶 + 软导航（参考站体感）
     startTransition(() => {
       router.replace(qs ? `/?${qs}` : `/`, { scroll: false });
     });
@@ -117,29 +280,13 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
     if (!same) pushWith(next);
   }
 
-  const selectedChips = useMemo(() => {
-    const chips = [];
-    (filters.difficulty || []).forEach((v) => chips.push({ kind: "difficulty", v, label: v }));
-    (filters.topic || []).forEach((v) => chips.push({ kind: "topic", v, label: v }));
-    (filters.channel || []).forEach((v) => chips.push({ kind: "channel", v, label: v }));
-    (filters.access || []).forEach((v) =>
-      chips.push({ kind: "access", v, label: v === "free" ? "免费" : v === "vip" ? "会员" : v })
-    );
-    return chips;
-  }, [filters]);
-
-  function removeChip(kind, v) {
-    if (kind === "difficulty") update({ difficulty: (filters.difficulty || []).filter((x) => x !== v) });
-    if (kind === "topic") update({ topic: (filters.topic || []).filter((x) => x !== v) });
-    if (kind === "channel") update({ channel: (filters.channel || []).filter((x) => x !== v) });
-    if (kind === "access") update({ access: (filters.access || []).filter((x) => x !== v) });
-  }
-
-  // ✅ 关键：下拉框显示“已选：xxx”
-  const diffSelectValue = filters.difficulty.length ? "__selected__" : "";
-  const accessSelectValue = filters.access.length ? "__selected__" : "";
-  const topicSelectValue = filters.topic.length ? "__selected__" : "";
-  const channelSelectValue = filters.channel.length ? "__selected__" : "";
+  const accessOptions = useMemo(
+    () => [
+      { slug: "free", count: null },
+      { slug: "vip", count: null },
+    ],
+    []
+  );
 
   return (
     <div>
@@ -150,38 +297,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
           background: rgba(255,255,255,0.72);
           box-shadow: 0 10px 26px rgba(11,18,32,0.08);
           padding: 10px 12px;
-        }
-
-        .chipsRow {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          margin-bottom: 10px;
-        }
-        .chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 10px;
-          border-radius: 999px;
-          border: 1px solid rgba(79,70,229,0.20);
-          background: rgba(79,70,229,0.10);
-          color: #3730a3;
-          font-size: 13px;
-          user-select: none;
-        }
-        .chipX {
-          width: 18px;
-          height: 18px;
-          border-radius: 999px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(11,18,32,0.14);
-          background: rgba(255,255,255,0.75);
-          cursor: pointer;
-          line-height: 1;
-          font-size: 12px;
-          color: ${THEME.colors.ink};
         }
 
         .row {
@@ -230,19 +345,6 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
       `}</style>
 
       <div className="panel">
-        {selectedChips.length ? (
-          <div className="chipsRow">
-            {selectedChips.map((c) => (
-              <span key={`${c.kind}:${c.v}`} className="chip">
-                {c.label}
-                <span className="chipX" onClick={() => removeChip(c.kind, c.v)} aria-label="remove">
-                  ×
-                </span>
-              </span>
-            ))}
-          </div>
-        ) : null}
-
         <div className="row">
           <div className="field span2">
             <div className="label">
@@ -255,102 +357,45 @@ export default function FiltersClient({ initialFilters, taxonomies }) {
             </select>
           </div>
 
-          <div className="field">
-            <div className="label">视频难度</div>
-            <select
-              value={diffSelectValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v || v === "__selected__") return;
-                update({ difficulty: toggleInArray(filters.difficulty, v) });
-              }}
-              className="select"
-            >
-              <option value="">{filters.difficulty.length ? "继续选择…" : "全部"}</option>
-              {filters.difficulty.length ? (
-                <option value="__selected__" disabled>
-                  已选：{shortJoin(filters.difficulty)}
-                </option>
-              ) : null}
-              {(tax?.difficulties || []).map((x) => (
-                <option key={x.slug} value={x.slug}>
-                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            label="视频难度"
+            options={tax?.difficulties || []}
+            selected={filters.difficulty}
+            onToggle={(slug) => update({ difficulty: toggleInArray(filters.difficulty, slug) })}
+            onSelectAll={(all) =>
+              update({ difficulty: all ? (tax?.difficulties || []).map((x) => x.slug) : [] })
+            }
+            getLabel={(o) => o.slug}
+          />
 
-          <div className="field">
-            <div className="label">访问权限</div>
-            <select
-              value={accessSelectValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v || v === "__selected__") return;
-                update({ access: toggleInArray(filters.access, v) });
-              }}
-              className="select"
-            >
-              <option value="">{filters.access.length ? "继续选择…" : "全部"}</option>
-              {filters.access.length ? (
-                <option value="__selected__" disabled>
-                  已选：{shortJoin(filters.access.map((v) => (v === "free" ? "免费" : v === "vip" ? "会员" : v)))}
-                </option>
-              ) : null}
-              <option value="free">免费</option>
-              <option value="vip">会员</option>
-            </select>
-          </div>
+          <MultiSelectDropdown
+            label="访问权限"
+            options={accessOptions}
+            selected={filters.access}
+            onToggle={(slug) => update({ access: toggleInArray(filters.access, slug) })}
+            onSelectAll={(all) => update({ access: all ? accessOptions.map((x) => x.slug) : [] })}
+            getLabel={(o) => (o.slug === "free" ? "免费" : o.slug === "vip" ? "会员" : o.slug)}
+          />
 
-          <div className="field">
-            <div className="label">视频话题</div>
-            <select
-              value={topicSelectValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v || v === "__selected__") return;
-                update({ topic: toggleInArray(filters.topic, v) });
-              }}
-              className="select"
-            >
-              <option value="">{filters.topic.length ? "继续选择…" : "全部"}</option>
-              {filters.topic.length ? (
-                <option value="__selected__" disabled>
-                  已选：{shortJoin(filters.topic)}
-                </option>
-              ) : null}
-              {(tax?.topics || []).map((x) => (
-                <option key={x.slug} value={x.slug}>
-                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            label="视频话题"
+            options={tax?.topics || []}
+            selected={filters.topic}
+            onToggle={(slug) => update({ topic: toggleInArray(filters.topic, slug) })}
+            onSelectAll={(all) => update({ topic: all ? (tax?.topics || []).map((x) => x.slug) : [] })}
+            getLabel={(o) => o.slug}
+          />
 
-          <div className="field">
-            <div className="label">视频频道</div>
-            <select
-              value={channelSelectValue}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v || v === "__selected__") return;
-                update({ channel: toggleInArray(filters.channel, v) });
-              }}
-              className="select"
-            >
-              <option value="">{filters.channel.length ? "继续选择…" : "全部"}</option>
-              {filters.channel.length ? (
-                <option value="__selected__" disabled>
-                  已选：{shortJoin(filters.channel)}
-                </option>
-              ) : null}
-              {(tax?.channels || []).map((x) => (
-                <option key={x.slug} value={x.slug}>
-                  {x.slug} ({typeof x.count === "number" ? x.count : 0})
-                </option>
-              ))}
-            </select>
-          </div>
+          <MultiSelectDropdown
+            label="视频频道"
+            options={tax?.channels || []}
+            selected={filters.channel}
+            onToggle={(slug) => update({ channel: toggleInArray(filters.channel, slug) })}
+            onSelectAll={(all) =>
+              update({ channel: all ? (tax?.channels || []).map((x) => x.slug) : [] })
+            }
+            getLabel={(o) => o.slug}
+          />
         </div>
 
         <div className="foot">
