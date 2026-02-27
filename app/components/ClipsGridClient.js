@@ -7,11 +7,7 @@ import { THEME } from "./home/theme";
 
 function formatDate(d) {
   if (!d) return "";
-  try {
-    return String(d).slice(0, 10);
-  } catch {
-    return "";
-  }
+  return String(d).slice(0, 10);
 }
 
 function formatDuration(sec) {
@@ -22,8 +18,78 @@ function formatDuration(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
-export default function ClipsGridClient({ initialItems, initialHasMore }) {
+function isMp4(url) {
+  if (!url) return false;
+  const u = String(url).toLowerCase();
+  return u.includes(".mp4");
+}
+
+function HoverMedia({ coverUrl, videoUrl, title }) {
+  const [hover, setHover] = useState(false);
+  const vref = useRef(null);
+
+  useEffect(() => {
+    const v = vref.current;
+    if (!v) return;
+
+    if (!hover) {
+      try {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      } catch {}
+      return;
+    }
+
+    if (!isMp4(videoUrl)) return;
+
+    try {
+      v.src = videoUrl;
+      v.muted = true;
+      v.playsInline = true;
+      v.loop = true;
+      v.currentTime = 0;
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    } catch {}
+  }, [hover, videoUrl]);
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ position: "relative", width: "100%", height: "100%" }}
+    >
+      {coverUrl ? (
+        <img
+          src={coverUrl}
+          alt={title || ""}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          loading="lazy"
+        />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
+      )}
+
+      <video
+        ref={vref}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: hover && isMp4(videoUrl) ? "block" : "none",
+        }}
+        preload="none"
+      />
+    </div>
+  );
+}
+
+export default function ClipsGridClient({ initialItems, initialHasMore, queryKey: serverQueryKey }) {
   const sp = useSearchParams();
+  const clientQueryKey = useMemo(() => sp.toString(), [sp]);
 
   const [items, setItems] = useState(initialItems || []);
   const [hasMore, setHasMore] = useState(!!initialHasMore);
@@ -34,10 +100,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
 
-  // ✅ 用户是否发生过滚动（必须滚动才触发自动加载）
+  // ✅ 必须用户滚动过才自动加载更多
   const userScrolledRef = useRef(false);
-
-  const queryKey = useMemo(() => sp.toString(), [sp]);
 
   useEffect(() => {
     const onScroll = () => {
@@ -47,6 +111,20 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll, { passive: true });
   }, []);
+
+  // ✅ 关键：当 RSC 导航完成后，Page 会给新的 initialItems/initialHasMore
+  // 我们在这里用新 props 重置网格（不做客户端拉首屏，符合参考站路线）
+  useEffect(() => {
+    setItems(initialItems || []);
+    setHasMore(!!initialHasMore);
+    setLoading(false);
+    setErr("");
+    inFlightRef.current = false;
+    coolDownRef.current = false;
+    userScrolledRef.current = false; // 新筛选后重新要求“滚动才加载更多”
+    // 用版本号让旧请求失效
+    reqVersionRef.current += 1;
+  }, [serverQueryKey, initialItems, initialHasMore]);
 
   async function loadMore() {
     if (!hasMore || loading) return;
@@ -61,7 +139,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
     try {
       const offset = items.length;
-      const url = `/rsc-api/clips?${queryKey}${queryKey ? "&" : ""}offset=${offset}`;
+      const url = `/rsc-api/clips?${clientQueryKey}${clientQueryKey ? "&" : ""}offset=${offset}`;
 
       const r = await fetch(url, { cache: "no-store" });
       const data = await r.json();
@@ -98,17 +176,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
       (entries) => {
         const first = entries[0];
         if (!first?.isIntersecting) return;
-
-        // ✅ 关键：用户没滚动过，不允许自动加载
         if (!userScrolledRef.current) return;
-
         loadMore();
       },
-      {
-        root: null,
-        rootMargin: "140px 0px",
-        threshold: 0.01,
-      }
+      { root: null, rootMargin: "140px 0px", threshold: 0.01 }
     );
 
     io.observe(el);
@@ -117,14 +188,12 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
   return (
     <div>
-      {/* 仅样式：产品化卡片 + hover 提升（不影响逻辑） */}
-      <style jsx>{`
+      <style>{`
         .grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
           gap: 14px;
         }
-
         .card {
           display: block;
           border-radius: ${THEME.radii.lg}px;
@@ -142,39 +211,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           box-shadow: ${THEME.colors.shadowHover};
           border-color: ${THEME.colors.border2};
         }
-
         .coverWrap {
           position: relative;
           width: 100%;
           height: 150px;
-          background: rgba(11, 18, 32, 0.06);
+          background: rgba(11,18,32,0.06);
           overflow: hidden;
         }
-        .coverImg {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          display: block;
-        }
-        .coverPlaceholder {
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(135deg, rgba(79, 70, 229, 0.16), rgba(6, 182, 212, 0.12)),
-            radial-gradient(600px 220px at 20% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
-            rgba(11, 18, 32, 0.06);
-          position: relative;
-        }
-        .coverPlaceholder:before {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background-image: linear-gradient(rgba(11, 18, 32, 0.08) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(11, 18, 32, 0.08) 1px, transparent 1px);
-          background-size: 22px 22px;
-          opacity: 0.22;
-          pointer-events: none;
-        }
-
         .pillRow {
           position: absolute;
           left: 10px;
@@ -182,6 +225,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           display: flex;
           gap: 8px;
           align-items: center;
+          z-index: 2;
         }
         .pill {
           display: inline-flex;
@@ -190,58 +234,25 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           border-radius: 999px;
           font-size: 12px;
           border: 1px solid ${THEME.colors.border};
-          background: rgba(255, 255, 255, 0.72);
+          background: rgba(255,255,255,0.72);
           color: ${THEME.colors.ink};
           white-space: nowrap;
         }
-        .pillFree {
-          border-color: rgba(16, 185, 129, 0.22);
-          background: rgba(16, 185, 129, 0.12);
-          color: #065f46;
-        }
-        .pillVip {
-          border-color: rgba(124, 58, 237, 0.22);
-          background: rgba(124, 58, 237, 0.12);
-          color: #5b21b6;
-        }
-        .pillDiff {
-          border-color: rgba(245, 158, 11, 0.22);
-          background: rgba(245, 158, 11, 0.14);
-          color: #92400e;
-        }
-
-        .bookmark {
-          position: absolute;
-          right: 10px;
-          top: 10px;
-          width: 34px;
-          height: 34px;
-          border-radius: 999px;
-          border: 1px solid ${THEME.colors.border};
-          background: rgba(255, 255, 255, 0.72);
-          display: grid;
-          place-items: center;
-          color: ${THEME.colors.ink};
-          font-size: 16px;
-          user-select: none;
-        }
-
+        .pillFree { border-color: rgba(16,185,129,0.22); background: rgba(16,185,129,0.12); color:#065f46; }
+        .pillVip { border-color: rgba(124,58,237,0.22); background: rgba(124,58,237,0.12); color:#5b21b6; }
+        .pillDiff { border-color: rgba(245,158,11,0.22); background: rgba(245,158,11,0.14); color:#92400e; }
         .duration {
           position: absolute;
           right: 10px;
           bottom: 10px;
-          background: rgba(11, 18, 32, 0.78);
+          z-index: 2;
+          background: rgba(11,18,32,0.78);
           color: #fff;
           font-size: 12px;
           padding: 4px 6px;
           border-radius: 8px;
-          letter-spacing: 0.02em;
         }
-
-        .body {
-          padding: 12px;
-        }
-
+        .body { padding: 12px; }
         .title {
           font-size: 15px;
           font-weight: 950;
@@ -253,7 +264,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
-
         .desc {
           font-size: 12.5px;
           color: ${THEME.colors.muted};
@@ -265,86 +275,19 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           overflow: hidden;
           min-height: 38px;
         }
-
-        .tags {
-          display: flex;
-          gap: 8px;
-          flex-wrap: wrap;
-          align-items: center;
-        }
-        .tag {
-          display: inline-flex;
-          align-items: center;
-          padding: 4px 8px;
-          border-radius: 999px;
-          font-size: 12px;
-          border: 1px solid ${THEME.colors.border};
-          background: rgba(11, 18, 32, 0.04);
-          color: ${THEME.colors.ink};
-        }
-        .tagInfo {
-          border-color: rgba(79, 70, 229, 0.20);
-          background: rgba(79, 70, 229, 0.12);
-          color: #3730a3;
-        }
-        .tagCyan {
-          border-color: rgba(6, 182, 212, 0.20);
-          background: rgba(6, 182, 212, 0.12);
-          color: #155e75;
-        }
-
-        .metaRow {
-          margin-top: 10px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10px;
-        }
         .meta {
           font-size: 12px;
           color: ${THEME.colors.faint};
           white-space: nowrap;
         }
-
-        .foot {
-          margin-top: 14px;
-          display: flex;
-          justify-content: center;
-        }
-
+        .foot { margin-top: 14px; display:flex; justify-content:center; }
         .status {
           font-size: 13px;
           color: ${THEME.colors.faint};
           padding: 10px 12px;
           border-radius: ${THEME.radii.md}px;
           border: 1px solid ${THEME.colors.border};
-          background: rgba(255, 255, 255, 0.7);
-        }
-
-        .err {
-          color: #b91c1c;
-          padding: 10px 12px;
-          border-radius: ${THEME.radii.md}px;
-          border: 1px solid rgba(185, 28, 28, 0.18);
-          background: rgba(185, 28, 28, 0.06);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-
-        .btn {
-          padding: 7px 10px;
-          border-radius: 999px;
-          border: 1px solid ${THEME.colors.border2};
-          background: ${THEME.colors.surface};
-          cursor: pointer;
-          font-size: 13px;
-          color: ${THEME.colors.ink};
-        }
-        .btn:hover {
-          border-color: ${THEME.colors.border2};
-          box-shadow: 0 10px 20px rgba(11, 18, 32, 0.10);
+          background: rgba(255,255,255,0.7);
         }
       `}</style>
 
@@ -353,31 +296,15 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
           const isVip = r.access_tier === "vip";
           const duration = formatDuration(r.duration_sec);
           const dateStr = formatDate(r.created_at);
-          const topics = Array.isArray(r.topics) ? r.topics : [];
-          const channels = Array.isArray(r.channels) ? r.channels : [];
-
-          // 展示策略：最多 2 个 tag + 剩余计数（不改数据语义）
-          const tagList = [];
-          if (channels[0]) tagList.push({ k: `c-${channels[0]}`, t: channels[0], tone: "info" });
-          if (topics[0]) tagList.push({ k: `t-${topics[0]}`, t: topics[0], tone: "cyan" });
-          const remain = Math.max(0, (channels.length > 0 ? channels.length - 1 : 0) + (topics.length > 0 ? topics.length - 1 : 0));
 
           return (
             <Link key={r.id} href={`/clips/${r.id}`} className="card">
               <div className="coverWrap">
-                {r.cover_url ? (
-                  <img className="coverImg" src={r.cover_url} alt="" loading="lazy" />
-                ) : (
-                  <div className="coverPlaceholder" />
-                )}
+                <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
 
                 <div className="pillRow">
                   <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>{isVip ? "会员" : "免费"}</span>
                   {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
-                </div>
-
-                <div className="bookmark" title="收藏（实验线 UI 占位）" aria-label="bookmark">
-                  ♡
                 </div>
 
                 {duration ? <div className="duration">{duration}</div> : null}
@@ -386,19 +313,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
               <div className="body">
                 <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
                 <p className="desc">{r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}</p>
-
-                <div className="tags">
-                  {tagList.map((x) => (
-                    <span key={x.k} className={`tag ${x.tone === "info" ? "tagInfo" : "tagCyan"}`}>
-                      {x.t}
-                    </span>
-                  ))}
-                  {remain > 0 ? <span className="tag">+{remain}</span> : null}
-                </div>
-
-                <div className="metaRow">
-                  <div className="meta">{dateStr}</div>
-                </div>
+                <div className="meta">{dateStr}</div>
               </div>
             </Link>
           );
@@ -409,11 +324,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore }) {
 
       <div className="foot">
         {err ? (
-          <div className="err">
-            <span>{err}</span>
-            <button onClick={loadMore} className="btn">
-              重试
-            </button>
+          <div className="status" style={{ color: "crimson" }}>
+            {err}
           </div>
         ) : hasMore ? (
           <div className="status">{loading ? "加载中..." : "继续下滑自动加载"}</div>
