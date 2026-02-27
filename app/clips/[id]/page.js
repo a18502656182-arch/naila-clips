@@ -244,6 +244,7 @@ export default function ClipDetailPage() {
   const [rate, setRate] = useState(1);
   const [loopIdx, setLoopIdx] = useState(-1);
   const listWrapRef = useRef(null);
+  const desktopListRef = useRef(null);
   const rowRefs = useRef({});
   const [favSet, setFavSet] = useState(() => new Set());
 
@@ -301,7 +302,11 @@ export default function ClipDetailPage() {
     setActiveSegIdx(idx);
     const v = videoRef.current;
     if (!v) return;
-    try { v.currentTime = Number(seg?.start || 0); v.play?.(); } catch {}
+    try {
+      v.currentTime = Number(seg?.start || 0);
+      // 只有视频已经在播放时才继续播放，不强制自动播放
+      if (!v.paused) v.play?.();
+    } catch {}
   }
   function locateToSegIdx(idx) {
     if (idx < 0 || idx >= segments.length) return;
@@ -336,7 +341,9 @@ export default function ClipDetailPage() {
 
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
-    const el = rowRefs.current[activeSegIdx], wrap = listWrapRef.current;
+    const el = rowRefs.current[activeSegIdx];
+    // 桌面用 desktopListRef，手机用 listWrapRef
+    const wrap = desktopListRef.current || listWrapRef.current;
     if (!el || !wrap) return;
     wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
   }, [activeSegIdx, follow]);
@@ -566,7 +573,6 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
-          {/* 中：字幕 */}
           <Card style={{ padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
@@ -579,7 +585,22 @@ export default function ClipDetailPage() {
                 : <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
               }
             </div>
-            <SubtitleList maxH={560} />
+            {segments.length ? (
+              <div ref={desktopListRef} style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 560, overflow: "auto", paddingRight: 4 }}>
+                {segments.map((seg, idx) => (
+                  <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
+                    showZh={subLang === "zh"} onClick={() => jumpTo(seg, idx)}
+                    loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
+                    renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }} />
+                ))}
+              </div>
+            ) : (
+              <Card style={{ padding: 14 }}>
+                <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>
+                  {details ? "暂无字幕段" : "暂无详情内容，上传字幕后即可显示。"}
+                </div>
+              </Card>
+            )}
           </Card>
 
           {/* 右：词汇卡（可收起）*/}
