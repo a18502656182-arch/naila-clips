@@ -4,6 +4,52 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
+// 会员拦截弹窗
+function VipModal({ me, onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: "rgba(11,18,32,0.45)", display: "flex",
+      alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
+        border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+        padding: 24, width: "100%", maxWidth: 380,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 22 }}>🔒</div>
+          <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>会员专享视频</div>
+          <button type="button" onClick={onClose} style={{
+            marginLeft: "auto", border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface, borderRadius: THEME.radii.md,
+            padding: "6px 12px", cursor: "pointer", fontSize: 12,
+          }}>关闭</button>
+        </div>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 18 }}>
+          {me?.logged_in
+            ? "该视频为会员专享，请输入兑换码开通会员后观看。"
+            : "该视频为会员专享，请先登录，再使用兑换码开通会员。"}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {!me?.logged_in && (
+            <a href="/login" style={{
+              flex: 1, textAlign: "center", padding: "10px 0",
+              borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
+              color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
+            }}>去登录</a>
+          )}
+          <a href={me?.logged_in ? "/register" : "/login"} style={{
+            flex: 1, textAlign: "center", padding: "10px 0",
+            borderRadius: THEME.radii.pill, background: THEME.colors.vip,
+            color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+          }}>{me?.logged_in ? "去兑换开通" : "登录并开通"}</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatDate(d) {
   if (!d) return "";
   return String(d).slice(0, 10);
@@ -75,6 +121,27 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [hasMore, setHasMore] = useState(!!initialHasMore);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  // 登录状态（用于弹窗判断）
+  const [me, setMe] = useState(null);
+  useEffect(() => {
+    fetch("/api/me", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => setMe(data))
+      .catch(() => setMe({ logged_in: false }));
+  }, []);
+
+  // 会员弹窗
+  const [showVipModal, setShowVipModal] = useState(false);
+
+  function handleCardClick(e, item) {
+    // can_access=true 或免费视频：直接跳转，不拦截
+    if (item.can_access || item.access_tier !== "vip") return;
+    // 会员视频且无权限：拦截
+    e.preventDefault();
+    e.stopPropagation();
+    setShowVipModal(true);
+  }
 
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
@@ -203,6 +270,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   return (
     <div>
+      {showVipModal && <VipModal me={me} onClose={() => setShowVipModal(false)} />}
       <style>{`
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
         .card { display: block; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -232,7 +300,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
             const duration = formatDuration(r.duration_sec);
             const dateStr = formatDate(r.created_at);
             return (
-              <Link key={r.id} href={`/clips/${r.id}`} className="card">
+              <Link key={r.id} href={`/clips/${r.id}`} className="card" onClick={e => handleCardClick(e, r)}>
                 <div className="coverWrap">
                   <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
                   <div className="pillRow">
