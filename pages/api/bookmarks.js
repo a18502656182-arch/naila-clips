@@ -12,8 +12,8 @@ async function getUserFromReq(req, res) {
 
   const token = getBearer(req);
   const { data, error } = token
-    ? await supabase.auth.getUser(token) // ✅ Bearer
-    : await supabase.auth.getUser(); // ✅ Cookie
+    ? await supabase.auth.getUser(token)
+    : await supabase.auth.getUser();
 
   const user = data?.user || null;
   return { supabase, user, mode: token ? "bearer" : "cookie", userErr: error?.message || null };
@@ -51,13 +51,13 @@ export default async function handler(req, res) {
 
     const clipIds = (rows || []).map((r) => r.clip_id).filter(Boolean);
 
-    // 2) 批量取 clips_view（如果你没有 clips_view，可以改成 clips）
+    // 2) 批量取 clips_view
     let clipMap = new Map();
     if (clipIds.length) {
       const { data: clips, error: e2 } = await supabase
         .from("clips_view")
         .select(
-          "id,title,access_tier,cover_url,video_url,duration_sec,created_at,difficulty_slugs,topic_slugs,channel_slugs"
+          "id,title,access_tier,cover_url,video_url,duration_sec,created_at,difficulty_slug,topic_slugs,channel_slugs"
         )
         .in("id", clipIds);
 
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
               video_url: c.video_url,
               duration_sec: c.duration_sec,
               created_at: c.created_at,
-              difficulty_slugs: c.difficulty_slugs || [],
+              difficulty_slug: c.difficulty_slug || null,
               topic_slugs: c.topic_slugs || [],
               channel_slugs: c.channel_slugs || [],
             }
@@ -100,7 +100,6 @@ export default async function handler(req, res) {
       limit,
       offset,
       items,
-      debug: { mode },
     });
   } catch (err) {
     return res.status(500).json({ error: "unknown", detail: String(err?.message || err) });
