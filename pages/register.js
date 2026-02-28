@@ -159,8 +159,6 @@ export default function RegisterPage() {
             <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: THEME.colors.muted }}>
               已有账号？{" "}
               <a href="/login" style={{ color: THEME.colors.accent, fontWeight: 600, textDecoration: "none" }}>去登录</a>
-              {" · "}
-              <a href="/redeem" style={{ color: THEME.colors.vip, fontWeight: 600, textDecoration: "none" }}>已登录？去兑换</a>
             </div>
           </>
         )}
