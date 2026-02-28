@@ -1,13 +1,11 @@
 "use client";
 
 // app/components/UserMenuClient.js
-// 登录状态显示：未登录显示登录/注册，已登录显示头像下拉菜单
-
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
 export default function UserMenuClient() {
-  const [me, setMe] = useState(null); // null=加载中
+  const [me, setMe] = useState(null);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
@@ -36,12 +34,10 @@ export default function UserMenuClient() {
     } catch {}
   }
 
-  // 加载中：占位
   if (me === null) {
     return <div style={{ width: 80, height: 34 }} />;
   }
 
-  // 未登录
   if (!me.logged_in) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -59,7 +55,6 @@ export default function UserMenuClient() {
     );
   }
 
-  // 已登录
   const initial = (me.email || "U").split("@")[0].slice(0, 1).toUpperCase();
 
   return (
@@ -111,6 +106,15 @@ export default function UserMenuClient() {
               border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
               textDecoration: "none", color: THEME.colors.ink, fontSize: 13, fontWeight: 600,
             }}>❤️ 我的收藏</a>
+
+            {/* 会员：续期；非会员：开通 */}
+            <a href="/redeem" onClick={() => setOpen(false)} style={{
+              display: "block", padding: "10px 12px", borderRadius: THEME.radii.md,
+              border: `1px solid rgba(124,58,237,0.25)`,
+              background: "rgba(124,58,237,0.06)",
+              textDecoration: "none", color: THEME.colors.vip, fontSize: 13, fontWeight: 600,
+            }}>{me.is_member ? "✨ 兑换码续期" : "✨ 兑换码开通会员"}</a>
+
             <button type="button" onClick={handleLogout} style={{
               width: "100%", padding: "10px 12px", borderRadius: THEME.radii.md,
               border: "1px solid #ffd5d5", background: "#fff5f5",
