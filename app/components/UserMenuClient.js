@@ -4,6 +4,15 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
+function formatExpiry(dateStr) {
+  if (!dateStr) return null;
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+  } catch { return null; }
+}
+
 export default function UserMenuClient() {
   const [me, setMe] = useState(null);
   const [open, setOpen] = useState(false);
@@ -34,9 +43,7 @@ export default function UserMenuClient() {
     } catch {}
   }
 
-  if (me === null) {
-    return <div style={{ width: 80, height: 34 }} />;
-  }
+  if (me === null) return <div style={{ width: 80, height: 34 }} />;
 
   if (!me.logged_in) {
     return (
@@ -56,6 +63,7 @@ export default function UserMenuClient() {
   }
 
   const initial = (me.email || "U").split("@")[0].slice(0, 1).toUpperCase();
+  const expiryStr = formatExpiry(me.ends_at);
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
@@ -79,7 +87,6 @@ export default function UserMenuClient() {
           border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
           borderRadius: THEME.radii.lg, boxShadow: "0 18px 50px rgba(11,18,32,0.14)", overflow: "hidden",
         }}>
-          {/* 头部 */}
           <div style={{ padding: 12, borderBottom: `1px solid ${THEME.colors.border}`, background: "rgba(11,18,32,0.02)" }}>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <span style={{
@@ -95,11 +102,15 @@ export default function UserMenuClient() {
                 <div style={{ marginTop: 2, fontSize: 12, color: me.is_member ? THEME.colors.vip : THEME.colors.faint }}>
                   {me.is_member ? "✨ 会员" : "普通用户"}
                 </div>
+                {me.is_member && expiryStr && (
+                  <div style={{ marginTop: 2, fontSize: 11, color: THEME.colors.faint }}>
+                    到期：{expiryStr}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* 菜单项 */}
           <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 4 }}>
             <a href="/bookmarks" onClick={() => setOpen(false)} style={{
               display: "block", padding: "10px 12px", borderRadius: THEME.radii.md,
@@ -107,7 +118,6 @@ export default function UserMenuClient() {
               textDecoration: "none", color: THEME.colors.ink, fontSize: 13, fontWeight: 600,
             }}>❤️ 我的收藏</a>
 
-            {/* 会员：续期；非会员：开通 */}
             <a href="/redeem" onClick={() => setOpen(false)} style={{
               display: "block", padding: "10px 12px", borderRadius: THEME.radii.md,
               border: `1px solid rgba(124,58,237,0.25)`,
