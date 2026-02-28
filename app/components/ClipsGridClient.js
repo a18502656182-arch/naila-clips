@@ -122,8 +122,50 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   );
 }
 
+// 未登录收藏弹窗
+function LoginToBookmarkModal({ onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: "rgba(11,18,32,0.45)", display: "flex",
+      alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
+        border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+        padding: 24, width: "100%", maxWidth: 380,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 22 }}>🤍</div>
+          <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>收藏视频</div>
+          <button type="button" onClick={onClose} style={{
+            marginLeft: "auto", border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface, borderRadius: THEME.radii.md,
+            padding: "6px 12px", cursor: "pointer", fontSize: 12,
+          }}>关闭</button>
+        </div>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 18 }}>
+          请先登录，再收藏喜欢的视频。
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <a href="/login" style={{
+            flex: 1, textAlign: "center", padding: "10px 0",
+            borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
+            color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
+          }}>去登录</a>
+          <a href="/register" style={{
+            flex: 1, textAlign: "center", padding: "10px 0",
+            borderRadius: THEME.radii.pill, background: THEME.colors.ink,
+            color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+          }}>去注册</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 收藏按钮组件
-function BookmarkBtn({ clipId, loggedIn }) {
+function BookmarkBtn({ clipId, loggedIn, onNeedLogin }) {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -145,7 +187,7 @@ function BookmarkBtn({ clipId, loggedIn }) {
     e.preventDefault();
     e.stopPropagation();
     if (!loggedIn) {
-      window.location.href = "/login";
+      onNeedLogin(); // 弹出登录提示弹窗
       return;
     }
     if (loading) return;
@@ -201,6 +243,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   // 会员弹窗
   const [showVipModal, setShowVipModal] = useState(false);
+  // 未登录收藏弹窗
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // ✅ 优先用 me.is_member 判断，避免首页缓存数据缺少 can_access 的问题
   function handleCardClick(e, item) {
@@ -339,6 +383,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   return (
     <div>
       {showVipModal && <VipModal me={me} onClose={() => setShowVipModal(false)} />}
+      {showLoginModal && <LoginToBookmarkModal onClose={() => setShowLoginModal(false)} />}
       <style>{`
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
         .card { display: block; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -377,7 +422,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                   </div>
                   {duration ? <div className="duration">{duration}</div> : null}
                   {/* ❤️ 收藏按钮 — 右上角 */}
-                  <BookmarkBtn clipId={r.id} loggedIn={!!me?.logged_in} />
+                  <BookmarkBtn clipId={r.id} loggedIn={!!me?.logged_in} onNeedLogin={() => setShowLoginModal(true)} />
                 </div>
                 <div className="body">
                   <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
