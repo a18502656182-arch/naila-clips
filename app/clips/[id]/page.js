@@ -212,6 +212,48 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
   );
 }
 
+// 未登录收藏弹窗
+function BookmarkLoginModal({ onClose }) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 100,
+      background: "rgba(11,18,32,0.45)", display: "flex",
+      alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
+        border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+        padding: 24, width: "100%", maxWidth: 380,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 22 }}>🤍</div>
+          <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>收藏视频</div>
+          <button type="button" onClick={onClose} style={{
+            marginLeft: "auto", border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface, borderRadius: THEME.radii.md,
+            padding: "6px 12px", cursor: "pointer", fontSize: 12,
+          }}>关闭</button>
+        </div>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 18 }}>
+          请先登录，再收藏喜欢的视频。
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <a href="/login" style={{
+            flex: 1, textAlign: "center", padding: "10px 0",
+            borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
+            color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
+          }}>去登录</a>
+          <a href="/register" style={{
+            flex: 1, textAlign: "center", padding: "10px 0",
+            borderRadius: THEME.radii.pill, background: THEME.colors.ink,
+            color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
+          }}>去注册</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 主页面 ────────────────────────────────────────────────
 export default function ClipDetailPage() {
   const params = useParams();
@@ -224,6 +266,11 @@ export default function ClipDetailPage() {
   const [me, setMe] = useState(null);
   const [details, setDetails] = useState(null);
 
+  // ── 收藏状态 ──
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
+  const [showBookmarkLoginModal, setShowBookmarkLoginModal] = useState(false);
+
   const [subLang, setSubLang] = useState("zh");
   const [vocabOpen, setVocabOpen] = useState(false);
   const [vocabTab, setVocabTab] = useState("words");
@@ -235,7 +282,6 @@ export default function ClipDetailPage() {
   const [rate, setRate] = useState(1);
   const [loopIdx, setLoopIdx] = useState(-1);
 
-  // 桌面和手机用独立的 ref，避免互相干扰
   const mobileListRef = useRef(null);
   const desktopListRef = useRef(null);
   const rowRefs = useRef({});
@@ -276,6 +322,36 @@ export default function ClipDetailPage() {
     return () => { mounted = false; };
   }, [clipId]);
 
+  // 收藏状态初始化
+  useEffect(() => {
+    if (!clipId || !me?.logged_in) return;
+    fetch("/api/bookmarks_has", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clip_id: clipId }),
+      cache: "no-store",
+    })
+      .then(r => r.json())
+      .then(d => setBookmarked(!!d?.has))
+      .catch(() => {});
+  }, [clipId, me?.logged_in]);
+
+  async function toggleBookmark() {
+    if (!me?.logged_in) { setShowBookmarkLoginModal(true); return; }
+    if (bookmarkLoading) return;
+    setBookmarkLoading(true);
+    try {
+      const url = bookmarked ? "/api/bookmarks_delete" : "/api/bookmarks_add";
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clip_id: clipId }),
+      });
+      setBookmarked(v => !v);
+    } catch {}
+    setBookmarkLoading(false);
+  }
+
   const segments = useMemo(() => Array.isArray(details?.segments) ? details.segments : [], [details]);
   const vocab = useMemo(() => {
     const v = details?.vocab || {};
@@ -309,7 +385,6 @@ export default function ClipDetailPage() {
   function locateToSegIdx(idx) {
     if (idx < 0 || idx >= segments.length) return;
     jumpTo(segments[idx], idx);
-    // 滚动到对应字幕行
     const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     const el = rowRefs.current[idx];
     if (wrap && el) wrap.scrollTo({ top: Math.max(0, el.offsetTop - 120), behavior: "smooth" });
@@ -323,7 +398,6 @@ export default function ClipDetailPage() {
 
   useEffect(() => { try { if (videoRef.current) videoRef.current.playbackRate = rate; } catch {} }, [rate]);
 
-  // 字幕同步 + 循环
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !segments.length) return;
@@ -349,7 +423,6 @@ export default function ClipDetailPage() {
     return () => v.removeEventListener("timeupdate", onTime);
   }, [segments, loopIdx, activeSegIdx]);
 
-  // 自动跟随滚动 — 只滚动字幕列表，不碰视频
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
     const el = rowRefs.current[activeSegIdx];
@@ -358,7 +431,6 @@ export default function ClipDetailPage() {
     wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
   }, [activeSegIdx, follow, isMobile]);
 
-  // 手机播放条同步
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -401,7 +473,7 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── 顶部导航栏 ───────────────────────────────────────────
+  // ─── 顶部导航栏（含收藏按钮）─────────────────────────────
   const navBar = (
     <div style={{
       position: "sticky", top: 0, zIndex: 20,
@@ -422,6 +494,26 @@ export default function ClipDetailPage() {
             登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
           </div>
         </div>
+        {/* ❤️ 收藏按钮 */}
+        <button
+          type="button"
+          onClick={toggleBookmark}
+          disabled={bookmarkLoading}
+          title={bookmarked ? "取消收藏" : "收藏"}
+          style={{
+            border: `1px solid ${bookmarked ? "rgba(239,68,68,0.3)" : THEME.colors.border2}`,
+            background: bookmarked ? "rgba(239,68,68,0.10)" : THEME.colors.surface,
+            borderRadius: THEME.radii.pill, padding: "8px 14px",
+            cursor: "pointer", fontSize: 13, fontWeight: 700,
+            color: bookmarked ? "#b00000" : THEME.colors.ink,
+            display: "flex", alignItems: "center", gap: 6,
+            opacity: bookmarkLoading ? 0.6 : 1,
+            transition: "all 150ms ease",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {bookmarked ? "❤️ 已收藏" : "🤍 收藏"}
+        </button>
       </div>
     </div>
   );
@@ -483,6 +575,7 @@ export default function ClipDetailPage() {
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
         {navBar}
+        {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
           <Card style={{ padding: 10 }}>
             {videoOrGate(220)}
@@ -564,10 +657,10 @@ export default function ClipDetailPage() {
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
       {navBar}
+      {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
         <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr 1fr" : "1.1fr 1fr", gap: 16, alignItems: "start" }}>
 
-          {/* 左：视频 — key 固定，永远不重建 */}
           <Card style={{ padding: 14, position: "sticky", top: 70 }}>
             {videoOrGate(null)}
             {canAccess && (
@@ -583,7 +676,6 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
-          {/* 中：字幕 */}
           <Card style={{ padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
@@ -614,7 +706,6 @@ export default function ClipDetailPage() {
             )}
           </Card>
 
-          {/* 右：词汇卡 */}
           {vocabOpen && (
             <Card style={{ padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
