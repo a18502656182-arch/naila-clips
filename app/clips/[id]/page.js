@@ -319,14 +319,13 @@ export default function ClipDetailPage() {
     async function run() {
       setLoading(true); setNotFound(false); setItem(null); setMe(null); setDetails(null);
       try {
-        const d1 = await fetchJson(`/api/clip?id=${clipId}`);
+        // ✅ 一次请求同时返回视频信息+字幕详情+会员状态，内部并行查询
+        const d = await fetchJson(`/api/clip_full?id=${clipId}`);
         if (!mounted) return;
-        const gotItem = d1?.item || null;
-        setItem(gotItem); setMe(d1?.me || null);
+        const gotItem = d?.item || null;
+        setItem(gotItem); setMe(d?.me || null);
         if (!gotItem) { setNotFound(true); return; }
-        const d2 = await fetchJson(`/api/clip_details?id=${clipId}&_t=${Date.now()}`);
-        if (!mounted) return;
-        let dj = d2?.details_json ?? null;
+        let dj = d?.details_json ?? null;
         if (typeof dj === "string") { try { dj = JSON.parse(dj); } catch { dj = null; } }
         if (mounted) setDetails(dj ?? null);
       } catch (e) {
