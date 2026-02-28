@@ -64,12 +64,11 @@ export default async function handler(req, res) {
     // ✅ 查现有订阅，判断是否需要续期（而不是覆盖）
     const { data: existingSub } = await admin
       .from("subscriptions")
-      .select("expires_at, ends_at, status")
+      .select("expires_at, status")
       .eq("user_id", user_id)
       .maybeSingle();
 
-    // 取现有到期时间（兼容 expires_at 和 ends_at 两种字段名）
-    const existingExpiry = existingSub?.expires_at || existingSub?.ends_at || null;
+    const existingExpiry = existingSub?.expires_at || null;
 
     // 计算新到期时间：续期叠加，而不是覆盖
     const new_expires_at = calcNewExpiry(existingExpiry, rc.days);
