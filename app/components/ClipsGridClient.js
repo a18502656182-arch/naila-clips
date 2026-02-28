@@ -33,14 +33,12 @@ function VipModal({ me, onClose }) {
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {me?.logged_in ? (
-            // 已登录但非会员：只显示一个"去兑换开通"按钮
             <a href="/register" style={{
               flex: 1, textAlign: "center", padding: "10px 0",
               borderRadius: THEME.radii.pill, background: THEME.colors.vip,
               color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
             }}>去兑换开通</a>
           ) : (
-            // 未登录：显示"去登录" + "注册并开通"两个按钮
             <>
               <a href="/login" style={{
                 flex: 1, textAlign: "center", padding: "10px 0",
@@ -124,13 +122,75 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
   );
 }
 
+// 收藏按钮组件
+function BookmarkBtn({ clipId, loggedIn }) {
+  const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // 初始化：检查是否已收藏
+  useEffect(() => {
+    if (!loggedIn) return;
+    fetch("/api/bookmarks_has", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clip_id: clipId }),
+      cache: "no-store",
+    })
+      .then(r => r.json())
+      .then(d => setSaved(!!d?.has))
+      .catch(() => {});
+  }, [clipId, loggedIn]);
+
+  async function toggle(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!loggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+    if (loading) return;
+    setLoading(true);
+    try {
+      const url = saved ? "/api/bookmarks_delete" : "/api/bookmarks_add";
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clip_id: clipId }),
+      });
+      setSaved(v => !v);
+    } catch {}
+    setLoading(false);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title={saved ? "取消收藏" : "收藏"}
+      style={{
+        position: "absolute", right: 10, top: 10, zIndex: 3,
+        width: 32, height: 32, borderRadius: "50%",
+        border: `1px solid ${saved ? "rgba(239,68,68,0.3)" : THEME.colors.border}`,
+        background: saved ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.82)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", fontSize: 16,
+        backdropFilter: "blur(4px)",
+        opacity: loading ? 0.6 : 1,
+        transition: "all 150ms ease",
+      }}
+    >
+      {saved ? "❤️" : "🤍"}
+    </button>
+  );
+}
+
 export default function ClipsGridClient({ initialItems, initialHasMore, filters }) {
   const [items, setItems] = useState(initialItems || []);
   const [hasMore, setHasMore] = useState(!!initialHasMore);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // 登录状态（用于弹窗判断）
+  // 登录状态（用于弹窗判断 & 收藏按钮）
   const [me, setMe] = useState(null);
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
@@ -142,15 +202,11 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   // 会员弹窗
   const [showVipModal, setShowVipModal] = useState(false);
 
-  // ✅ 修复：优先用 me.is_member 判断，避免首页缓存数据缺少 can_access 的问题
+  // ✅ 优先用 me.is_member 判断，避免首页缓存数据缺少 can_access 的问题
   function handleCardClick(e, item) {
-    // 免费视频：直接跳转，不拦截
     if (item.access_tier !== "vip") return;
-    // 会员视频：本人是会员，直接跳转
     if (me?.is_member) return;
-    // can_access 明确为 true，直接跳转
     if (item.can_access) return;
-    // 其余情况（未登录 或 登录但非会员）：弹窗拦截
     e.preventDefault();
     e.stopPropagation();
     setShowVipModal(true);
@@ -320,6 +376,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                     {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
                   </div>
                   {duration ? <div className="duration">{duration}</div> : null}
+                  {/* ❤️ 收藏按钮 — 右上角 */}
+                  <BookmarkBtn clipId={r.id} loggedIn={!!me?.logged_in} />
                 </div>
                 <div className="body">
                   <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
