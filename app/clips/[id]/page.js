@@ -26,14 +26,29 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
-function loadFavVocab() {
+// 词汇收藏 API
+async function apiFavAdd(term, clipId, kind, data) {
   try {
-    const arr = JSON.parse(localStorage.getItem("vocab_favs_v1") || "[]");
-    return new Set(Array.isArray(arr) ? arr.map(String) : []);
-  } catch { return new Set(); }
+    await fetch("/api/vocab_fav_add", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term, clip_id: clipId, kind, data }),
+    });
+  } catch {}
 }
-function saveFavVocab(set) {
-  try { localStorage.setItem("vocab_favs_v1", JSON.stringify(Array.from(set))); } catch {}
+async function apiFavDelete(term, clipId) {
+  try {
+    await fetch("/api/vocab_fav_delete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term, clip_id: clipId }),
+    });
+  } catch {}
+}
+async function apiFavList() {
+  try {
+    const r = await fetch("/api/vocab_favorites", { cache: "no-store" });
+    const d = await r.json();
+    return new Set((d?.items || []).map(x => x.term));
+  } catch { return new Set(); }
 }
 
 function speakEn(text) {
@@ -174,7 +189,7 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
-          <IconBtn title="收藏" active={isFav} onClick={() => onToggleFav(term)}>{isFav ? "❤️" : "🤍"}</IconBtn>
+          <IconBtn title="收藏" active={isFav} onClick={() => onToggleFav(term, kind, v)}>{isFav ? "❤️" : "🤍"}</IconBtn>
           <IconBtn title="定位到字幕" onClick={() => {
             const byId = findSegIdxBySegmentId(segments, v.segment_id);
             const idx = byId !== -1 ? byId : findSegIdxForTerm(segments, term);
@@ -293,7 +308,10 @@ export default function ClipDetailPage() {
   const [dragging, setDragging] = useState(false);
   const [dragValue, setDragValue] = useState(0);
 
-  useEffect(() => { setFavSet(loadFavVocab()); }, []);
+  useEffect(() => {
+    if (!me?.logged_in) return;
+    apiFavList().then(set => setFavSet(set));
+  }, [me?.logged_in]);
 
   useEffect(() => {
     if (!clipId) return;
@@ -390,10 +408,20 @@ export default function ClipDetailPage() {
     if (wrap && el) wrap.scrollTo({ top: Math.max(0, el.offsetTop - 120), behavior: "smooth" });
   }
 
-  function toggleFav(term) {
+  function toggleFav(term, kind, data) {
     const t = String(term || "").trim();
     if (!t) return;
-    setFavSet(prev => { const next = new Set(prev); next.has(t) ? next.delete(t) : next.add(t); saveFavVocab(next); return next; });
+    setFavSet(prev => {
+      const next = new Set(prev);
+      if (next.has(t)) {
+        next.delete(t);
+        apiFavDelete(t, clipId);
+      } else {
+        next.add(t);
+        apiFavAdd(t, clipId, kind || "words", data || null);
+      }
+      return next;
+    });
   }
 
   useEffect(() => { try { if (videoRef.current) videoRef.current.playbackRate = rate; } catch {} }, [rate]);
