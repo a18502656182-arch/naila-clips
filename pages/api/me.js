@@ -13,7 +13,7 @@ async function getMembership(supabase, userId) {
   // ✅ 同时查两个字段，避免其中一个是 null 另一个有值的情况
   const { data: sub, error } = await supabase
     .from("subscriptions")
-    .select("status, plan, ends_at, expires_at")
+    .select("status, plan, expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -23,9 +23,7 @@ async function getMembership(supabase, userId) {
 
   const status = sub.status ?? null;
   const plan = sub.plan ?? null;
-
-  // ✅ 优先用有值的那个
-  const end_at = sub.ends_at || sub.expires_at || null;
+  const end_at = sub.expires_at || null;
 
   let is_member = false;
   if (status === "active") {
