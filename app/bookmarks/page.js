@@ -63,13 +63,18 @@ function VideoCard({ item, onRemove }) {
   );
 }
 
-// ─── 词汇卡片 ─────────────────────────────────────────────
-function VocabFavCard({ item, onRemove }) {
+// ─── 词汇卡片（和详情页体验一致）────────────────────────────
+function VocabFavCard({ item, onRemove, showZh }) {
   const { term, kind, data, clip_id } = item;
+  const [collapsed, setCollapsed] = useState(false);
+
   const kindLabel = kind === "phrases" ? "短语" : kind === "expressions" ? "地道表达" : "单词";
   const kindColor = kind === "phrases" ? "#0b5aa6" : kind === "expressions" ? "#3c3ccf" : "#b86b00";
   const kindBg = kind === "phrases" ? "#f3fbff" : kind === "expressions" ? "#f6f6ff" : "#fff8e8";
   const kindBorder = kind === "phrases" ? "#cfe6ff" : kind === "expressions" ? "#e7e7ff" : "#ffe3a3";
+
+  const exampleEn = data?.example_en || "";
+  const exampleZh = data?.example_zh || "";
 
   return (
     <div style={{
@@ -77,40 +82,56 @@ function VocabFavCard({ item, onRemove }) {
       background: THEME.colors.surface, padding: 14,
       boxShadow: "0 2px 8px rgba(11,18,32,0.06)",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      {/* 头部：词条 + 操作按钮 */}
+      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 17, fontWeight: 900, color: THEME.colors.ink }}>{term}</span>
             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: kindBg, border: `1px solid ${kindBorder}`, color: kindColor, fontWeight: 700 }}>
               {kindLabel}
             </span>
           </div>
-          {data?.ipa && <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>/ {data.ipa} /</div>}
-          {data?.meaning_zh && (
-            <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55, marginBottom: 4 }}>{data.meaning_zh}</div>
-          )}
-          {(data?.example_en) && (
-            <div style={{ fontSize: 12, color: THEME.colors.faint, fontStyle: "italic", lineHeight: 1.5 }}>{data.example_en}</div>
-          )}
+          {data?.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {data.ipa} /</div>}
         </div>
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-          <button type="button" title="听发音" onClick={() => speakEn(term)} style={{
-            width: 30, height: 30, borderRadius: THEME.radii.pill,
-            border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
-            cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center",
-          }}>🔊</button>
-          <a href={`/clips/${clip_id}`} title="回到原视频" style={{
-            width: 30, height: 30, borderRadius: THEME.radii.pill,
-            border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
-            cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center", textDecoration: "none",
-          }}>🎬</a>
-          <button type="button" title="取消收藏" onClick={() => onRemove(item.id, term, clip_id)} style={{
-            width: 30, height: 30, borderRadius: THEME.radii.pill,
-            border: "1px solid #ffd5d5", background: "#fff5f5",
-            cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center",
-          }}>🗑️</button>
+          <button type="button" title="听发音"
+            onClick={() => data?.audio_url ? new Audio(data.audio_url).play() : speakEn(term)}
+            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>🔊</button>
+          <a href={`/clips/${clip_id}`} title="回到原视频"
+            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center", textDecoration: "none" }}>🎬</a>
+          <button type="button" title={collapsed ? "展开" : "收起"} onClick={() => setCollapsed(x => !x)}
+            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>
+            {collapsed ? "▾" : "▴"}
+          </button>
+          <button type="button" title="取消收藏" onClick={() => onRemove(item.id, term, clip_id)}
+            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: "1px solid #ffd5d5", background: "#fff5f5", cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>🗑️</button>
         </div>
       </div>
+
+      {/* 展开内容 */}
+      {!collapsed && (
+        <>
+          {showZh && data?.meaning_zh && (
+            <div style={{ marginTop: 10, border: "1px solid #ffe3a3", background: "#fff8e8", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
+              <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{data.meaning_zh}</div>
+            </div>
+          )}
+          {(exampleEn || exampleZh) && (
+            <div style={{ marginTop: 10, border: "1px solid #cfe6ff", background: "#f3fbff", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#0b5aa6" }}>{kind === "expressions" ? "字幕原句" : "例句"}</div>
+              {exampleEn && <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{exampleEn}</div>}
+              {showZh && exampleZh && <div style={{ marginTop: 4, fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55 }}>{exampleZh}</div>}
+            </div>
+          )}
+          {kind === "expressions" && showZh && data?.use_case_zh && (
+            <div style={{ marginTop: 10, border: "1px solid #e7e7ff", background: "#f6f6ff", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#3c3ccf" }}>详细解析</div>
+              <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{data.use_case_zh}</div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -119,6 +140,7 @@ function VocabFavCard({ item, onRemove }) {
 export default function BookmarksPage() {
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("videos"); // "videos" | "vocab"
+  const [showZh, setShowZh] = useState(true); // 词汇本中文开关
 
   // 视频收藏
   const [videoItems, setVideoItems] = useState([]);
@@ -302,6 +324,12 @@ export default function BookmarksPage() {
                 ))}
               </div>
               <span style={{ fontSize: 13, color: THEME.colors.faint, whiteSpace: "nowrap" }}>共 {filteredVocab.length} 条</span>
+              <button type="button" onClick={() => setShowZh(x => !x)} style={{
+                border: `1px solid ${showZh ? THEME.colors.accent : THEME.colors.border2}`,
+                background: showZh ? THEME.colors.accent : THEME.colors.surface,
+                color: showZh ? "#fff" : THEME.colors.ink,
+                borderRadius: THEME.radii.pill, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+              }}>{showZh ? "中文 ON" : "中文 OFF"}</button>
               <button type="button" onClick={loadVocab} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
             </div>
 
@@ -314,7 +342,7 @@ export default function BookmarksPage() {
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {filteredVocab.map(item => (
-                  <VocabFavCard key={item.id} item={item} onRemove={removeVocab} />
+                  <VocabFavCard key={item.id} item={item} onRemove={removeVocab} showZh={showZh} />
                 ))}
               </div>
             )}
