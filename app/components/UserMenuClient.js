@@ -63,7 +63,7 @@ export default function UserMenuClient() {
   }
 
   const initial = (me.email || "U").split("@")[0].slice(0, 1).toUpperCase();
-  const expiryStr = formatExpiry(me.ends_at);
+  const expiryStr = formatExpiry(me.ends_at || me.expires_at || me.end_at);
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
