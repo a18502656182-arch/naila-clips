@@ -164,32 +164,14 @@ function LoginToBookmarkModal({ onClose }) {
   );
 }
 
-// 收藏按钮组件
-function BookmarkBtn({ clipId, loggedIn, onNeedLogin }) {
-  const [saved, setSaved] = useState(false);
+// 收藏按钮组件 — saved 状态由父组件统一管理，不单独发请求
+function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
   const [loading, setLoading] = useState(false);
-
-  // 初始化：检查是否已收藏
-  useEffect(() => {
-    if (!loggedIn) return;
-    fetch("/api/bookmarks_has", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clip_id: clipId }),
-      cache: "no-store",
-    })
-      .then(r => r.json())
-      .then(d => setSaved(!!d?.has))
-      .catch(() => {});
-  }, [clipId, loggedIn]);
 
   async function toggle(e) {
     e.preventDefault();
     e.stopPropagation();
-    if (!loggedIn) {
-      onNeedLogin(); // 弹出登录提示弹窗
-      return;
-    }
+    if (!loggedIn) { onNeedLogin(); return; }
     if (loading) return;
     setLoading(true);
     try {
@@ -199,7 +181,7 @@ function BookmarkBtn({ clipId, loggedIn, onNeedLogin }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
       });
-      setSaved(v => !v);
+      onToggle(clipId); // 通知父组件更新
     } catch {}
     setLoading(false);
   }
@@ -234,12 +216,33 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   // 登录状态（用于弹窗判断 & 收藏按钮）
   const [me, setMe] = useState(null);
+  // ✅ 批量收藏状态：{ clipId: true/false }
+  const [savedMap, setSavedMap] = useState({});
+
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
       .then(r => r.json())
-      .then(data => setMe(data))
+      .then(data => {
+        setMe(data);
+        // 登录后一次性批量查所有收藏状态
+        if (data?.logged_in) {
+          fetch("/api/bookmarks_list_ids", { cache: "no-store" })
+            .then(r => r.json())
+            .then(d => {
+              const map = {};
+              (d?.clip_ids || []).forEach(id => { map[id] = true; });
+              setSavedMap(map);
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => setMe({ logged_in: false }));
   }, []);
+
+  // items 加载更多后，新 item 默认 false（已在 savedMap 里的保持不变）
+  function toggleSaved(clipId) {
+    setSavedMap(prev => ({ ...prev, [clipId]: !prev[clipId] }));
+  }
 
   // 会员弹窗
   const [showVipModal, setShowVipModal] = useState(false);
@@ -422,7 +425,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                   </div>
                   {duration ? <div className="duration">{duration}</div> : null}
                   {/* ❤️ 收藏按钮 — 右上角 */}
-                  <BookmarkBtn clipId={r.id} loggedIn={!!me?.logged_in} onNeedLogin={() => setShowLoginModal(true)} />
+                  <BookmarkBtn clipId={r.id} saved={!!savedMap[r.id]} loggedIn={!!me?.logged_in} onNeedLogin={() => setShowLoginModal(true)} onToggle={toggleSaved} />
                 </div>
                 <div className="body">
                   <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
