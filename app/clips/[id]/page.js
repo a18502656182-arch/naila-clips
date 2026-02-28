@@ -325,6 +325,8 @@ export default function ClipDetailPage() {
         const gotItem = d?.item || null;
         setItem(gotItem); setMe(d?.me || null);
         if (!gotItem) { setNotFound(true); return; }
+        // ✅ 设置页面标题，对 SEO 和浏览器标签友好
+        if (gotItem?.title) document.title = `${gotItem.title} - 油管英语场景库`;
         let dj = d?.details_json ?? null;
         if (typeof dj === "string") { try { dj = JSON.parse(dj); } catch { dj = null; } }
         if (mounted) setDetails(dj ?? null);
@@ -336,7 +338,10 @@ export default function ClipDetailPage() {
       }
     }
     run();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      document.title = "油管英语场景库"; // 离开页面时恢复默认标题
+    };
   }, [clipId]);
 
   // 收藏状态初始化
@@ -547,7 +552,7 @@ export default function ClipDetailPage() {
 
   // ─── 视频区（或会员门槛）────────────────────────────────────
   const videoOrGate = (maxH) => canAccess ? (
-    <video ref={videoRef} controls playsInline
+    <video ref={videoRef} controls playsInline preload="metadata"
       style={{ width: "100%", borderRadius: THEME.radii.md, background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}
       src={item.video_url} poster={item.cover_url || undefined} />
   ) : (
