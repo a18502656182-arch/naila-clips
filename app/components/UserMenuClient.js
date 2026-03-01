@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
 // ✅ token 工具（内联避免跨目录 import 问题）
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
 function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
 function clearToken() { try { localStorage.removeItem("sb_access_token"); } catch {} }
 function authFetch(url, options = {}) {
@@ -29,7 +32,7 @@ export default function UserMenuClient() {
   const wrapRef = useRef(null);
 
   useEffect(() => {
-    authFetch("/api/me", { cache: "no-store" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(data => setMe(data))
       .catch(() => setMe({ logged_in: false }));
