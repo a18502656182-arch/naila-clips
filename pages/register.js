@@ -48,8 +48,9 @@ export default function RegisterPage() {
         router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
         return;
       }
-      setSuccess({ plan: j.plan || "member", expires_at: j.expires_at || null });
-      setTimeout(() => router.push("/"), 1500);
+      setSuccess({ plan: j.plan || "member" });
+      // 用 window.location 强制刷新，让 UserMenuClient 读到新 token
+      setTimeout(() => { window.location.href = "/"; }, 1200);
     } catch (err) {
       setMsg(prettifyError(err.message));
     } finally {
@@ -86,9 +87,6 @@ export default function RegisterPage() {
             <div style={{ fontSize: 18, fontWeight: 950, color: THEME.colors.ink, marginBottom: 8 }}>开通成功！</div>
             <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7 }}>
               会员类型：{success.plan === "year" ? "年卡" : success.plan === "month" ? "月卡" : success.plan}
-              {success.expires_at && (
-                <><br />到期时间：{new Date(success.expires_at).toLocaleDateString("zh-CN")}</>
-              )}
             </div>
             <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>正在跳转首页...</div>
           </div>
