@@ -1,5 +1,8 @@
 "use client";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
 // app/bookmarks/page.js
 import { useEffect, useState } from "react";
 import { THEME } from "../components/home/theme";
@@ -154,7 +157,7 @@ export default function BookmarksPage() {
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
+    fetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
@@ -169,7 +172,7 @@ export default function BookmarksPage() {
   async function loadVideos() {
     setVideoLoading(true);
     try {
-      const r = await fetch("/api/bookmarks?limit=100", { cache: "no-store" });
+      const r = await fetch(remote("/api/bookmarks?limit=100"), { cache: "no-store" });
       const d = await r.json();
       setVideoItems(d?.items || []);
     } catch {}
@@ -179,7 +182,7 @@ export default function BookmarksPage() {
   async function loadVocab() {
     setVocabLoading(true);
     try {
-      const r = await fetch("/api/vocab_favorites", { cache: "no-store" });
+      const r = await fetch(remote("/api/vocab_favorites"), { cache: "no-store" });
       const d = await r.json();
       setVocabItems(d?.items || []);
     } catch {}
@@ -188,7 +191,7 @@ export default function BookmarksPage() {
 
   async function removeVideo(bookmarkId, clipId) {
     try {
-      await fetch("/api/bookmarks_delete", {
+      await fetch(remote("/api/bookmarks_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
       });
@@ -198,7 +201,7 @@ export default function BookmarksPage() {
 
   async function removeVocab(id, term, clipId) {
     try {
-      await fetch("/api/vocab_fav_delete", {
+      await fetch(remote("/api/vocab_fav_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ term, clip_id: clipId }),
       });
