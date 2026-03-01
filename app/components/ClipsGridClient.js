@@ -2,62 +2,156 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { THEME } from "./home/theme";
 
-function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+/**
+ * ✅ 新增：API_BASE + remote()
+ * - 只把 /rsc-api/* 和 /api/me 切到 Railway
+ * - /api/bookmarks_* 暂时仍然走 Vercel（因为你还没迁过去）
+ */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
+function getToken() {
+  try {
+    return localStorage.getItem("sb_access_token") || null;
+  } catch {
+    return null;
+  }
+}
 function authFetch(url, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
   return fetch(url, { ...options, headers });
 }
-import { THEME } from "./home/theme";
 
 // 会员拦截弹窗
 function VipModal({ me, onClose }) {
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(11,18,32,0.45)", display: "flex",
-      alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
-        border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
-        padding: 24, width: "100%", maxWidth: 380,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(11,18,32,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: THEME.colors.surface,
+          borderRadius: THEME.radii.lg,
+          border: `1px solid ${THEME.colors.border}`,
+          boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+          padding: 24,
+          width: "100%",
+          maxWidth: 380,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 12,
+          }}
+        >
           <div style={{ fontSize: 22 }}>🔒</div>
-          <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>会员专享视频</div>
-          <button type="button" onClick={onClose} style={{
-            marginLeft: "auto", border: `1px solid ${THEME.colors.border}`,
-            background: THEME.colors.surface, borderRadius: THEME.radii.md,
-            padding: "6px 12px", cursor: "pointer", fontSize: 12,
-          }}>关闭</button>
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 16,
+              color: THEME.colors.ink,
+            }}
+          >
+            会员专享视频
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              marginLeft: "auto",
+              border: `1px solid ${THEME.colors.border}`,
+              background: THEME.colors.surface,
+              borderRadius: THEME.radii.md,
+              padding: "6px 12px",
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+          >
+            关闭
+          </button>
         </div>
-        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 18 }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: THEME.colors.muted,
+            lineHeight: 1.7,
+            marginBottom: 18,
+          }}
+        >
           {me?.logged_in
             ? "该视频为会员专享，请输入兑换码开通会员后观看。"
             : "该视频为会员专享，请先登录，再使用兑换码开通会员。"}
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           {me?.logged_in ? (
-            <a href="/register" style={{
-              flex: 1, textAlign: "center", padding: "10px 0",
-              borderRadius: THEME.radii.pill, background: THEME.colors.vip,
-              color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
-            }}>去兑换开通</a>
+            <a
+              href="/register"
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "10px 0",
+                borderRadius: THEME.radii.pill,
+                background: THEME.colors.vip,
+                color: "#fff",
+                textDecoration: "none",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              去兑换开通
+            </a>
           ) : (
             <>
-              <a href="/login" style={{
-                flex: 1, textAlign: "center", padding: "10px 0",
-                borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
-                color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
-              }}>去登录</a>
-              <a href="/register" style={{
-                flex: 1, textAlign: "center", padding: "10px 0",
-                borderRadius: THEME.radii.pill, background: THEME.colors.vip,
-                color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
-              }}>注册并开通</a>
+              <a
+                href="/login"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "10px 0",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border2}`,
+                  color: THEME.colors.ink,
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                去登录
+              </a>
+              <a
+                href="/register"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "10px 0",
+                  borderRadius: THEME.radii.pill,
+                  background: THEME.colors.vip,
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                注册并开通
+              </a>
             </>
           )}
         </div>
@@ -92,7 +186,11 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
     const v = vref.current;
     if (!v) return;
     if (!hover) {
-      try { v.pause(); v.removeAttribute("src"); v.load(); } catch {}
+      try {
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      } catch {}
       return;
     }
     if (!isMp4(videoUrl)) return;
@@ -114,15 +212,35 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
       {coverUrl ? (
-        <img src={coverUrl} alt={title || ""} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" />
+        <img
+          src={coverUrl}
+          alt={title || ""}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+          loading="lazy"
+        />
       ) : (
-        <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            background: "rgba(11,18,32,0.06)",
+          }}
+        />
       )}
       <video
         ref={vref}
         style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%",
-          objectFit: "cover", display: hover && isMp4(videoUrl) ? "block" : "none",
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: hover && isMp4(videoUrl) ? "block" : "none",
         }}
         preload="none"
       />
@@ -133,39 +251,108 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
 // 未登录收藏弹窗
 function LoginToBookmarkModal({ onClose }) {
   return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 100,
-      background: "rgba(11,18,32,0.45)", display: "flex",
-      alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
-        border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
-        padding: 24, width: "100%", maxWidth: 380,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(11,18,32,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: THEME.colors.surface,
+          borderRadius: THEME.radii.lg,
+          border: `1px solid ${THEME.colors.border}`,
+          boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+          padding: 24,
+          width: "100%",
+          maxWidth: 380,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 12,
+          }}
+        >
           <div style={{ fontSize: 22 }}>🤍</div>
-          <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>收藏视频</div>
-          <button type="button" onClick={onClose} style={{
-            marginLeft: "auto", border: `1px solid ${THEME.colors.border}`,
-            background: THEME.colors.surface, borderRadius: THEME.radii.md,
-            padding: "6px 12px", cursor: "pointer", fontSize: 12,
-          }}>关闭</button>
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 16,
+              color: THEME.colors.ink,
+            }}
+          >
+            收藏视频
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              marginLeft: "auto",
+              border: `1px solid ${THEME.colors.border}`,
+              background: THEME.colors.surface,
+              borderRadius: THEME.radii.md,
+              padding: "6px 12px",
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+          >
+            关闭
+          </button>
         </div>
-        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 18 }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: THEME.colors.muted,
+            lineHeight: 1.7,
+            marginBottom: 18,
+          }}
+        >
           请先登录，再收藏喜欢的视频。
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <a href="/login" style={{
-            flex: 1, textAlign: "center", padding: "10px 0",
-            borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`,
-            color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600,
-          }}>去登录</a>
-          <a href="/register" style={{
-            flex: 1, textAlign: "center", padding: "10px 0",
-            borderRadius: THEME.radii.pill, background: THEME.colors.ink,
-            color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700,
-          }}>去注册</a>
+          <a
+            href="/login"
+            style={{
+              flex: 1,
+              textAlign: "center",
+              padding: "10px 0",
+              borderRadius: THEME.radii.pill,
+              border: `1px solid ${THEME.colors.border2}`,
+              color: THEME.colors.ink,
+              textDecoration: "none",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            去登录
+          </a>
+          <a
+            href="/register"
+            style={{
+              flex: 1,
+              textAlign: "center",
+              padding: "10px 0",
+              borderRadius: THEME.radii.pill,
+              background: THEME.colors.ink,
+              color: "#fff",
+              textDecoration: "none",
+              fontSize: 13,
+              fontWeight: 700,
+            }}
+          >
+            去注册
+          </a>
         </div>
       </div>
     </div>
@@ -179,17 +366,21 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
   async function toggle(e) {
     e.preventDefault();
     e.stopPropagation();
-    if (!loggedIn) { onNeedLogin(); return; }
+    if (!loggedIn) {
+      onNeedLogin();
+      return;
+    }
     if (loading) return;
     setLoading(true);
     try {
+      // ✅ 暂时仍然走 Vercel：/api/bookmarks_*
       const url = saved ? "/api/bookmarks_delete" : "/api/bookmarks_add";
       await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
       });
-      onToggle(clipId); // 通知父组件更新
+      onToggle(clipId);
     } catch {}
     setLoading(false);
   }
@@ -200,12 +391,24 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
       onClick={toggle}
       title={saved ? "取消收藏" : "收藏"}
       style={{
-        position: "absolute", right: 10, top: 10, zIndex: 3,
-        width: 32, height: 32, borderRadius: "50%",
-        border: `1px solid ${saved ? "rgba(239,68,68,0.3)" : THEME.colors.border}`,
-        background: saved ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.82)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", fontSize: 16,
+        position: "absolute",
+        right: 10,
+        top: 10,
+        zIndex: 3,
+        width: 32,
+        height: 32,
+        borderRadius: "50%",
+        border: `1px solid ${
+          saved ? "rgba(239,68,68,0.3)" : THEME.colors.border
+        }`,
+        background: saved
+          ? "rgba(239,68,68,0.12)"
+          : "rgba(255,255,255,0.82)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        fontSize: 16,
         backdropFilter: "blur(4px)",
         opacity: loading ? 0.6 : 1,
         transition: "all 150ms ease",
@@ -224,21 +427,24 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   // 登录状态（用于弹窗判断 & 收藏按钮）
   const [me, setMe] = useState(null);
-  // ✅ 批量收藏状态：{ clipId: true/false }
+  // 批量收藏状态：{ clipId: true/false }
   const [savedMap, setSavedMap] = useState({});
 
   useEffect(() => {
-    authFetch("/api/me", { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => {
+    // ✅ /api/me 切到 Railway
+    authFetch(remote("/api/me"), { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
         setMe(data);
-        // 登录后一次性批量查所有收藏状态
         if (data?.logged_in) {
+          // ✅ 收藏列表暂时仍然走 Vercel
           authFetch("/api/bookmarks_list_ids", { cache: "no-store" })
-            .then(r => r.json())
-            .then(d => {
+            .then((r) => r.json())
+            .then((d) => {
               const map = {};
-              (d?.clip_ids || []).forEach(id => { map[id] = true; });
+              (d?.clip_ids || []).forEach((id) => {
+                map[id] = true;
+              });
               setSavedMap(map);
             })
             .catch(() => {});
@@ -247,17 +453,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       .catch(() => setMe({ logged_in: false }));
   }, []);
 
-  // items 加载更多后，新 item 默认 false（已在 savedMap 里的保持不变）
   function toggleSaved(clipId) {
-    setSavedMap(prev => ({ ...prev, [clipId]: !prev[clipId] }));
+    setSavedMap((prev) => ({ ...prev, [clipId]: !prev[clipId] }));
   }
 
-  // 会员弹窗
   const [showVipModal, setShowVipModal] = useState(false);
-  // 未登录收藏弹窗
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  // ✅ 优先用 me.is_member 判断，避免首页缓存数据缺少 can_access 的问题
   function handleCardClick(e, item) {
     if (item.access_tier !== "vip") return;
     if (me?.is_member) return;
@@ -293,7 +495,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     autoFillOnceRef.current = false;
 
     const qs = buildQS(filters, 0);
-    fetch(`/rsc-api/clips?${qs}`, { cache: "no-store" })
+    // ✅ /rsc-api/clips 切到 Railway
+    fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (myVersion !== reqVersionRef.current) return;
@@ -307,7 +510,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       .finally(() => {
         if (myVersion === reqVersionRef.current) setLoading(false);
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters)]);
 
   useEffect(() => {
@@ -323,7 +526,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     const p = new URLSearchParams();
     if (f?.sort) p.set("sort", f.sort);
     if (f?.access?.length) f.access.forEach((v) => p.append("access", v));
-    if (f?.difficulty?.length) f.difficulty.forEach((v) => p.append("difficulty", v));
+    if (f?.difficulty?.length)
+      f.difficulty.forEach((v) => p.append("difficulty", v));
     if (f?.topic?.length) f.topic.forEach((v) => p.append("topic", v));
     if (f?.channel?.length) f.channel.forEach((v) => p.append("channel", v));
     p.set("offset", String(offset));
@@ -341,7 +545,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
     try {
       const qs = buildQS(filters, items.length);
-      const r = await fetch(`/rsc-api/clips?${qs}`, { cache: "no-store" });
+      // ✅ /rsc-api/clips 切到 Railway
+      const r = await fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Load more failed");
       if (myVersion !== reqVersionRef.current) return;
@@ -367,7 +572,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     if (!hasMore || loading) return;
     if (autoFillOnceRef.current) return;
     const t = setTimeout(() => {
-      if ((document.documentElement.scrollHeight || 0) <= (window.innerHeight || 0) + 120) {
+      if (
+        (document.documentElement.scrollHeight || 0) <=
+        (window.innerHeight || 0) + 120
+      ) {
         autoFillOnceRef.current = true;
         loadMore();
       }
@@ -378,7 +586,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   const setSentinel = (el) => {
     if (!el) return;
-    if (el.__io) { el.__io.disconnect(); el.__io = null; }
+    if (el.__io) {
+      el.__io.disconnect();
+      el.__io = null;
+    }
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
@@ -394,7 +605,10 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   return (
     <div>
       {showVipModal && <VipModal me={me} onClose={() => setShowVipModal(false)} />}
-      {showLoginModal && <LoginToBookmarkModal onClose={() => setShowLoginModal(false)} />}
+      {showLoginModal && (
+        <LoginToBookmarkModal onClose={() => setShowLoginModal(false)} />
+      )}
+
       <style>{`
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
         .card { display: block; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -416,7 +630,9 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       `}</style>
 
       {loading && items.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>
+        <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
+          加载中...
+        </div>
       ) : (
         <div className="grid">
           {items.map((r) => {
@@ -424,20 +640,34 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
             const duration = formatDuration(r.duration_sec);
             const dateStr = formatDate(r.created_at);
             return (
-              <Link key={r.id} href={`/clips/${r.id}`} className="card" onClick={e => handleCardClick(e, r)}>
+              <Link
+                key={r.id}
+                href={`/clips/${r.id}`}
+                className="card"
+                onClick={(e) => handleCardClick(e, r)}
+              >
                 <div className="coverWrap">
                   <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
                   <div className="pillRow">
-                    <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>{isVip ? "会员" : "免费"}</span>
+                    <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>
+                      {isVip ? "会员" : "免费"}
+                    </span>
                     {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
                   </div>
                   {duration ? <div className="duration">{duration}</div> : null}
-                  {/* ❤️ 收藏按钮 — 右上角 */}
-                  <BookmarkBtn clipId={r.id} saved={!!savedMap[r.id]} loggedIn={!!me?.logged_in} onNeedLogin={() => setShowLoginModal(true)} onToggle={toggleSaved} />
+                  <BookmarkBtn
+                    clipId={r.id}
+                    saved={!!savedMap[r.id]}
+                    loggedIn={!!me?.logged_in}
+                    onNeedLogin={() => setShowLoginModal(true)}
+                    onToggle={toggleSaved}
+                  />
                 </div>
                 <div className="body">
                   <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
-                  <p className="desc">{r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}</p>
+                  <p className="desc">
+                    {r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}
+                  </p>
                   <div className="meta">{dateStr}</div>
                 </div>
               </Link>
@@ -449,11 +679,17 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       <div ref={setSentinel} style={{ height: 1, marginTop: 1 }} />
 
       <div className="foot">
-        {err ? <div className="status" style={{ color: "crimson" }}>{err}</div> : null}
+        {err ? (
+          <div className="status" style={{ color: "crimson" }}>
+            {err}
+          </div>
+        ) : null}
         {hasMore ? (
           <>
             <div className="status">{loading ? "加载中..." : "继续下滑自动加载"}</div>
-            <button className="btn" onClick={loadMore} disabled={loading}>{loading ? "加载中…" : "加载更多"}</button>
+            <button className="btn" onClick={loadMore} disabled={loading}>
+              {loading ? "加载中…" : "加载更多"}
+            </button>
           </>
         ) : items.length > 0 ? (
           <div className="status">没有更多了</div>
