@@ -172,7 +172,7 @@ export default function BookmarksPage() {
   async function loadVideos() {
     setVideoLoading(true);
     try {
-      const r = await fetch(remote("/api/bookmarks?limit=100"), { cache: "no-store" });
+      const r = await authFetch(remote("/api/bookmarks?limit=100"), { cache: "no-store" });
       const d = await r.json();
       setVideoItems(d?.items || []);
     } catch {}
@@ -182,7 +182,7 @@ export default function BookmarksPage() {
   async function loadVocab() {
     setVocabLoading(true);
     try {
-      const r = await fetch(remote("/api/vocab_favorites"), { cache: "no-store" });
+      const r = await authFetch(remote("/api/vocab_favorites"), { cache: "no-store" });
       const d = await r.json();
       setVocabItems(d?.items || []);
     } catch {}
@@ -191,7 +191,7 @@ export default function BookmarksPage() {
 
   async function removeVideo(bookmarkId, clipId) {
     try {
-      await fetch(remote("/api/bookmarks_delete"), {
+      await authFetch(remote("/api/bookmarks_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
       });
@@ -201,7 +201,7 @@ export default function BookmarksPage() {
 
   async function removeVocab(id, term, clipId) {
     try {
-      await fetch(remote("/api/vocab_fav_delete"), {
+      await authFetch(remote("/api/vocab_fav_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ term, clip_id: clipId }),
       });
