@@ -1,65 +1,60 @@
 // pages/api/me.js
-import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
 
-function setNoStore(res) {
-  res.setHeader("Cache-Control", "private, no-store, max-age=0");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-}
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-async function getMembership(supabase, userId) {
-  const now = Date.now();
-
-  // ✅ 同时查两个字段，避免其中一个是 null 另一个有值的情况
-  const { data: sub, error } = await supabase
-    .from("subscriptions")
-    .select("status, plan, expires_at")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error || !sub) {
-    return { is_member: false, plan: null, status: null, end_at: null };
-  }
-
-  const status = sub.status ?? null;
-  const plan = sub.plan ?? null;
-  const end_at = sub.expires_at || null;
-
-  let is_member = false;
-  if (status === "active") {
-    if (!end_at) {
-      is_member = true; // 无到期时间视为永久有效
-    } else {
-      const endMs = new Date(end_at).getTime();
-      if (!Number.isNaN(endMs) && endMs > now) is_member = true;
-    }
-  }
-
-  return { is_member, plan, status, end_at };
+function getBearer(req) {
+  const h = req.headers.authorization || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : null;
 }
 
 export default async function handler(req, res) {
-  setNoStore(res);
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
 
   try {
-    const supabase = createServerSupabaseClient({ req, res });
+    const token = getBearer(req);
+    if (!token) return res.status(200).json({ logged_in: false, is_member: false });
 
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await anon.auth.getUser(token);
+    const user = data?.user || null;
+    if (error || !user) return res.status(200).json({ logged_in: false, is_member: false });
 
-    if (userErr || !user) {
-      return res.status(200).json({ logged_in: false, is_member: false });
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("status, plan, expires_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const now = Date.now();
+    const end_at = sub?.expires_at || null;
+    let is_member = false;
+    if (sub?.status === "active") {
+      if (!end_at) is_member = true;
+      else {
+        const endMs = new Date(end_at).getTime();
+        if (!isNaN(endMs) && endMs > now) is_member = true;
+      }
     }
-
-    const m = await getMembership(supabase, user.id);
 
     return res.status(200).json({
       logged_in: true,
       email: user.email,
       user_id: user.id,
-      is_member: m.is_member,
-      plan: m.plan,
-      status: m.status,
-      ends_at: m.end_at, // 前端统一用 ends_at
+      is_member,
+      plan: sub?.plan || null,
+      status: sub?.status || null,
+      ends_at: end_at,
     });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Unknown error" });
