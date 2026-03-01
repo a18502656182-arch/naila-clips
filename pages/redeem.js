@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
 function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
 function authFetch(url, options = {}) {
   const token = getToken();
@@ -30,7 +33,7 @@ export default function RedeemPage() {
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    authFetch("/api/me", { cache: "no-store" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
