@@ -2,6 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers });
+}
 import { THEME } from "./home/theme";
 
 // 会员拦截弹窗
@@ -176,7 +184,7 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
     setLoading(true);
     try {
       const url = saved ? "/api/bookmarks_delete" : "/api/bookmarks_add";
-      await fetch(url, {
+      await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
@@ -220,13 +228,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [savedMap, setSavedMap] = useState({});
 
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
+    authFetch("/api/me", { cache: "no-store" })
       .then(r => r.json())
       .then(data => {
         setMe(data);
         // 登录后一次性批量查所有收藏状态
         if (data?.logged_in) {
-          fetch("/api/bookmarks_list_ids", { cache: "no-store" })
+          authFetch("/api/bookmarks_list_ids", { cache: "no-store" })
             .then(r => r.json())
             .then(d => {
               const map = {};
