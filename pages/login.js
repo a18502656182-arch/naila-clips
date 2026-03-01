@@ -2,6 +2,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
+// ✅ token 工具
+function saveToken(token) {
+  try { localStorage.setItem("sb_access_token", token); } catch {}
+}
+
 const THEME = {
   colors: {
     bg: "#f6f7fb", surface: "#ffffff", ink: "#0b1220",
@@ -35,6 +40,8 @@ export default function LoginPage() {
       });
       const j = await r.json();
       if (!r.ok || !j.ok) { setMsg(j.error || "登录失败"); return; }
+      // ✅ 保存 token
+      if (j.access_token) saveToken(j.access_token);
       router.push("/");
     } catch (err) {
       setMsg(err.message || "未知错误");
