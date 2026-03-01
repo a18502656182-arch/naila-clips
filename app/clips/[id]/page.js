@@ -9,6 +9,9 @@ import { THEME } from "../../components/home/theme";
 // ─── 工具函数 ────────────────────────────────────────────────
 function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
 async function fetchJson(url, opts = {}) {
   const token = getToken();
   const headers = { ...(opts.headers || {}) };
@@ -37,7 +40,7 @@ async function apiFavAdd(term, clipId, kind, data) {
     const token = getToken();
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    await fetch("/api/vocab_fav_add", {
+    await fetch(remote("/api/vocab_fav_add"), {
       method: "POST", headers,
       body: JSON.stringify({ term, clip_id: clipId, kind, data }),
     });
@@ -48,7 +51,7 @@ async function apiFavDelete(term, clipId) {
     const token = getToken();
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    await fetch("/api/vocab_fav_delete", {
+    await fetch(remote("/api/vocab_fav_delete"), {
       method: "POST", headers,
       body: JSON.stringify({ term, clip_id: clipId }),
     });
@@ -59,7 +62,7 @@ async function apiFavList() {
     const token = getToken();
     const headers = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const r = await fetch("/api/vocab_favorites", { cache: "no-store", headers });
+    const r = await fetch(remote("/api/vocab_favorites"), { cache: "no-store", headers });
     const d = await r.json();
     return new Set((d?.items || []).map(x => x.term));
   } catch { return new Set(); }
@@ -334,7 +337,7 @@ export default function ClipDetailPage() {
       setLoading(true); setNotFound(false); setItem(null); setMe(null); setDetails(null);
       try {
         // ✅ 一次请求同时返回视频信息+字幕详情+会员状态，内部并行查询
-        const d = await fetchJson(`/api/clip_full?id=${clipId}`);
+        const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
         if (!mounted) return;
         const gotItem = d?.item || null;
         setItem(gotItem); setMe(d?.me || null);
@@ -361,7 +364,7 @@ export default function ClipDetailPage() {
   // 收藏状态初始化
   useEffect(() => {
     if (!clipId || !me?.logged_in) return;
-    fetch("/api/bookmarks_has", {
+    fetch(remote("/api/bookmarks_has"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clip_id: clipId }),
@@ -377,7 +380,7 @@ export default function ClipDetailPage() {
     if (bookmarkLoading) return;
     setBookmarkLoading(true);
     try {
-      const url = bookmarked ? "/api/bookmarks_delete" : "/api/bookmarks_add";
+      const url = bookmarked ? remote("/api/bookmarks_delete") : remote("/api/bookmarks_add");
       await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
