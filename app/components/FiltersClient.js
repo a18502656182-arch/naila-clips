@@ -180,13 +180,19 @@ function MultiSelectDropdown({
   );
 }
 
-export default function FiltersClient({ filters, onFiltersChange }) {
-  const [tax, setTax] = useState({ difficulties: [], topics: [], channels: [] });
+export default function FiltersClient({ filters, onFiltersChange, initialTaxonomies }) {
+  const [tax, setTax] = useState(
+    initialTaxonomies || { difficulties: [], topics: [], channels: [] }
+  );
 
-  // ✅ 页面加载时拉一次 taxonomy（不依赖 URL，永远拉全量）
+  // 仅当筛选条件变化时，重新从 Railway 拉取带 count 的 taxonomies
   useEffect(() => {
-    // ✅ /rsc-api/taxonomies 切到 Railway
-    fetch(remote("/rsc-api/taxonomies"), { cache: "no-store" })
+    const qs = new URLSearchParams();
+    if (filters.difficulty?.length) filters.difficulty.forEach((v) => qs.append("difficulty", v));
+    if (filters.access?.length) filters.access.forEach((v) => qs.append("access", v));
+    if (filters.topic?.length) filters.topic.forEach((v) => qs.append("topic", v));
+    if (filters.channel?.length) filters.channel.forEach((v) => qs.append("channel", v));
+    fetch(remote(`/rsc-api/taxonomies?${qs.toString()}`), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setTax({
@@ -196,7 +202,7 @@ export default function FiltersClient({ filters, onFiltersChange }) {
         });
       })
       .catch(() => {});
-  }, []);
+  }, [filters.difficulty, filters.access, filters.topic, filters.channel]);
 
   function update(patch) {
     onFiltersChange({ ...filters, ...patch });
