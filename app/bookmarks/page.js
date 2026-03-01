@@ -3,6 +3,14 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers });
+}
+
 // app/bookmarks/page.js
 import { useEffect, useState } from "react";
 import { THEME } from "../components/home/theme";
@@ -157,7 +165,7 @@ export default function BookmarksPage() {
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    fetch(remote("/api/me"), { cache: "no-store" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
