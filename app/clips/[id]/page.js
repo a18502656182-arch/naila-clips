@@ -364,9 +364,12 @@ export default function ClipDetailPage() {
   // 收藏状态初始化
   useEffect(() => {
     if (!clipId || !me?.logged_in) return;
+    const _hasToken = getToken();
+    const _hasHeaders = { "Content-Type": "application/json" };
+    if (_hasToken) _hasHeaders["Authorization"] = `Bearer ${_hasToken}`;
     fetch(remote("/api/bookmarks_has"), {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: _hasHeaders,
       body: JSON.stringify({ clip_id: clipId }),
       cache: "no-store",
     })
@@ -381,9 +384,12 @@ export default function ClipDetailPage() {
     setBookmarkLoading(true);
     try {
       const url = bookmarked ? remote("/api/bookmarks_delete") : remote("/api/bookmarks_add");
+      const token = getToken();
+      const headers = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
       await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ clip_id: clipId }),
       });
       setBookmarked(v => !v);
