@@ -1,6 +1,5 @@
 // pages/api/register.js
 import { createClient } from "@supabase/supabase-js";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 function isEmailLike(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY" });
     }
 
-    // service role：创建用户、写表、调用 RPC
     const admin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -45,11 +43,9 @@ export default async function handler(req, res) {
       email = `${username}@users.nailaobao.local`;
     }
 
-    // 1) 创建用户（直接确认 email）
+    // 1) 创建用户
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
+      email, password, email_confirm: true,
       user_metadata: username ? { username } : {},
     });
     if (createErr) return res.status(400).json({ error: createErr.message });
@@ -57,7 +53,7 @@ export default async function handler(req, res) {
     const userId = created?.user?.id;
     if (!userId) return res.status(500).json({ error: "Create user failed (no user id)" });
 
-    // 2) 写 profiles（用户名模式）
+    // 2) 写 profiles
     if (username) {
       const { error: profErr } = await admin.from("profiles").insert({ user_id: userId, username });
       if (profErr) {
@@ -66,7 +62,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3) 兑换码（原子）
+    // 3) 兑换码
     const { data: redeemed, error: redeemErr } = await admin.rpc("redeem_code", {
       p_code: String(code).trim(),
       p_user_id: userId,
@@ -76,47 +72,29 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: redeemErr.message });
     }
 
-    // 4) 用 anon 登录，拿 session
+    // 4) 登录拿 token
     const anon = createClient(supabaseUrl, supabaseAnonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-
     const { data: signed, error: signErr } = await anon.auth.signInWithPassword({ email, password });
+
     if (signErr || !signed?.session) {
+      // 登录失败时引导去登录页（注册本身已成功）
       return res.status(200).json({
-        ok: true,
-        needs_login: true,
-        email_hint: email,
+        ok: true, needs_login: true, email_hint: email,
         plan: redeemed?.[0]?.plan ?? null,
         expires_at: redeemed?.[0]?.expires_at ?? null,
       });
     }
 
-    // ✅ 5) 关键：在服务端写入 cookie（让 /api/me 看得到）
-    const supabaseServer = createPagesServerClient({ req, res });
-    const { error: cookieErr } = await supabaseServer.auth.setSession({
-      access_token: signed.session.access_token,
-      refresh_token: signed.session.refresh_token,
-    });
-
-    if (cookieErr) {
-      return res.status(200).json({
-        ok: true,
-        needs_login: true,
-        email_hint: email,
-        note: "redeem 成功，但写 cookie 失败，请去登录页登录",
-        error: cookieErr.message,
-        plan: redeemed?.[0]?.plan ?? null,
-        expires_at: redeemed?.[0]?.expires_at ?? null,
-      });
-    }
-
-    // 不把 session 返回给前端（更安全），前端直接跳首页即可
+    // ✅ 返回 token 给前端存储，不再写 cookie
     return res.status(200).json({
       ok: true,
       needs_login: false,
+      access_token: signed.session.access_token,
+      refresh_token: signed.session.refresh_token,
+      expires_at: signed.session.expires_at,
       plan: redeemed?.[0]?.plan ?? null,
-      expires_at: redeemed?.[0]?.expires_at ?? null,
     });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Unknown error" });
