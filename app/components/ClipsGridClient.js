@@ -178,6 +178,10 @@ function isMp4(url) {
   return String(url).toLowerCase().includes(".mp4");
 }
 
+function isTouchDevice() {
+  try { return window.matchMedia("(hover: none)").matches; } catch { return false; }
+}
+
 function HoverMedia({ coverUrl, videoUrl, title }) {
   const [hover, setHover] = useState(false);
   const vref = useRef(null);
@@ -207,7 +211,7 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
 
   return (
     <div
-      onMouseEnter={() => setHover(true)}
+      onMouseEnter={() => { if (!isTouchDevice()) setHover(true); }}
       onMouseLeave={() => setHover(false)}
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
