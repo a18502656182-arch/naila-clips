@@ -6,6 +6,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
+/**
+ * ✅ 新增：API_BASE + remote()
+ * - 只把 /rsc-api/taxonomies 切到 Railway
+ */
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
+
 function toggleInArray(arr, value) {
   const set = new Set(arr || []);
   if (set.has(value)) set.delete(value);
@@ -33,7 +40,14 @@ function useOutsideClose(open, setOpen, refs = []) {
   }, [open, setOpen, refs]);
 }
 
-function MultiSelectDropdown({ label, options, selected, onToggle, onSelectAll, renderItemLabel }) {
+function MultiSelectDropdown({
+  label,
+  options,
+  selected,
+  onToggle,
+  onSelectAll,
+  renderItemLabel,
+}) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   useOutsideClose(open, setOpen, [wrapRef]);
@@ -47,48 +61,115 @@ function MultiSelectDropdown({ label, options, selected, onToggle, onSelectAll, 
 
   return (
     <div ref={wrapRef} style={{ position: "relative", minWidth: 0 }}>
-      <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>
+        {label}
+      </div>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         style={{
-          width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 12,
-          border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
-          color: THEME.colors.ink, fontSize: 13, display: "flex", alignItems: "center",
-          justifyContent: "space-between", gap: 10, cursor: "pointer",
+          width: "100%",
+          textAlign: "left",
+          padding: "8px 10px",
+          borderRadius: 12,
+          border: `1px solid ${THEME.colors.border2}`,
+          background: THEME.colors.surface,
+          color: THEME.colors.ink,
+          fontSize: 13,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          cursor: "pointer",
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {buttonText}
         </span>
         <span style={{ color: THEME.colors.faint, fontSize: 12 }}>▾</span>
       </button>
 
       {open && (
-        <div style={{
-          position: "absolute", zIndex: 30, top: "calc(100% + 8px)", left: 0,
-          width: "100%", minWidth: 220, maxHeight: 280, overflow: "auto",
-          borderRadius: 12, border: `1px solid ${THEME.colors.border}`,
-          background: "rgba(255,255,255,0.98)", boxShadow: "0 18px 46px rgba(11,18,32,0.18)", padding: 8,
-        }}>
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 30,
+            top: "calc(100% + 8px)",
+            left: 0,
+            width: "100%",
+            minWidth: 220,
+            maxHeight: 280,
+            overflow: "auto",
+            borderRadius: 12,
+            border: `1px solid ${THEME.colors.border}`,
+            background: "rgba(255,255,255,0.98)",
+            boxShadow: "0 18px 46px rgba(11,18,32,0.18)",
+            padding: 8,
+          }}
+        >
           <label
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 8px", borderRadius: 10, cursor: "pointer", userSelect: "none" }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,18,32,0.04)")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 8px",
+              borderRadius: 10,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.background = "rgba(11,18,32,0.04)")
+            }
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
           >
-            <input type="checkbox" checked={isAll} onChange={() => onSelectAll(!isAll)} style={{ width: 14, height: 14 }} />
+            <input
+              type="checkbox"
+              checked={isAll}
+              onChange={() => onSelectAll(!isAll)}
+              style={{ width: 14, height: 14 }}
+            />
             <span style={{ fontSize: 13, color: THEME.colors.ink }}>全选</span>
           </label>
           <div style={{ height: 1, background: THEME.colors.border, margin: "6px 0" }} />
           {(options || []).map((o) => (
             <label
               key={o.slug}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 8px", borderRadius: 10, cursor: "pointer", userSelect: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,18,32,0.04)")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 8px",
+                borderRadius: 10,
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "rgba(11,18,32,0.04)")
+              }
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <input type="checkbox" checked={selected.includes(o.slug)} onChange={() => onToggle(o.slug)} style={{ width: 14, height: 14 }} />
-              <span style={{ fontSize: 13, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+              <input
+                type="checkbox"
+                checked={selected.includes(o.slug)}
+                onChange={() => onToggle(o.slug)}
+                style={{ width: 14, height: 14 }}
+              />
+              <span
+                style={{
+                  fontSize: 13,
+                  color: THEME.colors.ink,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  flex: 1,
+                }}
+              >
                 {renderItemLabel ? renderItemLabel(o) : o.slug}
               </span>
             </label>
@@ -104,7 +185,8 @@ export default function FiltersClient({ filters, onFiltersChange }) {
 
   // ✅ 页面加载时拉一次 taxonomy（不依赖 URL，永远拉全量）
   useEffect(() => {
-    fetch("/rsc-api/taxonomies", { cache: "no-store" })
+    // ✅ /rsc-api/taxonomies 切到 Railway
+    fetch(remote("/rsc-api/taxonomies"), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setTax({
@@ -167,8 +249,14 @@ export default function FiltersClient({ filters, onFiltersChange }) {
 
         <div className="row">
           <div>
-            <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>上传时间</div>
-            <select value={filters.sort} onChange={(e) => update({ sort: e.target.value })} className="select">
+            <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>
+              上传时间
+            </div>
+            <select
+              value={filters.sort}
+              onChange={(e) => update({ sort: e.target.value })}
+              className="select"
+            >
               <option value="newest">最新优先</option>
               <option value="oldest">最早优先</option>
             </select>
@@ -179,7 +267,9 @@ export default function FiltersClient({ filters, onFiltersChange }) {
             options={tax.difficulties}
             selected={filters.difficulty}
             onToggle={(slug) => update({ difficulty: toggleInArray(filters.difficulty, slug) })}
-            onSelectAll={(all) => update({ difficulty: all ? tax.difficulties.map((x) => x.slug) : [] })}
+            onSelectAll={(all) =>
+              update({ difficulty: all ? tax.difficulties.map((x) => x.slug) : [] })
+            }
           />
 
           <MultiSelectDropdown
