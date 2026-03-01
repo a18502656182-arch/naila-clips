@@ -374,7 +374,7 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
     setLoading(true);
     try {
       // ✅ 暂时仍然走 Vercel：/api/bookmarks_*
-      const url = saved ? "/api/bookmarks_delete" : "/api/bookmarks_add";
+      const url = saved ? remote("/api/bookmarks_delete") : remote("/api/bookmarks_add");
       await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,7 +438,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         setMe(data);
         if (data?.logged_in) {
           // ✅ 收藏列表暂时仍然走 Vercel
-          authFetch("/api/bookmarks_list_ids", { cache: "no-store" })
+          authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" })
             .then((r) => r.json())
             .then((d) => {
               const map = {};
