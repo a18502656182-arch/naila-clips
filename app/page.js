@@ -54,6 +54,26 @@ const fetchInitialClips = unstable_cache(
   { revalidate: 60 }
 );
 
+const fetchTaxonomies = unstable_cache(
+  async () => {
+    const supabase = getSupabaseAdmin();
+    const { data: taxRows, error } = await supabase
+      .from("taxonomies")
+      .select("type, slug")
+      .order("type", { ascending: true })
+      .order("slug", { ascending: true });
+    if (error) return { difficulties: [], topics: [], channels: [] };
+    const rows = taxRows || [];
+    return {
+      difficulties: rows.filter((t) => t.type === "difficulty").map((t) => ({ slug: t.slug, name: t.slug, count: 0 })),
+      topics: rows.filter((t) => t.type === "topic").map((t) => ({ slug: t.slug, name: t.slug, count: 0 })),
+      channels: rows.filter((t) => t.type === "channel").map((t) => ({ slug: t.slug, name: t.slug, count: 0 })),
+    };
+  },
+  ["taxonomies:all"],
+  { revalidate: 300 }
+);
+
 const fetchFeatured = unstable_cache(
   async () => {
     const supabase = getSupabaseAdmin();
@@ -84,6 +104,9 @@ export default async function Page() {
   let featured = null;
   try { featured = await fetchFeatured(); } catch {}
   if (!featured) featured = items[0] || null;
+
+  let taxonomies = { difficulties: [], topics: [], channels: [] };
+  try { taxonomies = await fetchTaxonomies(); } catch {}
 
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
@@ -121,7 +144,7 @@ export default async function Page() {
           <SectionTitle title="全部视频" />
           <Suspense fallback={<div style={{ padding: 20, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>}>
             <div style={{ marginTop: 10 }}>
-              <HomeClient initialItems={items} initialHasMore={has_more} />
+              <HomeClient initialItems={items} initialHasMore={has_more} initialTaxonomies={taxonomies} />
             </div>
           </Suspense>
         </div>
