@@ -637,15 +637,11 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         <div className="grid">
           {items.map((r) => {
             const isVip = r.access_tier === "vip";
+            const isBlocked = isVip && !me?.is_member && !r.can_access;
             const duration = formatDuration(r.duration_sec);
             const dateStr = formatDate(r.created_at);
-            return (
-              <Link
-                key={r.id}
-                href={`/clips/${r.id}`}
-                className="card"
-                onClick={(e) => handleCardClick(e, r)}
-              >
+            const cardContent = (
+              <>
                 <div className="coverWrap">
                   <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
                   <div className="pillRow">
@@ -670,6 +666,24 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                   </p>
                   <div className="meta">{dateStr}</div>
                 </div>
+              </>
+            );
+            return isBlocked ? (
+              <div
+                key={r.id}
+                className="card"
+                style={{ cursor: "pointer" }}
+                onClick={() => setShowVipModal(true)}
+              >
+                {cardContent}
+              </div>
+            ) : (
+              <Link
+                key={r.id}
+                href={`/clips/${r.id}`}
+                className="card"
+              >
+                {cardContent}
               </Link>
             );
           })}
