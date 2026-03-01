@@ -2,6 +2,10 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 
+function saveToken(token) {
+  try { localStorage.setItem("sb_access_token", token); } catch {}
+}
+
 const THEME = {
   colors: {
     bg: "#f6f7fb", surface: "#ffffff", ink: "#0b1220",
