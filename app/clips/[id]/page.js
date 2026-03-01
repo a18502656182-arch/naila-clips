@@ -7,8 +7,13 @@ import { useParams } from "next/navigation";
 import { THEME } from "../../components/home/theme";
 
 // ─── 工具函数 ────────────────────────────────────────────────
-async function fetchJson(url) {
-  const res = await fetch(url);
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+
+async function fetchJson(url, opts = {}) {
+  const token = getToken();
+  const headers = { ...(opts.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(url, { ...opts, headers });
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch {}
@@ -29,23 +34,32 @@ function fmtSec(s) {
 // 词汇收藏 API
 async function apiFavAdd(term, clipId, kind, data) {
   try {
+    const token = getToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     await fetch("/api/vocab_fav_add", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers,
       body: JSON.stringify({ term, clip_id: clipId, kind, data }),
     });
   } catch {}
 }
 async function apiFavDelete(term, clipId) {
   try {
+    const token = getToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     await fetch("/api/vocab_fav_delete", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST", headers,
       body: JSON.stringify({ term, clip_id: clipId }),
     });
   } catch {}
 }
 async function apiFavList() {
   try {
-    const r = await fetch("/api/vocab_favorites", { cache: "no-store" });
+    const token = getToken();
+    const headers = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const r = await fetch("/api/vocab_favorites", { cache: "no-store", headers });
     const d = await r.json();
     return new Set((d?.items || []).map(x => x.term));
   } catch { return new Set(); }
