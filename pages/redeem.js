@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers });
+}
+
 const THEME = {
   colors: {
     bg: "#f6f7fb", surface: "#ffffff", ink: "#0b1220",
@@ -22,7 +30,7 @@ export default function RedeemPage() {
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
+    authFetch("/api/me", { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
@@ -34,7 +42,7 @@ export default function RedeemPage() {
     if (!code.trim()) { setMsg("请输入兑换码"); return; }
     setLoading(true);
     try {
-      const r = await fetch("/api/redeem", {
+      const r = await authFetch("/api/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: code.trim() }),
