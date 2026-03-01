@@ -4,6 +4,16 @@
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
+// ✅ token 工具（内联避免跨目录 import 问题）
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+function clearToken() { try { localStorage.removeItem("sb_access_token"); } catch {} }
+function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers });
+}
+
 function formatExpiry(dateStr) {
   if (!dateStr) return null;
   try {
@@ -19,7 +29,7 @@ export default function UserMenuClient() {
   const wrapRef = useRef(null);
 
   useEffect(() => {
-    fetch("/api/me", { cache: "no-store" })
+    authFetch("/api/me", { cache: "no-store" })
       .then(r => r.json())
       .then(data => setMe(data))
       .catch(() => setMe({ logged_in: false }));
@@ -36,6 +46,7 @@ export default function UserMenuClient() {
 
   async function handleLogout() {
     try {
+      clearToken(); // ✅ 清除本地 token
       await fetch("/api/logout", { method: "POST" });
       setMe({ logged_in: false });
       setOpen(false);
