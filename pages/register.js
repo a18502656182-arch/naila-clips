@@ -48,7 +48,9 @@ export default function RegisterPage() {
         router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
         return;
       }
-      setSuccess({ plan: j.plan || "member" });
+      
+     if (j.access_token) saveToken(j.access_token);
+setSuccess({ plan: j.plan || "member" });
       // 用 window.location 强制刷新，让 UserMenuClient 读到新 token
       setTimeout(() => { window.location.href = "/"; }, 1200);
     } catch (err) {
