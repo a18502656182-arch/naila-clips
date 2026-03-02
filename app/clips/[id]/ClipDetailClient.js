@@ -401,11 +401,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     else if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
   }, [initHls]);
 
-  // video_url 变化时重新初始化
-  useEffect(() => {
-    if (videoRef.current && item?.video_url && item?.can_access) initHls(videoRef.current);
-    return () => { if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; } };
-  }, [item?.video_url, item?.can_access, initHls]);
+
 
 
 
