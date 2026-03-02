@@ -3,7 +3,6 @@
 // app/clips/[id]/page.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Script from "next/script";
 import { useParams } from "next/navigation";
 import { THEME } from "../../components/home/theme";
 
@@ -374,11 +373,47 @@ export default function ClipDetailPage() {
     };
   }, [clipId]);
 
-  // videoCallbackRef 只负责同步 videoRef，HLS 由 Stream SDK 自动处理
+  // hls.js 处理 HLS 播放（手机 Chrome / 安卓等不支持原生 m3u8 的浏览器）
+  const hlsRef = useRef(null);
+
+  const initHls = useCallback((v) => {
+    if (!v || !item?.video_url || !item?.can_access) return;
+    // 销毁旧实例
+    if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
+    // Safari / 新版 Chrome (142+) 原生支持 HLS，直接设 src
+    if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
+      v.src = item.video_url;
+      return;
+    }
+    // 其余浏览器用 hls.js
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+    script.onload = () => {
+      const Hls = window.Hls;
+      if (!Hls || !Hls.isSupported()) { v.src = item.video_url; return; }
+      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
+      const hls = new Hls();
+      hlsRef.current = hls;
+      hls.attachMedia(v);
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(item.video_url));
+    };
+    // 如果已经加载过 hls.js，直接用
+    if (window.Hls) { script.onload(); return; }
+    document.head.appendChild(script);
+  }, [item?.video_url, item?.can_access]);
+
+  // video DOM 挂载时立即初始化（callback ref 保证时序）
   const videoCallbackRef = useCallback((v) => {
     videoRef.current = v;
-    // SDK onLoad 之后会调用 window.Stream(v) 主动接管，无需在这里操作
-  }, []);
+    if (v) initHls(v);
+    else if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
+  }, [initHls]);
+
+  // video_url 变化时重新初始化
+  useEffect(() => {
+    if (videoRef.current && item?.video_url && item?.can_access) initHls(videoRef.current);
+    return () => { if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; } };
+  }, [item?.video_url, item?.can_access, initHls]);
 
 
 
@@ -602,7 +637,6 @@ export default function ClipDetailPage() {
   const videoOrGate = (maxH) => canAccess ? (
     <video
       ref={videoCallbackRef}
-      src={item.video_url}
       controls
       playsInline
       preload="auto"
@@ -666,18 +700,6 @@ export default function ClipDetailPage() {
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
-      {/* ✅ 复刻参考站：Next.js Script 组件，strategy=lazyOnload，SDK 加载完后主动接管 video */}
-      <Script
-        src="https://embed.cloudflarestream.com/embed/sdk.latest.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          // SDK 加载完时 video 可能已经在 DOM 里了，手动调用接管
-          const v = document.querySelector('video[src*="cloudflarestream.com"]');
-          if (v && window.Stream) {
-            try { window.Stream(v); } catch {}
-          }
-        }}
-      />
         {navBar}
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
@@ -761,18 +783,6 @@ export default function ClipDetailPage() {
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
       <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
-      {/* ✅ 复刻参考站：Next.js Script 组件，strategy=lazyOnload，SDK 加载完后主动接管 video */}
-      <Script
-        src="https://embed.cloudflarestream.com/embed/sdk.latest.js"
-        strategy="lazyOnload"
-        onLoad={() => {
-          // SDK 加载完时 video 可能已经在 DOM 里了，手动调用接管
-          const v = document.querySelector('video[src*="cloudflarestream.com"]');
-          if (v && window.Stream) {
-            try { window.Stream(v); } catch {}
-          }
-        }}
-      />
       {navBar}
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
