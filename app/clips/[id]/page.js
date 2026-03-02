@@ -3,6 +3,7 @@
 // app/clips/[id]/page.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useParams } from "next/navigation";
 import { THEME } from "../../components/home/theme";
 
@@ -34,28 +35,7 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
-// ✅ 复刻参考站：加载 Cloudflare Stream SDK（lazyOnload）
-// SDK 自动扫描页面上 src 是 m3u8 的 <video> 标签并接管 HLS 播放
-function loadStreamSDK() {
-  return new Promise((resolve) => {
-    if (typeof window === "undefined") { resolve(); return; }
-    if (window.Stream) { resolve(); return; }
-    if (document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
-      // 已经在加载中，等它
-      const interval = setInterval(() => {
-        if (window.Stream) { clearInterval(interval); resolve(); }
-      }, 50);
-      setTimeout(() => { clearInterval(interval); resolve(); }, 3000);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://embed.cloudflarestream.com/embed/sdk.latest.js";
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => resolve();
-    document.body.appendChild(script);
-  });
-}
+
 
 // 词汇收藏 API
 async function apiFavAdd(term, clipId, kind, data) {
@@ -394,16 +374,10 @@ export default function ClipDetailPage() {
     };
   }, [clipId]);
 
-  // ✅ 复刻参考站：video src 直接设 m3u8，加载 Stream SDK 后 SDK 自动接管 HLS 播放
-  // 参考站做法：<video src="...m3u8"> + <script src="sdk.latest.js" lazyOnload>
-  useEffect(() => {
-    if (!item?.video_url || !item?.can_access) return;
-    loadStreamSDK(); // SDK 加载后自动扫描页面上 src 含 m3u8 的 video 标签并接管播放
-  }, [item?.video_url, item?.can_access]);
-
-  // videoCallbackRef 只负责同步 videoRef，HLS 由 SDK 自动处理
+  // videoCallbackRef 只负责同步 videoRef，HLS 由 Stream SDK 自动处理
   const videoCallbackRef = useCallback((v) => {
     videoRef.current = v;
+    // SDK onLoad 之后会调用 window.Stream(v) 主动接管，无需在这里操作
   }, []);
 
 
@@ -692,6 +666,18 @@ export default function ClipDetailPage() {
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+      {/* ✅ 复刻参考站：Next.js Script 组件，strategy=lazyOnload，SDK 加载完后主动接管 video */}
+      <Script
+        src="https://embed.cloudflarestream.com/embed/sdk.latest.js"
+        strategy="lazyOnload"
+        onLoad={() => {
+          // SDK 加载完时 video 可能已经在 DOM 里了，手动调用接管
+          const v = document.querySelector('video[src*="cloudflarestream.com"]');
+          if (v && window.Stream) {
+            try { window.Stream(v); } catch {}
+          }
+        }}
+      />
         {navBar}
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
@@ -775,6 +761,18 @@ export default function ClipDetailPage() {
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
       <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+      {/* ✅ 复刻参考站：Next.js Script 组件，strategy=lazyOnload，SDK 加载完后主动接管 video */}
+      <Script
+        src="https://embed.cloudflarestream.com/embed/sdk.latest.js"
+        strategy="lazyOnload"
+        onLoad={() => {
+          // SDK 加载完时 video 可能已经在 DOM 里了，手动调用接管
+          const v = document.querySelector('video[src*="cloudflarestream.com"]');
+          if (v && window.Stream) {
+            try { window.Stream(v); } catch {}
+          }
+        }}
+      />
       {navBar}
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
