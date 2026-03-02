@@ -376,25 +376,32 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // hls.js 处理 HLS 播放（手机 Chrome / 安卓等不支持原生 m3u8 的浏览器）
   const hlsRef = useRef(null);
+  const videoUrlRef = useRef(item?.video_url || null);
+  const canAccessRef = useRef(item?.can_access || false);
 
+  // 同步最新值到 ref（不触发重新渲染）
+  useEffect(() => { videoUrlRef.current = item?.video_url || null; }, [item?.video_url]);
+  useEffect(() => { canAccessRef.current = !!item?.can_access; }, [item?.can_access]);
+
+  // initHls 使用 ref，依赖数组为空，永远不会重新创建
   const initHls = useCallback((v) => {
-    if (!v || !item?.video_url || !item?.can_access) return;
-    // 销毁旧实例
+    const url = videoUrlRef.current;
+    if (!v || !url || !canAccessRef.current) return;
+    // 已经加载过同一个 url，不重复初始化
+    if (v.src && v.src === url) return;
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
-    // Safari / 新版 Chrome (142+) 原生支持 HLS，直接设 src
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
-      v.src = item.video_url;
+      v.src = url;
       return;
     }
-    // 其余浏览器用打包好的 hls.js（已通过 npm 安装，无需动态加载）
-    if (!Hls.isSupported()) { v.src = item.video_url; return; }
+    if (!Hls.isSupported()) { v.src = url; return; }
     const hls = new Hls();
     hlsRef.current = hls;
     hls.attachMedia(v);
-    hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(item.video_url));
-  }, [item?.video_url, item?.can_access]);
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+  }, []); // 空依赖，函数永不重建
 
-  // video DOM 挂载时立即初始化（callback ref 保证时序）
+  // video DOM 挂载时初始化一次
   const videoCallbackRef = useCallback((v) => {
     videoRef.current = v;
     if (v) initHls(v);
