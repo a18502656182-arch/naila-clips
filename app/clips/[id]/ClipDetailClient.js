@@ -369,6 +369,15 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       }
 
       // SSR 已提供完整数据（item、me、details），无需再调 API
+      // 但会员视频的 can_access 是 null，需要客户端用 token 验证
+      if (initialItem.can_access === null) {
+        try {
+          const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
+          if (!mounted) return;
+          if (d?.item) setItem(d.item);
+          if (d?.me) setMe(d.me);
+        } catch { /* 静默失败，保持锁定状态 */ }
+      }
     }
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
