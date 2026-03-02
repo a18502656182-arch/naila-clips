@@ -467,7 +467,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const v = videoRef.current;
     if (!v) return;
     try {
-      v.currentTime = Number(seg?.start || 0);
+      const offset = Math.min(...segments.map(s => Number(s.start || 0)));
+      v.currentTime = Math.max(0, Number(seg?.start || 0) - offset);
       if (!v.paused) v.play?.();
     } catch {}
   }
@@ -502,10 +503,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !segments.length) return;
+    // 偏移量：segments 时间戳可能是原始视频的绝对时间，需减去最小 start 对齐到播放时间
+    const offset = Math.min(...segments.map(s => Number(s.start || 0)));
     function findIdx(t) {
+      const adjusted = t + offset;
       for (let i = 0; i < segments.length; i++) {
         const s = Number(segments[i]?.start || 0), e = Number(segments[i]?.end || 0);
-        if (t >= s && t < e) return i;
+        if (adjusted >= s && adjusted < e) return i;
       }
       return -1;
     }
@@ -516,8 +520,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       const li = loopIdxRef.current;
       if (li !== -1) {
         const seg = segments[li];
-        if (seg && t >= Number(seg.end || 0) - 0.02) {
-          try { v.currentTime = Number(seg.start || 0); if (!v.paused) v.play?.(); } catch {}
+        if (seg && (t + offset) >= Number(seg.end || 0) - 0.02) {
+          try { v.currentTime = Math.max(0, Number(seg.start || 0) - offset); if (!v.paused) v.play?.(); } catch {}
         }
       }
     }
