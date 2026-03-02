@@ -493,6 +493,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   useEffect(() => { try { if (videoRef.current) videoRef.current.playbackRate = rate; } catch {} }, [rate]);
 
+  // ref 存最新值，避免 timeupdate 监听器因依赖变化而频繁重建
+  const activeSegIdxRef = useRef(-1);
+  const loopIdxRef = useRef(-1);
+  useEffect(() => { activeSegIdxRef.current = activeSegIdx; }, [activeSegIdx]);
+  useEffect(() => { loopIdxRef.current = loopIdx; }, [loopIdx]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !segments.length) return;
@@ -506,9 +512,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     function onTime() {
       const t = v.currentTime || 0;
       const idx = findIdx(t);
-      if (idx !== -1 && idx !== activeSegIdx) setActiveSegIdx(idx);
-      if (loopIdx !== -1) {
-        const seg = segments[loopIdx];
+      if (idx !== -1 && idx !== activeSegIdxRef.current) setActiveSegIdx(idx);
+      const li = loopIdxRef.current;
+      if (li !== -1) {
+        const seg = segments[li];
         if (seg && t >= Number(seg.end || 0) - 0.02) {
           try { v.currentTime = Number(seg.start || 0); if (!v.paused) v.play?.(); } catch {}
         }
@@ -516,7 +523,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     }
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
-  }, [segments, loopIdx, activeSegIdx]);
+  }, [segments]); // 只依赖 segments，绑定一次即可
 
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
@@ -634,7 +641,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       ref={videoCallbackRef}
       controls
       playsInline
-      preload="auto"
+      autoPlay
+      muted
+      preload="metadata"
       poster={item.cover_url || undefined}
       style={{
         width: "100%",
