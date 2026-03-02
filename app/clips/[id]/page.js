@@ -34,19 +34,17 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
-// ✅ 加载 Cloudflare Stream SDK（复刻参考站）
-// SDK 会自动检测 video 标签上的 data-src，用 hls.js 处理 m3u8，让 Chrome 也能流畅播放
-function loadStreamSDK() {
+// ✅ 加载 hls.js（Chrome 不原生支持 m3u8，hls.js 负责处理）
+// Safari 原生支持 HLS，不需要 hls.js
+function loadHlsJs() {
   return new Promise((resolve) => {
-    if (document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
-      resolve();
-      return;
-    }
+    if (typeof window === "undefined") { resolve(null); return; }
+    if (window.Hls) { resolve(window.Hls); return; }
     const script = document.createElement("script");
-    script.src = "https://embed.cloudflarestream.com/embed/sdk.latest.js";
+    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
     script.async = true;
-    script.onload = resolve;
-    script.onerror = resolve; // 失败也继续，fallback 到原生播放
+    script.onload = () => resolve(window.Hls);
+    script.onerror = () => resolve(null);
     document.head.appendChild(script);
   });
 }
@@ -364,11 +362,8 @@ export default function ClipDetailPage() {
     async function run() {
       setLoading(true); setNotFound(false); setItem(null); setMe(null); setDetails(null);
       try {
-        // ✅ 并行：加载 Stream SDK + 获取视频数据，两者同时进行
-        const [d] = await Promise.all([
-          fetchJson(remote(`/api/clip_full?id=${clipId}`)),
-          loadStreamSDK(),
-        ]);
+        // 获取视频数据
+        const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
         if (!mounted) return;
         const gotItem = d?.item || null;
         setItem(gotItem); setMe(d?.me || null);
@@ -391,18 +386,42 @@ export default function ClipDetailPage() {
     };
   }, [clipId]);
 
-  // ✅ 数据加载完后，用 Stream SDK 初始化 video 标签（复刻参考站）
-  // SDK 自动把 m3u8 转成 blob src，Chrome 也能流畅播放
+  // ✅ 用 hls.js 处理 HLS 播放（Chrome 不支持原生 m3u8，Safari 原生支持不需要）
+  const hlsRef = useRef(null);
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !item?.video_url) return;
-    // 如果 SDK 已加载，让它接管 video 标签
-    if (window.Stream) {
-      try {
-        window.Stream(v);
-      } catch {}
+    if (!v || !item?.video_url || !item?.can_access) return;
+    let destroyed = false;
+
+    // Safari 原生支持 HLS，直接设置 src 即可
+    if (v.canPlayType("application/vnd.apple.mpegurl")) {
+      v.src = item.video_url;
+      return;
     }
-  }, [item?.video_url]);
+
+    // Chrome/Firefox 等需要 hls.js
+    loadHlsJs().then((Hls) => {
+      if (destroyed || !v || !Hls) return;
+      if (!Hls.isSupported()) {
+        // 最后兜底：直接设置 src，浏览器自行处理
+        v.src = item.video_url;
+        return;
+      }
+      // 销毁旧实例
+      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
+      const hls = new Hls({ startLevel: -1 });
+      hlsRef.current = hls;
+      hls.attachMedia(v);
+      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+        hls.loadSource(item.video_url);
+      });
+    });
+
+    return () => {
+      destroyed = true;
+      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
+    };
+  }, [item?.video_url, item?.can_access]);
 
   useEffect(() => {
     if (!clipId || !me?.logged_in) return;
@@ -620,24 +639,18 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── 视频区（✅ 复刻参考站：video 标签 + Stream SDK 处理 HLS）
+  // ─── 视频区（hls.js 处理 Chrome HLS 播放，Safari 原生支持）
   const videoOrGate = (maxH) => canAccess ? (
     <video
       ref={videoRef}
       controls
       playsInline
-      autoPlay
       preload="auto"
       poster={item.cover_url || undefined}
-      // ✅ 复刻参考站：用 data-src 让 Stream SDK 接管，生成 blob src
-      // SDK 自动处理 HLS，Chrome 也能流畅播放，不再转圈
-      data-src={item.video_url}
       style={{
         width: "100%",
         borderRadius: THEME.radii.md,
         background: "#000",
-        cursor: "pointer",
-        objectFit: "cover",
         ...(maxH ? { maxHeight: maxH } : {}),
       }}
     />
