@@ -2,28 +2,16 @@
 
 // app/components/FiltersClient.js
 // ✅ 纯客户端筛选，不改 URL，通过 onFiltersChange 回调通知父组件
+// ✅ 修复：taxonomies 只用服务端传来的初始数据，筛选时不再重新请求
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME } from "./home/theme";
-
-/**
- * ✅ 新增：API_BASE + remote()
- * - 只把 /rsc-api/taxonomies 切到 Railway
- */
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
-const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
 function toggleInArray(arr, value) {
   const set = new Set(arr || []);
   if (set.has(value)) set.delete(value);
   else set.add(value);
   return Array.from(set);
-}
-
-function joinSelected(arr) {
-  const a = Array.isArray(arr) ? arr : [];
-  if (!a.length) return "全部";
-  return a.join("、");
 }
 
 function useOutsideClose(open, setOpen, refs = []) {
@@ -181,36 +169,8 @@ function MultiSelectDropdown({
 }
 
 export default function FiltersClient({ filters, onFiltersChange, initialTaxonomies }) {
-  const [tax, setTax] = useState(
-    initialTaxonomies || { difficulties: [], topics: [], channels: [] }
-  );
-
-  // 仅当筛选条件变化时，重新从 Railway 拉取带 count 的 taxonomies
-  useEffect(() => {
-  // 筛选条件全空时不请求，用服务端传来的初始数据
-  const hasFilter = 
-    filters.difficulty?.length || 
-    filters.access?.length || 
-    filters.topic?.length || 
-    filters.channel?.length;
-  if (!hasFilter) return;
-
-  const qs = new URLSearchParams();
-  if (filters.difficulty?.length) filters.difficulty.forEach((v) => qs.append("difficulty", v));
-  if (filters.access?.length) filters.access.forEach((v) => qs.append("access", v));
-  if (filters.topic?.length) filters.topic.forEach((v) => qs.append("topic", v));
-  if (filters.channel?.length) filters.channel.forEach((v) => qs.append("channel", v));
-  fetch(remote(`/rsc-api/taxonomies?${qs.toString()}`), { cache: "no-store" })
-    .then((r) => r.json())
-    .then((data) => {
-      setTax({
-        difficulties: data.difficulties || [],
-        topics: data.topics || [],
-        channels: data.channels || [],
-      });
-    })
-    .catch(() => {});
-}, [filters.difficulty, filters.access, filters.topic, filters.channel]);
+  // ✅ 关键修改：直接用 initialTaxonomies，不再有任何 useEffect 请求 taxonomies
+  const tax = initialTaxonomies || { difficulties: [], topics: [], channels: [] };
 
   function update(patch) {
     onFiltersChange({ ...filters, ...patch });
