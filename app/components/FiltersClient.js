@@ -187,22 +187,30 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
 
   // 仅当筛选条件变化时，重新从 Railway 拉取带 count 的 taxonomies
   useEffect(() => {
-    const qs = new URLSearchParams();
-    if (filters.difficulty?.length) filters.difficulty.forEach((v) => qs.append("difficulty", v));
-    if (filters.access?.length) filters.access.forEach((v) => qs.append("access", v));
-    if (filters.topic?.length) filters.topic.forEach((v) => qs.append("topic", v));
-    if (filters.channel?.length) filters.channel.forEach((v) => qs.append("channel", v));
-    fetch(remote(`/rsc-api/taxonomies?${qs.toString()}`), { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        setTax({
-          difficulties: data.difficulties || [],
-          topics: data.topics || [],
-          channels: data.channels || [],
-        });
-      })
-      .catch(() => {});
-  }, [filters.difficulty, filters.access, filters.topic, filters.channel]);
+  // 筛选条件全空时不请求，用服务端传来的初始数据
+  const hasFilter = 
+    filters.difficulty?.length || 
+    filters.access?.length || 
+    filters.topic?.length || 
+    filters.channel?.length;
+  if (!hasFilter) return;
+
+  const qs = new URLSearchParams();
+  if (filters.difficulty?.length) filters.difficulty.forEach((v) => qs.append("difficulty", v));
+  if (filters.access?.length) filters.access.forEach((v) => qs.append("access", v));
+  if (filters.topic?.length) filters.topic.forEach((v) => qs.append("topic", v));
+  if (filters.channel?.length) filters.channel.forEach((v) => qs.append("channel", v));
+  fetch(remote(`/rsc-api/taxonomies?${qs.toString()}`), { cache: "no-store" })
+    .then((r) => r.json())
+    .then((data) => {
+      setTax({
+        difficulties: data.difficulties || [],
+        topics: data.topics || [],
+        channels: data.channels || [],
+      });
+    })
+    .catch(() => {});
+}, [filters.difficulty, filters.access, filters.topic, filters.channel]);
 
   function update(patch) {
     onFiltersChange({ ...filters, ...patch });
