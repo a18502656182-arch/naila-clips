@@ -1,7 +1,7 @@
 "use client";
 
 // app/clips/[id]/page.js
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { THEME } from "../../components/home/theme";
@@ -34,18 +34,26 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
-// ✅ 加载 hls.js（Chrome 不原生支持 m3u8，hls.js 负责处理）
-// Safari 原生支持 HLS，不需要 hls.js
-function loadHlsJs() {
+// ✅ 复刻参考站：加载 Cloudflare Stream SDK（lazyOnload）
+// SDK 自动扫描页面上 src 是 m3u8 的 <video> 标签并接管 HLS 播放
+function loadStreamSDK() {
   return new Promise((resolve) => {
-    if (typeof window === "undefined") { resolve(null); return; }
-    if (window.Hls) { resolve(window.Hls); return; }
+    if (typeof window === "undefined") { resolve(); return; }
+    if (window.Stream) { resolve(); return; }
+    if (document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
+      // 已经在加载中，等它
+      const interval = setInterval(() => {
+        if (window.Stream) { clearInterval(interval); resolve(); }
+      }, 50);
+      setTimeout(() => { clearInterval(interval); resolve(); }, 3000);
+      return;
+    }
     const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+    script.src = "https://embed.cloudflarestream.com/embed/sdk.latest.js";
     script.async = true;
-    script.onload = () => resolve(window.Hls);
-    script.onerror = () => resolve(null);
-    document.head.appendChild(script);
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.body.appendChild(script);
   });
 }
 
@@ -386,42 +394,19 @@ export default function ClipDetailPage() {
     };
   }, [clipId]);
 
-  // ✅ 用 hls.js 处理 HLS 播放（Chrome 不支持原生 m3u8，Safari 原生支持不需要）
-  const hlsRef = useRef(null);
+  // ✅ 复刻参考站：video src 直接设 m3u8，加载 Stream SDK 后 SDK 自动接管 HLS 播放
+  // 参考站做法：<video src="...m3u8"> + <script src="sdk.latest.js" lazyOnload>
   useEffect(() => {
-    const v = videoRef.current;
-    if (!v || !item?.video_url || !item?.can_access) return;
-    let destroyed = false;
-
-    // Safari 原生支持 HLS，直接设置 src 即可
-    if (v.canPlayType("application/vnd.apple.mpegurl")) {
-      v.src = item.video_url;
-      return;
-    }
-
-    // Chrome/Firefox 等需要 hls.js
-    loadHlsJs().then((Hls) => {
-      if (destroyed || !v || !Hls) return;
-      if (!Hls.isSupported()) {
-        // 最后兜底：直接设置 src，浏览器自行处理
-        v.src = item.video_url;
-        return;
-      }
-      // 销毁旧实例
-      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
-      const hls = new Hls({ startLevel: -1 });
-      hlsRef.current = hls;
-      hls.attachMedia(v);
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => {
-        hls.loadSource(item.video_url);
-      });
-    });
-
-    return () => {
-      destroyed = true;
-      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
-    };
+    if (!item?.video_url || !item?.can_access) return;
+    loadStreamSDK(); // SDK 加载后自动扫描页面上 src 含 m3u8 的 video 标签并接管播放
   }, [item?.video_url, item?.can_access]);
+
+  // videoCallbackRef 只负责同步 videoRef，HLS 由 SDK 自动处理
+  const videoCallbackRef = useCallback((v) => {
+    videoRef.current = v;
+  }, []);
+
+
 
   useEffect(() => {
     if (!clipId || !me?.logged_in) return;
@@ -639,10 +624,11 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── 视频区（hls.js 处理 Chrome HLS 播放，Safari 原生支持）
+  // ─── 视频区（复刻参考站：video src=m3u8，Stream SDK 自动接管 HLS）
   const videoOrGate = (maxH) => canAccess ? (
     <video
-      ref={videoRef}
+      ref={videoCallbackRef}
+      src={item.video_url}
       controls
       playsInline
       preload="auto"
