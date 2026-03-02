@@ -473,7 +473,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     autoFillOnceRef.current = false;
 
     const qs = buildQS(filters, 0);
-    fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" })
+    fetch(remote(`/rsc-api/clips?${qs}`))
       .then((r) => r.json())
       .then((data) => {
         if (myVersion !== reqVersionRef.current) return;
@@ -522,7 +522,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
     try {
       const qs = buildQS(filters, items.length);
-      const r = await fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" });
+      const r = await fetch(remote(`/rsc-api/clips?${qs}`));
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Load more failed");
       if (myVersion !== reqVersionRef.current) return;
