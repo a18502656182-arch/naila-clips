@@ -1,6 +1,5 @@
 // app/clips/[id]/page.js  ← Server Component（无 "use client"）
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
 import ClipDetailClient from "./ClipDetailClient";
 
 function getSupabaseAdmin() {
@@ -15,15 +14,9 @@ async function fetchAllData(id) {
     const admin = getSupabaseAdmin();
     if (!admin) return null;
 
-    // 从 cookie 读取用户 session
-    const cookieStore = cookies();
-    const accessToken =
-      cookieStore.get("sb-access-token")?.value ||
-      cookieStore.get("supabase-auth-token")?.value ||
-      null;
-
-    // 三个查询并行
-    const [clipResult, detailResult, userResult] = await Promise.all([
+    // 两个查询并行：clip基本信息 + 字幕详情
+    // 用户登录状态用 localStorage token，服务端无法读取，交给客户端处理
+    const [clipResult, detailResult] = await Promise.all([
       admin
         .from("clips_view")
         .select("id,title,cover_url,video_url,access_tier,duration_sec,description,created_at,difficulty_slug,topic_slugs,channel_slugs")
@@ -35,40 +28,14 @@ async function fetchAllData(id) {
         .select("details_json")
         .eq("clip_id", id)
         .maybeSingle(),
-
-      accessToken
-        ? (async () => {
-            try {
-              const anon = createClient(
-                process.env.SUPABASE_URL,
-                process.env.SUPABASE_ANON_KEY,
-                { auth: { persistSession: false } }
-              );
-              const { data } = await anon.auth.getUser(accessToken);
-              const user = data?.user || null;
-              if (!user) return { user: null, sub: null };
-              const { data: subs } = await admin
-                .from("subscriptions")
-                .select("plan,expires_at,status")
-                .eq("user_id", user.id)
-                .eq("status", "active")
-                .gt("expires_at", new Date().toISOString())
-                .order("expires_at", { ascending: false })
-                .limit(1);
-              return { user, sub: subs?.[0] || null };
-            } catch {
-              return { user: null, sub: null };
-            }
-          })()
-        : Promise.resolve({ user: null, sub: null }),
     ]);
 
     if (clipResult.error || !clipResult.data) return null;
     const clip = clipResult.data;
 
-    const { user, sub } = userResult;
-    const is_member = !!sub;
-    const can_access = clip.access_tier === "free" ? true : is_member;
+    // 免费视频服务端直接给 can_access=true
+    // 会员视频先给 null，客户端验证 token 后更新
+    const can_access = clip.access_tier === "free" ? true : null;
 
     let details_json = detailResult.data?.details_json ?? null;
     if (typeof details_json === "string") {
@@ -89,12 +56,6 @@ async function fetchAllData(id) {
         topic_slugs: clip.topic_slugs || [],
         channel_slugs: clip.channel_slugs || [],
         can_access,
-      },
-      me: {
-        logged_in: !!user,
-        is_member,
-        plan: sub?.plan || null,
-        ends_at: sub?.expires_at || null,
       },
       details_json,
     };
@@ -122,7 +83,7 @@ export default async function ClipDetailPage({ params }) {
     <ClipDetailClient
       clipId={id || null}
       initialItem={data?.item || null}
-      initialMe={data?.me || null}
+      initialMe={null}
       initialDetails={data?.details_json || null}
     />
   );
