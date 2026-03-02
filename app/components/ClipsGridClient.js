@@ -616,7 +616,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
-              const isBlocked = isVip && !me?.is_member && !r.can_access;
+              const isBlocked = isVip && me !== null && !me?.is_member && !r.can_access;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
               const cardContent = (
