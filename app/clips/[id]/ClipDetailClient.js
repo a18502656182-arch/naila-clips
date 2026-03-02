@@ -3,6 +3,7 @@
 // app/clips/[id]/ClipDetailClient.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Hls from "hls.js";
 import { THEME } from "../../components/home/theme";
 
 // ─── 工具函数 ────────────────────────────────────────────────
@@ -300,14 +301,14 @@ function BookmarkLoginModal({ onClose }) {
 }
 
 // ─── 主页面 ────────────────────────────────────────────────
-export default function ClipDetailClient({ clipId, initialClip }) {
+export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
   const isMobile = useIsMobile(1100);
 
-  const [loading, setLoading] = useState(!initialClip); // 有 initialClip 就不用 loading
+  const [loading, setLoading] = useState(!initialItem);
   const [notFound, setNotFound] = useState(false);
-  const [item, setItem] = useState(initialClip || null);
-  const [me, setMe] = useState(null);
-  const [details, setDetails] = useState(null);
+  const [item, setItem] = useState(initialItem || null);
+  const [me, setMe] = useState(initialMe || null);
+  const [details, setDetails] = useState(initialDetails || null);
 
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
@@ -340,38 +341,44 @@ export default function ClipDetailClient({ clipId, initialClip }) {
     apiFavList().then(set => setFavSet(set));
   }, [me?.logged_in]);
 
+  // SSR 已提供所有数据，客户端只需补充登录状态和精确的 can_access
   useEffect(() => {
     if (!clipId) return;
     let mounted = true;
     async function run() {
-      // 有 initialClip 时不需要重置 item（服务端已提供），只获取 me 和 details
-      if (!initialClip) {
-        setLoading(true); setNotFound(false); setItem(null);
+      // 如果没有 SSR 数据（比如直接客户端导航），回退到完整 API
+      if (!initialItem) {
+        setLoading(true); setNotFound(false); setItem(null); setMe(null); setDetails(null);
+        try {
+          const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
+          if (!mounted) return;
+          const gotItem = d?.item || null;
+          setItem(gotItem); setMe(d?.me || null);
+          if (!gotItem) { setNotFound(true); return; }
+          if (gotItem?.title) document.title = `${gotItem.title} - 油管英语场景库`;
+          let dj = d?.details_json ?? null;
+          if (typeof dj === "string") { try { dj = JSON.parse(dj); } catch { dj = null; } }
+          if (mounted) setDetails(dj ?? null);
+        } catch (e) {
+          if (e?.status === 404) setNotFound(true);
+          if (mounted) setDetails(null);
+        } finally {
+          if (mounted) setLoading(false);
+        }
+        return;
       }
-      setMe(null); setDetails(null);
+
+      // 有 SSR 数据：静默更新登录状态和 can_access（不影响视频加载）
       try {
         const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
         if (!mounted) return;
-        const gotItem = d?.item || null;
-        // 始终用 API 返回的完整 item（包含 can_access）
-        setItem(gotItem); setMe(d?.me || null);
-        if (!gotItem) { setNotFound(true); return; }
-        if (gotItem?.title) document.title = `${gotItem.title} - 油管英语场景库`;
-        let dj = d?.details_json ?? null;
-        if (typeof dj === "string") { try { dj = JSON.parse(dj); } catch { dj = null; } }
-        if (mounted) setDetails(dj ?? null);
-      } catch (e) {
-        if (e?.status === 404) setNotFound(true);
-        if (mounted) setDetails(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+        if (d?.item) setItem(d.item);   // 更新精确的 can_access
+        if (d?.me) setMe(d.me);         // 更新登录状态
+        // details 已由 SSR 提供，不重复设置
+      } catch { /* 静默失败，SSR 数据已够用 */ }
     }
     run();
-    return () => {
-      mounted = false;
-      document.title = "油管英语场景库";
-    };
+    return () => { mounted = false; document.title = "油管英语场景库"; };
   }, [clipId]);
 
   // hls.js 处理 HLS 播放（手机 Chrome / 安卓等不支持原生 m3u8 的浏览器）
@@ -386,21 +393,12 @@ export default function ClipDetailClient({ clipId, initialClip }) {
       v.src = item.video_url;
       return;
     }
-    // 其余浏览器用 hls.js
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
-    script.onload = () => {
-      const Hls = window.Hls;
-      if (!Hls || !Hls.isSupported()) { v.src = item.video_url; return; }
-      if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
-      const hls = new Hls();
-      hlsRef.current = hls;
-      hls.attachMedia(v);
-      hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(item.video_url));
-    };
-    // 如果已经加载过 hls.js，直接用
-    if (window.Hls) { script.onload(); return; }
-    document.head.appendChild(script);
+    // 其余浏览器用打包好的 hls.js（已通过 npm 安装，无需动态加载）
+    if (!Hls.isSupported()) { v.src = item.video_url; return; }
+    const hls = new Hls();
+    hlsRef.current = hls;
+    hls.attachMedia(v);
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(item.video_url));
   }, [item?.video_url, item?.can_access]);
 
   // video DOM 挂载时立即初始化（callback ref 保证时序）
