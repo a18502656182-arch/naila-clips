@@ -4,11 +4,6 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
-/**
- * ✅ 新增：API_BASE + remote()
- * - 只把 /rsc-api/* 和 /api/me 切到 Railway
- * - /api/bookmarks_* 暂时仍然走 Vercel（因为你还没迁过去）
- */
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
@@ -363,7 +358,7 @@ function LoginToBookmarkModal({ onClose }) {
   );
 }
 
-// 收藏按钮组件 — saved 状态由父组件统一管理，不单独发请求
+// 收藏按钮组件
 function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
   const [loading, setLoading] = useState(false);
 
@@ -377,7 +372,6 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
     if (loading) return;
     setLoading(true);
     try {
-      // ✅ 暂时仍然走 Vercel：/api/bookmarks_*
       const url = saved ? remote("/api/bookmarks_delete") : remote("/api/bookmarks_add");
       await authFetch(url, {
         method: "POST",
@@ -402,12 +396,8 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
         width: 32,
         height: 32,
         borderRadius: "50%",
-        border: `1px solid ${
-          saved ? "rgba(239,68,68,0.3)" : THEME.colors.border
-        }`,
-        background: saved
-          ? "rgba(239,68,68,0.12)"
-          : "rgba(255,255,255,0.82)",
+        border: `1px solid ${saved ? "rgba(239,68,68,0.3)" : THEME.colors.border}`,
+        background: saved ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.82)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -429,26 +419,20 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // 登录状态（用于弹窗判断 & 收藏按钮）
   const [me, setMe] = useState(null);
-  // 批量收藏状态：{ clipId: true/false }
   const [savedMap, setSavedMap] = useState({});
 
   useEffect(() => {
-    // ✅ /api/me 切到 Railway
     authFetch(remote("/api/me"), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setMe(data);
         if (data?.logged_in) {
-          // ✅ 收藏列表暂时仍然走 Vercel
           authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" })
             .then((r) => r.json())
             .then((d) => {
               const map = {};
-              (d?.clip_ids || []).forEach((id) => {
-                map[id] = true;
-              });
+              (d?.clip_ids || []).forEach((id) => { map[id] = true; });
               setSavedMap(map);
             })
             .catch(() => {});
@@ -464,15 +448,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [showVipModal, setShowVipModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  function handleCardClick(e, item) {
-    if (item.access_tier !== "vip") return;
-    if (me?.is_member) return;
-    if (item.can_access) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setShowVipModal(true);
-  }
-
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
@@ -480,7 +455,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const autoFillOnceRef = useRef(false);
   const isFirstRender = useRef(true);
 
-  // filters 变化时重新从头加载
+  // ✅ 修复：filters 变化时不再立刻清空 items，等新数据回来再替换，避免闪烁
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -489,8 +464,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     reqVersionRef.current += 1;
     const myVersion = reqVersionRef.current;
 
-    setItems([]);
-    setHasMore(false);
+    // ✅ 只设置 loading，不清空 items（旧内容保留到新数据回来）
     setLoading(true);
     setErr("");
     inFlightRef.current = false;
@@ -499,11 +473,11 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     autoFillOnceRef.current = false;
 
     const qs = buildQS(filters, 0);
-    // ✅ /rsc-api/clips 切到 Railway
     fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (myVersion !== reqVersionRef.current) return;
+        // ✅ 数据回来之后再替换，页面不会出现空白闪烁
         setItems(data.items || []);
         setHasMore(!!data.has_more);
       })
@@ -530,8 +504,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     const p = new URLSearchParams();
     if (f?.sort) p.set("sort", f.sort);
     if (f?.access?.length) f.access.forEach((v) => p.append("access", v));
-    if (f?.difficulty?.length)
-      f.difficulty.forEach((v) => p.append("difficulty", v));
+    if (f?.difficulty?.length) f.difficulty.forEach((v) => p.append("difficulty", v));
     if (f?.topic?.length) f.topic.forEach((v) => p.append("topic", v));
     if (f?.channel?.length) f.channel.forEach((v) => p.append("channel", v));
     p.set("offset", String(offset));
@@ -549,7 +522,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
     try {
       const qs = buildQS(filters, items.length);
-      // ✅ /rsc-api/clips 切到 Railway
       const r = await fetch(remote(`/rsc-api/clips?${qs}`), { cache: "no-store" });
       const data = await r.json();
       if (!r.ok) throw new Error(data?.error || "Load more failed");
@@ -631,76 +603,74 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
+        .loadingOverlay { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease; }
       `}</style>
 
-      {loading && items.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
-          加载中...
-        </div>
-      ) : (
-        <div className="grid">
-          {items.map((r) => {
-            const isVip = r.access_tier === "vip";
-            const isBlocked = isVip && !me?.is_member && !r.can_access;
-            const duration = formatDuration(r.duration_sec);
-            const dateStr = formatDate(r.created_at);
-            const cardContent = (
-              <>
-                <div className="coverWrap">
-                  <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
-                  <div className="pillRow">
-                    <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>
-                      {isVip ? "会员" : "免费"}
-                    </span>
-                    {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
+      {/* ✅ 筛选时旧内容半透明显示，不清空，不闪烁 */}
+      <div className={loading && items.length > 0 ? "loadingOverlay" : ""}>
+        {loading && items.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
+            加载中...
+          </div>
+        ) : (
+          <div className="grid">
+            {items.map((r) => {
+              const isVip = r.access_tier === "vip";
+              const isBlocked = isVip && !me?.is_member && !r.can_access;
+              const duration = formatDuration(r.duration_sec);
+              const dateStr = formatDate(r.created_at);
+              const cardContent = (
+                <>
+                  <div className="coverWrap">
+                    <HoverMedia coverUrl={r.cover_url} videoUrl={r.video_url} title={r.title} />
+                    <div className="pillRow">
+                      <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>
+                        {isVip ? "会员" : "免费"}
+                      </span>
+                      {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
+                    </div>
+                    {duration ? <div className="duration">{duration}</div> : null}
+                    <BookmarkBtn
+                      clipId={r.id}
+                      saved={!!savedMap[r.id]}
+                      loggedIn={!!me?.logged_in}
+                      onNeedLogin={() => setShowLoginModal(true)}
+                      onToggle={toggleSaved}
+                    />
                   </div>
-                  {duration ? <div className="duration">{duration}</div> : null}
-                  <BookmarkBtn
-                    clipId={r.id}
-                    saved={!!savedMap[r.id]}
-                    loggedIn={!!me?.logged_in}
-                    onNeedLogin={() => setShowLoginModal(true)}
-                    onToggle={toggleSaved}
-                  />
+                  <div className="body">
+                    <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
+                    <p className="desc">
+                      {r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}
+                    </p>
+                    <div className="meta">{dateStr}</div>
+                  </div>
+                </>
+              );
+              return isBlocked ? (
+                <div
+                  key={r.id}
+                  className="card"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setShowVipModal(true)}
+                >
+                  {cardContent}
                 </div>
-                <div className="body">
-                  <h3 className="title">{r.title || `Clip #${r.id}`}</h3>
-                  <p className="desc">
-                    {r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}
-                  </p>
-                  <div className="meta">{dateStr}</div>
-                </div>
-              </>
-            );
-            return isBlocked ? (
-              <div
-                key={r.id}
-                className="card"
-                style={{ cursor: "pointer" }}
-                onClick={() => setShowVipModal(true)}
-              >
-                {cardContent}
-              </div>
-            ) : (
-              <Link
-                key={r.id}
-                href={`/clips/${r.id}`}
-                className="card"
-              >
-                {cardContent}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+              ) : (
+                <Link key={r.id} href={`/clips/${r.id}`} className="card">
+                  {cardContent}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div ref={setSentinel} style={{ height: 1, marginTop: 1 }} />
 
       <div className="foot">
         {err ? (
-          <div className="status" style={{ color: "crimson" }}>
-            {err}
-          </div>
+          <div className="status" style={{ color: "crimson" }}>{err}</div>
         ) : null}
         {hasMore ? (
           <>
