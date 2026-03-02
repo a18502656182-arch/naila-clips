@@ -34,6 +34,23 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
+// ✅ 加载 Cloudflare Stream SDK（复刻参考站）
+// SDK 会自动检测 video 标签上的 data-src，用 hls.js 处理 m3u8，让 Chrome 也能流畅播放
+function loadStreamSDK() {
+  return new Promise((resolve) => {
+    if (document.querySelector('script[src*="cloudflarestream.com/embed/sdk"]')) {
+      resolve();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://embed.cloudflarestream.com/embed/sdk.latest.js";
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = resolve; // 失败也继续，fallback 到原生播放
+    document.head.appendChild(script);
+  });
+}
+
 // 词汇收藏 API
 async function apiFavAdd(term, clipId, kind, data) {
   try {
@@ -125,7 +142,19 @@ function useIsMobile(bp = 1100) {
   return m;
 }
 
-// ─── UI 组件（全部定义在组件外，避免每次渲染重建）────────────
+// ─── 骨架屏 ──────────────────────────────────────────────────
+function SkeletonBlock({ w = "100%", h = 20, r = 8, style = {} }) {
+  return (
+    <div style={{
+      width: w, height: h, borderRadius: r,
+      background: "rgba(11,18,32,0.08)",
+      animation: "skPulse 1.4s ease-in-out infinite",
+      ...style,
+    }} />
+  );
+}
+
+// ─── UI 组件 ────────────────────────────────────────────────
 function Btn({ active, onClick, children, style }) {
   return (
     <button type="button" onClick={onClick} style={{
@@ -298,7 +327,6 @@ export default function ClipDetailPage() {
   const [me, setMe] = useState(null);
   const [details, setDetails] = useState(null);
 
-  // ── 收藏状态 ──
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [showBookmarkLoginModal, setShowBookmarkLoginModal] = useState(false);
@@ -336,13 +364,15 @@ export default function ClipDetailPage() {
     async function run() {
       setLoading(true); setNotFound(false); setItem(null); setMe(null); setDetails(null);
       try {
-        // ✅ 一次请求同时返回视频信息+字幕详情+会员状态，内部并行查询
-        const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
+        // ✅ 并行：加载 Stream SDK + 获取视频数据，两者同时进行
+        const [d] = await Promise.all([
+          fetchJson(remote(`/api/clip_full?id=${clipId}`)),
+          loadStreamSDK(),
+        ]);
         if (!mounted) return;
         const gotItem = d?.item || null;
         setItem(gotItem); setMe(d?.me || null);
         if (!gotItem) { setNotFound(true); return; }
-        // ✅ 设置页面标题，对 SEO 和浏览器标签友好
         if (gotItem?.title) document.title = `${gotItem.title} - 油管英语场景库`;
         let dj = d?.details_json ?? null;
         if (typeof dj === "string") { try { dj = JSON.parse(dj); } catch { dj = null; } }
@@ -357,19 +387,30 @@ export default function ClipDetailPage() {
     run();
     return () => {
       mounted = false;
-      document.title = "油管英语场景库"; // 离开页面时恢复默认标题
+      document.title = "油管英语场景库";
     };
   }, [clipId]);
 
-  // 收藏状态初始化
+  // ✅ 数据加载完后，用 Stream SDK 初始化 video 标签（复刻参考站）
+  // SDK 自动把 m3u8 转成 blob src，Chrome 也能流畅播放
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !item?.video_url) return;
+    // 如果 SDK 已加载，让它接管 video 标签
+    if (window.Stream) {
+      try {
+        window.Stream(v);
+      } catch {}
+    }
+  }, [item?.video_url]);
+
   useEffect(() => {
     if (!clipId || !me?.logged_in) return;
-    const _hasToken = getToken();
-    const _hasHeaders = { "Content-Type": "application/json" };
-    if (_hasToken) _hasHeaders["Authorization"] = `Bearer ${_hasToken}`;
+    const token = getToken();
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     fetch(remote("/api/bookmarks_has"), {
-      method: "POST",
-      headers: _hasHeaders,
+      method: "POST", headers,
       body: JSON.stringify({ clip_id: clipId }),
       cache: "no-store",
     })
@@ -387,11 +428,7 @@ export default function ClipDetailPage() {
       const token = getToken();
       const headers = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
-      await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ clip_id: clipId }),
-      });
+      await fetch(url, { method: "POST", headers, body: JSON.stringify({ clip_id: clipId }) });
       setBookmarked(v => !v);
     } catch {}
     setBookmarkLoading(false);
@@ -440,13 +477,8 @@ export default function ClipDetailPage() {
     if (!t) return;
     setFavSet(prev => {
       const next = new Set(prev);
-      if (next.has(t)) {
-        next.delete(t);
-        apiFavDelete(t, clipId);
-      } else {
-        next.add(t);
-        apiFavAdd(t, clipId, kind || "words", data || null);
-      }
+      if (next.has(t)) { next.delete(t); apiFavDelete(t, clipId); }
+      else { next.add(t); apiFavAdd(t, clipId, kind || "words", data || null); }
       return next;
     });
   }
@@ -515,12 +547,36 @@ export default function ClipDetailPage() {
     return () => { document.body.style.overflow = ""; };
   }, [isMobile, vocabOpen]);
 
-  // ─── Loading / Not found ──────────────────────────────────
-  if (loading) return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh", display: "grid", placeItems: "center" }}>
-      <div style={{ color: THEME.colors.faint }}>加载中...</div>
-    </div>
-  );
+  // ─── 骨架屏（替代进入时白屏）────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
+        <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+        <div style={{ height: 52, borderBottom: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, display: "flex", alignItems: "center", padding: "0 16px", gap: 12 }}>
+          <SkeletonBlock w={60} h={32} r={10} />
+          <SkeletonBlock w={220} h={18} r={6} />
+        </div>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: 16 }}>
+          {isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <SkeletonBlock w="100%" h={220} r={14} />
+              <SkeletonBlock w="100%" h={40} r={10} />
+              {[1,2,3,4].map(i => <SkeletonBlock key={i} w="100%" h={80} r={10} />)}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: 16 }}>
+              <SkeletonBlock w="100%" h={340} r={14} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <SkeletonBlock w="100%" h={44} r={10} />
+                {[1,2,3,4,5].map(i => <SkeletonBlock key={i} w="100%" h={80} r={10} />)}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (notFound || !item) return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh", padding: 16 }}>
       <Link href="/">← 返回</Link>
@@ -528,7 +584,7 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── 顶部导航栏（含收藏按钮）─────────────────────────────
+  // ─── 顶部导航栏 ───────────────────────────────────────────
   const navBar = (
     <div style={{
       position: "sticky", top: 0, zIndex: 20,
@@ -549,12 +605,7 @@ export default function ClipDetailPage() {
             登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
           </div>
         </div>
-        {/* ❤️ 收藏按钮 */}
-        <button
-          type="button"
-          onClick={toggleBookmark}
-          disabled={bookmarkLoading}
-          title={bookmarked ? "取消收藏" : "收藏"}
+        <button type="button" onClick={toggleBookmark} disabled={bookmarkLoading} title={bookmarked ? "取消收藏" : "收藏"}
           style={{
             border: `1px solid ${bookmarked ? "rgba(239,68,68,0.3)" : THEME.colors.border2}`,
             background: bookmarked ? "rgba(239,68,68,0.10)" : THEME.colors.surface,
@@ -562,22 +613,34 @@ export default function ClipDetailPage() {
             cursor: "pointer", fontSize: 13, fontWeight: 700,
             color: bookmarked ? "#b00000" : THEME.colors.ink,
             display: "flex", alignItems: "center", gap: 6,
-            opacity: bookmarkLoading ? 0.6 : 1,
-            transition: "all 150ms ease",
-            whiteSpace: "nowrap",
+            opacity: bookmarkLoading ? 0.6 : 1, transition: "all 150ms ease", whiteSpace: "nowrap",
           }}
-        >
-          {bookmarked ? "❤️ 已收藏" : "🤍 收藏"}
-        </button>
+        >{bookmarked ? "❤️ 已收藏" : "🤍 收藏"}</button>
       </div>
     </div>
   );
 
-  // ─── 视频区（或会员门槛）────────────────────────────────────
+  // ─── 视频区（✅ 复刻参考站：video 标签 + Stream SDK 处理 HLS）
   const videoOrGate = (maxH) => canAccess ? (
-    <video ref={videoRef} controls playsInline preload="metadata"
-      style={{ width: "100%", borderRadius: THEME.radii.md, background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}
-      src={item.video_url} poster={item.cover_url || undefined} />
+    <video
+      ref={videoRef}
+      controls
+      playsInline
+      autoPlay
+      preload="auto"
+      poster={item.cover_url || undefined}
+      // ✅ 复刻参考站：用 data-src 让 Stream SDK 接管，生成 blob src
+      // SDK 自动处理 HLS，Chrome 也能流畅播放，不再转圈
+      data-src={item.video_url}
+      style={{
+        width: "100%",
+        borderRadius: THEME.radii.md,
+        background: "#000",
+        cursor: "pointer",
+        objectFit: "cover",
+        ...(maxH ? { maxHeight: maxH } : {}),
+      }}
+    />
   ) : (
     <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
       <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
@@ -592,7 +655,7 @@ export default function ClipDetailPage() {
     </div>
   );
 
-  // ─── 词汇卡面板内容 ──────────────────────────────────────
+  // ─── 词汇卡面板 ───────────────────────────────────────────
   const vocabPanel = (maxH) => (
     <>
       <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
@@ -629,6 +692,7 @@ export default function ClipDetailPage() {
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
+        <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
         {navBar}
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
@@ -711,6 +775,7 @@ export default function ClipDetailPage() {
   // ─── DESKTOP LAYOUT ───────────────────────────────────────
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
+      <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
       {navBar}
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
