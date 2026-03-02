@@ -27,14 +27,25 @@ function formatExpiry(dateStr) {
 }
 
 export default function UserMenuClient() {
-  const [me, setMe] = useState(null);
+  // 先从 localStorage 读缓存，立即渲染，不等网络
+  const [me, setMe] = useState(() => {
+    try {
+      const cached = localStorage.getItem("sb_me_cache");
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
   useEffect(() => {
+    // 无 token 直接显示未登录，不发请求
+    if (!getToken()) { setMe({ logged_in: false }); return; }
     authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
-      .then(data => setMe(data))
+      .then(data => {
+        setMe(data);
+        try { localStorage.setItem("sb_me_cache", JSON.stringify(data)); } catch {}
+      })
       .catch(() => setMe({ logged_in: false }));
   }, []);
 
@@ -49,7 +60,8 @@ export default function UserMenuClient() {
 
   async function handleLogout() {
     try {
-      clearToken(); // ✅ 清除本地 token
+      clearToken();
+      try { localStorage.removeItem("sb_me_cache"); } catch {}
       await fetch("/api/logout", { method: "POST" });
       setMe({ logged_in: false });
       setOpen(false);
