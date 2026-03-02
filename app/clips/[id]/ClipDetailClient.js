@@ -368,14 +368,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         return;
       }
 
-      // 有 SSR 数据：静默更新登录状态和 can_access（不影响视频加载）
-      try {
-        const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
-        if (!mounted) return;
-        if (d?.item) setItem(d.item);   // 更新精确的 can_access
-        if (d?.me) setMe(d.me);         // 更新登录状态
-        // details 已由 SSR 提供，不重复设置
-      } catch { /* 静默失败，SSR 数据已够用 */ }
+      // SSR 已提供完整数据（item、me、details），无需再调 API
     }
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
