@@ -309,6 +309,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [item, setItem] = useState(initialItem || null);
   const [me, setMe] = useState(initialMe || null);
   const [details, setDetails] = useState(initialDetails || null);
+  // SSR 时 can_access 无法判断，需要等客户端验证完才能决定是否显示锁屏
+  const [checkingAccess, setCheckingAccess] = useState(!!initialItem && !initialItem?.can_access);
 
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
@@ -368,7 +370,16 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         return;
       }
 
-      // SSR 已提供完整数据（item、me、details），无需再调 API
+      // SSR 已提供基础数据，但 can_access 需要客户端用 token 重新验证
+      // （SSR 渲染时没有用户 token，can_access 一律为 false）
+      try {
+        const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
+        if (!mounted) return;
+        if (d?.item) setItem(prev => ({ ...(prev || {}), ...d.item }));
+        if (d?.me) setMe(d.me);
+      } catch {} finally {
+        if (mounted) setCheckingAccess(false);
+      }
     }
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
@@ -651,7 +662,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   );
 
   // ─── 视频区（复刻参考站：video src=m3u8，Stream SDK 自动接管 HLS）
-  const videoOrGate = (maxH) => canAccess ? (
+  const videoOrGate = (maxH) => checkingAccess ? (
+    <SkeletonBlock w="100%" h={maxH || 220} r={14} />
+  ) : canAccess ? (
     <video
       ref={videoCallbackRef}
       controls
