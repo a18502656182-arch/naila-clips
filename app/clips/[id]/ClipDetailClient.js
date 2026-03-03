@@ -304,10 +304,6 @@ function BookmarkLoginModal({ onClose }) {
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
   const isMobile = useIsMobile(1100);
 
-  const [checkingAccess, setCheckingAccess] = useState(
-    // 会员视频且 can_access 未知时，先显示加载而不是锁屏
-    !!(initialItem && initialItem.can_access === null)
-  );
   const [loading, setLoading] = useState(!initialItem);
   const [notFound, setNotFound] = useState(false);
   const [item, setItem] = useState(initialItem || null);
@@ -373,18 +369,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       }
 
       // SSR 已提供完整数据（item、me、details），无需再调 API
-      // 但会员视频的 can_access 是 null，需要客户端用 token 验证
-      if (initialItem.can_access === null) {
-        try {
-          const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
-          if (!mounted) return;
-          if (d?.item) setItem(d.item);
-          if (d?.me) setMe(d.me);
-        } catch { /* 静默失败，保持锁定状态 */ } finally {
-          if (mounted) setCheckingAccess(false);
-        }
-        return;
-      }
     }
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
@@ -395,9 +379,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const videoUrlRef = useRef(item?.video_url || null);
   const canAccessRef = useRef(item?.can_access || false);
 
-  // 同步最新值到 ref（不触发重新渲染）
-  useEffect(() => { videoUrlRef.current = item?.video_url || null; }, [item?.video_url]);
-  useEffect(() => { canAccessRef.current = !!item?.can_access; }, [item?.can_access]);
+  // 渲染阶段同步更新 ref（早于 useEffect，确保 videoCallbackRef 执行时能读到最新值）
+  videoUrlRef.current = item?.video_url || null;
+  canAccessRef.current = !!item?.can_access;
 
   // initHls 使用 ref，依赖数组为空，永远不会重新创建
   const initHls = useCallback((v) => {
@@ -407,9 +391,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (v.src && v.src === url) return;
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
+      // 原生 HLS（Safari / Chrome 142+）：设置 src 后手动触发 play
       v.src = url;
-      // 等 metadata 加载完再播放，直接 play() 太早会被浏览器拒绝
-      v.addEventListener("loadedmetadata", () => v.play?.().catch(() => {}), { once: true });
+      requestAnimationFrame(() => v.play?.().catch(() => {}));
       return;
     }
     if (!Hls.isSupported()) { v.src = url; return; }
@@ -417,10 +401,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     hlsRef.current = hls;
     hls.attachMedia(v);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-    // source 加载完毕后手动播放（autoPlay 触发时 src 还未就绪）
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      v.play?.().catch(() => {}); // 用户未交互时静默失败
-    });
+    // hls.js 路径：manifest 解析完成后触发 play
+    hls.on(Hls.Events.MANIFEST_PARSED, () => { v.play?.().catch(() => {}); });
   }, []); // 空依赖，函数永不重建
 
   // video DOM 挂载时初始化一次
@@ -429,6 +411,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (v) initHls(v);
     else if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
   }, [initHls]);
+
+  // can_access 从 null 变为 true（认证完成）时，对已挂载的 video 重新触发 initHls
+  useEffect(() => {
+    if (item?.can_access && videoRef.current) {
+      initHls(videoRef.current);
+    }
+  }, [item?.can_access, initHls]);
 
 
 
@@ -589,7 +578,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   }, [isMobile, vocabOpen]);
 
   // ─── 骨架屏（替代进入时白屏）────────────────────────────
-  if (loading || checkingAccess) {
+  if (loading) {
     return (
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
