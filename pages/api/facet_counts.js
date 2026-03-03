@@ -1,4 +1,4 @@
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 function parseList(v) {
   if (!v) return [];
@@ -16,9 +16,14 @@ function inc(map, key) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=10, stale-while-revalidate=60");
-  try {
-    const supabase = createPagesServerClient({ req, res });
 
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
+  const send = (status, payload) => {
+    flushCookies();
+    return res.status(status).json(payload);
+  };
+
+  try {
     const sort = req.query.sort === "oldest" ? "oldest" : "newest";
 
     // 当前已选（用于“在其它筛选不变时，每个选项会有多少条”）
@@ -44,19 +49,15 @@ export default async function handler(req, res) {
     if (selectedAccess.length) q = q.in("access_tier", selectedAccess);
 
     const { data, error } = await q;
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) return send(500, { error: error.message });
 
     // 2) normalize（把每条 clip 的 difficulty/topics/channels 摘出来）
     const normalized = (data || []).map((row) => {
-      const all = (row.clip_taxonomies || [])
-        .map((ct) => ct.taxonomies)
-        .filter(Boolean);
+      const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
 
       const difficulty = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const channels = all
-        .filter((t) => t.type === "channel")
-        .map((t) => t.slug);
+      const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
 
       return {
         id: row.id,
@@ -71,15 +72,13 @@ export default async function handler(req, res) {
     function matches(clip, f) {
       if (f.access?.length && !f.access.includes(clip.access_tier)) return false;
       if (f.difficulty?.length) {
-        if (!clip.difficulty || !f.difficulty.includes(clip.difficulty))
-          return false;
+        if (!clip.difficulty || !f.difficulty.includes(clip.difficulty)) return false;
       }
       if (f.topic?.length) {
         if (!(clip.topics || []).some((t) => f.topic.includes(t))) return false;
       }
       if (f.channel?.length) {
-        if (!(clip.channels || []).some((c) => f.channel.includes(c)))
-          return false;
+        if (!(clip.channels || []).some((c) => f.channel.includes(c))) return false;
       }
       return true;
     }
@@ -96,7 +95,6 @@ export default async function handler(req, res) {
     const total = baseList.length;
 
     // 5) counts：每个维度都要“其它筛选保持不变，只放开这个维度”来计算
-    // 例如算 difficulty counts 时：access/topic/channel 仍按当前选中，difficulty 放开
     const counts = {
       difficulty: {},
       access: {},
@@ -112,9 +110,7 @@ export default async function handler(req, res) {
         topic: selectedTopic,
         channel: selectedChannel,
       };
-      normalized
-        .filter((c) => matches(c, f))
-        .forEach((c) => inc(counts.difficulty, c.difficulty));
+      normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.difficulty, c.difficulty));
     }
 
     // access counts（放开 access）
@@ -125,9 +121,7 @@ export default async function handler(req, res) {
         topic: selectedTopic,
         channel: selectedChannel,
       };
-      normalized
-        .filter((c) => matches(c, f))
-        .forEach((c) => inc(counts.access, c.access_tier));
+      normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.access, c.access_tier));
     }
 
     // topic counts（放开 topic）
@@ -153,12 +147,10 @@ export default async function handler(req, res) {
       };
       normalized
         .filter((c) => matches(c, f))
-        .forEach((c) =>
-          (c.channels || []).forEach((ch) => inc(counts.channel, ch))
-        );
+        .forEach((c) => (c.channels || []).forEach((ch) => inc(counts.channel, ch)));
     }
 
-    return res.status(200).json({
+    return send(200, {
       total,
       filters: {
         difficulty: selectedDifficulty,
@@ -169,6 +161,6 @@ export default async function handler(req, res) {
       counts,
     });
   } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown error" });
+    return send(500, { error: e?.message || "Unknown error" });
   }
 }
