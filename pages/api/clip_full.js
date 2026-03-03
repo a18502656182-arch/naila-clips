@@ -1,4 +1,5 @@
 // pages/api/clip_full.js
+import { proxyCoverUrl } from "../../lib/imageUrl.js";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,7 +63,7 @@ export default async function handler(req, res) {
       item: {
         id: clip.id, title: clip.title, description: clip.description,
         duration_sec: clip.duration_sec, access_tier: clip.access_tier,
-        cover_url: clip.cover_url, video_url: clip.video_url,
+        cover_url: proxyCoverUrl(clip.cover_url), video_url: clip.video_url,
         created_at: clip.created_at, difficulty_slug: clip.difficulty_slug || null,
         topic_slugs: clip.topic_slugs || [], channel_slugs: clip.channel_slugs || [],
         can_access,
