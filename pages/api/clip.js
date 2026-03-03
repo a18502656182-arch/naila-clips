@@ -1,5 +1,10 @@
-// pages/api/clip.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+// pages/api/clip_full.js
+import { proxyCoverUrl } from "../../lib/imageUrl.js";
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function getBearer(req) {
   const h = req.headers.authorization || "";
@@ -7,115 +12,66 @@ function getBearer(req) {
   return m ? m[1].trim() : null;
 }
 
-async function getUserFromReq(req, res) {
-  const supabase = createPagesServerClient({ req, res });
-
-  const token = getBearer(req);
-  const { data, error } = token
-    ? await supabase.auth.getUser(token) // Bearer
-    : await supabase.auth.getUser(); // Cookie
-
-  const user = data?.user || null;
-  return {
-    supabase,
-    user,
-    mode: token ? "bearer" : "cookie",
-    userErr: error?.message || null,
-  };
-}
-
-async function getIsMember(supabase, userId) {
-  if (!userId) return { is_member: false, plan: null, ends_at: null, status: null };
-
-  const now = new Date().toISOString();
-
-  // 取当前用户最新的一条有效订阅（expires_at > now 且 status=active）
-  const { data, error } = await supabase
-    .from("subscriptions")
-    .select("plan, expires_at, status")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .gt("expires_at", now)
-    .order("expires_at", { ascending: false })
-    .limit(1);
-
-  if (error) {
-    return { is_member: false, plan: null, ends_at: null, status: null, _err: error.message };
-  }
-
-  const row = data?.[0] || null;
-  return {
-    is_member: !!row,
-    plan: row?.plan || null,
-    ends_at: row?.expires_at || null,
-    status: row?.status || null,
-  };
-}
-
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
+
+  const id = Number(req.query.id);
+  if (!id || isNaN(id)) return res.status(400).json({ error: "missing_id" });
+
   try {
-    if (req.method !== "GET") {
-      return res.status(405).json({ error: "method_not_allowed" });
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+
+    // 获取用户（可选）
+    let user = null;
+    const token = getBearer(req);
+    if (token) {
+      const anon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+      const { data } = await anon.auth.getUser(token);
+      user = data?.user || null;
     }
 
-    const id = Number(req.query.id);
-    if (!id) return res.status(400).json({ error: "missing_id" });
+    // 三个查询并行
+    const [clipResult, detailResult, subResult] = await Promise.all([
+      admin.from("clips_view")
+        .select("id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs")
+        .eq("id", id).maybeSingle(),
+      admin.from("clip_details").select("details_json").eq("clip_id", id).maybeSingle(),
+      user?.id
+        ? admin.from("subscriptions").select("plan, expires_at, status")
+            .eq("user_id", user.id).eq("status", "active")
+            .gt("expires_at", new Date().toISOString())
+            .order("expires_at", { ascending: false }).limit(1)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    const { supabase, user, mode, userErr } = await getUserFromReq(req, res);
+    if (clipResult.error) return res.status(500).json({ error: "clip_query_failed", detail: clipResult.error.message });
+    const clip = clipResult.data;
+    if (!clip) return res.status(404).json({ error: "not_found" });
 
-    // ✅ 关键：clips_view 里不要 select can_access（它不是列）
-    const { data: rows, error: e1 } = await supabase
-      .from("clips_view")
-      .select(
-        "id,title,description,duration_sec,upload_time,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs"
-      )
-      .eq("id", id)
-      .limit(1);
+    const subRow = subResult.data?.[0] || null;
+    const is_member = !!subRow;
+    const can_access = clip.access_tier === "free" ? true : is_member;
 
-    if (e1) {
-      return res.status(500).json({ error: "query_failed", detail: e1.message });
+    let details_json = detailResult.data?.details_json ?? null;
+    if (typeof details_json === "string") {
+      try { details_json = JSON.parse(details_json); } catch { details_json = null; }
     }
-
-    const clip = rows?.[0] || null;
-    if (!clip) {
-      return res.status(404).json({ error: "not_found" });
-    }
-
-    // 登录 + 会员判断
-    const me = await getIsMember(supabase, user?.id);
-
-    // ✅ API 计算 can_access（与你 /api/clips 的约定一致）
-    // 规则：free 永远可看；vip 仅会员可看
-    const accessTier = clip.access_tier || "free";
-    const can_access = accessTier === "free" ? true : !!me.is_member;
 
     return res.status(200).json({
       ok: true,
       item: {
-        id: clip.id,
-        title: clip.title,
-        description: clip.description,
-        duration_sec: clip.duration_sec,
-        upload_time: clip.upload_time,
-        access_tier: clip.access_tier,
-        cover_url: clip.cover_url,
-        video_url: clip.video_url,
-        created_at: clip.created_at,
-        difficulty_slugs: clip.difficulty_slug ? [clip.difficulty_slug] : [],
-        topic_slugs: clip.topic_slugs || [],
-        channel_slugs: clip.channel_slugs || [],
-        can_access, // ✅ 这里给前端用
+        id: clip.id, title: clip.title, description: clip.description,
+        duration_sec: clip.duration_sec, access_tier: clip.access_tier,
+        cover_url: proxyCoverUrl(clip.cover_url), video_url: clip.video_url,
+        created_at: clip.created_at, difficulty_slug: clip.difficulty_slug || null,
+        topic_slugs: clip.topic_slugs || [], channel_slugs: clip.channel_slugs || [],
+        can_access,
       },
-      me: {
-        logged_in: !!user,
-        is_member: !!me.is_member,
-        plan: me.plan,
-        ends_at: me.ends_at,
-        status: me.status,
-      },
-      debug: { mode, userErr },
+      me: { logged_in: !!user, is_member, plan: subRow?.plan || null, ends_at: subRow?.expires_at || null },
+      details_json,
     });
-  } catch (err) {
-    return res.status(500).json({ error: "unknown", detail: String(err?.message || err) });
+  } catch (e) {
+    return res.status(500).json({ error: "server_error", detail: String(e?.message || e) });
   }
 }
