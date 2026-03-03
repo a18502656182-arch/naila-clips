@@ -1,5 +1,4 @@
 // pages/redeem.js
-// 已登录用户专用兑换页 — 只需输入兑换码，不用填邮箱密码
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
@@ -26,11 +25,14 @@ const THEME = {
 
 export default function RedeemPage() {
   const router = useRouter();
-  const [me, setMe] = useState(null); // null=加载中
+  const [me, setMe] = useState(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [success, setSuccess] = useState(null);
+
+  // 从 URL 读取来源视频地址，兑换成功后跳回去
+  const redirectTo = router.query.redirectTo || "/";
 
   useEffect(() => {
     authFetch(remote("/api/me"), { cache: "no-store" })
@@ -62,7 +64,8 @@ export default function RedeemPage() {
         return;
       }
       setSuccess({ plan: j.plan, expires_at: j.expires_at });
-      setTimeout(() => router.push("/"), 2000);
+      // 兑换成功后跳回来源视频，没有来源则跳首页
+      setTimeout(() => router.push(redirectTo), 2000);
     } catch (err) {
       setMsg(err.message || "网络错误，请重试");
     } finally {
@@ -102,17 +105,17 @@ export default function RedeemPage() {
         {/* 未登录 */}
         {me !== null && !me.logged_in && (
           <>
-            <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink, marginBottom: 8 }}>兑换会员</div>
+            <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink, marginBottom: 8 }}>激活会员</div>
             <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7, marginBottom: 20 }}>
               请先登录，再使用兑换码开通会员。
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <a href="/login" style={{
+              <a href={`/login?next=${encodeURIComponent(router.asPath)}`} style={{
                 textAlign: "center", padding: "12px 0", borderRadius: THEME.radii.pill,
                 border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink,
                 textDecoration: "none", fontSize: 14, fontWeight: 600,
               }}>去登录</a>
-              <a href="/register" style={{
+              <a href={`/register?next=${encodeURIComponent(router.asPath)}`} style={{
                 textAlign: "center", padding: "12px 0", borderRadius: THEME.radii.pill,
                 background: THEME.colors.vip, color: "#fff",
                 textDecoration: "none", fontSize: 14, fontWeight: 700,
@@ -132,14 +135,16 @@ export default function RedeemPage() {
                 <><br />到期时间：{new Date(success.expires_at).toLocaleDateString("zh-CN")}</>
               )}
             </div>
-            <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>正在跳转首页...</div>
+            <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>
+              正在跳转{redirectTo === "/" ? "首页" : "视频"}...
+            </div>
           </div>
         )}
 
         {/* 已登录 — 兑换表单 */}
         {me !== null && me.logged_in && !success && (
           <>
-            <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink, marginBottom: 4 }}>兑换会员</div>
+            <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink, marginBottom: 4 }}>激活会员</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
               <div style={{ fontSize: 13, color: THEME.colors.muted }}>当前账号：{me.email || me.username || "—"}</div>
               {me.is_member && (
@@ -153,12 +158,13 @@ export default function RedeemPage() {
               </div>
             )}
 
-            <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: THEME.colors.ink, marginBottom: 6 }}>兑换码</div>
                 <input
                   value={code}
                   onChange={e => setCode(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") onSubmit(e); }}
                   placeholder="输入你的月卡 / 年卡兑换码"
                   autoFocus
                   style={{
@@ -177,7 +183,8 @@ export default function RedeemPage() {
               )}
 
               <button
-                type="submit"
+                type="button"
+                onClick={onSubmit}
                 disabled={loading}
                 style={{
                   padding: "12px 0", borderRadius: THEME.radii.pill, border: "none",
@@ -187,7 +194,7 @@ export default function RedeemPage() {
                   transition: "background 150ms",
                 }}
               >{loading ? "兑换中..." : "立即兑换 ✨"}</button>
-            </form>
+            </div>
 
             <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: THEME.colors.muted }}>
               <a href="/" style={{ color: THEME.colors.accent, fontWeight: 600, textDecoration: "none" }}>← 返回首页</a>
