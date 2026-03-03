@@ -1,4 +1,5 @@
 // pages/api/clips.js
+import { proxyCoverUrl } from "../../lib/imageUrl.js";
 import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 function parseList(v) {
@@ -186,7 +187,7 @@ export default async function handler(req, res) {
           created_at: row.created_at,
           upload_time: row.upload_time ?? null,
           access_tier: row.access_tier,
-          cover_url: row.cover_url ?? null,
+          cover_url: proxyCoverUrl(row.cover_url),
           video_url: row.video_url ?? null,
           difficulty: diff,
           topics,
