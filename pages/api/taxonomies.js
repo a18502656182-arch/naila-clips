@@ -1,5 +1,5 @@
 // pages/api/taxonomies.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 function parseList(v) {
   if (!v) return [];
@@ -16,21 +16,15 @@ function inc(map, key) {
 }
 
 function sortByCountThenName(arr) {
-  return (arr || []).slice().sort((a, b) => {
-    const ca = a.count || 0;
-    const cb = b.count || 0;
-    if (cb !== ca) return cb - ca; // count desc
-    return String(a.slug).localeCompare(String(b.slug)); // slug asc
+  return arr.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return String(a.slug || "").localeCompare(String(b.slug || ""));
   });
 }
 
 export default async function handler(req, res) {
-  // ✅ taxonomies 属于“公共数据”，非常适合边缘缓存
-  // 5 分钟缓存 + SWR，能把筛选项加载从 ~700-900ms 变成命中后几十 ms 级别
-  res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
-
   try {
-    const supabase = createPagesServerClient({ req, res });
+    const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
 
     const sort = req.query.sort === "oldest" ? "oldest" : "newest";
 
@@ -39,27 +33,13 @@ export default async function handler(req, res) {
     const selectedTopic = parseList(req.query.topic);
     const selectedChannel = parseList(req.query.channel);
 
-    // 1) taxonomies 只取 type+slug（你表里没有 name）
-    const { data: taxRows, error: taxErr } = await supabase
-      .from("taxonomies")
-      .select("type, slug")
-      .order("type", { ascending: true })
-      .order("slug", { ascending: true });
-
-    if (taxErr) return res.status(500).json({ error: taxErr.message });
-
-    const difficulties = (taxRows || []).filter((t) => t.type === "difficulty");
-    const topics = (taxRows || []).filter((t) => t.type === "topic");
-    const channels = (taxRows || []).filter((t) => t.type === "channel");
-
-    // 2) 轻量拉 clips（用于 counts）
     let q = supabase
       .from("clips")
       .select(
         `
         id, access_tier, created_at,
         clip_taxonomies (
-          taxonomies ( type, slug )
+          taxonomies ( type, slug, name_en, name_zh )
         )
       `
       )
@@ -67,37 +47,53 @@ export default async function handler(req, res) {
 
     if (selectedAccess.length) q = q.in("access_tier", selectedAccess);
 
-    const { data: clipRows, error: clipErr } = await q;
-    if (clipErr) return res.status(500).json({ error: clipErr.message });
+    const { data, error } = await q;
 
-    const normalized = (clipRows || []).map((row) => {
+    if (error) {
+      flushCookies();
+      return res.status(500).json({ error: error.message });
+    }
+
+    const normalized = (data || []).map((row) => {
       const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
 
-      const diff = all.find((t) => t.type === "difficulty")?.slug || null;
-      const tps = all.filter((t) => t.type === "topic").map((t) => t.slug);
-      const chs = all.filter((t) => t.type === "channel").map((t) => t.slug);
+      const difficulty = all.find((t) => t.type === "difficulty") || null;
+      const topics = all.filter((t) => t.type === "topic");
+      const channels = all.filter((t) => t.type === "channel");
 
-      return {
-        access_tier: row.access_tier,
-        difficulty: diff,
-        topics: tps,
-        channels: chs,
-      };
+      return { id: row.id, access_tier: row.access_tier, difficulty, topics, channels };
     });
 
     function matches(clip, f) {
       if (f.access?.length && !f.access.includes(clip.access_tier)) return false;
+
       if (f.difficulty?.length) {
-        if (!clip.difficulty || !f.difficulty.includes(clip.difficulty)) return false;
+        const slug = clip.difficulty?.slug || null;
+        if (!slug || !f.difficulty.includes(slug)) return false;
       }
+
       if (f.topic?.length) {
-        if (!(clip.topics || []).some((t) => f.topic.includes(t))) return false;
+        const slugs = (clip.topics || []).map((t) => t.slug).filter(Boolean);
+        if (!slugs.some((s) => f.topic.includes(s))) return false;
       }
+
       if (f.channel?.length) {
-        if (!(clip.channels || []).some((c) => f.channel.includes(c))) return false;
+        const slugs = (clip.channels || []).map((t) => t.slug).filter(Boolean);
+        if (!slugs.some((s) => f.channel.includes(s))) return false;
       }
+
       return true;
     }
+
+    const baseFilter = {
+      access: selectedAccess,
+      difficulty: selectedDifficulty,
+      topic: selectedTopic,
+      channel: selectedChannel,
+    };
+
+    const baseList = normalized.filter((c) => matches(c, baseFilter));
+    const total = baseList.length;
 
     const counts = {
       difficulty: {},
@@ -114,7 +110,9 @@ export default async function handler(req, res) {
         topic: selectedTopic,
         channel: selectedChannel,
       };
-      normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.difficulty, c.difficulty));
+      normalized
+        .filter((c) => matches(c, f))
+        .forEach((c) => inc(counts.difficulty, c.difficulty?.slug));
     }
 
     // access counts（放开 access）
@@ -125,7 +123,9 @@ export default async function handler(req, res) {
         topic: selectedTopic,
         channel: selectedChannel,
       };
-      normalized.filter((c) => matches(c, f)).forEach((c) => inc(counts.access, c.access_tier));
+      normalized
+        .filter((c) => matches(c, f))
+        .forEach((c) => inc(counts.access, c.access_tier));
     }
 
     // topic counts（放开 topic）
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
       };
       normalized
         .filter((c) => matches(c, f))
-        .forEach((c) => (c.topics || []).forEach((t) => inc(counts.topic, t)));
+        .forEach((c) => (c.topics || []).forEach((t) => inc(counts.topic, t.slug)));
     }
 
     // channel counts（放开 channel）
@@ -151,48 +151,31 @@ export default async function handler(req, res) {
       };
       normalized
         .filter((c) => matches(c, f))
-        .forEach((c) => (c.channels || []).forEach((ch) => inc(counts.channel, ch)));
+        .forEach((c) => (c.channels || []).forEach((t) => inc(counts.channel, t.slug)));
     }
 
-    // 3) 合并 counts（并排序：count 高的在前）
-    const difficultiesWithCount = sortByCountThenName(
-      difficulties.map((x) => ({
-        slug: x.slug,
-        name: x.slug,
-        count: counts.difficulty[x.slug] || 0,
-      }))
-    );
+    const toArr = (map) =>
+      sortByCountThenName(
+        Object.entries(map || {}).map(([slug, count]) => ({ slug, count }))
+      );
 
-    const topicsWithCount = sortByCountThenName(
-      topics.map((x) => ({
-        slug: x.slug,
-        name: x.slug,
-        count: counts.topic[x.slug] || 0,
-      }))
-    );
-
-    const channelsWithCount = sortByCountThenName(
-      channels.map((x) => ({
-        slug: x.slug,
-        name: x.slug,
-        count: counts.channel[x.slug] || 0,
-      }))
-    );
-
+    flushCookies();
     return res.status(200).json({
-      debug: { mode: "tax_with_counts_sorted" },
-      difficulties: difficultiesWithCount,
-      topics: topicsWithCount,
-      channels: channelsWithCount,
-      access_counts: counts.access,
+      total,
       filters: {
         difficulty: selectedDifficulty,
         access: selectedAccess,
         topic: selectedTopic,
         channel: selectedChannel,
       },
+      counts: {
+        difficulty: toArr(counts.difficulty),
+        access: toArr(counts.access),
+        topic: toArr(counts.topic),
+        channel: toArr(counts.channel),
+      },
     });
-  } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown error" });
+  } catch (err) {
+    return res.status(500).json({ error: String(err?.message || err) });
   }
 }
