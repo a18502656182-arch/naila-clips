@@ -309,6 +309,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     !!(initialItem && initialItem.can_access === null)
   );
   const [loading, setLoading] = useState(!initialItem);
+  const [notFound, setNotFound] = useState(false);
   const [item, setItem] = useState(initialItem || null);
   const [me, setMe] = useState(initialMe || null);
   const [details, setDetails] = useState(initialDetails || null);
