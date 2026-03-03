@@ -1,7 +1,7 @@
 // utils/supabase/pagesApiClient.js
 import { createServerClient } from "@supabase/ssr";
 
-// 一个很轻量的 cookie 序列化（够 Supabase 用）
+// 够用的 cookie 序列化（用于 Set-Cookie）
 function serializeCookie(name, value, options = {}) {
   const enc = encodeURIComponent;
   let str = `${name}=${enc(value)}`;
@@ -16,8 +16,13 @@ function serializeCookie(name, value, options = {}) {
 
   // sameSite: 'lax' | 'strict' | 'none'
   if (options.sameSite) {
-    const v = typeof options.sameSite === "string" ? options.sameSite : String(options.sameSite);
-    str += `; SameSite=${v[0].toUpperCase()}${v.slice(1).toLowerCase()}`;
+    const v =
+      typeof options.sameSite === "string"
+        ? options.sameSite
+        : String(options.sameSite);
+    str += `; SameSite=${v[0].toUpperCase()}${v
+      .slice(1)
+      .toLowerCase()}`;
   }
 
   return str;
@@ -49,7 +54,6 @@ export function createSupabaseForPagesApi(req, res) {
           return parseCookieHeader(req.headers.cookie);
         },
         setAll(cookiesToSet) {
-          // 累积 cookie，最后一次性写回
           cookiesToSet.forEach(({ name, value, options }) => {
             setCookies.push(serializeCookie(name, value, options));
           });
@@ -58,10 +62,8 @@ export function createSupabaseForPagesApi(req, res) {
     }
   );
 
-  // 确保写回 cookie
   const flushCookies = () => {
     if (setCookies.length) {
-      // 如果已经有 Set-Cookie，就合并
       const prev = res.getHeader("Set-Cookie");
       const merged = []
         .concat(prev || [])
