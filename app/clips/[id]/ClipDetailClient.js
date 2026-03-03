@@ -408,7 +408,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
       v.src = url;
-      v.play?.().catch(() => {}); // Safari 原生 HLS 手动触发播放
+      // 等 metadata 加载完再播放，直接 play() 太早会被浏览器拒绝
+      v.addEventListener("loadedmetadata", () => v.play?.().catch(() => {}), { once: true });
       return;
     }
     if (!Hls.isSupported()) { v.src = url; return; }
