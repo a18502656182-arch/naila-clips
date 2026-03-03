@@ -1,48 +1,49 @@
-// pages/api/progress_toggle.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
+
+function getBearer(req) {
+  const h = req.headers.authorization || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : null;
+}
 
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "private, no-store, max-age=0");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
+  const send = (status, payload) => {
+    flushCookies();
+    return res.status(status).json(payload);
+  };
+
   try {
-    if (req.method !== "POST") return res.status(405).json({ error: "method_not_allowed" });
+    if (req.method !== "POST") return send(405, { error: "method_not_allowed" });
 
-    const clip_id = Number(req.body?.clip_id);
-    if (!clip_id) return res.status(400).json({ error: "missing_clip_id" });
-
-    const supabase = createPagesServerClient({ req, res });
-    const { data } = await supabase.auth.getUser();
+    const token = getBearer(req);
+    const { data, error } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
     const user = data?.user || null;
-    if (!user) return res.status(401).json({ error: "not_logged_in" });
 
-    const { data: row } = await supabase
-      .from("clip_progress")
-      .select("clip_id,completed_at")
-      .eq("user_id", user.id)
-      .eq("clip_id", clip_id)
-      .maybeSingle();
+    if (!user) return send(401, { error: "not_logged_in", detail: error?.message || null });
 
-    if (row?.completed_at) {
-      // 取消完成
-      const { error: delErr } = await supabase
-        .from("clip_progress")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("clip_id", clip_id);
+    const { clip_id, is_done } = req.body || {};
+    const cid = Number(clip_id);
+    if (!cid) return send(400, { error: "missing_clip_id" });
 
-      if (delErr) return res.status(500).json({ error: "delete_failed", detail: delErr.message });
-      return res.status(200).json({ ok: true, completed: false });
-    }
+    const done = Boolean(is_done);
 
-    // 标记完成
-    const { error: upErr } = await supabase.from("clip_progress").upsert({
-      user_id: user.id,
-      clip_id,
-      completed_at: new Date().toISOString(),
-    });
+    // ✅ 最常见写法：upsert 进度
+    const { error: e1 } = await supabase
+      .from("progress")
+      .upsert(
+        { user_id: user.id, clip_id: cid, is_done: done, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,clip_id" }
+      );
 
-    if (upErr) return res.status(500).json({ error: "upsert_failed", detail: upErr.message });
+    if (e1) return send(500, { error: "progress_upsert_failed", detail: e1.message });
 
-    return res.status(200).json({ ok: true, completed: true });
+    return send(200, { ok: true, clip_id: cid, is_done: done });
   } catch (e) {
-    return res.status(500).json({ error: "unknown", detail: String(e?.message || e) });
+    return send(500, { error: e?.message || "Unknown error" });
   }
 }
