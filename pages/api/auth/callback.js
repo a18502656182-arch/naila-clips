@@ -4,18 +4,20 @@ import { createSupabaseForPagesApi } from "../../../utils/supabase/pagesApiClien
 export default async function handler(req, res) {
   const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
 
-  // 1) 交换 code => session，并写入 cookie
   const code = req.query.code;
-  if (typeof code === "string") {
-    await supabase.auth.exchangeCodeForSession(code);
+  const next = req.query.next || "/";
+
+  if (!code) {
+    flushCookies();
+    return res.redirect(String(next));
   }
 
-  // 2) 决定跳转到哪里（默认 /login）
-  const next = typeof req.query.next === "string" ? req.query.next : "/login";
-
-  // 安全：只允许站内路径
-  const safeNext = next.startsWith("/") ? next : "/login";
+  try {
+    await supabase.auth.exchangeCodeForSession(String(code));
+  } catch (e) {
+    // ignore, still redirect
+  }
 
   flushCookies();
-  res.redirect(safeNext);
+  return res.redirect(String(next));
 }
