@@ -1,5 +1,6 @@
 // app/components/home/FeaturedExamples.jsx
 import Link from "next/link";
+import Image from "next/image";
 import { THEME } from "./theme";
 
 function formatDuration(sec) {
@@ -132,12 +133,16 @@ export default function FeaturedExamples({ featured }) {
       >
         <div style={{ position: "relative" }}>
           {cover ? (
-            <img
-              src={cover}
-              alt={title}
-              style={{ width: "100%", height: 210, objectFit: "cover", display: "block" }}
-              loading="eager"
-            />
+            <div style={{ position: "relative", width: "100%", height: 210 }}>
+              <Image
+                src={cover}
+                alt={title}
+                fill
+                sizes="(max-width: 768px) 100vw, 500px"
+                style={{ objectFit: "cover" }}
+                priority
+              />
+            </div>
           ) : (
             <CoverPlaceholder />
           )}
