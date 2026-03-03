@@ -408,6 +408,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
       v.src = url;
+      v.play?.().catch(() => {}); // Safari 原生 HLS 手动触发播放
       return;
     }
     if (!Hls.isSupported()) { v.src = url; return; }
@@ -415,6 +416,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     hlsRef.current = hls;
     hls.attachMedia(v);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
+    // source 加载完毕后手动播放（autoPlay 触发时 src 还未就绪）
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      v.play?.().catch(() => {}); // 用户未交互时静默失败
+    });
   }, []); // 空依赖，函数永不重建
 
   // video DOM 挂载时初始化一次
