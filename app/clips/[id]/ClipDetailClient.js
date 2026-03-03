@@ -489,8 +489,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const v = videoRef.current;
     if (!v) return;
     try {
-      const offset = Math.min(...segments.map(s => Number(s.start || 0)));
-      v.currentTime = Math.max(0, Number(seg?.start || 0) - offset);
+      // 直接用字幕的 start 时间，视频时间轴与字幕时间轴一致
+      v.currentTime = Math.max(0, Number(seg?.start || 0));
       if (!v.paused) v.play?.();
     } catch {}
   }
@@ -500,7 +500,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     jumpTo(segments[idx], idx);
     const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     const el = rowRefs.current[idx];
-    if (wrap && el) wrap.scrollTo({ top: Math.max(0, el.offsetTop - 120), behavior: "smooth" });
+    if (wrap && el) {
+      const elTop = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+      wrap.scrollTo({ top: Math.max(0, elTop - 120), behavior: "smooth" });
+    }
   }
 
   function toggleFav(term, kind, data) {
@@ -525,13 +528,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !segments.length) return;
-    // 偏移量：segments 时间戳可能是原始视频的绝对时间，需减去最小 start 对齐到播放时间
-    const offset = Math.min(...segments.map(s => Number(s.start || 0)));
+
+    // 视频 currentTime 与字幕时间轴一致，直接比较，无需 offset
     function findIdx(t) {
-      const adjusted = t + offset;
       for (let i = 0; i < segments.length; i++) {
         const s = Number(segments[i]?.start || 0), e = Number(segments[i]?.end || 0);
-        if (adjusted >= s && adjusted < e) return i;
+        if (t >= s && t < e) return i;
       }
       return -1;
     }
@@ -542,8 +544,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       const li = loopIdxRef.current;
       if (li !== -1) {
         const seg = segments[li];
-        if (seg && (t + offset) >= Number(seg.end || 0) - 0.02) {
-          try { v.currentTime = Math.max(0, Number(seg.start || 0) - offset); if (!v.paused) v.play?.(); } catch {}
+        if (seg && t >= Number(seg.end || 0) - 0.02) {
+          try { v.currentTime = Math.max(0, Number(seg.start || 0)); if (!v.paused) v.play?.(); } catch {}
         }
       }
     }
@@ -553,14 +555,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   }, [segments, checkingAccess]);
 
   useEffect(() => {
-  if (!follow || activeSegIdx < 0) return;
-  const el = rowRefs.current[activeSegIdx];
-  const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
-  if (!el || !wrap) return;
-  // 计算 el 相对于 wrap 的偏移（而不是相对于整个文档）
-  const elTop = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
-  wrap.scrollTo({ top: Math.max(0, elTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
-}, [activeSegIdx, follow, isMobile]);
+    if (!follow || activeSegIdx < 0) return;
+    const el = rowRefs.current[activeSegIdx];
+    const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
+    if (!el || !wrap) return;
+    wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
+  }, [activeSegIdx, follow, isMobile]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -688,11 +688,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
       <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
       <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
-        {me?.logged_in ? "需要激活会员后观1看" : "请先登录并激活会员"}
+        {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
       </div>
       {!me?.logged_in
-       ? <Link href="/redeem" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去激活会员</Link>
-: <Link href="/redeem" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去激活会员</Link>
+        ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
+        : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
       }
     </div>
   );
