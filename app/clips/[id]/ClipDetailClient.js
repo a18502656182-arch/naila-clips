@@ -34,6 +34,25 @@ function fmtSec(s) {
   return `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
 }
 
+// 解析 seg.start/end：支持纯数字秒数 和 "分:秒" 字符串两种格式
+function parseTime(val) {
+  if (val === null || val === undefined || val === "") return 0;
+  const n = Number(val);
+  if (!isNaN(n)) return n;
+  const str = String(val).trim();
+  const parts = str.split(":");
+  if (parts.length === 2) {
+    const m = parseInt(parts[0], 10), s = parseFloat(parts[1]);
+    if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+  }
+  if (parts.length === 3) {
+    const h = parseInt(parts[0], 10), m2 = parseInt(parts[1], 10), s = parseFloat(parts[2]);
+    if (!isNaN(h) && !isNaN(m2) && !isNaN(s)) return h * 3600 + m2 * 60 + s;
+  }
+  return 0;
+}
+
+
 
 
 // 词汇收藏 API
@@ -490,7 +509,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (!v) return;
     try {
       // 直接用字幕的 start 时间，视频时间轴与字幕时间轴一致
-      v.currentTime = Math.max(0, Number(seg?.start || 0));
+      v.currentTime = Math.max(0, parseTime(seg?.start));
       if (!v.paused) v.play?.();
     } catch {}
   }
@@ -532,7 +551,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     // 视频 currentTime 与字幕时间轴一致，直接比较，无需 offset
     function findIdx(t) {
       for (let i = 0; i < segments.length; i++) {
-        const s = Number(segments[i]?.start || 0), e = Number(segments[i]?.end || 0);
+        const s = parseTime(segments[i]?.start), e = parseTime(segments[i]?.end);
         if (t >= s && t < e) return i;
       }
       return -1;
@@ -544,8 +563,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       const li = loopIdxRef.current;
       if (li !== -1) {
         const seg = segments[li];
-        if (seg && t >= Number(seg.end || 0) - 0.02) {
-          try { v.currentTime = Math.max(0, Number(seg.start || 0)); if (!v.paused) v.play?.(); } catch {}
+        if (seg && t >= parseTime(seg.end) - 0.02) {
+          try { v.currentTime = Math.max(0, parseTime(seg.start)); if (!v.paused) v.play?.(); } catch {}
         }
       }
     }
