@@ -1,5 +1,5 @@
 // pages/api/clip_details.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 async function getMembership(supabase, userId) {
   const now = Date.now();
@@ -16,7 +16,11 @@ async function getMembership(supabase, userId) {
   };
 
   let r = await tryQuery("ends_at");
-  if (r.error && String(r.error.message || "").toLowerCase().includes("column") && String(r.error.message || "").includes("ends_at")) {
+  if (
+    r.error &&
+    String(r.error.message || "").toLowerCase().includes("column") &&
+    String(r.error.message || "").includes("ends_at")
+  ) {
     r = await tryQuery("expires_at");
   }
 
@@ -39,13 +43,18 @@ export default async function handler(req, res) {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
-  try {
-    const supabase = createPagesServerClient({ req, res });
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
 
+  const send = (status, payload) => {
+    flushCookies();
+    return res.status(status).json(payload);
+  };
+
+  try {
     // ✅ 兼容 id / clip_id 两种参数名
     const raw = req.query.id ?? req.query.clip_id ?? req.query.clipId ?? null;
     const id = raw ? Number(raw) : NaN;
-    if (!id || Number.isNaN(id)) return res.status(400).json({ error: "Missing id" });
+    if (!id || Number.isNaN(id)) return send(400, { error: "Missing id" });
 
     const {
       data: { user },
@@ -69,39 +78,39 @@ export default async function handler(req, res) {
       .eq("id", id)
       .maybeSingle();
 
-    if (error) return res.status(500).json({ error: error.message });
-    if (!clip) return res.status(404).json({ error: "Clip not found", id });
+    if (error) return send(500, { error: error.message });
+    if (!clip) return send(404, { error: "Clip not found", id });
 
     const can_access = clip.access_tier === "free" ? true : Boolean(is_member);
+
     // ✅ 取 clip_details.details_json（严格按你 JSON 格式原样返回）
-const { data: detailRow, error: dErr } = await supabase
-  .from("clip_details")
-  .select("details_json")
-  .eq("clip_id", id)
-  .maybeSingle();
+    const { data: detailRow, error: dErr } = await supabase
+      .from("clip_details")
+      .select("details_json")
+      .eq("clip_id", id)
+      .maybeSingle();
 
-if (dErr) return res.status(500).json({ error: dErr.message });
+    if (dErr) return send(500, { error: dErr.message });
 
-// details_json 可能是 jsonb（对象）也可能是 text（字符串）——两者都兼容
-let details_json = detailRow?.details_json ?? null;
-if (typeof details_json === "string") {
-  try {
-    details_json = JSON.parse(details_json);
-  } catch {
-    // 如果是坏字符串，就当作没有
-    details_json = null;
-  }
-}
+    // details_json 可能是 jsonb（对象）也可能是 text（字符串）——两者都兼容
+    let details_json = detailRow?.details_json ?? null;
+    if (typeof details_json === "string") {
+      try {
+        details_json = JSON.parse(details_json);
+      } catch {
+        details_json = null;
+      }
+    }
 
-    return res.status(200).json({
-  clip: {
-    ...clip,
-    can_access,
-  },
-  details_json, // ✅ 前端就是读这个字段名
-  is_member,
-});
+    return send(200, {
+      clip: {
+        ...clip,
+        can_access,
+      },
+      details_json, // ✅ 前端就是读这个字段名
+      is_member,
+    });
   } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown error" });
+    return send(500, { error: e?.message || "Unknown error" });
   }
 }
