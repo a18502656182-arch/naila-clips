@@ -686,7 +686,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
       <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
       <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
-        {me?.logged_in ? "需要激活会员后观看" : "请先登录并激活会员"}
+        {me?.logged_in ? "需要激活会员后观1看" : "请先登录并激活会员"}
       </div>
       {!me?.logged_in
        ? <Link href="/redeem" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去激活会员</Link>
