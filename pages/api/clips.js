@@ -11,69 +11,10 @@ function parseList(v) {
     .filter(Boolean);
 }
 
-async function getMembership(supabase, userId) {
-  const now = Date.now();
-
-  const tryQuery = async (dateCol) => {
-    const { data, error } = await supabase
-      .from("subscriptions")
-      .select(`status, plan, ${dateCol}`)
-      .eq("user_id", userId)
-      .order(dateCol, { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    return { data, error, dateCol };
-  };
-
-  let r = await tryQuery("ends_at");
-  if (
-    r.error &&
-    String(r.error.message || "").toLowerCase().includes("column") &&
-    String(r.error.message || "").includes("ends_at")
-  ) {
-    r = await tryQuery("expires_at");
-  }
-
-  if (r.error) {
-    return {
-      is_member: false,
-      debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol },
-    };
-  }
-
-  const sub = r.data;
-  if (!sub) return { is_member: false, debug: { ok: false, reason: "no_subscription_row", used: r.dateCol } };
-
-  const status = sub.status ?? null;
-  const plan = sub.plan ?? null;
-  const end_at = sub[r.dateCol] ?? null;
-
-  let is_member = false;
-  if (status === "active") {
-    if (!end_at) {
-      is_member = true;
-    } else {
-      const endMs = new Date(end_at).getTime();
-      if (!Number.isNaN(endMs) && endMs > now) is_member = true;
-    }
-  }
-
-  return { is_member, debug: { ok: true, used: r.dateCol, raw: { status, plan, end_at } } };
-}
-
 export default async function handler(req, res) {
-  // ✅ 关键：永远不缓存 /api/clips（避免会员态被边缘缓存污染）
-  res.setHeader("Cache-Control", "private, no-store, max-age=0");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-
-  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
-  const send = (status, payload) => {
-    flushCookies();
-    return res.status(status).json(payload);
-  };
-
   try {
+    const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
+
     const difficulty = parseList(req.query.difficulty);
     const access = parseList(req.query.access);
     const topic = parseList(req.query.topic);
@@ -85,27 +26,37 @@ export default async function handler(req, res) {
 
     const {
       data: { user },
-      error: userErr,
     } = await supabase.auth.getUser();
 
+    // membership（保留原逻辑）
     let is_member = false;
-    let sub_debug = { ok: false, reason: "not_logged_in" };
+    if (user) {
+      const { data: subRow } = await supabase
+        .from("subscriptions")
+        .select("status, plan, ends_at, expires_at")
+        .eq("user_id", user.id)
+        .order("ends_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (user?.id && !userErr) {
-      const m = await getMembership(supabase, user.id);
-      is_member = !!m.is_member;
-      sub_debug = m.debug;
+      if (subRow && subRow.status === "active") {
+        const endAt = subRow.ends_at || subRow.expires_at || null;
+        if (!endAt) {
+          is_member = true;
+        } else {
+          const endMs = new Date(endAt).getTime();
+          if (!Number.isNaN(endMs) && endMs > Date.now()) is_member = true;
+        }
+      }
     }
 
-    // 轻量候选集合
+    // 轻量查询候选（保留原逻辑）
     let q = supabase
       .from("clips")
       .select(
         `
         id, access_tier, created_at,
-        clip_taxonomies (
-          taxonomies ( type, slug )
-        )
+        clip_taxonomies(taxonomies(type, slug))
       `
       )
       .order("created_at", { ascending: sort === "oldest" });
@@ -113,14 +64,16 @@ export default async function handler(req, res) {
     if (access.length) q = q.in("access_tier", access);
 
     const { data: lightRows, error: lightErr } = await q;
-    if (lightErr) return send(500, { error: lightErr.message });
+    if (lightErr) {
+      flushCookies();
+      return res.status(500).json({ error: lightErr.message });
+    }
 
     const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
       const diff = all.find((t) => t.type === "difficulty")?.slug || null;
       const topics = all.filter((t) => t.type === "topic").map((t) => t.slug);
       const channels = all.filter((t) => t.type === "channel").map((t) => t.slug);
-
       return { id: row.id, created_at: row.created_at, access_tier: row.access_tier, difficulty: diff, topics, channels };
     });
 
@@ -144,8 +97,8 @@ export default async function handler(req, res) {
     const has_more = offset + limit < total;
 
     if (!pageIds.length) {
-      return send(200, {
-        debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
+      flushCookies();
+      return res.status(200).json({
         items: [],
         total,
         limit,
@@ -163,14 +116,15 @@ export default async function handler(req, res) {
         `
         id, title, description, duration_sec, created_at, upload_time,
         access_tier, cover_url, video_url,
-        clip_taxonomies(
-          taxonomies(type, slug)
-        )
+        clip_taxonomies(taxonomies(type, slug))
       `
       )
       .in("id", pageIds);
 
-    if (fullErr) return send(500, { error: fullErr.message });
+    if (fullErr) {
+      flushCookies();
+      return res.status(500).json({ error: fullErr.message });
+    }
 
     const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
 
@@ -204,8 +158,8 @@ export default async function handler(req, res) {
       })
       .filter(Boolean);
 
-    return send(200, {
-      debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
+    flushCookies();
+    return res.status(200).json({
       items,
       total,
       limit,
@@ -215,7 +169,7 @@ export default async function handler(req, res) {
       filters: { difficulty, access, topic, channel },
       is_member,
     });
-  } catch (e) {
-    return send(500, { error: e?.message || "Unknown error" });
+  } catch (err) {
+    return res.status(500).json({ error: String(err?.message || err) });
   }
 }
