@@ -1,5 +1,5 @@
 // pages/api/bookmarks.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 function getBearer(req) {
   const h = req.headers.authorization || "";
@@ -8,7 +8,7 @@ function getBearer(req) {
 }
 
 async function getUserFromReq(req, res) {
-  const supabase = createPagesServerClient({ req, res });
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
 
   const token = getBearer(req);
   const { data, error } = token
@@ -16,21 +16,33 @@ async function getUserFromReq(req, res) {
     : await supabase.auth.getUser();
 
   const user = data?.user || null;
-  return { supabase, user, mode: token ? "bearer" : "cookie", userErr: error?.message || null };
+  return {
+    supabase,
+    flushCookies,
+    user,
+    mode: token ? "bearer" : "cookie",
+    userErr: error?.message || null,
+  };
 }
 
 export default async function handler(req, res) {
   try {
+    const { supabase, flushCookies, user, mode, userErr } = await getUserFromReq(req, res);
+
+    const send = (status, payload) => {
+      flushCookies();
+      return res.status(status).json(payload);
+    };
+
     if (req.method !== "GET") {
-      return res.status(405).json({ error: "method_not_allowed" });
+      return send(405, { error: "method_not_allowed" });
     }
 
     const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 200);
     const offset = Math.max(parseInt(req.query.offset || "0", 10), 0);
 
-    const { supabase, user, mode, userErr } = await getUserFromReq(req, res);
     if (!user) {
-      return res.status(401).json({ error: "not_logged_in", debug: { mode, userErr } });
+      return send(401, { error: "not_logged_in", debug: { mode, userErr } });
     }
 
     // 1) 先取 bookmarks（只取当前用户）
@@ -42,7 +54,7 @@ export default async function handler(req, res) {
       .range(offset, offset + limit - 1);
 
     if (e1) {
-      return res.status(500).json({
+      return send(500, {
         error: "bookmarks_query_failed",
         detail: e1.message,
         debug: { mode },
@@ -62,7 +74,7 @@ export default async function handler(req, res) {
         .in("id", clipIds);
 
       if (e2) {
-        return res.status(500).json({
+        return send(500, {
           error: "clips_query_failed",
           detail: e2.message,
           debug: { mode },
@@ -94,7 +106,7 @@ export default async function handler(req, res) {
       };
     });
 
-    return res.status(200).json({
+    return send(200, {
       ok: true,
       total: count || 0,
       limit,
