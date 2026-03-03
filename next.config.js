@@ -2,6 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "imagedelivery.net",
+      },
+    ],
+  },
+
   // imagedelivery.net (Cloudflare Images) 在国内被墙
   // 通过 Vercel 边缘节点反代，浏览器请求 /cf-img/... 即可
   async rewrites() {
