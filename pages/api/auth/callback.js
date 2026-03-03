@@ -1,8 +1,8 @@
 // pages/api/auth/callback.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../../utils/supabase/pagesApiClient";
 
 export default async function handler(req, res) {
-  const supabase = createPagesServerClient({ req, res });
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
 
   // 1) 交换 code => session，并写入 cookie
   const code = req.query.code;
@@ -16,5 +16,6 @@ export default async function handler(req, res) {
   // 安全：只允许站内路径
   const safeNext = next.startsWith("/") ? next : "/login";
 
+  flushCookies();
   res.redirect(safeNext);
 }
