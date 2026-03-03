@@ -2,6 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // imagedelivery.net (Cloudflare Images) 在国内被墙
+  // 通过 Vercel 边缘节点反代，浏览器请求 /cf-img/... 即可
+  async rewrites() {
+    return [
+      {
+        source: "/cf-img/:path*",
+        destination: "https://imagedelivery.net/:path*",
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
