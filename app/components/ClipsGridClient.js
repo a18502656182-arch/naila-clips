@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
@@ -77,16 +78,12 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
       {coverUrl ? (
-        <img
+        <Image
           src={coverUrl}
           alt={title || ""}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-          }}
-          loading="lazy"
+          fill
+          sizes="(max-width: 768px) 100vw, 300px"
+          style={{ objectFit: "cover" }}
         />
       ) : (
         <div
