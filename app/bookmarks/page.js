@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -44,9 +45,9 @@ function VideoCard({ item, onRemove }) {
       boxShadow: "0 2px 8px rgba(11,18,32,0.06)",
     }}>
       <a href={`/clips/${clip.id}`} style={{ textDecoration: "none", display: "block" }}>
-        <div style={{ position: "relative", aspectRatio: "16/9", background: "#e8eaf0" }}>
+        <div style={{ position: "relative", aspectRatio: "16/9", background: "#e8eaf0", overflow: "hidden" }}>
           {clip.cover_url
-            ? <img src={clip.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ? <Image src={clip.cover_url} alt="" fill sizes="(max-width: 768px) 100vw, 260px" style={{ objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: THEME.colors.faint, fontSize: 28 }}>🎬</div>
           }
           {clip.duration_sec > 0 && (
