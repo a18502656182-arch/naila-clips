@@ -1,5 +1,6 @@
 // app/rsc-api/clips/route.js
 import { NextResponse } from "next/server";
+import { proxyCoverUrl } from "../../../lib/imageUrl.js";
 import { createClient } from "@supabase/supabase-js";
 
 function parseList(v) {
@@ -36,7 +37,7 @@ function normRow(r) {
     created_at: r.created_at,
     upload_time: r.upload_time ?? null,
     access_tier: r.access_tier,
-    cover_url: r.cover_url ?? null,
+    cover_url: proxyCoverUrl(r.cover_url),
     video_url: r.video_url ?? null,
     difficulty,
     topics,
