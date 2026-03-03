@@ -304,8 +304,11 @@ function BookmarkLoginModal({ onClose }) {
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
   const isMobile = useIsMobile(1100);
 
+  const [checkingAccess, setCheckingAccess] = useState(
+    // 会员视频且 can_access 未知时，先显示加载而不是锁屏
+    !!(initialItem && initialItem.can_access === null)
+  );
   const [loading, setLoading] = useState(!initialItem);
-  const [notFound, setNotFound] = useState(false);
   const [item, setItem] = useState(initialItem || null);
   const [me, setMe] = useState(initialMe || null);
   const [details, setDetails] = useState(initialDetails || null);
@@ -376,7 +379,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           if (!mounted) return;
           if (d?.item) setItem(d.item);
           if (d?.me) setMe(d.me);
-        } catch { /* 静默失败，保持锁定状态 */ }
+        } catch { /* 静默失败，保持锁定状态 */ } finally {
+          if (mounted) setCheckingAccess(false);
+        }
+        return;
       }
     }
     run();
@@ -576,7 +582,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   }, [isMobile, vocabOpen]);
 
   // ─── 骨架屏（替代进入时白屏）────────────────────────────
-  if (loading) {
+  if (loading || checkingAccess) {
     return (
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
