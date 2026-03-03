@@ -553,12 +553,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   }, [segments, checkingAccess]);
 
   useEffect(() => {
-    if (!follow || activeSegIdx < 0) return;
-    const el = rowRefs.current[activeSegIdx];
-    const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
-    if (!el || !wrap) return;
-    wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
-  }, [activeSegIdx, follow, isMobile]);
+  if (!follow || activeSegIdx < 0) return;
+  const el = rowRefs.current[activeSegIdx];
+  const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
+  if (!el || !wrap) return;
+  // 计算 el 相对于 wrap 的偏移（而不是相对于整个文档）
+  const elTop = el.getBoundingClientRect().top - wrap.getBoundingClientRect().top + wrap.scrollTop;
+  wrap.scrollTo({ top: Math.max(0, elTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
+}, [activeSegIdx, follow, isMobile]);
 
   useEffect(() => {
     const v = videoRef.current;
