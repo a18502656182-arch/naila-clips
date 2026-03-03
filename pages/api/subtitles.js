@@ -1,29 +1,42 @@
-// pages/api/subtitles.js
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 export default async function handler(req, res) {
+  // 字幕可以短缓存
+  res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=300");
+
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
+  const send = (status, payload) => {
+    flushCookies();
+    return res.status(status).json(payload);
+  };
+
   try {
-    if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
+    if (req.method !== "GET") return send(405, { error: "method_not_allowed" });
 
-    const clip_id = Number(req.query.clip_id);
-    if (!clip_id) return res.status(400).json({ error: "missing_clip_id" });
+    const raw = req.query.clip_id ?? req.query.id ?? null;
+    const clip_id = raw ? Number(raw) : NaN;
+    if (!clip_id || Number.isNaN(clip_id)) return send(400, { error: "missing_clip_id" });
 
-    const supabase = createPagesServerClient({ req, res });
-
-    // 如果你还没建 subtitles 表，这里会报错：我们下面 C.3 会教你一键建表
+    // 你项目里一般是 subtitles 表：subtitles(clip_id, subtitles_json)
     const { data, error } = await supabase
       .from("subtitles")
-      .select("start_sec,end_sec,en,zh,repeat")
+      .select("subtitles_json")
       .eq("clip_id", clip_id)
-      .order("start_sec", { ascending: true });
+      .maybeSingle();
 
-    // 没建表时：返回空，不阻断页面
-    if (error) {
-      return res.status(200).json({ ok: true, items: [], debug: { no_table_or_rls: error.message } });
+    if (error) return send(500, { error: error.message });
+
+    let subtitles_json = data?.subtitles_json ?? null;
+    if (typeof subtitles_json === "string") {
+      try {
+        subtitles_json = JSON.parse(subtitles_json);
+      } catch {
+        subtitles_json = null;
+      }
     }
 
-    return res.status(200).json({ ok: true, items: data || [] });
+    return send(200, { ok: true, clip_id, subtitles_json });
   } catch (e) {
-    return res.status(500).json({ error: "unknown", detail: String(e?.message || e) });
+    return send(500, { error: e?.message || "Unknown error" });
   }
 }
