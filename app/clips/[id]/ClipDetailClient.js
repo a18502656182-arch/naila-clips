@@ -549,7 +549,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     }
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
-  }, [segments]); // 只依赖 segments，绑定一次即可
+  // checkingAccess 变 false 时 video 元素才出现，需要重新执行绑定
+  }, [segments, checkingAccess]);
 
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
@@ -577,7 +578,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [dragging]);
+  }, [dragging, checkingAccess]);
 
   function togglePlay() { const v = videoRef.current; if (!v) return; try { v.paused ? v.play?.() : v.pause?.(); } catch {} }
   function seekTo(t) { const v = videoRef.current; if (!v) return; try { v.currentTime = Math.max(0, Math.min(Number(t || 0), v.duration || 0)); } catch {} }
