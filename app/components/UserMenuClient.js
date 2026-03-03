@@ -29,6 +29,7 @@ function formatExpiry(dateStr) {
 export default function UserMenuClient() {
   // 先从 localStorage 读缓存，立即渲染，不等网络
   const [me, setMe] = useState(() => {
+    if (typeof window === "undefined") return null;
     try {
       const cached = localStorage.getItem("sb_me_cache");
       return cached ? JSON.parse(cached) : null;
