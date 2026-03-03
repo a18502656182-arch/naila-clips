@@ -341,6 +341,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [showZhExplain, setShowZhExplain] = useState(true);
 
   const videoRef = useRef(null);
+  const [videoReady, setVideoReady] = useState(0); // video元素挂载时递增，触发timeupdate重绑
   const [activeSegIdx, setActiveSegIdx] = useState(-1);
   const [follow, setFollow] = useState(true);
   const [rate, setRate] = useState(1);
@@ -438,7 +439,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // video DOM 挂载时初始化一次
   const videoCallbackRef = useCallback((v) => {
     videoRef.current = v;
-    if (v) initHls(v);
+    if (v) { initHls(v); setVideoReady(x => x + 1); }
     else if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
   }, [initHls]);
 
@@ -571,7 +572,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     v.addEventListener("timeupdate", onTime);
     return () => v.removeEventListener("timeupdate", onTime);
   // checkingAccess 变 false 时 video 元素才出现，需要重新执行绑定
-  }, [segments, checkingAccess]);
+  }, [segments, checkingAccess, videoReady]);
 
   useEffect(() => {
     if (!follow || activeSegIdx < 0) return;
