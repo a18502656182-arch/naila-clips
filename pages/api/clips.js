@@ -1,6 +1,6 @@
 // pages/api/clips.js
 import { proxyCoverUrl } from "../../lib/imageUrl.js";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createSupabaseForPagesApi } from "../../utils/supabase/pagesApiClient";
 
 function parseList(v) {
   if (!v) return [];
@@ -35,7 +35,10 @@ async function getMembership(supabase, userId) {
   }
 
   if (r.error) {
-    return { is_member: false, debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol } };
+    return {
+      is_member: false,
+      debug: { ok: false, reason: "query_error", message: r.error.message, used: r.dateCol },
+    };
   }
 
   const sub = r.data;
@@ -64,9 +67,13 @@ export default async function handler(req, res) {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
-  try {
-    const supabase = createPagesServerClient({ req, res });
+  const { supabase, flushCookies } = createSupabaseForPagesApi(req, res);
+  const send = (status, payload) => {
+    flushCookies();
+    return res.status(status).json(payload);
+  };
 
+  try {
     const difficulty = parseList(req.query.difficulty);
     const access = parseList(req.query.access);
     const topic = parseList(req.query.topic);
@@ -106,7 +113,7 @@ export default async function handler(req, res) {
     if (access.length) q = q.in("access_tier", access);
 
     const { data: lightRows, error: lightErr } = await q;
-    if (lightErr) return res.status(500).json({ error: lightErr.message });
+    if (lightErr) return send(500, { error: lightErr.message });
 
     const normalized = (lightRows || []).map((row) => {
       const all = (row.clip_taxonomies || []).map((ct) => ct.taxonomies).filter(Boolean);
@@ -137,7 +144,7 @@ export default async function handler(req, res) {
     const has_more = offset + limit < total;
 
     if (!pageIds.length) {
-      return res.status(200).json({
+      return send(200, {
         debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
         items: [],
         total,
@@ -163,7 +170,7 @@ export default async function handler(req, res) {
       )
       .in("id", pageIds);
 
-    if (fullErr) return res.status(500).json({ error: fullErr.message });
+    if (fullErr) return send(500, { error: fullErr.message });
 
     const fullMap = new Map((fullRows || []).map((r) => [r.id, r]));
 
@@ -197,7 +204,7 @@ export default async function handler(req, res) {
       })
       .filter(Boolean);
 
-    return res.status(200).json({
+    return send(200, {
       debug: { mode: "db_paged", has_user: !!user?.id, user_id: user?.id || null, userErr: userErr?.message || null, sub_debug },
       items,
       total,
@@ -209,6 +216,6 @@ export default async function handler(req, res) {
       is_member,
     });
   } catch (e) {
-    return res.status(500).json({ error: e?.message || "Unknown error" });
+    return send(500, { error: e?.message || "Unknown error" });
   }
 }
