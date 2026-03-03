@@ -1,5 +1,6 @@
 // pages/api/login.js
 import { createClient } from "@supabase/supabase-js";
+import { serialize } from "cookie";
 
 function isEmailLike(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
@@ -20,14 +21,14 @@ export default async function handler(req, res) {
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !supabaseAnonKey) return res.status(500).json({ error: "Missing SUPABASE_URL / SUPABASE_ANON_KEY" });
+    if (!supabaseUrl || !supabaseAnonKey) return res.status(500).json({ error: "Missing env vars" });
 
     let email = null;
     if (isEmailLike(identifier)) {
       email = String(identifier).trim().toLowerCase();
     } else {
       const username = normalizeUsername(identifier);
-      if (!username) return res.status(400).json({ error: "Username invalid (min 3 chars; a-z0-9_)" });
+      if (!username) return res.status(400).json({ error: "Username invalid" });
       email = `${username}@users.nailaobao.local`;
     }
 
@@ -38,12 +39,27 @@ export default async function handler(req, res) {
     const { data: signed, error: signErr } = await anon.auth.signInWithPassword({ email, password });
     if (signErr || !signed?.session) return res.status(400).json({ error: signErr?.message || "Login failed" });
 
-    // ✅ 返回 token 给前端，不再写 cookie
+    const session = signed.session;
+
+    // ✅ 写入 HttpOnly Cookie（服务端安全）
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7, // 7天
+    };
+    res.setHeader("Set-Cookie", [
+      serialize("sb_access_token", session.access_token, cookieOptions),
+      serialize("sb_refresh_token", session.refresh_token, { ...cookieOptions, maxAge: 60 * 60 * 24 * 30 }),
+    ]);
+
+    // ✅ 同时返回 token（兼容前端现有的 localStorage 逻辑，不影响现有功能）
     return res.status(200).json({
       ok: true,
-      access_token: signed.session.access_token,
-      refresh_token: signed.session.refresh_token,
-      expires_at: signed.session.expires_at,
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_at: session.expires_at,
     });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Unknown error" });
