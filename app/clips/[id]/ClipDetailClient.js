@@ -455,19 +455,20 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
 
   useEffect(() => {
-    if (!clipId || !me?.logged_in) return;
+    // 有 token 就直接发，不等 me?.logged_in 确认（token 无效时 API 返回 401 忽略即可）
+    if (!clipId) return;
     const token = getToken();
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (!token) return;
+    const headers = { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
     fetch(remote("/api/bookmarks_has"), {
       method: "POST", headers,
       body: JSON.stringify({ clip_id: clipId }),
       cache: "no-store",
     })
-      .then(r => r.json())
-      .then(d => setBookmarked(!!d?.has))
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setBookmarked(!!d?.has); })
       .catch(() => {});
-  }, [clipId, me?.logged_in]);
+  }, [clipId]);
 
   async function toggleBookmark() {
     if (!me?.logged_in) { setShowBookmarkLoginModal(true); return; }
