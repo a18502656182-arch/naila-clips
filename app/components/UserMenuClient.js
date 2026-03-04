@@ -8,9 +8,16 @@ import { THEME } from "./home/theme";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
+function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
 function clearToken() {
   try { localStorage.removeItem("sb_access_token"); } catch {}
   try { localStorage.removeItem("sb_me_cache"); } catch {}
+}
+function authFetch(url, options = {}) {
+  const token = getToken();
+  const headers = { ...(options.headers || {}) };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return fetch(url, { ...options, headers, credentials: "include" });
 }
 
 function formatExpiry(dateStr) {
@@ -28,8 +35,7 @@ export default function UserMenuClient() {
   const wrapRef = useRef(null);
 
   useEffect(() => {
-    // cookie 自动带，无需手动附 token
-    fetch(remote("/api/me"), { cache: "no-store", credentials: "include" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(data => setMe(data))
       .catch(() => setMe({ logged_in: false }));
