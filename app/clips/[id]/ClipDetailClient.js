@@ -424,7 +424,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
       // 原生 HLS（Safari / Chrome 142+）：设置 src 后手动触发 play
       v.src = url;
-      requestAnimationFrame(() => v.play?.().catch(() => {}));
+      // 和参考站一样：loadedmetadata 后 play，避免 autoplay 拦截
+      v.addEventListener("loadedmetadata", () => v.play?.().catch(() => {}), { once: true });
       return;
     }
     if (!Hls.isSupported()) { v.src = url; return; }
@@ -693,7 +694,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       ref={videoCallbackRef}
       controls
       playsInline
-      autoPlay
       muted
       preload="metadata"
       poster={item.cover_url || undefined}
