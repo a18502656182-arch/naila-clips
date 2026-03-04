@@ -169,7 +169,7 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
 
   useEffect(() => {
     // 后台静默刷新（cookie 自动带，无需 token）
-    fetch(remote("/api/me"), { cache: "no-store", credentials: "include" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
