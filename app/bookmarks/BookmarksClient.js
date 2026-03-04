@@ -4,18 +4,15 @@ import ExamSystem from "./ExamSystem";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-// accessToken 从服务端传入（和参考站一样），降级用 localStorage
-let _serverToken = null;
-function setServerToken(t) { _serverToken = t; }
-function getToken() {
-  if (_serverToken) return _serverToken;
-  try { return localStorage.getItem("sb_access_token") || null; } catch { return null; }
-}
-function authFetch(url, options = {}) {
-  const token = getToken();
-  const headers = { ...(options.headers || {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers, credentials: "include" });
+// 和参考站一样：token 直接从 prop 传入
+function makeAuthFetch(token) {
+  return function authFetch(url, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    // 优先用服务端传入的 token，降级用 localStorage
+    const t = token || (() => { try { return localStorage.getItem("sb_access_token"); } catch { return null; } })();
+    if (t) headers["Authorization"] = `Bearer ${t}`;
+    return fetch(url, { ...options, headers, credentials: "include" });
+  };
 }
 
 // app/bookmarks/page.js
@@ -156,6 +153,8 @@ function VocabFavCard({ item, onRemove, showZh }) {
 
 // ─── 主页面 ───────────────────────────────────────────────
 export default function BookmarksClient({ accessToken = null }) {
+  // 和参考站一样：直接用 accessToken 创建 authFetch
+  const authFetch = makeAuthFetch(accessToken);
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("videos"); // "videos" | "vocab"
   const [showZh, setShowZh] = useState(true); // 词汇本中文开关
@@ -174,9 +173,7 @@ export default function BookmarksClient({ accessToken = null }) {
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    // 和参考站一样：accessToken 从服务端传入，直接用
-    if (accessToken) setServerToken(accessToken);
-    authFetch(remote("/api/me"), { cache: "no-store" })
+authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
