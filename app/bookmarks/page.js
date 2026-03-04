@@ -3,9 +3,11 @@ import { createSupabaseServerClient } from "../../utils/supabase/server";
 import { cookies } from "next/headers";
 import BookmarksClient from "./BookmarksClient";
 
+// 强制动态渲染，不缓存
+export const dynamic = "force-dynamic";
+
 export default async function BookmarksPage() {
   try {
-    // 临时调试：打印服务端能读到的所有 cookie 名
     const cookieStore = cookies();
     const allCookies = cookieStore.getAll();
     console.log("[BookmarksPage] cookies:", allCookies.map(c => c.name));
