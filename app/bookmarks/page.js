@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -45,9 +44,9 @@ function VideoCard({ item, onRemove }) {
       boxShadow: "0 2px 8px rgba(11,18,32,0.06)",
     }}>
       <a href={`/clips/${clip.id}`} style={{ textDecoration: "none", display: "block" }}>
-        <div style={{ position: "relative", aspectRatio: "16/9", background: "#e8eaf0", overflow: "hidden" }}>
+        <div style={{ position: "relative", aspectRatio: "16/9", background: "#e8eaf0" }}>
           {clip.cover_url
-            ? <Image src={clip.cover_url} alt="" fill sizes="(max-width: 768px) 100vw, 260px" style={{ objectFit: "cover" }} />
+            ? <img src={clip.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: THEME.colors.faint, fontSize: 28 }}>🎬</div>
           }
           {clip.duration_sec > 0 && (
@@ -166,17 +165,18 @@ export default function BookmarksPage() {
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
+    // me 和数据并行请求，有 token 就立即加载数据，不等 me 确认
     authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
-  }, []);
 
-  useEffect(() => {
-    if (!me?.logged_in) return;
-    loadVideos();
-    loadVocab();
-  }, [me?.logged_in]);
+    const token = (() => { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } })();
+    if (token) {
+      loadVideos();
+      loadVocab();
+    }
+  }, []);
 
   async function loadVideos() {
     setVideoLoading(true);
