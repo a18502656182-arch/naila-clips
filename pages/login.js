@@ -2,9 +2,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-// ✅ token 工具
-function saveToken(token) {
-  try { localStorage.setItem("sb_access_token", token); } catch {}
+// ✅ token 工具：写 cookie（服务端可读）+ localStorage（兼容旧逻辑）
+async function saveToken(accessToken, refreshToken) {
+  try { localStorage.setItem("sb_access_token", accessToken); } catch {}
+  try {
+    await fetch("/api/auth/set-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
+    });
+  } catch {}
 }
 
 const THEME = {
@@ -41,7 +48,7 @@ export default function LoginPage() {
       const j = await r.json();
       if (!r.ok || !j.ok) { setMsg(j.error || "登录失败"); return; }
       // ✅ 保存 token
-      if (j.access_token) saveToken(j.access_token);
+      if (j.access_token) await saveToken(j.access_token, j.refresh_token);
       router.push("/");
     } catch (err) {
       setMsg(err.message || "未知错误");
