@@ -163,6 +163,7 @@ export default function BookmarksPage() {
   const [vocabItems, setVocabItems] = useState([]);
   const [vocabLoading, setVocabLoading] = useState(false);
   const [examOpen, setExamOpen] = useState(false);
+  const [examActive, setExamActive] = useState(false);
   const [vocabSearch, setVocabSearch] = useState("");
   const [vocabKind, setVocabKind] = useState("all");
 
@@ -287,12 +288,7 @@ export default function BookmarksPage() {
             background: tab === "vocab" ? THEME.colors.ink : THEME.colors.surface,
             color: tab === "vocab" ? "#fff" : THEME.colors.ink,
           }}>📖 我的词汇本 {vocabItems.length > 0 ? `(${vocabItems.length})` : ""}</button>
-          {tab === "vocab" && vocabItems.length >= 2 && (
-            <button type="button" onClick={() => setExamOpen(true)} style={{
-              padding: "10px 18px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
-              border: "none", background: THEME.colors.ink, color: "#fff",
-            }}>🎯 开始练习</button>
-          )}
+
         </div>
 
         {/* ── 视频收藏 tab ── */}
@@ -324,13 +320,17 @@ export default function BookmarksPage() {
           </>
         )}
 
-        {/* ── 考试系统 ── */}
-        <ExamSystem vocabItems={vocabItems} isSetupOpen={examOpen} onSetupClose={() => setExamOpen(false)} onMasteryUpdated={loadVocab} />
-
         {/* ── 词汇本 tab ── */}
         {tab === "vocab" && (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+            <ExamSystem
+              vocabItems={vocabItems}
+              isSetupOpen={examOpen}
+              onSetupClose={() => setExamOpen(false)}
+              onMasteryUpdated={loadVocab}
+              onExamActiveChange={setExamActive}
+            />
+          {!examActive && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
               <input
                 value={vocabSearch} onChange={e => setVocabSearch(e.target.value)}
                 placeholder="搜索单词或中文含义..."
@@ -354,7 +354,8 @@ export default function BookmarksPage() {
                 borderRadius: THEME.radii.pill, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}>{showZh ? "中文 ON" : "中文 OFF"}</button>
               <button type="button" onClick={loadVocab} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
-            </div>
+              {vocabItems.length >= 2 && <button type="button" onClick={() => setExamOpen(true)} style={{ padding: "8px 16px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none", background: THEME.colors.ink, color: "#fff", whiteSpace: "nowrap" }}>🎯 开始练习</button>}
+            </div>}
 
             {vocabLoading ? (
               <div style={{ textAlign: "center", padding: 40, color: THEME.colors.faint }}>加载中...</div>
