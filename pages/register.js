@@ -2,8 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 
-function saveToken(token) {
-  try { localStorage.setItem("sb_access_token", token); } catch {}
+async function saveToken(accessToken, refreshToken) {
+  try { localStorage.setItem("sb_access_token", accessToken); } catch {}
+  try {
+    await fetch("/api/auth/set-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
+    });
+  } catch {}
 }
 
 const THEME = {
@@ -49,7 +56,7 @@ export default function RegisterPage() {
         return;
       }
       
-     if (j.access_token) saveToken(j.access_token);
+     if (j.access_token) await saveToken(j.access_token, j.refresh_token);
 setSuccess({ plan: j.plan || "member" });
       // 用 window.location 强制刷新，让 UserMenuClient 读到新 token
       setTimeout(() => { window.location.href = "/"; }, 1200);
