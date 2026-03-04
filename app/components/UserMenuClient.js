@@ -54,9 +54,8 @@ export default function UserMenuClient() {
     try {
       clearToken();
       await fetch("/api/logout", { method: "POST", credentials: "include" });
-      setMe({ logged_in: false });
       setOpen(false);
-      window.location.reload();
+      window.location.href = "/";
     } catch {}
   }
 
