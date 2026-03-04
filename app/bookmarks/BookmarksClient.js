@@ -9,7 +9,7 @@ function authFetch(url, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers });
+  return fetch(url, { ...options, headers, credentials: "include" });
 }
 
 // app/bookmarks/page.js
@@ -72,6 +72,7 @@ function VideoCard({ item, onRemove }) {
         }}>取消收藏</button>
       </div>
     </div>
+    </>
   );
 }
 
@@ -145,7 +146,8 @@ function VocabFavCard({ item, onRemove, showZh }) {
         </>
       )}
     </div>
-  );
+    </>
+  );;
 }
 
 // ─── 主页面 ───────────────────────────────────────────────
@@ -168,18 +170,13 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    // 后台刷新 me
-    authFetch(remote("/api/me"), { cache: "no-store" })
+    // 后台静默刷新（cookie 自动带，无需 token）
+    fetch(remote("/api/me"), { cache: "no-store", credentials: "include" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
-
-    // 有初始数据时后台静默刷新，无初始数据时立即加载
-    const token = (() => { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } })();
-    if (token) {
-      loadVideos();
-      loadVocab();
-    }
+    loadVideos();
+    loadVocab();
   }, []);
 
   async function loadVideos() {
@@ -248,6 +245,7 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
         <div style={{ fontWeight: 900, fontSize: 17, color: THEME.colors.ink }}>我的收藏</div>
       </div>
     </div>
+    </>
   );
 
   // 未登录
@@ -271,7 +269,9 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
   }
 
   return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
+    <>
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
       {navBar}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
 
@@ -306,7 +306,17 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
             </div>
 
             {videoLoading ? (
-              <div style={{ textAlign: "center", padding: 40, color: THEME.colors.faint }}>加载中...</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} style={{ borderRadius: THEME.radii.lg, overflow: "hidden", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}` }}>
+                    <div style={{ width: "100%", paddingTop: "56.25%", background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                    <div style={{ padding: 12 }}>
+                      <div style={{ height: 14, borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 8 }} />
+                      <div style={{ height: 12, width: "60%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : filteredVideos.length === 0 ? (
               <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
                 还没有收藏任何视频，去首页挑一个吧 ~
@@ -359,7 +369,15 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
             </div>}
 
             {!examActive && (vocabLoading ? (
-              <div style={{ textAlign: "center", padding: 40, color: THEME.colors.faint }}>加载中...</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} style={{ borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, padding: 16 }}>
+                    <div style={{ height: 16, width: "30%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 10 }} />
+                    <div style={{ height: 12, width: "80%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 6 }} />
+                    <div style={{ height: 12, width: "50%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                  </div>
+                ))}
+              </div>
             ) : filteredVocab.length === 0 ? (
               <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
                 还没有收藏任何词汇，去看视频时点击词汇卡的 🤍 按钮收藏吧 ~
@@ -375,5 +393,6 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
         )}
       </div>
     </div>
-  );
-}
+  
+>/<
+);}
