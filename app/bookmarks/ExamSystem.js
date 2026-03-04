@@ -246,21 +246,20 @@ function ExamResults({ results, cards, onReview, onFinish }) {
   const getCard = id => cards.find(c => c.id === id);
 
   useEffect(() => {
-    // 自动更新 mastery_level：答对升级，已掌握答错降回0
+    if (results.length === 0) return;
+    // 用 r.prevMastery（考试开始时记录的值）来计算升降级
     const updates = [];
     for (const r of results) {
-      const card = getCard(r.id);
-      if (!card) continue;
-      const prev = card.mastery_level ?? 0;
+      const prev = r.prevMastery ?? 0;
       if (r.correct && prev < 2) updates.push({ id: r.id, mastery_level: prev + 1 });
       if (!r.correct && prev === 2) updates.push({ id: r.id, mastery_level: 0 });
     }
     if (updates.length > 0) updateMastery(updates).then(() => setSaved(true));
     else setSaved(true);
-  }, []);
+  }, [results]);
 
-  const upgrades = results.filter(r => { const c = getCard(r.id); return r.correct && (c?.mastery_level ?? 0) < 2; }).length;
-  const downgrades = results.filter(r => { const c = getCard(r.id); return !r.correct && (c?.mastery_level ?? 0) === 2; }).length;
+  const upgrades = results.filter(r => r.correct && (r.prevMastery ?? 0) < 2).length;
+  const downgrades = results.filter(r => !r.correct && (r.prevMastery ?? 0) === 2).length;
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "8px 16px 60px" }}>
