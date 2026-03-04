@@ -357,7 +357,7 @@ export default function BookmarksPage() {
               {vocabItems.length >= 2 && <button type="button" onClick={() => setExamOpen(true)} style={{ padding: "8px 16px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none", background: THEME.colors.ink, color: "#fff", whiteSpace: "nowrap" }}>🎯 开始练习</button>}
             </div>}
 
-            {vocabLoading ? (
+            {!examActive && (vocabLoading ? (
               <div style={{ textAlign: "center", padding: 40, color: THEME.colors.faint }}>加载中...</div>
             ) : filteredVocab.length === 0 ? (
               <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
@@ -369,7 +369,7 @@ export default function BookmarksPage() {
                   <VocabFavCard key={item.id} item={item} onRemove={removeVocab} showZh={showZh} />
                 ))}
               </div>
-            )}
+            ))}
           </>
         )}
       </div>
