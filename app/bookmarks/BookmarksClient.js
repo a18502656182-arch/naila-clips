@@ -4,7 +4,13 @@ import ExamSystem from "./ExamSystem";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
+// accessToken 从服务端传入（和参考站一样），降级用 localStorage
+let _serverToken = null;
+function setServerToken(t) { _serverToken = t; }
+function getToken() {
+  if (_serverToken) return _serverToken;
+  try { return localStorage.getItem("sb_access_token") || null; } catch { return null; }
+}
 function authFetch(url, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
@@ -149,33 +155,34 @@ function VocabFavCard({ item, onRemove, showZh }) {
 }
 
 // ─── 主页面 ───────────────────────────────────────────────
-export default function BookmarksClient({ initialVideos = [], initialVocab = [], initialMe = null }) {
-  const [me, setMe] = useState(initialMe);
+export default function BookmarksClient({ accessToken = null }) {
+  const [me, setMe] = useState(null);
   const [tab, setTab] = useState("videos"); // "videos" | "vocab"
   const [showZh, setShowZh] = useState(true); // 词汇本中文开关
 
   // 视频收藏
-  const [videoItems, setVideoItems] = useState(initialVideos);
-  const [videoLoading, setVideoLoading] = useState(initialVideos.length === 0);
+  const [videoItems, setVideoItems] = useState([]);
+  const [videoLoading, setVideoLoading] = useState(true);
   const [videoSearch, setVideoSearch] = useState("");
 
   // 词汇收藏
-  const [vocabItems, setVocabItems] = useState(initialVocab);
-  const [vocabLoading, setVocabLoading] = useState(initialVocab.length === 0);
+  const [vocabItems, setVocabItems] = useState([]);
+  const [vocabLoading, setVocabLoading] = useState(true);
   const [examOpen, setExamOpen] = useState(false);
   const [examActive, setExamActive] = useState(false);
   const [vocabSearch, setVocabSearch] = useState("");
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    // 后台静默刷新（cookie 自动带，无需 token）
+    // 和参考站一样：accessToken 从服务端传入，直接用
+    if (accessToken) setServerToken(accessToken);
     authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
     loadVideos();
     loadVocab();
-  }, []);
+  }, [accessToken]);
 
   async function loadVideos() {
     setVideoLoading(true);
