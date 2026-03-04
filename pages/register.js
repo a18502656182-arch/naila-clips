@@ -2,16 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 
-async function saveToken(accessToken, refreshToken) {
-  try { localStorage.setItem("sb_access_token", accessToken); } catch {}
-  try {
-    await fetch("/api/auth/set-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ access_token: accessToken, refresh_token: refreshToken }),
-    });
-  } catch {}
-}
+
 
 const THEME = {
   colors: {
@@ -56,9 +47,15 @@ export default function RegisterPage() {
         return;
       }
       
-     if (j.access_token) await saveToken(j.access_token, j.refresh_token);
-setSuccess({ plan: j.plan || "member" });
-      // 用 window.location 强制刷新，让 UserMenuClient 读到新 token
+      if (j.access_token) {
+        // 用 Supabase 客户端写 cookie（和参考站一样，SDK 自动管理）
+        const { createSupabaseBrowserClient } = await import("../utils/supabase/client");
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
+        // 同时存 localStorage 兼容其他客户端组件
+        try { localStorage.setItem("sb_access_token", j.access_token); } catch {}
+      }
+      setSuccess({ plan: j.plan || "member" });
       setTimeout(() => { window.location.href = "/"; }, 1200);
     } catch (err) {
       setMsg(prettifyError(err.message));
