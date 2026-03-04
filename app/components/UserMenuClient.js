@@ -8,13 +8,9 @@ import { THEME } from "./home/theme";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
-function clearToken() { try { localStorage.removeItem("sb_access_token"); } catch {} }
-function authFetch(url, options = {}) {
-  const token = getToken();
-  const headers = { ...(options.headers || {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers });
+function clearToken() {
+  try { localStorage.removeItem("sb_access_token"); } catch {}
+  try { localStorage.removeItem("sb_me_cache"); } catch {}
 }
 
 function formatExpiry(dateStr) {
@@ -27,26 +23,15 @@ function formatExpiry(dateStr) {
 }
 
 export default function UserMenuClient() {
-  // 先从 localStorage 读缓存，立即渲染，不等网络
-  const [me, setMe] = useState(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const cached = localStorage.getItem("sb_me_cache");
-      return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
-  });
+  const [me, setMe] = useState(null);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
   useEffect(() => {
-    // 无 token 直接显示未登录，不发请求
-    if (!getToken()) { setMe({ logged_in: false }); return; }
-    authFetch(remote("/api/me"), { cache: "no-store" })
+    // cookie 自动带，无需手动附 token
+    fetch(remote("/api/me"), { cache: "no-store", credentials: "include" })
       .then(r => r.json())
-      .then(data => {
-        setMe(data);
-        try { localStorage.setItem("sb_me_cache", JSON.stringify(data)); } catch {}
-      })
+      .then(data => setMe(data))
       .catch(() => setMe({ logged_in: false }));
   }, []);
 
@@ -62,8 +47,7 @@ export default function UserMenuClient() {
   async function handleLogout() {
     try {
       clearToken();
-      try { localStorage.removeItem("sb_me_cache"); } catch {}
-      await fetch("/api/logout", { method: "POST" });
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
       setMe({ logged_in: false });
       setOpen(false);
       window.location.reload();
