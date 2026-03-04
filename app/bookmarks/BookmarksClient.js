@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import ExamSystem from "./ExamSystem";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -50,7 +51,7 @@ function VideoCard({ item, onRemove }) {
       <a href={`/clips/${clip.id}`} style={{ textDecoration: "none", display: "block" }}>
         <div style={{ position: "relative", aspectRatio: "16/9", background: "#e8eaf0" }}>
           {clip.cover_url
-            ? <img src={clip.cover_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ? <Image src={clip.cover_url} alt="" fill style={{ objectFit: "cover" }} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
             : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", color: THEME.colors.faint, fontSize: 28 }}>🎬</div>
           }
           {clip.duration_sec > 0 && (
