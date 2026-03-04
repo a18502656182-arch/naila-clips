@@ -373,7 +373,7 @@ function ExamSetup({ cards, isOpen, onClose, onStart }) {
 }
 
 // ── 主入口 ────────────────────────────────────────────────
-export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMasteryUpdated }) {
+export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMasteryUpdated, onExamActiveChange }) {
   const [phase, setPhase] = useState(null);
   const [examCards, setExamCards] = useState([]);
   const [mode, setMode] = useState("dictation");
@@ -387,6 +387,7 @@ export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMa
     setMode(selectedMode);
     setResults([]);
     onSetupClose();
+    onExamActiveChange?.(true);
     setPhase(selectedMode === "mixed" ? (Math.random() > 0.5 ? "dictation" : "multiple_choice") : selectedMode);
   };
 
@@ -406,7 +407,8 @@ export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMa
 
   const handleFinish = () => {
     setPhase(null); setExamCards([]); setResults([]);
-    onMasteryUpdated?.(); // 通知父组件刷新词汇列表
+    onExamActiveChange?.(false);
+    onMasteryUpdated?.();
   };
 
   if (phase === "dictation" || phase === "multiple_choice" || phase === "results") {
@@ -424,7 +426,7 @@ export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMa
               <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 20 }}>当前进度将不会保存。</div>
               <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
                 <button type="button" onClick={() => setExitConfirm(false)} style={{ padding: "9px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>继续考试</button>
-                <button type="button" onClick={() => { setExitConfirm(false); pendingExitRef.current?.(); }} style={{ padding: "9px 20px", borderRadius: THEME.radii.pill, background: "#ef4444", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>退出</button>
+                <button type="button" onClick={() => { setExitConfirm(false); pendingExitRef.current?.(); onExamActiveChange?.(false); }} style={{ padding: "9px 20px", borderRadius: THEME.radii.pill, background: "#ef4444", color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>退出</button>
               </div>
             </div>
           </div>
