@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 
@@ -19,7 +18,141 @@ function authFetch(url, options = {}) {
   const token = getToken();
   const headers = { ...(options.headers || {}) };
   if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers });
+  return fetch(url, { ...options, headers, credentials: "include" });
+}
+
+// 会员拦截弹窗
+function VipModal({ me, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        background: "rgba(11,18,32,0.45)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: THEME.colors.surface,
+          borderRadius: THEME.radii.lg,
+          border: `1px solid ${THEME.colors.border}`,
+          boxShadow: "0 24px 60px rgba(11,18,32,0.18)",
+          padding: 24,
+          width: "100%",
+          maxWidth: 380,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ fontSize: 22 }}>🔒</div>
+          <div
+            style={{
+              fontWeight: 900,
+              fontSize: 16,
+              color: THEME.colors.ink,
+            }}
+          >
+            会员专享视频
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              marginLeft: "auto",
+              border: `1px solid ${THEME.colors.border}`,
+              background: THEME.colors.surface,
+              borderRadius: THEME.radii.md,
+              padding: "6px 12px",
+              cursor: "pointer",
+              fontSize: 12,
+            }}
+          >
+            关闭
+          </button>
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            color: THEME.colors.muted,
+            lineHeight: 1.7,
+            marginBottom: 18,
+          }}
+        >
+          {me?.logged_in
+            ? "该视频为会员专享，请输入兑换码开通会员后观看。"
+            : "该视频为会员专享，请先登录，再使用兑换码开通会员。"}
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          {me?.logged_in ? (
+            <a
+              href="/register"
+              style={{
+                flex: 1,
+                textAlign: "center",
+                padding: "10px 0",
+                borderRadius: THEME.radii.pill,
+                background: THEME.colors.vip,
+                color: "#fff",
+                textDecoration: "none",
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              去兑换开通
+            </a>
+          ) : (
+            <>
+              <a
+                href="/login"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "10px 0",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border2}`,
+                  color: THEME.colors.ink,
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                去登录
+              </a>
+              <a
+                href="/register"
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "10px 0",
+                  borderRadius: THEME.radii.pill,
+                  background: THEME.colors.vip,
+                  color: "#fff",
+                  textDecoration: "none",
+                  fontSize: 13,
+                  fontWeight: 700,
+                }}
+              >
+                注册并开通
+              </a>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatDate(d) {
@@ -78,12 +211,16 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
       {coverUrl ? (
-        <Image
+        <img
           src={coverUrl}
           alt={title || ""}
-          fill
-          sizes="(max-width: 768px) 100vw, 300px"
-          style={{ objectFit: "cover" }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          }}
+          loading="lazy"
         />
       ) : (
         <div
@@ -284,7 +421,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   const [me, setMe] = useState(null);
   const [savedMap, setSavedMap] = useState({});
-  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     authFetch(remote("/api/me"), { cache: "no-store" })
@@ -309,6 +445,9 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     setSavedMap((prev) => ({ ...prev, [clipId]: !prev[clipId] }));
   }
 
+  const [showVipModal, setShowVipModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
@@ -316,6 +455,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const autoFillOnceRef = useRef(false);
   const isFirstRender = useRef(true);
 
+  // ✅ 修复：filters 变化时不再立刻清空 items，等新数据回来再替换，避免闪烁
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -324,6 +464,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     reqVersionRef.current += 1;
     const myVersion = reqVersionRef.current;
 
+    // ✅ 只设置 loading，不清空 items（旧内容保留到新数据回来）
     setLoading(true);
     setErr("");
     inFlightRef.current = false;
@@ -336,6 +477,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       .then((r) => r.json())
       .then((data) => {
         if (myVersion !== reqVersionRef.current) return;
+        // ✅ 数据回来之后再替换，页面不会出现空白闪烁
         setItems(data.items || []);
         setHasMore(!!data.has_more);
       })
@@ -401,6 +543,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     }
   }
 
+  // 自动补满一页
   useEffect(() => {
     if (!hasMore || loading) return;
     if (autoFillOnceRef.current) return;
@@ -437,6 +580,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
 
   return (
     <div>
+      {showVipModal && <VipModal me={me} onClose={() => setShowVipModal(false)} />}
       {showLoginModal && (
         <LoginToBookmarkModal onClose={() => setShowLoginModal(false)} />
       )}
@@ -462,6 +606,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .loadingOverlay { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease; }
       `}</style>
 
+      {/* ✅ 筛选时旧内容半透明显示，不清空，不闪烁 */}
       <div className={loading && items.length > 0 ? "loadingOverlay" : ""}>
         {loading && items.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
@@ -502,13 +647,15 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                   </div>
                 </>
               );
-
-              // 会员视频未解锁 → 跳兑换页（带来源视频地址）
-              // 其他视频 → 正常进详情页
               return isBlocked ? (
-                <Link key={r.id} href={`/redeem?redirectTo=/clips/${r.id}`} className="card">
+                <div
+                  key={r.id}
+                  className="card"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => setShowVipModal(true)}
+                >
                   {cardContent}
-                </Link>
+                </div>
               ) : (
                 <Link key={r.id} href={`/clips/${r.id}`} className="card">
                   {cardContent}
