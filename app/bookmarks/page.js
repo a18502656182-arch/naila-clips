@@ -1,4 +1,5 @@
 "use client";
+import ExamSystem from "./ExamSystem";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -161,6 +162,7 @@ export default function BookmarksPage() {
   // 词汇收藏
   const [vocabItems, setVocabItems] = useState([]);
   const [vocabLoading, setVocabLoading] = useState(false);
+  const [examOpen, setExamOpen] = useState(false);
   const [vocabSearch, setVocabSearch] = useState("");
   const [vocabKind, setVocabKind] = useState("all");
 
@@ -285,6 +287,12 @@ export default function BookmarksPage() {
             background: tab === "vocab" ? THEME.colors.ink : THEME.colors.surface,
             color: tab === "vocab" ? "#fff" : THEME.colors.ink,
           }}>📖 我的词汇本 {vocabItems.length > 0 ? `(${vocabItems.length})` : ""}</button>
+          {tab === "vocab" && vocabItems.length >= 2 && (
+            <button type="button" onClick={() => setExamOpen(true)} style={{
+              padding: "10px 18px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
+              border: "none", background: THEME.colors.ink, color: "#fff",
+            }}>🎯 开始练习</button>
+          )}
         </div>
 
         {/* ── 视频收藏 tab ── */}
@@ -315,6 +323,9 @@ export default function BookmarksPage() {
             )}
           </>
         )}
+
+        {/* ── 考试系统 ── */}
+        <ExamSystem vocabItems={vocabItems} isSetupOpen={examOpen} onSetupClose={() => setExamOpen(false)} onMasteryUpdated={loadVocab} />
 
         {/* ── 词汇本 tab ── */}
         {tab === "vocab" && (
