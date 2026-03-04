@@ -72,7 +72,6 @@ function VideoCard({ item, onRemove }) {
         }}>取消收藏</button>
       </div>
     </div>
-    </>
   );
 }
 
@@ -146,8 +145,7 @@ function VocabFavCard({ item, onRemove, showZh }) {
         </>
       )}
     </div>
-    </>
-  );;
+  );
 }
 
 // ─── 主页面 ───────────────────────────────────────────────
@@ -245,7 +243,6 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
         <div style={{ fontWeight: 900, fontSize: 17, color: THEME.colors.ink }}>我的收藏</div>
       </div>
     </div>
-    </>
   );
 
   // 未登录
@@ -394,5 +391,6 @@ export default function BookmarksClient({ initialVideos = [], initialVocab = [],
       </div>
     </div>
   
->/<
-);}
+    </>
+  );
+}
