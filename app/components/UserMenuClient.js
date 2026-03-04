@@ -1,24 +1,12 @@
 "use client";
 
-// app/components/UserMenuClient.js
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 import { THEME } from "./home/theme";
 
-// ✅ token 工具（内联避免跨目录 import 问题）
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
-
-function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
-function clearToken() {
-  try { localStorage.removeItem("sb_access_token"); } catch {}
-  try { localStorage.removeItem("sb_me_cache"); } catch {}
-}
-function authFetch(url, options = {}) {
-  const token = getToken();
-  const headers = { ...(options.headers || {}) };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  return fetch(url, { ...options, headers, credentials: "include" });
-}
 
 function formatExpiry(dateStr) {
   if (!dateStr) return null;
@@ -30,15 +18,56 @@ function formatExpiry(dateStr) {
 }
 
 export default function UserMenuClient() {
-  const [me, setMe] = useState(null);
+  const [email, setEmail] = useState(null);
+  const [isMember, setIsMember] = useState(false);
+  const [meData, setMeData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
+  const router = useRouter();
 
   useEffect(() => {
-    authFetch(remote("/api/me"), { cache: "no-store" })
-      .then(r => r.json())
-      .then(data => setMe(data))
-      .catch(() => setMe({ logged_in: false }));
+    const supabase = createSupabaseBrowserClient();
+    let mounted = true;
+
+    const fetchMe = (token) => {
+      if (!token) return;
+      fetch(remote("/api/me"), {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+        credentials: "include",
+      })
+        .then(r => r.json())
+        .then(d => { if (mounted) { setIsMember(d.is_member || false); setMeData(d); } })
+        .catch(() => {});
+    };
+
+    // 初始化：拿当前 session
+    Promise.all([supabase.auth.getUser(), supabase.auth.getSession()])
+      .then(([{ data: userData }, { data: sessionData }]) => {
+        if (!mounted) return;
+        setEmail(userData?.user?.email ?? null);
+        setLoading(false);
+        fetchMe(sessionData?.session?.access_token ?? null);
+      });
+
+    // 监听登录/退出，和参考站一样
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      setEmail(session?.user?.email ?? null);
+      setLoading(false);
+      if (session?.access_token) {
+        fetchMe(session.access_token);
+      } else {
+        setIsMember(false);
+        setMeData(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -50,18 +79,20 @@ export default function UserMenuClient() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // 和参考站一样：supabase.auth.signOut() + router.refresh()
   async function handleLogout() {
     try {
-      clearToken();
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
       setOpen(false);
-      window.location.href = "/";
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut();
+      router.refresh();
     } catch {}
   }
 
-  if (me === null) return <div style={{ width: 80, height: 34 }} />;
+  // 和参考站一样：loading 时返回 null
+  if (loading) return null;
 
-  if (!me.logged_in) {
+  if (!email) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <a href="/login" style={{
@@ -78,8 +109,8 @@ export default function UserMenuClient() {
     );
   }
 
-  const initial = (me.email || "U").split("@")[0].slice(0, 1).toUpperCase();
-  const expiryStr = formatExpiry(me.ends_at || me.expires_at || me.end_at);
+  const initial = (email || "U").split("@")[0].slice(0, 1).toUpperCase();
+  const expiryStr = formatExpiry(meData?.ends_at || meData?.expires_at || meData?.end_at);
 
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
@@ -113,12 +144,12 @@ export default function UserMenuClient() {
               }}>{initial}</span>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {me.email || "（无邮箱）"}
+                  {email}
                 </div>
-                <div style={{ marginTop: 2, fontSize: 12, color: me.is_member ? THEME.colors.vip : THEME.colors.faint }}>
-                  {me.is_member ? "✨ 会员" : "普通用户"}
+                <div style={{ marginTop: 2, fontSize: 12, color: isMember ? THEME.colors.vip : THEME.colors.faint }}>
+                  {isMember ? "✨ 会员" : "普通用户"}
                 </div>
-                {me.is_member && expiryStr && (
+                {isMember && expiryStr && (
                   <div style={{ marginTop: 2, fontSize: 11, color: THEME.colors.faint }}>
                     到期：{expiryStr}
                   </div>
@@ -139,7 +170,7 @@ export default function UserMenuClient() {
               border: `1px solid rgba(124,58,237,0.25)`,
               background: "rgba(124,58,237,0.06)",
               textDecoration: "none", color: THEME.colors.vip, fontSize: 13, fontWeight: 600,
-            }}>{me.is_member ? "✨ 兑换码续期" : "✨ 兑换码开通会员"}</a>
+            }}>{isMember ? "✨ 兑换码续期" : "✨ 兑换码开通会员"}</a>
 
             <button type="button" onClick={handleLogout} style={{
               width: "100%", padding: "10px 12px", borderRadius: THEME.radii.md,
