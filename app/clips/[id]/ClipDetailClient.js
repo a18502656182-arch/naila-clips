@@ -321,7 +321,7 @@ function BookmarkLoginModal({ onClose }) {
 
 // ─── 主页面 ────────────────────────────────────────────────
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
-  const isMobile = useIsMobile(1100);
+  const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(!initialItem);
   const [notFound, setNotFound] = useState(false);
@@ -697,7 +697,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ─── 视频区（复刻参考站：video src=m3u8，Stream SDK 自动接管 HLS）
   const videoOrGate = (maxH) => checkingAccess ? (
-    <SkeletonBlock w="100%" h={maxH || 220} r={14} />
+    <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />
   ) : canAccess ? (
     <video
       ref={videoCallbackRef}
@@ -769,7 +769,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
           <Card style={{ padding: 10 }}>
-            {videoOrGate(220)}
+            {videoOrGate("33vh")}
             {canAccess && (
               <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
