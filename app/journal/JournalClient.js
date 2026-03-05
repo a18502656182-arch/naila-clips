@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { THEME } from "../components/home/theme";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -33,408 +33,384 @@ function playWord(term) {
   audio.play().catch(() => {});
 }
 
-// ── 全局样式注入 (动画与交互) ──────────────────────────────
+// ── 全局高级样式注入 (Bento 布局与光影动画) ──────────────────────────────
 const GlobalStyles = () => (
   <style dangerouslySetInnerHTML={{__html: `
-    @keyframes slideUpFade {
-      from { opacity: 0; transform: translateY(20px); }
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&display=swap');
+    
+    * { box-sizing: border-box; }
+    
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 15px rgba(34, 197, 94, 0.2); }
-      50% { box-shadow: 0 0 25px rgba(34, 197, 94, 0.6); }
+    @keyframes glowPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+      50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
     }
-    @keyframes shimmer {
-      100% { transform: translateX(100%); }
+    @keyframes borderSpin {
+      100% { transform: rotate(360deg); }
     }
-    .modern-card {
-      background: #ffffff;
-      border-radius: 24px;
-      padding: 24px;
-      box-shadow: 0 12px 32px -8px rgba(11, 18, 32, 0.05), 0 4px 12px -4px rgba(11, 18, 32, 0.03);
-      border: 1px solid rgba(11, 18, 32, 0.03);
-      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+
+    /* Bento Box 网格布局 */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 24px;
+      max-width: 1080px;
+      margin: -60px auto 60px;
+      padding: 0 20px;
+      position: relative;
+      z-index: 10;
     }
-    .modern-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 40px -8px rgba(11, 18, 32, 0.08), 0 8px 16px -4px rgba(11, 18, 32, 0.04);
+
+    .bento-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 20px 40px -12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1);
+      padding: 28px;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      animation: fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
     }
-    .task-item:hover { transform: scale(1.01); }
-    .heatmap-scroll::-webkit-scrollbar { display: none; }
-    .heatmap-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-    .badge-float { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    .bento-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 30px 60px -15px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,1);
+    }
+
+    /* 响应式占位 */
+    .col-span-4 { grid-column: span 4; }
+    .col-span-8 { grid-column: span 8; }
+    .col-span-12 { grid-column: span 12; }
+    .col-span-7 { grid-column: span 7; }
+    .col-span-5 { grid-column: span 5; }
+
+    @media (max-width: 960px) {
+      .bento-grid { display: flex; flex-direction: column; gap: 20px; margin-top: -40px; }
+      .bento-card { padding: 20px; border-radius: 20px; }
+    }
+
+    .hide-scroll::-webkit-scrollbar { display: none; }
+    .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    .text-gradient {
+      background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
   `}} />
 );
 
-function Card({ children, style = {}, className = "" }) {
-  return <div className={`modern-card ${className}`} style={style}>{children}</div>;
-}
-
-function SectionTitle({ emoji, title, sub }) {
+// ── 组件：顶部英雄区 (Hero) ──────────────────────────────────────────
+function HeroSection({ me, doneCount }) {
+  const progress = Math.round((doneCount / 3) * 100);
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ 
-          width: 36, height: 36, borderRadius: "12px", 
-          background: "linear-gradient(135deg, #f8fafc, #f1f5f9)", 
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 20, boxShadow: "inset 0 -2px 4px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02)"
-        }}>
-          {emoji}
+    <div style={{
+      background: "radial-gradient(140% 120% at 50% 10%, #0f172a 0%, #020617 100%)",
+      padding: "80px 20px 120px",
+      position: "relative", overflow: "hidden"
+    }}>
+      {/* 炫酷的背景光效 */}
+      <div style={{ position: "absolute", top: "-20%", left: "10%", width: "40vw", height: "40vw", background: "#4f46e5", filter: "blur(120px)", opacity: 0.2, borderRadius: "50%" }} />
+      <div style={{ position: "absolute", bottom: "-10%", right: "5%", width: "30vw", height: "30vw", background: "#db2777", filter: "blur(100px)", opacity: 0.2, borderRadius: "50%" }} />
+
+      <div style={{ maxWidth: 1040, margin: "0 auto", position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 20 }}>
+        <div>
+          <div style={{ display: "inline-block", padding: "6px 16px", background: "rgba(255,255,255,0.1)", borderRadius: "100px", color: "#cbd5e1", fontSize: 13, fontWeight: 700, marginBottom: 16, backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            🗓️ {formatDate()}
+          </div>
+          <h1 style={{ fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 900, color: "#fff", margin: 0, letterSpacing: "-1px", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            欢迎回来，<span className="text-gradient">{me?.email?.split("@")[0] || "学习者"}</span>
+          </h1>
+          <p style={{ fontSize: 16, color: "#94a3b8", marginTop: 8, fontWeight: 500 }}>
+            语言不是学出来的，是用出来的。今天也要脱口而出。
+          </p>
         </div>
-        <span style={{ fontSize: 18, fontWeight: 900, color: THEME.colors.ink, letterSpacing: "-0.5px" }}>{title}</span>
+
+        {/* 顶部环形进度 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, background: "rgba(255,255,255,0.05)", padding: "16px 24px", borderRadius: "24px", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)" }}>
+          <div style={{ position: "relative", width: 60, height: 60, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: `conic-gradient(#10b981 ${progress}%, rgba(255,255,255,0.1) ${progress}%)` }}>
+            <div style={{ width: 50, height: 50, background: "#0f172a", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 14 }}>
+              {progress}%
+            </div>
+          </div>
+          <div>
+            <div style={{ color: "#fff", fontSize: 16, fontWeight: 800 }}>今日能量槽</div>
+            <div style={{ color: "#10b981", fontSize: 13, fontWeight: 600, marginTop: 2 }}>{doneCount === 3 ? "完美通关 🎉" : `已完成 ${doneCount}/3 任务`}</div>
+          </div>
+        </div>
       </div>
-      {sub && <div style={{ fontSize: 13, color: THEME.colors.faint, marginTop: 4, marginLeft: 46, fontWeight: 500 }}>{sub}</div>}
     </div>
   );
 }
 
-// ── 今日任务 ──────────────────────────────────────────────
-function TodayTasks({ tasks }) {
-  const [showConfetti, setShowConfetti] = useState(false);
-  const allDone = tasks.every(t => t.done);
-  const doneCount = tasks.filter(t => t.done).length;
-
-  useEffect(() => {
-    if (allDone) setShowConfetti(true);
-  }, [allDone]);
+// ── 组件：统计小卡片 (Quick Stats) ──────────────────────────────────
+function QuickStats({ streakDays, totalVideos, totalVocab }) {
+  const stats =[
+    { icon: "🔥", label: "连胜纪录", value: `${streakDays} 天`, color: "#f97316", bg: "linear-gradient(135deg, #fff7ed, #ffedd5)" },
+    { icon: "🎬", label: "沉浸视频", value: `${totalVideos} 部`, color: "#4f46e5", bg: "linear-gradient(135deg, #eef2ff, #e0e7ff)" },
+    { icon: "🧠", label: "词汇宇宙", value: `${totalVocab} 词`, color: "#059669", bg: "linear-gradient(135deg, #f0fdf4, #dcfce7)" },
+  ];
 
   return (
-    <Card className="badge-float" style={{ animationDelay: "0.1s" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <SectionTitle emoji="🎯" title="今日行动清单" sub="完成每日习惯，口语肌肉记忆自然形成" />
-        <div style={{ 
-          background: allDone ? "linear-gradient(135deg, #22c55e, #16a34a)" : "#f1f5f9",
-          color: allDone ? "#fff" : THEME.colors.muted,
-          padding: "6px 14px", borderRadius: "999px", fontSize: 13, fontWeight: 800,
-          boxShadow: allDone ? "0 4px 12px rgba(34,197,94,0.3)" : "none",
-          transition: "all 0.3s"
-        }}>
-          {doneCount} / {tasks.length}
+    <>
+      {stats.map((s, i) => (
+        <div key={i} className="bento-card col-span-4" style={{ animationDelay: `${i * 0.1}s`, padding: "20px 24px", display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ width: 56, height: 56, borderRadius: "18px", background: s.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, boxShadow: "inset 0 2px 4px rgba(255,255,255,0.8)" }}>
+            {s.icon}
+          </div>
+          <div>
+            <div style={{ fontSize: 13, color: "#64748b", fontWeight: 700, textTransform: "uppercase", letterSpacing: "1px" }}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: s.color, marginTop: 4, letterSpacing: "-0.5px" }}>{s.value}</div>
+          </div>
         </div>
-      </div>
+      ))}
+    </>
+  );
+}
 
-      <div style={{ display: "grid", gap: 12 }}>
+// ── 组件：今日任务 (To-Do) ──────────────────────────────────────────
+function TodayTasksWidget({ tasks }) {
+  return (
+    <div className="bento-card col-span-7" style={{ animationDelay: "0.3s", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <span style={{ fontSize: 24 }}>🎯</span>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>每日行动指令</h2>
+      </div>
+      
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1, justifyContent: "center" }}>
         {tasks.map((task, i) => (
-          <div key={i} className="task-item" style={{
-            display: "flex", alignItems: "center", gap: 16,
-            padding: "16px 20px",
-            borderRadius: "16px",
-            background: task.done ? "linear-gradient(to right, #f0fdf4, #ffffff)" : "#f8fafc",
-            border: `1px solid ${task.done ? "rgba(34,197,94,0.3)" : "rgba(11,18,32,0.04)"}`,
-            transition: "all 0.3s ease",
-            position: "relative", overflow: "hidden"
+          <div key={i} style={{
+            display: "flex", alignItems: "center", gap: 16, padding: "16px",
+            background: task.done ? "#f8fafc" : "#ffffff",
+            borderRadius: "20px", border: `2px solid ${task.done ? "#22c55e" : "#f1f5f9"}`,
+            transition: "all 0.3s", opacity: task.done ? 0.8 : 1
           }}>
-            {/* 勾选框 */}
+            {/* 定制复选框 */}
             <div style={{
-              width: 28, height: 28, borderRadius: "50%",
-              background: task.done ? "linear-gradient(135deg, #4ade80, #22c55e)" : "#ffffff",
-              border: `2px solid ${task.done ? "#22c55e" : "#cbd5e1"}`,
+              width: 32, height: 32, borderRadius: "10px",
+              background: task.done ? "linear-gradient(135deg, #4ade80, #16a34a)" : "#f1f5f9",
               display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, transition: "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
-              boxShadow: task.done ? "0 4px 10px rgba(34,197,94,0.4)" : "inset 0 2px 4px rgba(0,0,0,0.02)",
-              transform: task.done ? "scale(1.05)" : "scale(1)"
+              boxShadow: task.done ? "0 4px 12px rgba(34,197,94,0.4)" : "inset 0 2px 4px rgba(0,0,0,0.05)"
             }}>
-              {task.done && <span style={{ color: "#fff", fontSize: 14, fontWeight: 900, textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>✓</span>}
+              {task.done && <span style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>✓</span>}
             </div>
             
-            {/* 文本区 */}
             <div style={{ flex: 1 }}>
-              <div style={{ 
-                fontSize: 15, fontWeight: 800, 
-                color: task.done ? "#15803d" : THEME.colors.ink,
-                textDecoration: task.done ? "line-through" : "none",
-                textDecorationColor: "rgba(21,128,61,0.4)"
-              }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: task.done ? "#15803d" : "#0f172a", textDecoration: task.done ? "line-through" : "none", textDecorationColor: "#86efac" }}>
                 {task.label}
               </div>
-              <div style={{ fontSize: 13, color: task.done ? "#16a34a" : THEME.colors.faint, marginTop: 4, fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: task.done ? "#16a34a" : "#64748b", marginTop: 4, fontWeight: 500 }}>
                 {task.done ? task.doneText : task.pendingText}
               </div>
             </div>
-            {task.done && <span style={{ fontSize: 20, filter: "drop-shadow(0 2px 4px rgba(250,204,21,0.4))" }}>⭐</span>}
           </div>
         ))}
       </div>
-
-      {/* 达成特效横幅 */}
-      {allDone && showConfetti && (
-        <div style={{
-          marginTop: 20, padding: "18px 20px", borderRadius: "16px",
-          background: "linear-gradient(135deg, #fffbeb 0%, #fef3c7 50%, #fef9c3 100%)",
-          border: "1px solid rgba(245,158,11,0.2)",
-          display: "flex", alignItems: "center", gap: 16,
-          animation: "slideUpFade 0.6s ease forwards",
-          boxShadow: "0 8px 20px rgba(251,191,36,0.15)"
-        }}>
-          <div style={{ fontSize: 36, filter: "drop-shadow(0 4px 8px rgba(0,0,0,0.1))" }}>🏆</div>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: "#92400e", letterSpacing: "-0.5px" }}>
-              今日目标完美达成！
-            </div>
-            <div style={{ fontSize: 13, color: "#b45309", marginTop: 4, fontWeight: 500 }}>
-              你的每一次跟读，都在重塑大脑的语言回路。明天见！
-            </div>
-          </div>
-        </div>
-      )}
-    </Card>
+    </div>
   );
 }
 
-// ── 热力图 ────────────────────────────────────────────────
-function Heatmap({ heatmapData, streakDays, totalVideos }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+// ── 组件：记忆碎片 (Memory Flashcard) ────────────────────────────────
+function MemoryWidget({ item, onRefresh, totalVocab }) {
+  const [flipped, setFlipped] = useState(false);
+  useEffect(() => { setFlipped(false); }, [item?.id]);
 
+  if (!item) return <div className="bento-card col-span-5" style={{ animationDelay: "0.4s" }}><p>暂无词汇</p></div>;
+
+  const daysSince = item.created_at ? Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000) : 0;
+
+  return (
+    <div className="bento-card col-span-5" style={{ 
+      animationDelay: "0.4s", display: "flex", flexDirection: "column",
+      background: "linear-gradient(145deg, #ffffff, #faf5ff)",
+      border: "1px solid #f3e8ff"
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 20 }}>🔮</span>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#4c1d95", margin: 0 }}>记忆回眸</h2>
+        </div>
+        <button onClick={onRefresh} style={{ background: "none", border: "none", color: "#9333ea", cursor: "pointer", fontWeight: 700, fontSize: 13, background: "#f3e8ff", padding: "6px 12px", borderRadius: "100px" }}>
+          换一个 ↻
+        </button>
+      </div>
+
+      <div style={{ 
+        flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+        padding: "30px 20px", background: "#ffffff", borderRadius: "20px",
+        boxShadow: "0 10px 30px -10px rgba(147, 51, 234, 0.15)", border: "1px solid #f3e8ff",
+        position: "relative", cursor: "pointer", transition: "all 0.4s ease"
+      }} onClick={() => setFlipped(!flipped)}>
+        
+        {/* 点击翻转特效 */}
+        <div style={{ position: "absolute", top: 12, right: 12, fontSize: 11, color: "#d8b4fe", fontWeight: 700 }}>
+          {flipped ? "点击合上" : "点击翻转"}
+        </div>
+
+        {!flipped ? (
+          <>
+            <div style={{ fontSize: 12, color: "#9333ea", fontWeight: 800, textTransform: "uppercase", letterSpacing: "2px", marginBottom: 12 }}>
+              {daysSince === 0 ? "TODAY" : `${daysSince} DAYS AGO`}
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 900, color: "#0f172a", textAlign: "center", lineHeight: 1.1 }}>
+              {item.term}
+            </div>
+            {item.data?.ipa && <div style={{ fontSize: 14, color: "#a855f7", marginTop: 8, fontFamily: "monospace" }}>{item.data.ipa}</div>}
+            
+            <button onClick={(e) => { e.stopPropagation(); playWord(item.term); }} style={{
+              marginTop: 24, width: 48, height: 48, borderRadius: "50%", background: "#9333ea", color: "#fff", border: "none", fontSize: 20, cursor: "pointer",
+              boxShadow: "0 8px 16px rgba(147, 51, 234, 0.3)", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.2s"
+            }} onMouseOver={e => e.currentTarget.style.transform="scale(1.1)"} onMouseOut={e => e.currentTarget.style.transform="scale(1)"}>
+              ▶
+            </button>
+          </>
+        ) : (
+          <div style={{ width: "100%", animation: "fadeUp 0.3s ease" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#4c1d95", marginBottom: 12, textAlign: "center" }}>{item.data?.zh || "暂无释义"}</div>
+            {item.data?.example_en && (
+              <div style={{ background: "#faf5ff", padding: "16px", borderRadius: "16px", border: "1px solid #f3e8ff" }}>
+                <div style={{ fontSize: 14, color: "#0f172a", fontStyle: "italic", fontWeight: 600, lineHeight: 1.5 }}>"{item.data.example_en}"</div>
+                <div style={{ fontSize: 12, color: "#7e22ce", marginTop: 8, fontWeight: 500 }}>{item.data.example_zh}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── 组件：热力图 (Heatmap) ──────────────────────────────────────────
+function HeatmapWidget({ heatmapData }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   const days =[];
   for (let i = 111; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    days.push({ date: key, count: heatmapData[key] || 0, d });
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    days.push({ date: d.toISOString().slice(0, 10), count: heatmapData[d.toISOString().slice(0, 10)] || 0, d });
   }
-
   const pad = (days[0].d.getDay() + 6) % 7;
-  const padded = [...Array(pad).fill(null), ...days];
+  const padded =[...Array(pad).fill(null), ...days];
   const weeks =[];
   for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
 
-  const monthLabels =[];
-  weeks.forEach((week, wi) => {
-    const first = week.find(d => d);
-    if (first && new Date(first.date).getDate() <= 7) {
-      monthLabels.push({ wi, label: `${new Date(first.date).getMonth() + 1}月` });
-    }
-  });
-
-  // 更高级的绿调配色 (仿 GitHub 新版)
   function getColor(count) {
     if (count === 0) return "#f1f5f9";
-    if (count === 1) return "#bbf7d0";
-    if (count === 2) return "#4ade80";
-    if (count === 3) return "#22c55e";
-    return "#15803d";
+    if (count === 1) return "#a7f3d0";
+    if (count === 2) return "#34d399";
+    if (count === 3) return "#10b981";
+    return "#059669";
   }
 
-  const todayKey = today.toISOString().slice(0, 10);
-  const activeDays = Object.keys(heatmapData).length;
-
   return (
-    <Card className="badge-float" style={{ animationDelay: "0.2s" }}>
-      <SectionTitle emoji="🔥" title="学习足迹" sub="每一格绿色，都是你脱口而出的底气" />
-
-      {/* 高级数据概览 (Bento 风格) */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
-        {[
-          { num: streakDays, label: "连续打卡", icon: "🔥", gradient: "linear-gradient(135deg, #ffedd5, #ffedd5)", color: "#ea580c" },
-          { num: totalVideos, label: "沉浸视频", icon: "🎬", gradient: "linear-gradient(135deg, #e0e7ff, #e0e7ff)", color: "#4f46e5" },
-          { num: activeDays, label: "累计活跃", icon: "📅", gradient: "linear-gradient(135deg, #dcfce7, #dcfce7)", color: "#16a34a" },
-        ].map((s, i) => (
-          <div key={i} style={{
-            padding: "16px 12px", borderRadius: "16px", background: s.gradient,
-            border: `1px solid rgba(255,255,255,0.5)`, position: "relative", overflow: "hidden",
-            boxShadow: "inset 0 2px 4px rgba(255,255,255,0.5), 0 4px 12px rgba(0,0,0,0.02)"
-          }}>
-            <div style={{ position: "absolute", top: -10, right: -10, fontSize: 40, opacity: 0.1, filter: "grayscale(100%)" }}>{s.icon}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-              <span style={{ fontSize: 14 }}>{s.icon}</span>
-              <span style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 700 }}>{s.label}</span>
-            </div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: s.color, letterSpacing: "-1px", lineHeight: 1 }}>{s.num}</div>
-          </div>
-        ))}
+    <div className="bento-card col-span-12" style={{ animationDelay: "0.5s", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <span style={{ fontSize: 20 }}>🔥</span>
+        <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>打卡热力图</h2>
+        <span style={{ marginLeft: "auto", fontSize: 13, color: "#64748b", fontWeight: 600 }}>Past 16 Weeks</span>
       </div>
 
-      {/* 热力图区域 */}
-      <div style={{ 
-        background: "#fafafa", borderRadius: "16px", padding: "16px", 
-        border: "1px solid rgba(11,18,32,0.04)", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.02)"
-      }}>
-        <div className="heatmap-scroll" style={{ overflowX: "auto", paddingBottom: 8 }}>
-          <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
-            {weeks.map((week, wi) => {
-              const ml = monthLabels.find(m => m.wi === wi);
-              return (
-                <div key={wi} style={{ width: 14, fontSize: 10, fontWeight: 600, color: "#94a3b8", textAlign: "center", flexShrink: 0 }}>
-                  {ml ? ml.label : ""}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 4 }}>
-            {weeks.map((week, wi) => (
-              <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {week.map((day, di) => {
-                  const isToday = day?.date === todayKey;
-                  return (
-                    <div
-                      key={di}
-                      title={day ? `${day.date}：${day.count > 0 ? `学习了 ${day.count} 节内容` : "未学习"}` : ""}
-                      style={{
-                        width: 14, height: 14,
-                        borderRadius: "4px",
-                        background: day ? getColor(day.count) : "transparent",
-                        flexShrink: 0,
-                        boxShadow: day?.count > 0 ? "inset 0 1px 2px rgba(255,255,255,0.4)" : "none",
-                        border: isToday ? `2px solid #0f172a` : "none",
-                        position: "relative", cursor: "pointer",
-                        transition: "transform 0.1s"
-                      }}
-                      onMouseOver={e => day && (e.currentTarget.style.transform = "scale(1.2)")}
-                      onMouseOut={e => day && (e.currentTarget.style.transform = "scale(1)")}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 图例 */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, justifyContent: "flex-end" }}>
-          <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>休息</span>
-          {["#f1f5f9", "#bbf7d0", "#4ade80", "#22c55e", "#15803d"].map((c, i) => (
-            <div key={i} style={{ width: 12, height: 12, borderRadius: "3px", background: c, boxShadow: "inset 0 1px 1px rgba(0,0,0,0.05)" }} />
-          ))}
-          <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>超神</span>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-// ── 能力画像 ──────────────────────────────────────────────
-function AbilityProfile({ masteryStats, topicStats }) {
-  const total = masteryStats.new + masteryStats.learning + masteryStats.mastered;
-  const pct = (n) => total > 0 ? Math.round(n / total * 100) : 0;
-
-  const levelMessages =[
-    { min: 0, max: 0, msg: "英语宇宙待唤醒", sub: "去收藏你的第一个高频表达吧", emoji: "🌱" },
-    { min: 1, max: 10, msg: "星火初燃", sub: "万事开头难，你已经迈出了第一步", emoji: "🌿" },
-    { min: 11, max: 50, msg: "渐入佳境", sub: "词汇量稳步提升，语感正在形成", emoji: "⛵" },
-    { min: 51, max: 199, msg: "口语达人", sub: "这些地道表达足够应付日常对话了！", emoji: "🚀" },
-    { min: 200, max: Infinity, msg: "母语者级别", sub: "你的词汇库已经星光璀璨！", emoji: "👑" },
-  ];
-  const lvl = levelMessages.find(l => total >= l.min && total <= l.max) || levelMessages[0];
-
-  return (
-    <Card className="badge-float" style={{ animationDelay: "0.3s" }}>
-      <SectionTitle emoji="📊" title="能力画像" sub="科学追踪，让每一次复习都有迹可循" />
-
-      {/* 动态头衔区域 */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 16, marginBottom: 24,
-        padding: "20px", borderRadius: "20px",
-        background: "linear-gradient(to right, #ffffff, #f8fafc)",
-        border: "1px solid rgba(11,18,32,0.05)",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.02)"
-      }}>
-        <div style={{ 
-          fontSize: 42, width: 72, height: 72, background: "#f1f5f9", 
-          borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "inset 0 4px 8px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)"
-        }}>
-          {lvl.emoji}
-        </div>
-        <div>
-          <div style={{ fontSize: 13, color: THEME.colors.faint, fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase" }}>当前称号</div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: THEME.colors.ink, margin: "2px 0 4px", letterSpacing: "-0.5px" }}>{lvl.msg}</div>
-          <div style={{ fontSize: 13, color: THEME.colors.muted }}>{lvl.sub}</div>
-        </div>
-      </div>
-
-      {total > 0 && (
-        <>
-          {/* 进度条与数据看板 */}
-          <div style={{ background: "#f8fafc", padding: "20px", borderRadius: "20px", border: "1px solid rgba(11,18,32,0.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink }}>知识库总览</span>
-              <span style={{ fontSize: 14, fontWeight: 900, color: THEME.colors.accent }}>{total} <span style={{fontSize:12, fontWeight:600, color:THEME.colors.muted}}>词</span></span>
-            </div>
-
-            {/* 厚版平滑进度条 */}
-            <div style={{
-              height: 18, borderRadius: 999, overflow: "hidden",
-              display: "flex", background: "#e2e8f0", marginBottom: 20,
-              boxShadow: "inset 0 2px 4px rgba(0,0,0,0.1)"
-            }}>
-              <div style={{ width: `${pct(masteryStats.mastered)}%`, background: "linear-gradient(90deg, #10b981, #059669)", transition: "width 1s cubic-bezier(0.34, 1.56, 0.64, 1)" }} />
-              <div style={{ width: `${pct(masteryStats.learning)}%`, background: "linear-gradient(90deg, #3b82f6, #2563eb)", transition: "width 1s cubic-bezier(0.34, 1.56, 0.64, 1)", borderLeft: masteryStats.learning > 0 ? "2px solid #fff" : "none" }} />
-              <div style={{ width: `${pct(masteryStats.new)}%`, background: "linear-gradient(90deg, #a855f7, #9333ea)", transition: "width 1s cubic-bezier(0.34, 1.56, 0.64, 1)", borderLeft: masteryStats.new > 0 ? "2px solid #fff" : "none" }} />
-            </div>
-
-            {/* 三项核心指标 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              {[
-                { label: "已掌握", count: masteryStats.mastered, dot: "#10b981" },
-                { label: "学习中", count: masteryStats.learning, dot: "#3b82f6" },
-                { label: "待激活", count: masteryStats.new, dot: "#a855f7" },
-              ].map((b, i) => (
-                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: b.dot, boxShadow: `0 0 8px ${b.dot}` }} />
-                    <span style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 600 }}>{b.label}</span>
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: THEME.colors.ink, letterSpacing: "-0.5px" }}>
-                    {b.count} <span style={{ fontSize: 12, fontWeight: 500, color: THEME.colors.muted }}>({pct(b.count)}%)</span>
-                  </div>
-                </div>
+      <div className="hide-scroll" style={{ overflowX: "auto", paddingBottom: 10 }}>
+        <div style={{ display: "flex", gap: 6 }}>
+          {weeks.map((week, wi) => (
+            <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {week.map((day, di) => (
+                <div key={di} 
+                  title={day ? `${day.date}：${day.count} 视频` : ""}
+                  style={{
+                    width: 16, height: 16, borderRadius: "4px",
+                    background: day ? getColor(day.count) : "transparent",
+                    border: day?.date === today.toISOString().slice(0, 10) ? "2px solid #0f172a" : "none",
+                    boxShadow: day && day.count > 0 ? "inset 0 1px 2px rgba(255,255,255,0.5)" : "none",
+                    transition: "transform 0.1s ease", cursor: "pointer"
+                  }}
+                  onMouseOver={e => day && (e.currentTarget.style.transform = "scale(1.3)")}
+                  onMouseOut={e => day && (e.currentTarget.style.transform = "scale(1)")}
+                />
               ))}
             </div>
-          </div>
-
-          {/* 话题雷达/偏好标签 */}
-          {topicStats.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink, marginBottom: 12, display:"flex", alignItems:"center", gap:6 }}>
-                <span>🎯</span> 你的内容偏好
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {topicStats.map((t, i) => {
-                  const isTop = i === 0;
-                  return (
-                    <div key={i} style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: isTop ? "6px 14px" : "6px 12px",
-                      borderRadius: "100px",
-                      background: isTop ? "linear-gradient(135deg, #1e293b, #0f172a)" : "#f1f5f9",
-                      color: isTop ? "#fff" : THEME.colors.muted,
-                      border: isTop ? "none" : "1px solid #e2e8f0",
-                      fontWeight: isTop ? 700 : 600, fontSize: isTop ? 14 : 13,
-                      boxShadow: isTop ? "0 4px 10px rgba(15,23,42,0.2)" : "none"
-                    }}>
-                      <span>{t.label}</span>
-                      <span style={{ 
-                        background: isTop ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.05)", 
-                        padding: "2px 6px", borderRadius: "100px", fontSize: 11 
-                      }}>
-                        {t.count} 篇
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </Card>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ── 记忆碎片 (保持原逻辑，仅适配容器) ─────────────────────
-function MemoryCard({ item, onRefresh, totalVocab }) {
-  // ... (保留你原来发给我的 MemoryCard 的全部内部逻辑，无需改动)
-  return <div style={{display: 'none'}}>由于字数限制，这部分不包含在内，保留你原本的代码即可</div>
+// ── 组件：能力画像 (Mastery & Topics) ────────────────────────────────
+function AbilityWidget({ masteryStats, topicStats }) {
+  const total = masteryStats.new + masteryStats.learning + masteryStats.mastered;
+  const pct = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
+
+  return (
+    <div className="bento-card col-span-12" style={{ animationDelay: "0.6s", display: "flex", flexWrap: "wrap", gap: 40 }}>
+      {/* 左侧：词汇掌握度 */}
+      <div style={{ flex: "1 1 300px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <span style={{ fontSize: 20 }}>🧠</span>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>知识内化进度</h2>
+        </div>
+        
+        <div style={{ height: 24, borderRadius: "100px", overflow: "hidden", display: "flex", background: "#f1f5f9", boxShadow: "inset 0 2px 4px rgba(0,0,0,0.05)", marginBottom: 24 }}>
+          <div style={{ width: `${pct(masteryStats.mastered)}%`, background: "linear-gradient(90deg, #10b981, #059669)", transition: "width 1s" }} />
+          <div style={{ width: `${pct(masteryStats.learning)}%`, background: "linear-gradient(90deg, #3b82f6, #2563eb)", transition: "width 1s" }} />
+          <div style={{ width: `${pct(masteryStats.new)}%`, background: "linear-gradient(90deg, #a855f7, #9333ea)", transition: "width 1s" }} />
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+          {[
+            { label: "已掌握", count: masteryStats.mastered, color: "#10b981" },
+            { label: "学习中", count: masteryStats.learning, color: "#3b82f6" },
+            { label: "待激活", count: masteryStats.new, color: "#a855f7" },
+          ].map((b, i) => (
+            <div key={i} style={{ flex: 1, padding: "16px", background: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.color, boxShadow: `0 0 10px ${b.color}` }} />
+                <span style={{ fontSize: 12, color: "#64748b", fontWeight: 700 }}>{b.label}</span>
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", lineHeight: 1 }}>{b.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 右侧：话题偏好雷达区 */}
+      <div style={{ flex: "1 1 300px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <span style={{ fontSize: 20 }}>🏷️</span>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: 0 }}>最爱看的话题</h2>
+        </div>
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          {topicStats.length === 0 && <p style={{color: '#94a3b8', fontSize: 14}}>暂无数据，去多看几个视频吧～</p>}
+          {topicStats.map((t, i) => (
+            <div key={i} style={{
+              padding: "10px 16px", borderRadius: "100px",
+              background: i === 0 ? "linear-gradient(135deg, #f43f5e, #e11d48)" : i === 1 ? "linear-gradient(135deg, #f59e0b, #d97706)" : "#f1f5f9",
+              color: i < 2 ? "#fff" : "#475569",
+              fontWeight: 800, fontSize: 14,
+              boxShadow: i < 2 ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
+              display: "flex", alignItems: "center", gap: 8
+            }}>
+              {t.label} 
+              <span style={{ background: i < 2 ? "rgba(255,255,255,0.2)" : "#e2e8f0", padding: "2px 8px", borderRadius: "10px", fontSize: 11 }}>
+                {t.count}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-// ── 主页面 ────────────────────────────────────────────────
+// ── 主页面容器 ────────────────────────────────────────────────
 export default function JournalClient({ accessToken }) {
-  const[loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [journalData, setJournalData] = useState(null);
-  const[memoryItem, setMemoryItem] = useState(null);
+  const [memoryItem, setMemoryItem] = useState(null);
 
   useEffect(() => {
     authFetch(remote("/api/me"), { cache: "no-store" })
@@ -452,7 +428,7 @@ export default function JournalClient({ accessToken }) {
   async function loadJournalData() {
     setLoading(true);
     try {
-      const[journalRes, vocabRes] = await Promise.all([
+      const [journalRes, vocabRes] = await Promise.all([
         authFetch(remote("/api/journal_stats"), { cache: "no-store" }),
         authFetch(remote("/api/vocab_favorites"), { cache: "no-store" }),
       ]);
@@ -474,32 +450,19 @@ export default function JournalClient({ accessToken }) {
     setMemoryItem(next);
   }
 
-  // Loading 与 未登录界面略... (直接使用你原来的即可)
-  if (loading || (!me || !me.logged_in)) return <div>Loading...</div>; // 请保留原来的Loading代码
+  if (loading || (!me || !me.logged_in)) {
+    return <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc", color: "#64748b", fontWeight: 700 }}>努力加载数据中... (请保留旧版 loading 逻辑)</div>;
+  }
 
+  // 数据映射
   const d = journalData || {};
   const vocabItems = d.vocabItems || [];
-
   const tasks =[
-    {
-      label: "沉浸 1 个场景视频",
-      done: (d.today_views || 0) >= 1,
-      doneText: `已看 ${d.today_views || 0} 个视频，语感+1`,
-      pendingText: "打开任意视频，保持英语思维",
-    },
-    {
-      label: "捕获 3 个地道表达",
-      done: (d.today_vocab || 0) >= 3,
-      doneText: `已入库 ${d.today_vocab || 0} 个词汇，弹药充足`,
-      pendingText: `还差 ${Math.max(0, 3 - (d.today_vocab || 0))} 个即可达成`,
-    },
-    {
-      label: "完成 1 次词汇通关",
-      done: (d.mastered_total || 0) >= 1,  // 注意：这里需按照你的实际逻辑，这里仅做UI展示
-      doneText: `知识已巩固，底气更足`,
-      pendingText: "去收藏页完成一次随考",
-    },
+    { label: "沉浸 1 个场景视频", done: (d.today_views || 0) >= 1, doneText: `已看 ${d.today_views || 0} 个视频`, pendingText: "去开启沉浸时刻" },
+    { label: "捕获 3 个地道表达", done: (d.today_vocab || 0) >= 3, doneText: `入库 ${d.today_vocab || 0} 个词汇`, pendingText: `进度 ${d.today_vocab || 0}/3` },
+    { label: "完成 1 次词汇通关", done: (d.mastered_total || 0) >= 1, doneText: `知识已巩固`, pendingText: "去收藏页完成随考" },
   ];
+  const doneCount = tasks.filter(t => t.done).length;
 
   const masteryStats = {
     new: vocabItems.filter(v => (v.mastery_level ?? 0) === 0).length,
@@ -508,91 +471,30 @@ export default function JournalClient({ accessToken }) {
   };
 
   const topicMap = {};
-  const topicLabelMap = {
-    "daily-life": "日常生活", "self-improvement": "个人成长",
-    "food": "美食探店", "travel": "旅行", "business": "职场商务",
-    "culture": "文化", "opinion": "观点表达", "skills": "方法技能",
-  };
+  const topicLabelMap = { "daily-life": "日常生活", "self-improvement": "个人成长", "food": "美食探店", "travel": "旅行", "business": "职场商务" };
   (d.bookmarked_topics ||[]).forEach(slug => {
     const label = topicLabelMap[slug] || slug;
     topicMap[label] = (topicMap[label] || 0) + 1;
   });
-  const topicStats = Object.entries(topicMap)
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 6);
-
-  const doneCount = tasks.filter(t => t.done).length;
+  const topicStats = Object.entries(topicMap).map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count).slice(0, 5);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f8fafc", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <GlobalStyles />
+      
+      <HeroSection me={me} doneCount={doneCount} />
 
-      {/* 沉浸式高级横幅 */}
-      <div style={{
-        position: "relative",
-        background: "radial-gradient(120% 120% at 50% 0%, #1e293b 0%, #0f172a 100%)",
-        padding: "60px 16px 80px",
-        overflow: "hidden"
-      }}>
-        {/* 背景光晕装饰 */}
-        <div style={{ position: "absolute", top: -50, left: "10%", width: 300, height: 300, background: "#4f46e5", filter: "blur(100px)", opacity: 0.3, borderRadius: "50%" }} />
-        <div style={{ position: "absolute", bottom: -50, right: "10%", width: 250, height: 250, background: "#0ea5e9", filter: "blur(80px)", opacity: 0.2, borderRadius: "50%" }} />
-
-        <div style={{ maxWidth: 800, margin: "0 auto", position: "relative", zIndex: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "linear-gradient(135deg, #e2e8f0, #cbd5e1)", border: "2px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
-              🤓
-            </div>
-            <div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: "#ffffff", letterSpacing: "-1px" }}>
-                {me?.email?.split("@")[0] || "同学"} 的英语指挥部
-              </div>
-              <div style={{ fontSize: 14, color: "#94a3b8", fontWeight: 500, marginTop: 4 }}>
-                {formatDate()} · 愿你每天都有新的收获
-              </div>
-            </div>
-          </div>
-
-          {/* 玻璃拟物态总进度条 */}
-          <div style={{ 
-            background: "rgba(255,255,255,0.03)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid rgba(255,255,255,0.1)", borderRadius: "20px", padding: "20px", marginTop: 24
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", color: "#cbd5e1", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
-              <span>今日能量槽</span>
-              <span>{Math.round(doneCount / 3 * 100)}%</span>
-            </div>
-            <div style={{ height: 8, background: "rgba(0,0,0,0.3)", borderRadius: 999, overflow: "hidden", position: "relative" }}>
-              <div style={{
-                position: "absolute", left: 0, top: 0, bottom: 0,
-                width: `${Math.round(doneCount / 3 * 100)}%`,
-                background: "linear-gradient(90deg, #3b82f6, #06b6d4)",
-                borderRadius: 999, transition: "width 1s cubic-bezier(0.34, 1.56, 0.64, 1)"
-              }}>
-                {/* 进度条扫光动画 */}
-                <div style={{
-                  position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                  background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)",
-                  animation: "shimmer 2s infinite"
-                }}/>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 核心 Bento 网格布局 */}
+      <div className="bento-grid">
+        <QuickStats streakDays={d.streak_days || 0} totalVideos={d.total_views || 0} totalVocab={vocabItems.length} />
+        
+        <TodayTasksWidget tasks={tasks} />
+        <MemoryWidget item={memoryItem} onRefresh={refreshMemory} totalVocab={vocabItems.length} />
+        
+        <HeatmapWidget heatmapData={d.heatmap || {}} />
+        <AbilityWidget masteryStats={masteryStats} topicStats={topicStats} />
       </div>
 
-      {/* 主体内收，形成层叠感 */}
-      <div style={{ 
-        maxWidth: 800, margin: "-50px auto 60px", padding: "0 16px", 
-        display: "flex", flexDirection: "column", gap: 24, position: "relative", zIndex: 20 
-      }}>
-        <TodayTasks tasks={tasks} />
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 24 }}>
-          <Heatmap heatmapData={d.heatmap || {}} streakDays={d.streak_days || 0} totalVideos={d.total_views || 0} />
-          <AbilityProfile masteryStats={masteryStats} topicStats={topicStats} />
-        </div>
-      </div>
     </div>
   );
 }
