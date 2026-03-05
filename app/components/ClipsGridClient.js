@@ -417,6 +417,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [err, setErr] = useState("");
 
   const [me, setMe] = useState(null);
+  const [meLoaded, setMeLoaded] = useState(false);
   const [savedMap, setSavedMap] = useState({});
 
   useEffect(() => {
@@ -426,6 +427,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" }).then(r => r.json()).catch(() => null),
     ]).then(([meData, bData]) => {
       setMe(meData);
+      setMeLoaded(true);
       if (meData?.logged_in && bData?.clip_ids) {
         const map = {};
         bData.clip_ids.forEach((id) => { map[id] = true; });
@@ -609,8 +611,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
-              // 非会员点会员视频直接跳兑换页
-              const isBlocked = isVip && me !== null && !me?.is_member && !r.can_access;
+              // 非会员点会员视频直接跳兑换页（等me加载完再判断）
+              const isBlocked = isVip && meLoaded && !me?.is_member && !r.can_access;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
               const cardContent = (
