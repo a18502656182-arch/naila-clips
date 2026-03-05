@@ -322,6 +322,8 @@ function BookmarkLoginModal({ onClose }) {
 // ─── 主页面 ────────────────────────────────────────────────
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
   const isMobile = useIsMobile();
+// 临时调试，上线前删掉
+if (typeof window !== "undefined") document.title = "宽度:" + window.innerWidth;
 
   const [loading, setLoading] = useState(!initialItem);
   const [notFound, setNotFound] = useState(false);
