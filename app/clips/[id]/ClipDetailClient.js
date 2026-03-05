@@ -471,6 +471,18 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       .catch(() => {});
   }, [clipId]);
 
+  // 记录观看日志（用于手帐页热力图和今日任务）
+  useEffect(() => {
+    if (!clipId) return;
+    const token = getToken();
+    if (!token) return;
+    fetch(remote("/api/view_log"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ clip_id: clipId }),
+    }).catch(() => {});
+  }, [clipId]);
+
   async function toggleBookmark() {
     if (!me?.logged_in) { setShowBookmarkLoginModal(true); return; }
     if (bookmarkLoading) return;
