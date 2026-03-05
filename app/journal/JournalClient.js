@@ -368,7 +368,6 @@ function AbilityProfile({ masteryStats, topicStats }) {
   );
 }
 
-
 // ── 打卡海报生成器（3种主题随机切换 + 弹窗展示）────────────
 const POSTER_THEMES = [
   {
@@ -417,9 +416,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
 
   async function generate(forceTheme) {
     setGenerating(true);
-    await new Promise(r => setTimeout(r, 60));
+    // 让 React 先渲染 loading 状态再执行 canvas 操作
+    await new Promise(r => setTimeout(r, 80));
 
-    // 随机换主题
     const nextTheme = forceTheme !== undefined ? forceTheme : (themeIdx + 1) % POSTER_THEMES.length;
     setThemeIdx(nextTheme);
     const T = POSTER_THEMES[nextTheme];
@@ -450,7 +449,6 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(48,90); ctx.lineTo(W-48,90); ctx.stroke();
 
-    // 主题标签
     ctx.font="500 18px sans-serif"; ctx.fillStyle=T.accent;
     ctx.textAlign="right"; ctx.fillText(`✦ ${T.name}`,W-48,108); ctx.textAlign="left";
 
@@ -543,85 +541,156 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     ctx.fillText("油管英语场景库 · 精选场景短片 · 双语字幕",W/2,H-30);
     ctx.textAlign="left";
 
-    setPosterUrl(canvas.toDataURL("image/png"));
+    const url = canvas.toDataURL("image/png");
+    setPosterUrl(url);
     setGenerating(false);
-    setShowModal(true);
+    // setTimeout 确保 setGenerating(false) 渲染完成后再打开弹窗
+    // 直接调用 setShowModal(true) 在某些 React 批处理场景下弹窗不会显示
+    setTimeout(() => setShowModal(true), 0);
+  }
+
+  function handleSwitchTheme() {
+    setShowModal(false);
+    // 等弹窗关闭动画完成后再生成新主题
+    setTimeout(() => generate((themeIdx + 1) % POSTER_THEMES.length), 60);
+  }
+
+  function handleDownload() {
+    if (!posterUrl) return;
+    const a = document.createElement("a");
+    a.href = posterUrl;
+    a.download = `英语手帐_${new Date().toISOString().slice(0,10)}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 
   return (
     <div>
-      <canvas ref={canvasRef} style={{ display:"none" }} />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
 
       {/* 生成按钮 */}
       <button onClick={() => generate()} disabled={generating} style={{
-        width:"100%", padding:"16px 0", borderRadius:22, border:"none",
-        background: generating ? "rgba(99,102,241,0.40)" : "linear-gradient(135deg,#0f172a 0%,#4f46e5 50%,#ec4899 100%)",
-        color:"#fff", fontSize:16, fontWeight:950,
-        cursor: generating?"not-allowed":"pointer",
-        boxShadow: generating?"none":"0 24px 60px rgba(79,70,229,0.35)",
-        transition:"all 300ms ease", letterSpacing:"-0.2px",
+        width: "100%", padding: "16px 0", borderRadius: 22, border: "none",
+        background: generating
+          ? "rgba(99,102,241,0.40)"
+          : "linear-gradient(135deg,#0f172a 0%,#4f46e5 50%,#ec4899 100%)",
+        color: "#fff", fontSize: 16, fontWeight: 950,
+        cursor: generating ? "not-allowed" : "pointer",
+        boxShadow: generating ? "none" : "0 24px 60px rgba(79,70,229,0.35)",
+        transition: "all 300ms ease", letterSpacing: "-0.2px",
       }}>
         {generating ? "⏳ 生成中..." : "📸 生成今日打卡海报"}
       </button>
-      <div style={{ textAlign:"center", fontSize:11, color:THEME.colors.faint, marginTop:8, fontWeight:700 }}>
+      <div style={{ textAlign: "center", fontSize: 11, color: THEME.colors.faint, marginTop: 8, fontWeight: 700 }}>
         每次生成随机切换配色主题 · 共 {POSTER_THEMES.length} 种风格
       </div>
 
-      {/* 弹窗 */}
+      {/* ── 弹窗遮罩 ── */}
       {showModal && posterUrl && (
-        <div onClick={() => setShowModal(false)} style={{
-          position:"fixed", inset:0, zIndex:1000,
-          background:"rgba(0,0,0,0.75)",
-          display:"flex", alignItems:"center", justifyContent:"center",
-          padding:16, backdropFilter:"blur(6px)",
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background:THEME.colors.surface,
-            borderRadius:24, padding:16,
-            width:"100%", maxWidth:480,
-            maxHeight:"90vh", overflowY:"auto",
-            boxShadow:"0 40px 100px rgba(0,0,0,0.40)",
-            display:"flex", flexDirection:"column", gap:12,
-          }}>
-            {/* 弹窗顶栏 */}
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div style={{ fontSize:15, fontWeight:950, color:THEME.colors.ink }}>📸 今日打卡海报</div>
-              <button onClick={() => setShowModal(false)} style={{
-                width:32, height:32, borderRadius:999, border:"none",
-                background:"rgba(15,23,42,0.08)", cursor:"pointer",
-                fontSize:16, color:THEME.colors.muted, display:"grid", placeItems:"center",
-              }}>✕</button>
+        <div
+          onClick={() => setShowModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(2,6,23,0.82)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
+            animation: "posterFadeIn 180ms ease",
+          }}
+        >
+          {/* 弹窗主体，stopPropagation 防止点内容关掉弹窗 */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "#ffffff",
+              borderRadius: 28,
+              padding: 20,
+              width: "100%",
+              maxWidth: 460,
+              maxHeight: "92vh",
+              overflowY: "auto",
+              boxShadow: "0 40px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+              animation: "posterSlideUp 240ms cubic-bezier(.2,.9,.2,1)",
+            }}
+          >
+            {/* 顶栏 */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 950, color: "#0f172a" }}>📸 今日打卡海报</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3, fontWeight: 700 }}>
+                  当前主题：{POSTER_THEMES[themeIdx].name}
+                </div>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{
+                  width: 34, height: 34, borderRadius: 999,
+                  border: "1px solid rgba(15,23,42,0.12)",
+                  background: "rgba(15,23,42,0.06)",
+                  cursor: "pointer", fontSize: 16, color: "#64748b",
+                  display: "grid", placeItems: "center", flexShrink: 0,
+                }}
+              >✕</button>
             </div>
 
             {/* 海报图 */}
-            <img src={posterUrl} alt="打卡海报" style={{
-              width:"100%", borderRadius:16,
-              border:"1px solid rgba(15,23,42,0.08)",
-              boxShadow:"0 8px 30px rgba(0,0,0,0.12)",
-            }} />
+            <img
+              src={posterUrl}
+              alt="打卡海报"
+              style={{
+                width: "100%", borderRadius: 18, display: "block",
+                border: "1px solid rgba(15,23,42,0.08)",
+                boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+              }}
+            />
 
-            <div style={{ fontSize:12, color:THEME.colors.faint, textAlign:"center", fontWeight:700 }}>
-              📱 手机长按图片保存 · 分享到朋友圈 / 小红书
+            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 700 }}>
+              📱 手机长按图片保存 · 电脑点下方按钮下载
             </div>
 
             {/* 操作按钮 */}
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-              <a href={posterUrl} download={`英语手帐_${new Date().toISOString().slice(0,10)}.png`}
-                style={{ display:"block", textAlign:"center", padding:"13px 0",
-                  borderRadius:16, textDecoration:"none",
-                  background:"linear-gradient(135deg,#0f172a,#4f46e5)",
-                  color:"#fff", fontSize:14, fontWeight:950,
-                  boxShadow:"0 18px 40px rgba(79,70,229,0.25)" }}>
-                ⬇️ 保存图片
-              </a>
-              <button onClick={() => { setShowModal(false); generate((themeIdx+1)%POSTER_THEMES.length); }}
-                style={{ padding:"13px 0", borderRadius:16,
-                  border:"1px solid rgba(15,23,42,0.12)", background:"rgba(15,23,42,0.04)",
-                  fontSize:14, fontWeight:950, color:THEME.colors.muted, cursor:"pointer" }}>
-                🎨 换个风格
-              </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <button
+                onClick={handleDownload}
+                style={{
+                  padding: "14px 0", borderRadius: 16, border: "none",
+                  background: "linear-gradient(135deg,#0f172a,#4f46e5)",
+                  color: "#fff", fontSize: 14, fontWeight: 950, cursor: "pointer",
+                  boxShadow: "0 18px 40px rgba(79,70,229,0.28)",
+                }}
+              >⬇️ 保存图片</button>
+              <button
+                onClick={handleSwitchTheme}
+                style={{
+                  padding: "14px 0", borderRadius: 16,
+                  border: "1.5px solid rgba(15,23,42,0.12)",
+                  background: "rgba(15,23,42,0.04)",
+                  fontSize: 14, fontWeight: 950, color: "#475569", cursor: "pointer",
+                }}
+              >🎨 换个风格</button>
+            </div>
+
+            {/* 主题进度点 */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+              {POSTER_THEMES.map((_, i) => (
+                <div key={i} style={{
+                  width: i === themeIdx ? 22 : 8, height: 8, borderRadius: 999,
+                  background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.15)",
+                  transition: "all 300ms ease",
+                }} />
+              ))}
             </div>
           </div>
+
+          <style>{`
+            @keyframes posterFadeIn { from{opacity:0} to{opacity:1} }
+            @keyframes posterSlideUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+          `}</style>
         </div>
       )}
     </div>
