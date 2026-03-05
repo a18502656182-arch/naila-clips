@@ -85,7 +85,7 @@ function BubbleSpellingExam({ cards, onComplete, onExit }) {
 
   function initQuestion(c) {
     const term = c.term;
-    // 答案槽：每个字母一格，空格保留为固定分隔
+    // 答案槽：每个字母一格，空格保留为固定分隔，填入后存 {letter, correct}
     const slotArr = term.split("").map(ch => (ch === " " ? " " : null));
     setSlots(slotArr);
     // 打乱字母生成气泡（过滤空格，保留大小写原样展示但比较时忽略大小写）
@@ -113,35 +113,26 @@ function BubbleSpellingExam({ cards, onComplete, onExit }) {
     const emptyIdx = slots.findIndex((s, i) => s === null);
     if (emptyIdx === -1) return;
 
-    // 检查这个字母是否正确（对应位置）
     const expectedLetter = card.term[emptyIdx];
-    if (bubble.letter.toLowerCase() !== expectedLetter.toLowerCase()) {
-      // 字母错误 → 气泡抖动
-      setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, shake: true } : b));
-      setTimeout(() => {
-        setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, shake: false } : b));
-      }, 500);
-      return;
-    }
+    const correct = bubble.letter.toLowerCase() === expectedLetter.toLowerCase();
 
-    // 正确 → 字母飞入槽
+    // 无论对错，字母都填入槽，气泡消失
     const newSlots = [...slots];
-    newSlots[emptyIdx] = bubble.letter;
+    newSlots[emptyIdx] = { letter: bubble.letter, correct };
     setSlots(newSlots);
     setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, used: true } : b));
 
     // 判断是否全部填完
-    const nextSlots = newSlots;
-    const allFilled = nextSlots.every(s => s !== null);
+    const allFilled = newSlots.every(s => s !== null);
     if (allFilled) {
-      const userAnswer = nextSlots.join("");
-      const correct = userAnswer.toLowerCase() === card.term.toLowerCase();
-      const result = { id: card.id, term: card.term, correct, userAnswer, prevMastery: card.mastery_level ?? 0 };
+      const allCorrect = newSlots.every(s => s === " " || s.correct);
+      const userAnswer = newSlots.map(s => (s === " " ? " " : s.letter)).join("");
+      const result = { id: card.id, term: card.term, correct: allCorrect, userAnswer, prevMastery: card.mastery_level ?? 0 };
       const newResults = [...results, result];
       setResults(newResults);
       setChecked(true);
-      setIsCorrect(correct);
-      if (correct) {
+      setIsCorrect(allCorrect);
+      if (allCorrect) {
         setSuccessAnim(true);
         setTimeout(() => {
           if (isLast) onComplete(newResults);
@@ -272,20 +263,22 @@ function BubbleSpellingExam({ cards, onComplete, onExit }) {
               if (s === " ") {
                 return <div key={i} style={{ width: 14 }} />;
               }
+              const filled = s && s !== " ";
+              const letterCorrect = filled ? s.correct : null;
               return (
                 <div key={i} style={{
                   width: 38, height: 42,
                   borderRadius: 10,
-                  border: `2px solid ${s ? (checked ? (isCorrect ? "#22c55e" : "#ef4444") : "#6366f1") : "#c7d2fe"}`,
-                  background: s ? (checked ? (isCorrect ? "#f0fdf4" : "#fff5f5") : "#eef2ff") : "white",
+                  border: `2px solid ${filled ? (letterCorrect ? "#22c55e" : "#ef4444") : "#c7d2fe"}`,
+                  background: filled ? (letterCorrect ? "#f0fdf4" : "#fff5f5") : "white",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 18, fontWeight: 800,
-                  color: checked ? (isCorrect ? "#16a34a" : "#dc2626") : "#4f46e5",
+                  color: filled ? (letterCorrect ? "#16a34a" : "#dc2626") : "#4f46e5",
                   transition: "all 200ms",
-                  animation: s && !checked ? "slotPop 300ms ease" : "none",
-                  boxShadow: s ? "0 2px 8px rgba(99,102,241,0.15)" : "none",
+                  animation: filled && !checked ? "slotPop 300ms ease" : "none",
+                  boxShadow: filled ? `0 2px 8px ${letterCorrect ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)"}` : "none",
                 }}>
-                  {s || ""}
+                  {filled ? s.letter : ""}
                 </div>
               );
             })}
