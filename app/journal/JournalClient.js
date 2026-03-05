@@ -369,258 +369,258 @@ function AbilityProfile({ masteryStats, topicStats }) {
 }
 
 
-// ── 打卡海报生成器（纯 Canvas，无需第三方库）────────────────
+// ── 打卡海报生成器（3种主题随机切换 + 弹窗展示）────────────
+const POSTER_THEMES = [
+  {
+    name: "深夜极光",
+    bg: ["#0f172a", "#1e1b4b", "#0f172a"],
+    glow1: "rgba(99,102,241,0.38)", glow2: "rgba(236,72,153,0.28)",
+    accent: "#818cf8", barA: "#34d399", barB: "#818cf8",
+    cellActive: ["rgba(34,197,94,0.30)","rgba(34,197,94,0.65)","rgba(34,197,94,0.95)"],
+    todayOutline: "#818cf8",
+  },
+  {
+    name: "日出橙金",
+    bg: ["#1a0a00", "#3b1400", "#1a0800"],
+    glow1: "rgba(251,146,60,0.40)", glow2: "rgba(234,179,8,0.28)",
+    accent: "#fb923c", barA: "#fbbf24", barB: "#f97316",
+    cellActive: ["rgba(251,146,60,0.28)","rgba(251,146,60,0.62)","rgba(251,146,60,0.95)"],
+    todayOutline: "#fbbf24",
+  },
+  {
+    name: "深海青碧",
+    bg: ["#001a1a", "#00282e", "#001518"],
+    glow1: "rgba(6,182,212,0.38)", glow2: "rgba(16,185,129,0.28)",
+    accent: "#22d3ee", barA: "#34d399", barB: "#06b6d4",
+    cellActive: ["rgba(6,182,212,0.28)","rgba(6,182,212,0.62)","rgba(6,182,212,0.95)"],
+    todayOutline: "#34d399",
+  },
+];
+
 function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [posterUrl, setPosterUrl] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [themeIdx, setThemeIdx] = useState(0);
 
   const doneCount = tasks.filter(t => t.done).length;
 
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.arcTo(x + w, y, x + w, y + r, r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-    ctx.lineTo(x + r, y + h);
-    ctx.arcTo(x, y + h, x, y + h - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+    ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+    ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+    ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
   }
 
-  async function generate() {
+  async function generate(forceTheme) {
     setGenerating(true);
-    setPosterUrl(null);
     await new Promise(r => setTimeout(r, 60));
+
+    // 随机换主题
+    const nextTheme = forceTheme !== undefined ? forceTheme : (themeIdx + 1) % POSTER_THEMES.length;
+    setThemeIdx(nextTheme);
+    const T = POSTER_THEMES[nextTheme];
 
     const canvas = canvasRef.current;
     const W = 750, H = 1200;
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // ── 背景渐变 ──
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, "#0f172a");
-    bg.addColorStop(0.45, "#1e1b4b");
-    bg.addColorStop(1, "#0f172a");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    // 背景
+    const bg = ctx.createLinearGradient(0,0,W,H);
+    bg.addColorStop(0, T.bg[0]); bg.addColorStop(0.45, T.bg[1]); bg.addColorStop(1, T.bg[2]);
+    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+    const g1 = ctx.createRadialGradient(150,200,0,150,200,320);
+    g1.addColorStop(0,T.glow1); g1.addColorStop(1,"transparent");
+    ctx.fillStyle=g1; ctx.fillRect(0,0,W,H);
+    const g2 = ctx.createRadialGradient(620,400,0,620,400,280);
+    g2.addColorStop(0,T.glow2); g2.addColorStop(1,"transparent");
+    ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
 
-    // 背景光晕
-    const g1 = ctx.createRadialGradient(150, 200, 0, 150, 200, 320);
-    g1.addColorStop(0, "rgba(99,102,241,0.35)"); g1.addColorStop(1, "transparent");
-    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
-    const g2 = ctx.createRadialGradient(620, 400, 0, 620, 400, 280);
-    g2.addColorStop(0, "rgba(236,72,153,0.25)"); g2.addColorStop(1, "transparent");
-    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+    // 顶部
+    ctx.font="bold 28px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.92)";
+    ctx.fillText("📒 我的英语手帐",48,70);
+    const now=new Date();
+    const dateStr=`${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
+    ctx.font="500 22px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.50)";
+    ctx.textAlign="right"; ctx.fillText(dateStr,W-48,70); ctx.textAlign="left";
+    ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(48,90); ctx.lineTo(W-48,90); ctx.stroke();
 
-    // ── 顶部 Logo + 日期 ──
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.fillText("📒 我的英语手帐", 48, 70);
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
-    ctx.font = "500 22px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.50)";
-    ctx.textAlign = "right";
-    ctx.fillText(dateStr, W - 48, 70);
-    ctx.textAlign = "left";
+    // 主题标签
+    ctx.font="500 18px sans-serif"; ctx.fillStyle=T.accent;
+    ctx.textAlign="right"; ctx.fillText(`✦ ${T.name}`,W-48,108); ctx.textAlign="left";
 
-    // 分隔线
-    ctx.strokeStyle = "rgba(255,255,255,0.10)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(48, 90); ctx.lineTo(W - 48, 90); ctx.stroke();
+    // 用户名
+    const userName=me?.email?.split("@")[0]||"学习者";
+    ctx.font="bold 42px sans-serif"; ctx.fillStyle="#fff";
+    ctx.fillText(`👋 ${userName}`,48,170);
+    ctx.font="500 24px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.60)";
+    ctx.fillText("今日打卡成功！",48,208);
 
-    // ── 用户名 ──
-    const userName = me?.email?.split("@")[0] || "学习者";
-    ctx.font = "bold 42px sans-serif";
-    ctx.fillStyle = "#fff";
-    ctx.fillText(`👋 ${userName}`, 48, 160);
-    ctx.font = "500 24px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.60)";
-    ctx.fillText("今日打卡成功！", 48, 200);
-
-    // ── 三个数字卡片 ──
-    const stats = [
-      { num: streakDays, label: "连续天数", color: "#fb923c", bg: "rgba(251,146,60,0.18)", border: "rgba(251,146,60,0.35)" },
-      { num: totalVideos, label: "累计视频", color: "#818cf8", bg: "rgba(99,102,241,0.18)", border: "rgba(99,102,241,0.35)" },
-      { num: vocabCount, label: "收藏词汇", color: "#34d399", bg: "rgba(52,211,153,0.18)", border: "rgba(52,211,153,0.35)" },
+    // 三卡
+    const statColors = [
+      { color:"#fb923c", bg:"rgba(251,146,60,0.18)", border:"rgba(251,146,60,0.35)" },
+      { color:T.accent,  bg:`rgba(99,102,241,0.18)`, border:`rgba(99,102,241,0.35)` },
+      { color:"#34d399", bg:"rgba(52,211,153,0.18)", border:"rgba(52,211,153,0.35)" },
     ];
-    const cardW = 196, cardH = 110, cardGap = 21, cardY = 240;
-    stats.forEach((s, i) => {
-      const cx = 48 + i * (cardW + cardGap);
-      roundRect(ctx, cx, cardY, cardW, cardH, 18);
-      ctx.fillStyle = s.bg; ctx.fill();
-      ctx.strokeStyle = s.border; ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.font = "bold 46px sans-serif";
-      ctx.fillStyle = s.color;
-      ctx.fillText(String(s.num), cx + 18, cardY + 62);
-      ctx.font = "500 20px sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.60)";
-      ctx.fillText(s.label, cx + 18, cardY + 92);
+    const statData=[
+      {num:streakDays,label:"连续天数"},
+      {num:totalVideos,label:"累计视频"},
+      {num:vocabCount,label:"收藏词汇"},
+    ];
+    const cW=196,cH=110,cG=21,cY=248;
+    statData.forEach((s,i)=>{
+      const cx=48+i*(cW+cG);
+      roundRect(ctx,cx,cY,cW,cH,18);
+      ctx.fillStyle=statColors[i].bg; ctx.fill();
+      ctx.strokeStyle=statColors[i].border; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.font="bold 46px sans-serif"; ctx.fillStyle=statColors[i].color;
+      ctx.fillText(String(s.num),cx+18,cY+62);
+      ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.60)";
+      ctx.fillText(s.label,cx+18,cY+92);
     });
 
-    // ── 今日任务进度 ──
-    const taskY = 400;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(`🎯 今日任务 ${doneCount}/3 完成`, 48, taskY);
-    const taskItems = [
-      { label: "沉浸 1 个场景视频", done: tasks[0]?.done },
-      { label: "收藏 3 个地道表达", done: tasks[1]?.done },
-      { label: "词汇通关 1 次", done: tasks[2]?.done },
-    ];
-    taskItems.forEach((t, i) => {
-      const ty = taskY + 28 + i * 44;
-      roundRect(ctx, 48, ty, W - 96, 36, 10);
-      ctx.fillStyle = t.done ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.05)";
-      ctx.fill();
-      ctx.strokeStyle = t.done ? "rgba(34,197,94,0.30)" : "rgba(255,255,255,0.08)";
-      ctx.lineWidth = 1; ctx.stroke();
-      ctx.font = "500 20px sans-serif";
-      ctx.fillStyle = t.done ? "#4ade80" : "rgba(255,255,255,0.40)";
-      ctx.fillText(t.done ? "✓" : "○", 70, ty + 24);
-      ctx.fillStyle = t.done ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.40)";
-      ctx.fillText(t.label, 104, ty + 24);
+    // 任务
+    const tY=408;
+    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
+    ctx.fillText(`🎯 今日任务 ${doneCount}/3 完成`,48,tY);
+    [{label:"沉浸 1 个场景视频",done:tasks[0]?.done},{label:"收藏 3 个地道表达",done:tasks[1]?.done},{label:"词汇通关 1 次",done:tasks[2]?.done}]
+    .forEach((t,i)=>{
+      const ty=tY+28+i*44;
+      roundRect(ctx,48,ty,W-96,36,10);
+      ctx.fillStyle=t.done?"rgba(34,197,94,0.12)":"rgba(255,255,255,0.05)"; ctx.fill();
+      ctx.strokeStyle=t.done?"rgba(34,197,94,0.30)":"rgba(255,255,255,0.08)"; ctx.lineWidth=1; ctx.stroke();
+      ctx.font="500 20px sans-serif";
+      ctx.fillStyle=t.done?"#4ade80":"rgba(255,255,255,0.40)"; ctx.fillText(t.done?"✓":"○",70,ty+24);
+      ctx.fillStyle=t.done?"rgba(255,255,255,0.90)":"rgba(255,255,255,0.40)"; ctx.fillText(t.label,104,ty+24);
     });
 
-    // ── 热力图 ──
-    const hmY = 590;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText("🔥 学习足迹（近 16 周）", 48, hmY);
-
-    const today = new Date(); today.setHours(0,0,0,0);
-    const hmDays = [];
-    for (let i = 111; i >= 0; i--) {
-      const d = new Date(today); d.setDate(today.getDate()-i);
-      const key = d.toISOString().slice(0,10);
-      hmDays.push({ key, count: heatmapData[key]||0 });
-    }
-    const pad = (new Date(hmDays[0].key).getDay()+6)%7;
-    const padded = [...Array(pad).fill(null), ...hmDays];
-    const weeks = [];
-    for (let i = 0; i < padded.length; i+=7) weeks.push(padded.slice(i,i+7));
-
-    const cellSize = 28, cellGap = 5;
-    const hmStartX = 48, hmStartY = hmY + 18;
-    weeks.forEach((week, wi) => {
-      week.forEach((day, di) => {
-        if (!day) return;
-        const x = hmStartX + wi*(cellSize+cellGap);
-        const y = hmStartY + di*(cellSize+cellGap);
-        roundRect(ctx, x, y, cellSize, cellSize, 6);
-        if (day.count===0) ctx.fillStyle = "rgba(255,255,255,0.08)";
-        else if (day.count===1) ctx.fillStyle = "rgba(34,197,94,0.30)";
-        else if (day.count===2) ctx.fillStyle = "rgba(34,197,94,0.65)";
-        else ctx.fillStyle = "rgba(34,197,94,0.95)";
+    // 热力图
+    const hmY=598;
+    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
+    ctx.fillText("🔥 学习足迹（近 16 周）",48,hmY);
+    const today=new Date(); today.setHours(0,0,0,0);
+    const hmDays=[];
+    for(let i=111;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);const k=d.toISOString().slice(0,10);hmDays.push({key:k,count:heatmapData[k]||0});}
+    const hmPad=(new Date(hmDays[0].key).getDay()+6)%7;
+    const hmPadded=[...Array(hmPad).fill(null),...hmDays];
+    const hmWeeks=[];
+    for(let i=0;i<hmPadded.length;i+=7)hmWeeks.push(hmPadded.slice(i,i+7));
+    const cs=28,cg=5,hx=48,hy=hmY+18,tk=today.toISOString().slice(0,10);
+    hmWeeks.forEach((wk,wi)=>{
+      wk.forEach((day,di)=>{
+        if(!day)return;
+        const x=hx+wi*(cs+cg),y=hy+di*(cs+cg);
+        roundRect(ctx,x,y,cs,cs,6);
+        ctx.fillStyle=day.count===0?"rgba(255,255,255,0.08)":T.cellActive[Math.min(day.count-1,2)];
         ctx.fill();
-        if (day.key===today.toISOString().slice(0,10)) {
-          ctx.strokeStyle = "#818cf8"; ctx.lineWidth = 2; ctx.stroke();
-        }
+        if(day.key===tk){ctx.strokeStyle=T.todayOutline;ctx.lineWidth=2;ctx.stroke();}
       });
     });
 
-    // ── 已掌握词汇 ──
-    const mastY = 860;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText(`✅ 已掌握词汇 ${masteredCount} 个`, 48, mastY);
-    const mastPct = vocabCount > 0 ? Math.round(masteredCount/vocabCount*100) : 0;
-    roundRect(ctx, 48, mastY+14, W-96, 18, 9);
-    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fill();
-    roundRect(ctx, 48, mastY+14, Math.max((W-96)*mastPct/100, 18), 18, 9);
-    const barG = ctx.createLinearGradient(48, 0, W-48, 0);
-    barG.addColorStop(0,"#34d399"); barG.addColorStop(1,"#818cf8");
-    ctx.fillStyle = barG; ctx.fill();
-    ctx.font = "500 20px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillText(`词汇总量 ${vocabCount} 个 · 掌握率 ${mastPct}%`, 48, mastY+54);
+    // 掌握进度
+    const mY=868;
+    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
+    ctx.fillText(`✅ 已掌握词汇 ${masteredCount} 个`,48,mY);
+    const mPct=vocabCount>0?Math.round(masteredCount/vocabCount*100):0;
+    roundRect(ctx,48,mY+14,W-96,18,9); ctx.fillStyle="rgba(255,255,255,0.10)"; ctx.fill();
+    if(mPct>0){roundRect(ctx,48,mY+14,Math.max((W-96)*mPct/100,18),18,9);
+    const bg2=ctx.createLinearGradient(48,0,W-48,0);
+    bg2.addColorStop(0,T.barA);bg2.addColorStop(1,T.barB);ctx.fillStyle=bg2;ctx.fill();}
+    ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.55)";
+    ctx.fillText(`词汇总量 ${vocabCount} 个 · 掌握率 ${mPct}%`,48,mY+54);
 
-    // ── 底部网址 ──
-    ctx.strokeStyle = "rgba(255,255,255,0.10)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(48, H-100); ctx.lineTo(W-48, H-100); ctx.stroke();
+    // 底部
+    ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(48,H-100); ctx.lineTo(W-48,H-100); ctx.stroke();
+    ctx.font="bold 28px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.90)";
+    ctx.textAlign="center"; ctx.fillText("🌐 nailaobao.top",W/2,H-60);
+    ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.40)";
+    ctx.fillText("油管英语场景库 · 精选场景短片 · 双语字幕",W/2,H-30);
+    ctx.textAlign="left";
 
-    // 网址
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.90)";
-    ctx.textAlign = "center";
-    ctx.fillText("🌐 nailaobao.top", W/2, H-60);
-    ctx.font = "500 20px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.40)";
-    ctx.fillText("油管英语场景库 · 精选场景短片 · 双语字幕", W/2, H-30);
-    ctx.textAlign = "left";
-
-    const url = canvas.toDataURL("image/png");
-    setPosterUrl(url);
+    setPosterUrl(canvas.toDataURL("image/png"));
     setGenerating(false);
+    setShowModal(true);
   }
 
   return (
     <div>
-      <canvas ref={canvasRef} style={{ display: "none" }} />
+      <canvas ref={canvasRef} style={{ display:"none" }} />
 
       {/* 生成按钮 */}
-      {!posterUrl && (
-        <button
-          onClick={generate}
-          disabled={generating}
-          style={{
-            width: "100%", padding: "16px 0",
-            borderRadius: 22,
-            border: "none",
-            background: generating
-              ? "rgba(99,102,241,0.40)"
-              : "linear-gradient(135deg, #0f172a 0%, #4f46e5 50%, #ec4899 100%)",
-            color: "#fff",
-            fontSize: 16, fontWeight: 950,
-            cursor: generating ? "not-allowed" : "pointer",
-            boxShadow: generating ? "none" : "0 24px 60px rgba(79,70,229,0.35)",
-            transition: "all 300ms ease",
-            letterSpacing: "-0.2px",
-          }}
-        >
-          {generating ? "⏳ 生成中..." : "📸 生成今日打卡海报"}
-        </button>
-      )}
+      <button onClick={() => generate()} disabled={generating} style={{
+        width:"100%", padding:"16px 0", borderRadius:22, border:"none",
+        background: generating ? "rgba(99,102,241,0.40)" : "linear-gradient(135deg,#0f172a 0%,#4f46e5 50%,#ec4899 100%)",
+        color:"#fff", fontSize:16, fontWeight:950,
+        cursor: generating?"not-allowed":"pointer",
+        boxShadow: generating?"none":"0 24px 60px rgba(79,70,229,0.35)",
+        transition:"all 300ms ease", letterSpacing:"-0.2px",
+      }}>
+        {generating ? "⏳ 生成中..." : "📸 生成今日打卡海报"}
+      </button>
+      <div style={{ textAlign:"center", fontSize:11, color:THEME.colors.faint, marginTop:8, fontWeight:700 }}>
+        每次生成随机切换配色主题 · 共 {POSTER_THEMES.length} 种风格
+      </div>
 
-      {/* 生成后展示 */}
-      {posterUrl && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <img
-            src={posterUrl}
-            alt="打卡海报"
-            style={{ width: "100%", borderRadius: 18, border: "1px solid rgba(15,23,42,0.10)",
-              boxShadow: "0 24px 60px rgba(2,6,23,0.15)" }}
-          />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <a
-              href={posterUrl}
-              download={`英语手帐_${new Date().toISOString().slice(0,10)}.png`}
-              style={{ display: "block", textAlign: "center", padding: "13px 0",
-                borderRadius: 16, textDecoration: "none",
-                background: "linear-gradient(135deg, #0f172a, #4f46e5)",
-                color: "#fff", fontSize: 14, fontWeight: 950,
-                boxShadow: "0 18px 40px rgba(79,70,229,0.25)" }}
-            >
-              ⬇️ 保存图片
-            </a>
-            <button
-              onClick={() => setPosterUrl(null)}
-              style={{ padding: "13px 0", borderRadius: 16,
-                border: "1px solid rgba(15,23,42,0.12)",
-                background: "rgba(15,23,42,0.04)",
-                fontSize: 14, fontWeight: 950,
-                color: THEME.colors.muted, cursor: "pointer" }}
-            >
-              🔄 重新生成
-            </button>
-          </div>
-          <div style={{ textAlign: "center", fontSize: 12, color: THEME.colors.faint, fontWeight: 700 }}>
-            长按图片保存 · 分享到朋友圈 / 小红书
+      {/* 弹窗 */}
+      {showModal && posterUrl && (
+        <div onClick={() => setShowModal(false)} style={{
+          position:"fixed", inset:0, zIndex:1000,
+          background:"rgba(0,0,0,0.75)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          padding:16, backdropFilter:"blur(6px)",
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background:THEME.colors.surface,
+            borderRadius:24, padding:16,
+            width:"100%", maxWidth:480,
+            maxHeight:"90vh", overflowY:"auto",
+            boxShadow:"0 40px 100px rgba(0,0,0,0.40)",
+            display:"flex", flexDirection:"column", gap:12,
+          }}>
+            {/* 弹窗顶栏 */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ fontSize:15, fontWeight:950, color:THEME.colors.ink }}>📸 今日打卡海报</div>
+              <button onClick={() => setShowModal(false)} style={{
+                width:32, height:32, borderRadius:999, border:"none",
+                background:"rgba(15,23,42,0.08)", cursor:"pointer",
+                fontSize:16, color:THEME.colors.muted, display:"grid", placeItems:"center",
+              }}>✕</button>
+            </div>
+
+            {/* 海报图 */}
+            <img src={posterUrl} alt="打卡海报" style={{
+              width:"100%", borderRadius:16,
+              border:"1px solid rgba(15,23,42,0.08)",
+              boxShadow:"0 8px 30px rgba(0,0,0,0.12)",
+            }} />
+
+            <div style={{ fontSize:12, color:THEME.colors.faint, textAlign:"center", fontWeight:700 }}>
+              📱 手机长按图片保存 · 分享到朋友圈 / 小红书
+            </div>
+
+            {/* 操作按钮 */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              <a href={posterUrl} download={`英语手帐_${new Date().toISOString().slice(0,10)}.png`}
+                style={{ display:"block", textAlign:"center", padding:"13px 0",
+                  borderRadius:16, textDecoration:"none",
+                  background:"linear-gradient(135deg,#0f172a,#4f46e5)",
+                  color:"#fff", fontSize:14, fontWeight:950,
+                  boxShadow:"0 18px 40px rgba(79,70,229,0.25)" }}>
+                ⬇️ 保存图片
+              </a>
+              <button onClick={() => { setShowModal(false); generate((themeIdx+1)%POSTER_THEMES.length); }}
+                style={{ padding:"13px 0", borderRadius:16,
+                  border:"1px solid rgba(15,23,42,0.12)", background:"rgba(15,23,42,0.04)",
+                  fontSize:14, fontWeight:950, color:THEME.colors.muted, cursor:"pointer" }}>
+                🎨 换个风格
+              </button>
+            </div>
           </div>
         </div>
       )}
