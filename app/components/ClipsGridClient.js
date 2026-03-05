@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./home/theme";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -420,8 +421,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [meLoaded, setMeLoaded] = useState(false);
   const [savedMap, setSavedMap] = useState({});
 
-  useEffect(() => {
-    // 并行发出两个请求，不等 me 回来再发 bookmarks
+  // 封装：根据当前 token 拉取 me + bookmarks，登录/退出都调用
+  function fetchMeAndBookmarks() {
     Promise.all([
       authFetch(remote("/api/me"), { cache: "no-store" }).then(r => r.json()).catch(() => ({ logged_in: false })),
       authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" }).then(r => r.json()).catch(() => null),
@@ -432,8 +433,33 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         const map = {};
         bData.clip_ids.forEach((id) => { map[id] = true; });
         setSavedMap(map);
+      } else {
+        // 未登录或请求失败时清空收藏状态
+        setSavedMap({});
       }
     });
+  }
+
+  useEffect(() => {
+    // 首次挂载：拉取 me + bookmarks
+    fetchMeAndBookmarks();
+
+    // 监听 Supabase auth 状态变化（登录/退出都会触发）
+    const supabase = createSupabaseBrowserClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") {
+        // 退出登录：立即清空状态，不需要发请求
+        setMe({ logged_in: false });
+        setMeLoaded(true);
+        setSavedMap({});
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // 登录成功：重新拉取最新状态
+        fetchMeAndBookmarks();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggleSaved(clipId) {
@@ -450,7 +476,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const autoFillOnceRef = useRef(false);
   const isFirstRender = useRef(true);
 
-  // ✅ 修复：filters 变化时不再立刻清空 items，等新数据回来再替换，避免闪烁
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
@@ -459,7 +484,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     reqVersionRef.current += 1;
     const myVersion = reqVersionRef.current;
 
-    // ✅ 只设置 loading，不清空 items（旧内容保留到新数据回来）
     setLoading(true);
     setErr("");
     inFlightRef.current = false;
@@ -472,7 +496,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
       .then((r) => r.json())
       .then((data) => {
         if (myVersion !== reqVersionRef.current) return;
-        // ✅ 数据回来之后再替换，页面不会出现空白闪烁
         setItems(data.items || []);
         setHasMore(!!data.has_more);
       })
@@ -601,7 +624,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .loadingOverlay { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease; }
       `}</style>
 
-      {/* ✅ 筛选时旧内容半透明显示，不清空，不闪烁 */}
       <div className={loading && items.length > 0 ? "loadingOverlay" : ""}>
         {loading && items.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
@@ -611,7 +633,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
-              // 非会员点会员视频直接跳兑换页（等me加载完再判断）
               const isBlocked = isVip && meLoaded && !me?.is_member && !r.can_access;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
