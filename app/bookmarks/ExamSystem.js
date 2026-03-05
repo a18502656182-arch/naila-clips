@@ -62,80 +62,322 @@ function ProgressBar({ current, total, onExit }) {
   );
 }
 
-// ── 听写模式 ──────────────────────────────────────────────
-function DictationExam({ cards, onComplete, onExit }) {
+// ── 气泡消消乐拼写模式 ────────────────────────────────────
+function BubbleSpellingExam({ cards, onComplete, onExit }) {
   const [idx, setIdx] = useState(0);
-  const [input, setInput] = useState("");
+  const [slots, setSlots] = useState([]);       // 答案槽，每格是字母或null
+  const [bubbles, setBubbles] = useState([]);   // 剩余可点击气泡 {letter, id, shake}
   const [checked, setChecked] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
   const [results, setResults] = useState([]);
-  const inputRef = useRef(null);
-  const nextBtnRef = useRef(null);
+  const [playingAudio, setPlayingAudio] = useState(false);
+  const [successAnim, setSuccessAnim] = useState(false);
+
   const card = cards[idx];
   const isLast = idx === cards.length - 1;
 
+  // 每题初始化
   useEffect(() => {
-    if (card) { setInput(""); setChecked(false); setTimeout(() => inputRef.current?.focus(), 50); playWord(card.term); }
-  }, [idx]);
+    if (!card) return;
+    initQuestion(card);
+    playWord(card.term);
+  }, [idx, card?.id]);
 
-  useEffect(() => {
-    if (checked && nextBtnRef.current) setTimeout(() => nextBtnRef.current?.focus(), 100);
-  }, [checked]);
+  function initQuestion(c) {
+    const term = c.term;
+    // 答案槽：每个字母一格，空格保留为固定分隔
+    const slotArr = term.split("").map(ch => (ch === " " ? " " : null));
+    setSlots(slotArr);
+    // 打乱字母生成气泡（过滤空格，保留大小写原样展示但比较时忽略大小写）
+    const letters = term.split("").filter(ch => ch !== " ");
+    // 加入2~4个干扰字母
+    const distractorPool = "abcdefghijklmnopqrstuvwxyz";
+    const termLetters = new Set(letters.map(l => l.toLowerCase()));
+    const distractors = distractorPool.split("").filter(l => !termLetters.has(l));
+    const shuffledDistractors = [...distractors].sort(() => Math.random() - 0.5);
+    const extraCount = Math.min(4, Math.max(2, Math.floor(letters.length * 0.4)));
+    const extras = shuffledDistractors.slice(0, extraCount);
+    const allLetters = [...letters, ...extras].sort(() => Math.random() - 0.5);
+    setBubbles(allLetters.map((letter, i) => ({ letter, id: i, shake: false, used: false })));
+    setChecked(false);
+    setIsCorrect(false);
+    setSuccessAnim(false);
+  }
+
+  function handleBubbleClick(bubbleId) {
+    if (checked) return;
+    const bubble = bubbles.find(b => b.id === bubbleId && !b.used);
+    if (!bubble) return;
+
+    // 找第一个空槽（跳过固定空格）
+    const emptyIdx = slots.findIndex((s, i) => s === null);
+    if (emptyIdx === -1) return;
+
+    // 检查这个字母是否正确（对应位置）
+    const expectedLetter = card.term[emptyIdx];
+    if (bubble.letter.toLowerCase() !== expectedLetter.toLowerCase()) {
+      // 字母错误 → 气泡抖动
+      setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, shake: true } : b));
+      setTimeout(() => {
+        setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, shake: false } : b));
+      }, 500);
+      return;
+    }
+
+    // 正确 → 字母飞入槽
+    const newSlots = [...slots];
+    newSlots[emptyIdx] = bubble.letter;
+    setSlots(newSlots);
+    setBubbles(prev => prev.map(b => b.id === bubbleId ? { ...b, used: true } : b));
+
+    // 判断是否全部填完
+    const nextSlots = newSlots;
+    const allFilled = nextSlots.every(s => s !== null);
+    if (allFilled) {
+      const userAnswer = nextSlots.join("");
+      const correct = userAnswer.toLowerCase() === card.term.toLowerCase();
+      const result = { id: card.id, term: card.term, correct, userAnswer, prevMastery: card.mastery_level ?? 0 };
+      const newResults = [...results, result];
+      setResults(newResults);
+      setChecked(true);
+      setIsCorrect(correct);
+      if (correct) {
+        setSuccessAnim(true);
+        setTimeout(() => {
+          if (isLast) onComplete(newResults);
+          else setIdx(i => i + 1);
+        }, 900);
+      }
+    }
+  }
+
+  function handlePlayAudio() {
+    setPlayingAudio(true);
+    playWord(card.term);
+    setTimeout(() => setPlayingAudio(false), 1500);
+  }
+
+  function handleNext() {
+    if (isLast) onComplete(results);
+    else setIdx(i => i + 1);
+  }
+
+  function handleReset() {
+    // 重置当前题，重新打乱
+    initQuestion(card);
+  }
 
   if (!card) return null;
-  const normalize = s => s.trim().toLowerCase().replace(/[^\w\s]/g, "");
-  const isCorrect = results[idx]?.correct;
 
-  const check = () => {
-    if (checked) return;
-    const correct = normalize(input) === normalize(card.term);
-    const result = { id: card.id, term: card.term, correct, userAnswer: input.trim(), prevMastery: card.mastery_level ?? 0 };
-    const newResults = [...results, result];
-    setResults(newResults);
-    setChecked(true);
-    if (correct && !isLast) setTimeout(() => { setIdx(i => i + 1); }, 600);
-    if (correct && isLast) setTimeout(() => onComplete(newResults), 600);
-  };
+  const filledCount = slots.filter(s => s !== null && s !== " ").length;
+  const totalLetters = card.term.split("").filter(c => c !== " ").length;
 
-  const next = () => { if (isLast) onComplete(results); else setIdx(i => i + 1); };
+  // 气泡颜色池
+  const bubbleColors = [
+    { bg: "linear-gradient(135deg,#6366f1,#4f46e5)", shadow: "rgba(99,102,241,0.35)" },
+    { bg: "linear-gradient(135deg,#ec4899,#db2777)", shadow: "rgba(236,72,153,0.35)" },
+    { bg: "linear-gradient(135deg,#06b6d4,#0891b2)", shadow: "rgba(6,182,212,0.35)" },
+    { bg: "linear-gradient(135deg,#10b981,#059669)", shadow: "rgba(16,185,129,0.35)" },
+    { bg: "linear-gradient(135deg,#f59e0b,#d97706)", shadow: "rgba(245,158,11,0.35)" },
+    { bg: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(139,92,246,0.35)" },
+  ];
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto", padding: "8px 16px 40px" }}>
+      <style>{`
+        @keyframes bubbleShake {
+          0%,100%{transform:translateX(0) scale(1)}
+          20%{transform:translateX(-6px) scale(1.05)}
+          40%{transform:translateX(6px) scale(1.05)}
+          60%{transform:translateX(-4px)}
+          80%{transform:translateX(4px)}
+        }
+        @keyframes slotPop {
+          0%{transform:scale(0.5);opacity:0}
+          60%{transform:scale(1.2)}
+          100%{transform:scale(1);opacity:1}
+        }
+        @keyframes successPulse {
+          0%,100%{transform:scale(1)}
+          50%{transform:scale(1.04)}
+        }
+        @keyframes bubbleAppear {
+          0%{transform:scale(0);opacity:0}
+          70%{transform:scale(1.15)}
+          100%{transform:scale(1);opacity:1}
+        }
+      `}</style>
+
       <ProgressBar current={idx} total={cards.length} onExit={onExit} />
-      <div style={{ background: THEME.colors.surface, borderRadius: THEME.radii.lg, border: `1px solid ${THEME.colors.border}`, padding: 28, boxShadow: "0 4px 16px rgba(11,18,32,0.08)" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+
+      <div style={{
+        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
+        border: `1px solid ${THEME.colors.border}`,
+        padding: "24px 20px 28px",
+        boxShadow: "0 4px 16px rgba(11,18,32,0.08)",
+        animation: successAnim ? "successPulse 400ms ease" : "none",
+      }}>
+        {/* 顶部：掌握度 + 发音按钮 */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <MasteryBadge level={card.mastery_level ?? 0} />
+          <button type="button" onClick={handlePlayAudio} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "7px 14px", borderRadius: THEME.radii.pill,
+            background: playingAudio ? THEME.colors.accent : "#eef2ff",
+            border: `1px solid ${playingAudio ? THEME.colors.accent : "#c7d2fe"}`,
+            color: playingAudio ? "#fff" : THEME.colors.accent,
+            fontSize: 13, fontWeight: 700, cursor: "pointer", transition: "all 200ms",
+          }}>
+            {playingAudio ? "🔊 播放中..." : "🔊 听发音"}
+          </button>
         </div>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
-          <button type="button" onClick={() => playWord(card.term)} style={{ width: 64, height: 64, borderRadius: "50%", background: THEME.colors.accent, border: "none", cursor: "pointer", fontSize: 28, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(79,70,229,0.3)" }}>▶</button>
-          <div style={{ marginTop: 8, fontSize: 12, color: THEME.colors.faint }}>点击播放发音</div>
-          {card.data?.ipa && <div style={{ marginTop: 4, fontSize: 13, color: THEME.colors.muted, fontFamily: "monospace" }}>{card.data.ipa}</div>}
-        </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ fontSize: 13, fontWeight: 600, color: THEME.colors.muted, display: "block", marginBottom: 8 }}>
-            {card.kind === "words" ? "请输入单词：" : card.kind === "phrases" ? "请输入短语：" : "请输入表达："}
-          </label>
-          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") { checked ? next() : check(); } }}
-            disabled={checked} placeholder="输入答案..."
-            style={{ width: "100%", padding: "12px 16px", fontSize: 17, borderRadius: THEME.radii.md, border: `2px solid ${checked ? (isCorrect ? "#22c55e" : "#ef4444") : THEME.colors.border2}`, background: checked ? (isCorrect ? "#f0fdf4" : "#fff5f5") : THEME.colors.surface, outline: "none", boxSizing: "border-box", transition: "border-color 0.2s" }} />
-        </div>
-        {checked && (
-          <div style={{ marginBottom: 16, padding: 14, borderRadius: THEME.radii.md, background: isCorrect ? "#f0fdf4" : "#fff5f5", border: `1px solid ${isCorrect ? "#bbf7d0" : "#fecaca"}` }}>
-            <div style={{ fontWeight: 700, color: isCorrect ? "#16a34a" : "#dc2626", marginBottom: isCorrect ? 0 : 8 }}>
-              {isCorrect ? "✓ 正确！" + (card.mastery_level < 2 ? " 掌握程度已提升 🎉" : "") : "✗ 错误"}
+
+        {/* 提示：中文释义 + 例句 */}
+        <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+          {card.data?.zh && (
+            <div style={{ padding: "10px 14px", background: "#fffbeb", borderRadius: THEME.radii.md, border: "1px solid #fde68a" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>中文含义　</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: THEME.colors.ink }}>{card.data.zh}</span>
             </div>
-            {!isCorrect && <>
-              <div style={{ fontSize: 13, color: THEME.colors.ink }}>正确答案：<strong>{card.term}</strong></div>
-              {card.data?.zh && <div style={{ marginTop: 8, fontSize: 13, padding: 10, background: "#fffbeb", borderRadius: 8, border: "1px solid #fde68a" }}><span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>中文含义　</span>{card.data.zh}</div>}
-              {card.data?.example_en && <div style={{ marginTop: 8, fontSize: 13, padding: 10, background: "#eff6ff", borderRadius: 8, border: "1px solid #bfdbfe" }}><span style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8" }}>例句　</span>{card.data.example_en}</div>}
-            </>}
+          )}
+          {card.data?.ipa && (
+            <div style={{ padding: "8px 14px", background: "#f8fafc", borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}` }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: THEME.colors.muted }}>音标　</span>
+              <span style={{ fontSize: 13, fontFamily: "monospace", color: THEME.colors.muted }}>{card.data.ipa}</span>
+            </div>
+          )}
+          {card.data?.example_en && (
+            <div style={{ padding: "10px 14px", background: "#eff6ff", borderRadius: THEME.radii.md, border: "1px solid #bfdbfe" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8" }}>例句　</span>
+              <span style={{ fontSize: 13, color: THEME.colors.ink, fontStyle: "italic" }}>
+                "{card.data.example_en.replace(new RegExp(card.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '＿＿＿')}"
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 答案槽 */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>
+            点击字母拼出答案 · {filledCount}/{totalLetters} 个字母
+          </div>
+          <div style={{
+            display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center",
+            minHeight: 52, padding: "8px 12px",
+            background: "#f8fafc", borderRadius: THEME.radii.md,
+            border: `2px dashed ${checked ? (isCorrect ? "#22c55e" : "#ef4444") : "#c7d2fe"}`,
+            transition: "border-color 300ms",
+          }}>
+            {slots.map((s, i) => {
+              if (s === " ") {
+                return <div key={i} style={{ width: 14 }} />;
+              }
+              return (
+                <div key={i} style={{
+                  width: 38, height: 42,
+                  borderRadius: 10,
+                  border: `2px solid ${s ? (checked ? (isCorrect ? "#22c55e" : "#ef4444") : "#6366f1") : "#c7d2fe"}`,
+                  background: s ? (checked ? (isCorrect ? "#f0fdf4" : "#fff5f5") : "#eef2ff") : "white",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 18, fontWeight: 800,
+                  color: checked ? (isCorrect ? "#16a34a" : "#dc2626") : "#4f46e5",
+                  transition: "all 200ms",
+                  animation: s && !checked ? "slotPop 300ms ease" : "none",
+                  boxShadow: s ? "0 2px 8px rgba(99,102,241,0.15)" : "none",
+                }}>
+                  {s || ""}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 结果反馈（答错时显示） */}
+        {checked && !isCorrect && (
+          <div style={{
+            marginBottom: 20, padding: "12px 16px", borderRadius: THEME.radii.md,
+            background: "#fff5f5", border: "1px solid #fecaca",
+          }}>
+            <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>✗ 拼写有误</div>
+            <div style={{ fontSize: 13, color: THEME.colors.ink }}>正确拼写：<strong style={{ color: "#dc2626", fontSize: 16 }}>{card.term}</strong></div>
+            {card.data?.zh && <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{card.data.zh}</div>}
           </div>
         )}
-        <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
-          {!checked
-            ? <button type="button" onClick={check} disabled={!input.trim()} style={{ padding: "10px 28px", borderRadius: THEME.radii.pill, background: THEME.colors.ink, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: input.trim() ? "pointer" : "not-allowed", opacity: input.trim() ? 1 : 0.5 }}>检查答案</button>
-            : !isCorrect && <button ref={nextBtnRef} type="button" onClick={next} style={{ padding: "10px 28px", borderRadius: THEME.radii.pill, background: THEME.colors.ink, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>{isLast ? "完成" : "下一题"}</button>
-          }
+
+        {/* 成功反馈 */}
+        {checked && isCorrect && (
+          <div style={{
+            marginBottom: 20, padding: "12px 16px", borderRadius: THEME.radii.md,
+            background: "#f0fdf4", border: "1px solid #bbf7d0", textAlign: "center",
+          }}>
+            <div style={{ fontWeight: 700, color: "#16a34a", fontSize: 15 }}>
+              ✓ 拼写正确！{card.mastery_level < 2 ? " 掌握程度已提升 🎉" : " 继续保持 💪"}
+            </div>
+          </div>
+        )}
+
+        {/* 气泡区 */}
+        {!checked && (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>
+              点击字母气泡填入答案
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", minHeight: 56 }}>
+              {bubbles.filter(b => !b.used).map((b, i) => {
+                const colorScheme = bubbleColors[b.id % bubbleColors.length];
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={() => handleBubbleClick(b.id)}
+                    style={{
+                      width: 48, height: 48,
+                      borderRadius: "50%",
+                      background: colorScheme.bg,
+                      border: "none",
+                      color: "#fff",
+                      fontSize: 18, fontWeight: 800,
+                      cursor: "pointer",
+                      boxShadow: `0 4px 14px ${colorScheme.shadow}`,
+                      animation: b.shake
+                        ? "bubbleShake 500ms ease"
+                        : `bubbleAppear ${200 + i * 40}ms ease both`,
+                      transition: "transform 100ms, box-shadow 100ms",
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.12)"; e.currentTarget.style.boxShadow = `0 6px 20px ${colorScheme.shadow}`; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 4px 14px ${colorScheme.shadow}`; }}
+                  >
+                    {b.letter}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 底部操作按钮 */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 20 }}>
+          {!checked && (
+            <button type="button" onClick={handleReset} style={{
+              padding: "9px 20px", borderRadius: THEME.radii.pill,
+              border: `1px solid ${THEME.colors.border2}`,
+              background: THEME.colors.surface,
+              fontSize: 13, fontWeight: 600, color: THEME.colors.muted, cursor: "pointer",
+            }}>
+              🔄 重新排列
+            </button>
+          )}
+          {checked && !isCorrect && (
+            <button type="button" onClick={handleNext} style={{
+              padding: "10px 28px", borderRadius: THEME.radii.pill,
+              background: THEME.colors.ink, color: "#fff",
+              border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer",
+            }}>
+              {isLast ? "完成" : "下一题"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -194,7 +436,7 @@ function MultipleChoiceExam({ cards, allVocab, onComplete, onExit }) {
           </div>}
           {card.data?.example_en && <div style={{ padding: 14, background: "#eff6ff", borderRadius: THEME.radii.md, border: "1px solid #bfdbfe" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8", marginBottom: 4 }}>例句（划线处填空）</div>
-            <div style={{ fontSize: 13, color: THEME.colors.ink, fontStyle: "italic" }}>"{card.data.example_en.replace(new RegExp(card.term, 'gi'), '___')}"</div>
+            <div style={{ fontSize: 13, color: THEME.colors.ink, fontStyle: "italic" }}>"{card.data.example_en.replace(new RegExp(card.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '___')}"</div>
           </div>}
         </div>
         <div style={{ marginBottom: 20 }}>
@@ -247,7 +489,6 @@ function ExamResults({ results, cards, onReview, onFinish }) {
 
   useEffect(() => {
     if (results.length === 0) return;
-    // 用 r.prevMastery（考试开始时记录的值）来计算升降级
     const updates = [];
     for (const r of results) {
       const prev = r.prevMastery ?? 0;
@@ -308,7 +549,7 @@ function ExamResults({ results, cards, onReview, onFinish }) {
 function ExamSetup({ cards, isOpen, onClose, onStart }) {
   const [selected, setSelected] = useState(new Set());
   const [mode, setMode] = useState("dictation");
-  const [filter, setFilter] = useState("all"); // all | unmastered
+  const [filter, setFilter] = useState("all");
   useEffect(() => { if (isOpen) setSelected(new Set(cards.map(c => c.id))); }, [isOpen, cards]);
   if (!isOpen) return null;
 
@@ -324,7 +565,11 @@ function ExamSetup({ cards, isOpen, onClose, onStart }) {
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: THEME.colors.muted, marginBottom: 10 }}>考试类型</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {[["dictation", "🎧 听写", "播放发音，输入答案"], ["multiple_choice", "📝 选择题", "看提示，选正确单词"], ["mixed", "🔀 混合", "随机穿插两种题型"]].map(([val, label, desc]) => (
+              {[
+                ["dictation", "🎮 气泡拼写", "点击字母气泡，拼出单词"],
+                ["multiple_choice", "📝 选择题", "看提示，选正确单词"],
+                ["mixed", "🔀 混合", "随机穿插两种题型"],
+              ].map(([val, label, desc]) => (
                 <button key={val} type="button" onClick={() => setMode(val)} style={{ flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: THEME.radii.md, border: `2px solid ${mode === val ? THEME.colors.accent : THEME.colors.border2}`, background: mode === val ? "#eef2ff" : THEME.colors.surface, cursor: "pointer", textAlign: "left" }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: mode === val ? THEME.colors.accent : THEME.colors.ink }}>{label}</div>
                   <div style={{ fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>{desc}</div>
@@ -414,7 +659,7 @@ export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMa
     return (
       <>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px" }}>
-          {phase === "dictation" && <DictationExam cards={examCards} onComplete={handleComplete} onExit={handleExit} />}
+          {phase === "dictation" && <BubbleSpellingExam cards={examCards} onComplete={handleComplete} onExit={handleExit} />}
           {phase === "multiple_choice" && <MultipleChoiceExam cards={examCards} allVocab={vocabItems} onComplete={handleComplete} onExit={handleExit} />}
           {phase === "results" && <ExamResults results={results} cards={examCards} onReview={handleReview} onFinish={handleFinish} />}
         </div>
