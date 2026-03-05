@@ -79,15 +79,12 @@ export default function UserMenuClient() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // 和参考站一样：supabase.auth.signOut() + router.refresh()
   async function handleLogout() {
     try {
       setOpen(false);
-      // 先清本地状态，避免退出后UI还显示旧数据
       setEmail(null);
       setIsMember(false);
       setMeData(null);
-      // 清 localStorage 中的 token（各组件用 getToken() 读这个）
       try { localStorage.removeItem("sb_access_token"); } catch {}
       const supabase = createSupabaseBrowserClient();
       await supabase.auth.signOut();
@@ -95,7 +92,6 @@ export default function UserMenuClient() {
     } catch {}
   }
 
-  // 和参考站一样：loading 时返回 null
   if (loading) return null;
 
   if (!email) {
@@ -170,6 +166,12 @@ export default function UserMenuClient() {
               border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
               textDecoration: "none", color: THEME.colors.ink, fontSize: 13, fontWeight: 600,
             }}>❤️ 我的收藏</a>
+
+            <a href="/journal" onClick={() => setOpen(false)} style={{
+              display: "block", padding: "10px 12px", borderRadius: THEME.radii.md,
+              border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
+              textDecoration: "none", color: THEME.colors.ink, fontSize: 13, fontWeight: 600,
+            }}>📒 我的手帐</a>
 
             <a href="/redeem" onClick={() => setOpen(false)} style={{
               display: "block", padding: "10px 12px", borderRadius: THEME.radii.md,
