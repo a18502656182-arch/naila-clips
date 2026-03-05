@@ -420,22 +420,18 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [savedMap, setSavedMap] = useState({});
 
   useEffect(() => {
-    authFetch(remote("/api/me"), { cache: "no-store" })
-      .then((r) => r.json())
-      .then((data) => {
-        setMe(data);
-        if (data?.logged_in) {
-          authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" })
-            .then((r) => r.json())
-            .then((d) => {
-              const map = {};
-              (d?.clip_ids || []).forEach((id) => { map[id] = true; });
-              setSavedMap(map);
-            })
-            .catch(() => {});
-        }
-      })
-      .catch(() => setMe({ logged_in: false }));
+    // 并行发出两个请求，不等 me 回来再发 bookmarks
+    Promise.all([
+      authFetch(remote("/api/me"), { cache: "no-store" }).then(r => r.json()).catch(() => ({ logged_in: false })),
+      authFetch(remote("/api/bookmarks_list_ids"), { cache: "no-store" }).then(r => r.json()).catch(() => null),
+    ]).then(([meData, bData]) => {
+      setMe(meData);
+      if (meData?.logged_in && bData?.clip_ids) {
+        const map = {};
+        bData.clip_ids.forEach((id) => { map[id] = true; });
+        setSavedMap(map);
+      }
+    });
   }, []);
 
   function toggleSaved(clipId) {
