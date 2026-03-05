@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { THEME } from "../components/home/theme";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -396,20 +397,7 @@ const POSTER_THEMES = [
   },
 ];
 
-function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks }) {
-  const canvasRef = useRef(null);
-  const [generating, setGenerating] = useState(false);
-  const [posterUrl, setPosterUrl] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [themeIdx, setThemeIdx] = useState(0);
-
-  const doneCount = tasks.filter(t => t.done).length;
-
-  function roundRect(ctx, x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
-    ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
-    ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+-r,y+h,r); ctx.lineTo(x+r,y+h);
     ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
     ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
   }
@@ -586,8 +574,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
         每次生成随机切换配色主题 · 共 {POSTER_THEMES.length} 种风格
       </div>
 
-      {/* ── 弹窗遮罩 ── */}
-      {showModal && posterUrl && (
+      {/* ── 弹窗遮罩：用 Portal 渲染到 body，绕开父级 overflow:hidden ── */}
+      {showModal && posterUrl && createPortal(
         <div
           onClick={() => setShowModal(false)}
           style={{
@@ -691,7 +679,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             @keyframes posterFadeIn { from{opacity:0} to{opacity:1} }
             @keyframes posterSlideUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
           `}</style>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
