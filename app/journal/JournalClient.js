@@ -545,15 +545,13 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     const url = canvas.toDataURL("image/png");
     setPosterUrl(url);
     setGenerating(false);
-    // setTimeout 确保 setGenerating(false) 渲染完成后再打开弹窗
-    // 直接调用 setShowModal(true) 在某些 React 批处理场景下弹窗不会显示
     setTimeout(() => setShowModal(true), 0);
   }
 
-  function handleSwitchTheme() {
-    setShowModal(false);
-    // 等弹窗关闭动画完成后再生成新主题
-    setTimeout(() => generate((themeIdx + 1) % POSTER_THEMES.length), 60);
+  async function handleSwitchTheme() {
+    const nextTheme = (themeIdx + 1) % POSTER_THEMES.length;
+    // 弹窗保持打开，直接在原地重新绘制
+    await generate(nextTheme);
   }
 
   function handleDownload() {
