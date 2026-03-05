@@ -62,6 +62,224 @@ function ProgressBar({ current, total, onExit }) {
   );
 }
 
+// ── 极速连连看 ────────────────────────────────────────────
+const MATCH_TIME = 30; // 每轮秒数
+const BATCH_SIZE = 5;  // 每次几对
+
+function MatchMadnessExam({ cards, onComplete, onExit }) {
+  const [batch, setBatch] = useState([]);         // 当前这批词 [{id,term,zh}]
+  const [leftSel, setLeftSel] = useState(null);   // 选中的英文 id
+  const [rightSel, setRightSel] = useState(null); // 选中的中文 id
+  const [matched, setMatched] = useState(new Set()); // 已消除的 id
+  const [flash, setFlash] = useState(null);       // {id, ok} 闪烁反馈
+  const [shake, setShake] = useState(false);      // 错误时屏幕抖动
+  const [timeLeft, setTimeLeft] = useState(MATCH_TIME);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [done, setDone] = useState(false);
+  const [results, setResults] = useState([]);
+  const deckRef = useRef([...cards].sort(() => Math.random() - 0.5));
+  const offsetRef = useRef(0);
+  const timerRef = useRef(null);
+
+  // 右侧中文打乱顺序独立维护
+  const [rightOrder, setRightOrder] = useState([]);
+
+  function loadNextBatch() {
+    const deck = deckRef.current;
+    const start = offsetRef.current;
+    if (start >= deck.length) { endGame(); return; }
+    const next = deck.slice(start, start + BATCH_SIZE);
+    offsetRef.current = start + next.length;
+    setBatch(next);
+    setMatched(new Set());
+    setLeftSel(null); setRightSel(null);
+    setRightOrder([...next].sort(() => Math.random() - 0.5));
+  }
+
+  function endGame() {
+    clearInterval(timerRef.current);
+    setDone(true);
+    // 把 results 传给 onComplete，格式和其他模式一致
+    onComplete(results);
+  }
+
+  useEffect(() => {
+    loadNextBatch();
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) { clearInterval(timerRef.current); setDone(true); onComplete(results); return 0; }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  // 当一批全部消除，自动加载下一批
+  useEffect(() => {
+    if (batch.length > 0 && matched.size === batch.length) {
+      setTimeout(loadNextBatch, 400);
+    }
+  }, [matched]);
+
+  function handleLeft(id) {
+    if (matched.has(id) || done) return;
+    setLeftSel(id);
+    if (rightSel !== null) tryMatch(id, rightSel);
+  }
+
+  function handleRight(id) {
+    if (matched.has(id) || done) return;
+    setRightSel(id);
+    if (leftSel !== null) tryMatch(leftSel, id);
+  }
+
+  function tryMatch(lId, rId) {
+    // lId = 英文词的 id，rId = 中文对应的 id（同一个词的 id）
+    const correct = lId === rId;
+    if (correct) {
+      const newMatched = new Set([...matched, lId]);
+      setMatched(newMatched);
+      const newCombo = combo + 1;
+      setCombo(newCombo);
+      setBestCombo(b => Math.max(b, newCombo));
+      setScore(s => s + 10 + newCombo * 2);
+      setResults(prev => [...prev, { id: lId, term: batch.find(c => c.id === lId)?.term, correct: true, prevMastery: batch.find(c => c.id === lId)?.mastery_level ?? 0 }]);
+      setFlash({ id: lId, ok: true });
+      setTimeout(() => setFlash(null), 400);
+    } else {
+      setCombo(0);
+      setTimeLeft(t => Math.max(0, t - 3)); // 扣3秒
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+      setResults(prev => [...prev, { id: lId, term: batch.find(c => c.id === lId)?.term, correct: false, prevMastery: batch.find(c => c.id === lId)?.mastery_level ?? 0 }]);
+    }
+    setLeftSel(null); setRightSel(null);
+  }
+
+  if (done) return null; // onComplete 已触发，让父层切换到结果页
+
+  const timePct = timeLeft / MATCH_TIME * 100;
+  const timeColor = timeLeft > 15 ? "#22c55e" : timeLeft > 8 ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "8px 16px 40px" }}>
+      <style>{`
+        @keyframes matchShake {
+          0%,100%{transform:translateX(0)}
+          20%{transform:translateX(-8px)}
+          40%{transform:translateX(8px)}
+          60%{transform:translateX(-5px)}
+          80%{transform:translateX(5px)}
+        }
+        @keyframes matchPop {
+          0%{transform:scale(1)}
+          40%{transform:scale(1.08)}
+          100%{transform:scale(1)}
+        }
+        @keyframes matchFadeOut {
+          0%{opacity:1;transform:scale(1)}
+          100%{opacity:0;transform:scale(0.85)}
+        }
+      `}</style>
+
+      {/* 顶部状态栏 */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <span style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink }}>⚡ {score}</span>
+            {combo >= 2 && (
+              <span style={{ fontSize: 13, fontWeight: 800, padding: "3px 10px", borderRadius: 999,
+                background: "linear-gradient(135deg,#f59e0b,#ef4444)",
+                color: "#fff", animation: "matchPop 300ms ease" }}>
+                🔥 {combo}连击
+              </span>
+            )}
+          </div>
+          <button type="button" onClick={onExit} style={{ fontSize: 13, color: THEME.colors.muted, background: "none", border: "none", cursor: "pointer" }}>退出</button>
+        </div>
+        {/* 计时条 */}
+        <div style={{ height: 10, background: "#e8eaf0", borderRadius: 999, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{
+            height: "100%", borderRadius: 999,
+            width: `${timePct}%`,
+            background: `linear-gradient(90deg, ${timeColor}, ${timeColor}cc)`,
+            transition: "width 1s linear, background 0.5s",
+            boxShadow: `0 0 8px ${timeColor}88`,
+          }} />
+        </div>
+        <div style={{ textAlign: "right", fontSize: 12, color: timeColor, fontWeight: 800, marginTop: 4 }}>{timeLeft}s</div>
+      </div>
+
+      {/* 配对区 */}
+      <div style={{
+        animation: shake ? "matchShake 500ms ease" : "none",
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
+      }}>
+        {/* 左侧英文 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {batch.map(card => {
+            const isMatched = matched.has(card.id);
+            const isSelected = leftSel === card.id;
+            const isFlashing = flash?.id === card.id;
+            return (
+              <button key={card.id} type="button"
+                onClick={() => handleLeft(card.id)}
+                style={{
+                  padding: "12px 14px", borderRadius: 14, border: "2px solid",
+                  borderColor: isMatched ? "#bbf7d0" : isSelected ? THEME.colors.accent : THEME.colors.border2,
+                  background: isMatched ? "#f0fdf4" : isSelected ? "#eef2ff" : THEME.colors.surface,
+                  color: isMatched ? "#16a34a" : isSelected ? THEME.colors.accent : THEME.colors.ink,
+                  fontSize: 14, fontWeight: 700, cursor: isMatched ? "default" : "pointer",
+                  textAlign: "center", transition: "all 150ms",
+                  opacity: isMatched ? 0.45 : 1,
+                  animation: isFlashing ? "matchPop 400ms ease" : "none",
+                  boxShadow: isSelected ? "0 0 0 3px rgba(99,102,241,0.20)" : "none",
+                  textDecoration: isMatched ? "line-through" : "none",
+                }}>
+                {card.term}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 右侧中文 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {rightOrder.map(card => {
+            const isMatched = matched.has(card.id);
+            const isSelected = rightSel === card.id;
+            const isFlashing = flash?.id === card.id;
+            return (
+              <button key={card.id} type="button"
+                onClick={() => handleRight(card.id)}
+                style={{
+                  padding: "12px 14px", borderRadius: 14, border: "2px solid",
+                  borderColor: isMatched ? "#bbf7d0" : isSelected ? "#ec4899" : THEME.colors.border2,
+                  background: isMatched ? "#f0fdf4" : isSelected ? "#fdf2f8" : THEME.colors.surface,
+                  color: isMatched ? "#16a34a" : isSelected ? "#db2777" : THEME.colors.ink,
+                  fontSize: 13, fontWeight: 600, cursor: isMatched ? "default" : "pointer",
+                  textAlign: "center", transition: "all 150ms",
+                  opacity: isMatched ? 0.45 : 1,
+                  animation: isFlashing ? "matchPop 400ms ease" : "none",
+                  boxShadow: isSelected ? "0 0 0 3px rgba(236,72,153,0.20)" : "none",
+                  textDecoration: isMatched ? "line-through" : "none",
+                }}>
+                {card.data?.zh || card.term}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 已消除进度提示 */}
+      <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, color: THEME.colors.faint, fontWeight: 700 }}>
+        本轮 {matched.size}/{batch.length} · 最高连击 {bestCombo}
+      </div>
+    </div>
+  );
+}
+
 // ── 气泡消消乐拼写模式 ────────────────────────────────────
 function BubbleSpellingExam({ cards, onComplete, onExit }) {
   const [idx, setIdx] = useState(0);
@@ -561,6 +779,7 @@ function ExamSetup({ cards, isOpen, onClose, onStart }) {
               {[
                 ["dictation", "🎮 气泡拼写", "点击字母气泡，拼出单词"],
                 ["multiple_choice", "📝 选择题", "看提示，选正确单词"],
+                ["match", "⚡ 极速连连看", "限时配对，越快越爽"],
                 ["mixed", "🔀 混合", "随机穿插两种题型"],
               ].map(([val, label, desc]) => (
                 <button key={val} type="button" onClick={() => setMode(val)} style={{ flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: THEME.radii.md, border: `2px solid ${mode === val ? THEME.colors.accent : THEME.colors.border2}`, background: mode === val ? "#eef2ff" : THEME.colors.surface, cursor: "pointer", textAlign: "left" }}>
@@ -648,12 +867,13 @@ export default function ExamSystem({ vocabItems, isSetupOpen, onSetupClose, onMa
     onMasteryUpdated?.();
   };
 
-  if (phase === "dictation" || phase === "multiple_choice" || phase === "results") {
+  if (phase === "dictation" || phase === "multiple_choice" || phase === "match" || phase === "results") {
     return (
       <>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px" }}>
           {phase === "dictation" && <BubbleSpellingExam cards={examCards} onComplete={handleComplete} onExit={handleExit} />}
           {phase === "multiple_choice" && <MultipleChoiceExam cards={examCards} allVocab={vocabItems} onComplete={handleComplete} onExit={handleExit} />}
+          {phase === "match" && <MatchMadnessExam cards={examCards} onComplete={handleComplete} onExit={handleExit} />}
           {phase === "results" && <ExamResults results={results} cards={examCards} onReview={handleReview} onFinish={handleFinish} />}
         </div>
         {exitConfirm && (
