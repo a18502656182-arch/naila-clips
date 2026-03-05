@@ -368,6 +368,266 @@ function AbilityProfile({ masteryStats, topicStats }) {
   );
 }
 
+
+// ── 打卡海报生成器（纯 Canvas，无需第三方库）────────────────
+function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks }) {
+  const canvasRef = useRef(null);
+  const [generating, setGenerating] = useState(false);
+  const [posterUrl, setPosterUrl] = useState(null);
+
+  const doneCount = tasks.filter(t => t.done).length;
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+  }
+
+  async function generate() {
+    setGenerating(true);
+    setPosterUrl(null);
+    await new Promise(r => setTimeout(r, 60));
+
+    const canvas = canvasRef.current;
+    const W = 750, H = 1200;
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext("2d");
+
+    // ── 背景渐变 ──
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, "#0f172a");
+    bg.addColorStop(0.45, "#1e1b4b");
+    bg.addColorStop(1, "#0f172a");
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+    // 背景光晕
+    const g1 = ctx.createRadialGradient(150, 200, 0, 150, 200, 320);
+    g1.addColorStop(0, "rgba(99,102,241,0.35)"); g1.addColorStop(1, "transparent");
+    ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+    const g2 = ctx.createRadialGradient(620, 400, 0, 620, 400, 280);
+    g2.addColorStop(0, "rgba(236,72,153,0.25)"); g2.addColorStop(1, "transparent");
+    ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+
+    // ── 顶部 Logo + 日期 ──
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("📒 我的英语手帐", 48, 70);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
+    ctx.font = "500 22px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.50)";
+    ctx.textAlign = "right";
+    ctx.fillText(dateStr, W - 48, 70);
+    ctx.textAlign = "left";
+
+    // 分隔线
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(48, 90); ctx.lineTo(W - 48, 90); ctx.stroke();
+
+    // ── 用户名 ──
+    const userName = me?.email?.split("@")[0] || "学习者";
+    ctx.font = "bold 42px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`👋 ${userName}`, 48, 160);
+    ctx.font = "500 24px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.60)";
+    ctx.fillText("今日打卡成功！", 48, 200);
+
+    // ── 三个数字卡片 ──
+    const stats = [
+      { num: streakDays, label: "连续天数", color: "#fb923c", bg: "rgba(251,146,60,0.18)", border: "rgba(251,146,60,0.35)" },
+      { num: totalVideos, label: "累计视频", color: "#818cf8", bg: "rgba(99,102,241,0.18)", border: "rgba(99,102,241,0.35)" },
+      { num: vocabCount, label: "收藏词汇", color: "#34d399", bg: "rgba(52,211,153,0.18)", border: "rgba(52,211,153,0.35)" },
+    ];
+    const cardW = 196, cardH = 110, cardGap = 21, cardY = 240;
+    stats.forEach((s, i) => {
+      const cx = 48 + i * (cardW + cardGap);
+      roundRect(ctx, cx, cardY, cardW, cardH, 18);
+      ctx.fillStyle = s.bg; ctx.fill();
+      ctx.strokeStyle = s.border; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.font = "bold 46px sans-serif";
+      ctx.fillStyle = s.color;
+      ctx.fillText(String(s.num), cx + 18, cardY + 62);
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.60)";
+      ctx.fillText(s.label, cx + 18, cardY + 92);
+    });
+
+    // ── 今日任务进度 ──
+    const taskY = 400;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(`🎯 今日任务 ${doneCount}/3 完成`, 48, taskY);
+    const taskItems = [
+      { label: "沉浸 1 个场景视频", done: tasks[0]?.done },
+      { label: "收藏 3 个地道表达", done: tasks[1]?.done },
+      { label: "词汇通关 1 次", done: tasks[2]?.done },
+    ];
+    taskItems.forEach((t, i) => {
+      const ty = taskY + 28 + i * 44;
+      roundRect(ctx, 48, ty, W - 96, 36, 10);
+      ctx.fillStyle = t.done ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.05)";
+      ctx.fill();
+      ctx.strokeStyle = t.done ? "rgba(34,197,94,0.30)" : "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1; ctx.stroke();
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = t.done ? "#4ade80" : "rgba(255,255,255,0.40)";
+      ctx.fillText(t.done ? "✓" : "○", 70, ty + 24);
+      ctx.fillStyle = t.done ? "rgba(255,255,255,0.90)" : "rgba(255,255,255,0.40)";
+      ctx.fillText(t.label, 104, ty + 24);
+    });
+
+    // ── 热力图 ──
+    const hmY = 590;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText("🔥 学习足迹（近 16 周）", 48, hmY);
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const hmDays = [];
+    for (let i = 111; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate()-i);
+      const key = d.toISOString().slice(0,10);
+      hmDays.push({ key, count: heatmapData[key]||0 });
+    }
+    const pad = (new Date(hmDays[0].key).getDay()+6)%7;
+    const padded = [...Array(pad).fill(null), ...hmDays];
+    const weeks = [];
+    for (let i = 0; i < padded.length; i+=7) weeks.push(padded.slice(i,i+7));
+
+    const cellSize = 28, cellGap = 5;
+    const hmStartX = 48, hmStartY = hmY + 18;
+    weeks.forEach((week, wi) => {
+      week.forEach((day, di) => {
+        if (!day) return;
+        const x = hmStartX + wi*(cellSize+cellGap);
+        const y = hmStartY + di*(cellSize+cellGap);
+        roundRect(ctx, x, y, cellSize, cellSize, 6);
+        if (day.count===0) ctx.fillStyle = "rgba(255,255,255,0.08)";
+        else if (day.count===1) ctx.fillStyle = "rgba(34,197,94,0.30)";
+        else if (day.count===2) ctx.fillStyle = "rgba(34,197,94,0.65)";
+        else ctx.fillStyle = "rgba(34,197,94,0.95)";
+        ctx.fill();
+        if (day.key===today.toISOString().slice(0,10)) {
+          ctx.strokeStyle = "#818cf8"; ctx.lineWidth = 2; ctx.stroke();
+        }
+      });
+    });
+
+    // ── 已掌握词汇 ──
+    const mastY = 860;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText(`✅ 已掌握词汇 ${masteredCount} 个`, 48, mastY);
+    const mastPct = vocabCount > 0 ? Math.round(masteredCount/vocabCount*100) : 0;
+    roundRect(ctx, 48, mastY+14, W-96, 18, 9);
+    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fill();
+    roundRect(ctx, 48, mastY+14, Math.max((W-96)*mastPct/100, 18), 18, 9);
+    const barG = ctx.createLinearGradient(48, 0, W-48, 0);
+    barG.addColorStop(0,"#34d399"); barG.addColorStop(1,"#818cf8");
+    ctx.fillStyle = barG; ctx.fill();
+    ctx.font = "500 20px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillText(`词汇总量 ${vocabCount} 个 · 掌握率 ${mastPct}%`, 48, mastY+54);
+
+    // ── 底部网址 ──
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(48, H-100); ctx.lineTo(W-48, H-100); ctx.stroke();
+
+    // 网址
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.90)";
+    ctx.textAlign = "center";
+    ctx.fillText("🌐 nailaobao.top", W/2, H-60);
+    ctx.font = "500 20px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.40)";
+    ctx.fillText("油管英语场景库 · 精选场景短片 · 双语字幕", W/2, H-30);
+    ctx.textAlign = "left";
+
+    const url = canvas.toDataURL("image/png");
+    setPosterUrl(url);
+    setGenerating(false);
+  }
+
+  return (
+    <div>
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
+      {/* 生成按钮 */}
+      {!posterUrl && (
+        <button
+          onClick={generate}
+          disabled={generating}
+          style={{
+            width: "100%", padding: "16px 0",
+            borderRadius: 22,
+            border: "none",
+            background: generating
+              ? "rgba(99,102,241,0.40)"
+              : "linear-gradient(135deg, #0f172a 0%, #4f46e5 50%, #ec4899 100%)",
+            color: "#fff",
+            fontSize: 16, fontWeight: 950,
+            cursor: generating ? "not-allowed" : "pointer",
+            boxShadow: generating ? "none" : "0 24px 60px rgba(79,70,229,0.35)",
+            transition: "all 300ms ease",
+            letterSpacing: "-0.2px",
+          }}
+        >
+          {generating ? "⏳ 生成中..." : "📸 生成今日打卡海报"}
+        </button>
+      )}
+
+      {/* 生成后展示 */}
+      {posterUrl && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <img
+            src={posterUrl}
+            alt="打卡海报"
+            style={{ width: "100%", borderRadius: 18, border: "1px solid rgba(15,23,42,0.10)",
+              boxShadow: "0 24px 60px rgba(2,6,23,0.15)" }}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <a
+              href={posterUrl}
+              download={`英语手帐_${new Date().toISOString().slice(0,10)}.png`}
+              style={{ display: "block", textAlign: "center", padding: "13px 0",
+                borderRadius: 16, textDecoration: "none",
+                background: "linear-gradient(135deg, #0f172a, #4f46e5)",
+                color: "#fff", fontSize: 14, fontWeight: 950,
+                boxShadow: "0 18px 40px rgba(79,70,229,0.25)" }}
+            >
+              ⬇️ 保存图片
+            </a>
+            <button
+              onClick={() => setPosterUrl(null)}
+              style={{ padding: "13px 0", borderRadius: 16,
+                border: "1px solid rgba(15,23,42,0.12)",
+                background: "rgba(15,23,42,0.04)",
+                fontSize: 14, fontWeight: 950,
+                color: THEME.colors.muted, cursor: "pointer" }}
+            >
+              🔄 重新生成
+            </button>
+          </div>
+          <div style={{ textAlign: "center", fontSize: 12, color: THEME.colors.faint, fontWeight: 700 }}>
+            长按图片保存 · 分享到朋友圈 / 小红书
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 记忆碎片（翻卡，高度自适应修复版）────────────────────
 function MemoryCard({ item, onRefresh, totalVocab }) {
   const [flipped, setFlipped] = useState(false);
@@ -731,6 +991,20 @@ export default function JournalClient({ accessToken }) {
         <Heatmap heatmapData={d.heatmap||{}} streakDays={d.streak_days||0} totalVideos={d.total_views||0} />
         <AbilityProfile masteryStats={masteryStats} topicStats={topicStats} />
         <MemoryCard item={memoryItem} onRefresh={refreshMemory} totalVocab={vocabItems.length} />
+
+        {/* 打卡海报 */}
+        <Card>
+          <SectionTitle emoji="📸" title="生成打卡海报" sub="一键生成，分享到朋友圈 / 小红书，带上你的成就" />
+          <PosterGenerator
+            me={me}
+            streakDays={d.streak_days||0}
+            totalVideos={d.total_views||0}
+            vocabCount={vocabItems.length}
+            masteredCount={masteryStats.mastered}
+            heatmapData={d.heatmap||{}}
+            tasks={tasks}
+          />
+        </Card>
       </div>
     </div>
   );
