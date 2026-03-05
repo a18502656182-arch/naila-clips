@@ -99,7 +99,7 @@ function VipModal({ me, onClose }) {
         <div style={{ display: "flex", gap: 10 }}>
           {me?.logged_in ? (
             <a
-              href="/register"
+              href="/redeem"
               style={{
                 flex: 1,
                 textAlign: "center",
@@ -613,6 +613,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
+              // 非会员点会员视频直接跳兑换页
               const isBlocked = isVip && me !== null && !me?.is_member && !r.can_access;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
@@ -645,14 +646,9 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                 </>
               );
               return isBlocked ? (
-                <div
-                  key={r.id}
-                  className="card"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => setShowVipModal(true)}
-                >
+                <Link key={r.id} href="/redeem" className="card">
                   {cardContent}
-                </div>
+                </Link>
               ) : (
                 <Link key={r.id} href={`/clips/${r.id}`} className="card">
                   {cardContent}
