@@ -581,11 +581,15 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const el = rowRefs.current[activeSegIdx];
     const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     if (!el || !wrap) return;
-    // 移动端：高亮句子滚到列表顶部（加8px间距），不被吸顶区域遮挡
-    // 桌面端：保持原来居中逻辑
+    // 用 getBoundingClientRect 算元素相对于滚动容器的真实位置
+    const elRect = el.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const relativeTop = elRect.top - wrapRect.top + wrap.scrollTop;
+    // 移动端：高亮句子滚到列表顶部（留8px间距），不被吸顶区域遮挡
+    // 桌面端：保持居中逻辑
     const scrollTop = isMobile
-      ? Math.max(0, el.offsetTop - 8)
-      : Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5);
+      ? Math.max(0, relativeTop - 8)
+      : Math.max(0, relativeTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5);
     wrap.scrollTo({ top: scrollTop, behavior: "smooth" });
   }, [activeSegIdx, follow, isMobile]);
 
