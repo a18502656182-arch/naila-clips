@@ -83,6 +83,12 @@ export default function UserMenuClient() {
   async function handleLogout() {
     try {
       setOpen(false);
+      // 先清本地状态，避免退出后UI还显示旧数据
+      setEmail(null);
+      setIsMember(false);
+      setMeData(null);
+      // 清 localStorage 中的 token（各组件用 getToken() 读这个）
+      try { localStorage.removeItem("sb_access_token"); } catch {}
       const supabase = createSupabaseBrowserClient();
       await supabase.auth.signOut();
       router.refresh();
