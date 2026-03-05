@@ -581,7 +581,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const el = rowRefs.current[activeSegIdx];
     const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     if (!el || !wrap) return;
-    wrap.scrollTo({ top: Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5), behavior: "smooth" });
+    // 移动端：高亮句子滚到列表顶部（加8px间距），不被吸顶区域遮挡
+    // 桌面端：保持原来居中逻辑
+    const scrollTop = isMobile
+      ? Math.max(0, el.offsetTop - 8)
+      : Math.max(0, el.offsetTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5);
+    wrap.scrollTo({ top: scrollTop, behavior: "smooth" });
   }, [activeSegIdx, follow, isMobile]);
 
   useEffect(() => {
@@ -709,9 +714,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
       <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
       <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
-        {"请使用兑换码开通会员后观看"}
+        {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
       </div>
-      <Link href="/redeem" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去兑换开通</Link>
+      {!me?.logged_in
+        ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
+        : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
+      }
     </div>
   );
 
