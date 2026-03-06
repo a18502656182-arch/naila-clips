@@ -35,6 +35,8 @@ function MiniTag({ children }) {
 }
 
 export default function HeroSection({ children }) {
+  const featured = children?.[1] || null;
+
   return (
     <section
       style={{
@@ -50,20 +52,20 @@ export default function HeroSection({ children }) {
       <style>{`
         .heroWrap {
           position: relative;
-          padding: 26px;
+          padding: 24px;
         }
         .heroGrid {
           display: grid;
-          grid-template-columns: minmax(0, 1.02fr) minmax(420px, 0.98fr);
-          gap: 22px;
-          align-items: stretch;
+          grid-template-columns: minmax(0, 1fr) 460px;
+          gap: 20px;
+          align-items: center;
         }
         .heroLeft {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          min-height: 430px;
-          padding: 10px 6px 10px 6px;
+          min-height: 360px;
+          padding: 6px 4px;
         }
         .heroEyebrow {
           display: inline-flex;
@@ -91,7 +93,7 @@ export default function HeroSection({ children }) {
         }
         .heroTitle {
           margin: 18px 0 0;
-          font-size: 58px;
+          font-size: 56px;
           line-height: 1.02;
           letter-spacing: -0.055em;
           font-weight: 980;
@@ -100,19 +102,19 @@ export default function HeroSection({ children }) {
         }
         .heroDesc {
           margin-top: 18px;
-          max-width: 560px;
+          max-width: 540px;
           color: ${THEME.colors.muted};
           font-size: 16px;
           line-height: 1.8;
         }
         .heroTags {
-          margin-top: 20px;
+          margin-top: 18px;
           display: flex;
           gap: 10px;
           flex-wrap: wrap;
         }
         .heroActions {
-          margin-top: 28px;
+          margin-top: 24px;
           display: flex;
           gap: 12px;
           flex-wrap: wrap;
@@ -148,47 +150,114 @@ export default function HeroSection({ children }) {
           box-shadow: 0 10px 24px rgba(15,23,42,0.05);
         }
         .heroNote {
-          margin-top: 18px;
+          margin-top: 16px;
           color: ${THEME.colors.faint};
           font-size: 13px;
           font-weight: 600;
         }
         .heroRight {
           display: flex;
-          align-items: stretch;
+          align-items: center;
+          justify-content: stretch;
           min-width: 0;
         }
-        @media (max-width: 1100px) {
+
+        @media (max-width: 1180px) {
+          .heroGrid {
+            grid-template-columns: minmax(0, 1fr) 420px;
+          }
           .heroTitle {
             font-size: 48px;
           }
         }
+
         @media (max-width: 960px) {
           .heroWrap {
-            padding: 18px;
+            padding: 16px;
           }
           .heroGrid {
             grid-template-columns: 1fr;
+            gap: 14px;
           }
           .heroLeft {
             min-height: auto;
-            padding: 4px 2px 4px;
+            padding: 0;
           }
-          .heroTitle {
-            font-size: 40px;
-            max-width: none;
-          }
-          .heroDesc {
-            max-width: none;
-          }
-        }
-        @media (max-width: 640px) {
           .heroTitle {
             font-size: 32px;
+            max-width: none;
+            margin-top: 14px;
           }
           .heroDesc {
+            max-width: none;
             font-size: 14px;
-            line-height: 1.75;
+            line-height: 1.7;
+            margin-top: 14px;
+          }
+          .heroTags {
+            margin-top: 14px;
+            gap: 8px;
+          }
+          .heroActions {
+            margin-top: 16px;
+            gap: 10px;
+          }
+          .heroBtnPrimary,
+          .heroBtnSecondary {
+            min-height: 46px;
+            padding: 0 18px;
+          }
+          .heroNote {
+            margin-top: 12px;
+            font-size: 12px;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .heroWrap {
+            padding: 14px;
+          }
+          .heroTitle {
+            font-size: 28px;
+            line-height: 1.06;
+            max-width: 320px;
+          }
+          .heroDesc {
+            font-size: 13px;
+            line-height: 1.65;
+            margin-top: 12px;
+          }
+          .heroTags {
+            margin-top: 12px;
+          }
+          .heroActions {
+            margin-top: 14px;
+          }
+          .heroEyebrow {
+            font-size: 11px;
+            padding: 7px 11px;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .heroTitle {
+            max-width: 280px;
+            font-size: 26px;
+          }
+          .heroDesc {
+            max-width: 320px;
+          }
+          .heroTags {
+            display: none;
+          }
+          .heroNote {
+            display: none;
+          }
+          .heroBtnPrimary,
+          .heroBtnSecondary {
+            min-height: 44px;
+            font-size: 13px;
+            padding: 0 16px;
           }
         }
       `}</style>
@@ -233,7 +302,10 @@ export default function HeroSection({ children }) {
               <a href="#all" className="heroBtnPrimary">
                 开始浏览内容库
               </a>
-              <a href={children?.[1]?.props?.featured?.id ? `/clips/${children[1].props.featured.id}` : "#all"} className="heroBtnSecondary">
+              <a
+                href={featured?.props?.featured?.id ? `/clips/${featured.props.featured.id}` : "#all"}
+                className="heroBtnSecondary"
+              >
                 先看示例视频
               </a>
             </div>
@@ -241,7 +313,7 @@ export default function HeroSection({ children }) {
             <div className="heroNote">更适合想系统积累口语表达的人。</div>
           </div>
 
-          <div className="heroRight">{children?.[1] || null}</div>
+          <div className="heroRight">{featured}</div>
         </div>
       </div>
     </section>
