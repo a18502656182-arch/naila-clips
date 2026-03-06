@@ -1,29 +1,86 @@
-// pages/register.js
 import { useState } from "react";
 import { useRouter } from "next/router";
 
-
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
 const THEME = {
   colors: {
-    bg: "#f6f7fb", surface: "#ffffff", ink: "#0b1220",
-    muted: "rgba(11,18,32,0.62)", faint: "rgba(11,18,32,0.42)",
-    border: "rgba(11,18,32,0.10)", border2: "rgba(11,18,32,0.16)",
-    accent: "#4f46e5", accent2: "#06b6d4", vip: "#7c3aed",
+    bg: "#f6f8fc",
+    surface: "#ffffff",
+    ink: "#0b1220",
+    muted: "rgba(11,18,32,0.66)",
+    faint: "rgba(11,18,32,0.46)",
+    border: "rgba(11,18,32,0.08)",
+    accent: "#6366f1",
+    accent2: "#8b5cf6",
+    vip: "#7c3aed",
+    cyan: "#06b6d4",
   },
-  radii: { sm: 10, md: 14, lg: 18, pill: 999 },
+  radii: { sm: 10, md: 14, lg: 22, xl: 28, pill: 999 },
 };
 
-function prettifyError(e) {
-  const s = String(e || "");
-  if (s.includes("INVALID_CODE")) return "兑换码无效 / 已过期 / 已用完";
-  if (s.toLowerCase().includes("already registered")) return "这个邮箱/账号已注册过了";
-  if (s.toLowerCase().includes("password")) return "密码不符合要求（建议至少8位，包含大小写+数字）";
-  return s || "注册失败";
+function shellStyle() {
+  return {
+    minHeight: "100vh",
+    background:
+      "radial-gradient(1000px 420px at 0% 0%, rgba(99,102,241,0.12), transparent 50%), radial-gradient(900px 360px at 100% 0%, rgba(139,92,246,0.10), transparent 46%), linear-gradient(180deg, #f7f8fd 0%, #f4f6fb 100%)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  };
+}
+
+function logoStyle() {
+  return {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.cyan})`,
+    display: "grid",
+    placeItems: "center",
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 14,
+    boxShadow: "0 14px 28px rgba(99,102,241,0.22)",
+  };
+}
+
+function cardStyle() {
+  return {
+    width: "100%",
+    maxWidth: 430,
+    background: "rgba(255,255,255,0.92)",
+    borderRadius: THEME.radii.xl,
+    border: `1px solid ${THEME.colors.border}`,
+    boxShadow: "0 22px 60px rgba(11,18,32,0.10)",
+    padding: 28,
+    backdropFilter: "blur(14px)",
+  };
+}
+
+function inputStyle(emphasis = false) {
+  return {
+    width: "100%",
+    padding: "12px 14px",
+    boxSizing: "border-box",
+    border: emphasis
+      ? "1px solid rgba(124,58,237,0.24)"
+      : "1px solid rgba(99,102,241,0.16)",
+    borderRadius: THEME.radii.md,
+    fontSize: 14,
+    background: emphasis ? "rgba(124,58,237,0.04)" : "rgba(99,102,241,0.03)",
+    outline: "none",
+    color: THEME.colors.ink,
+  };
 }
 
 export default function RegisterPage() {
   const router = useRouter();
+  const next = router.query.next || "/";
+
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -33,120 +90,224 @@ export default function RegisterPage() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setMsg(""); setSuccess(null); setLoading(true);
+    setMsg("");
+    setSuccess(null);
+    setLoading(true);
+
     try {
-      const r = await fetch("/api/register", {
+      const r = await fetch(remote("/api/register"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, password, code }),
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          password,
+          code: code.trim(),
+        }),
       });
+
       const j = await r.json();
-      if (!r.ok || !j.ok) { setMsg(prettifyError(j.error)); return; }
-      if (j.needs_login) {
-        router.push(`/login?email=${encodeURIComponent(j.email_hint || "")}`);
+      if (!r.ok || !j.ok) {
+        const errMap = {
+          identifier_required: "请输入邮箱或用户名",
+          password_too_short: "密码至少 8 位",
+          code_required: "请输入兑换码",
+          invalid_code: "兑换码无效 / 已过期 / 已用完",
+          code_expired: "该兑换码已过期",
+          code_used_up: "该兑换码已达使用上限",
+          email_exists: "该邮箱已注册",
+          username_exists: "该用户名已被占用",
+        };
+        setMsg(errMap[j.error] || j.error || "注册失败");
+        setLoading(false);
         return;
       }
-      
-      if (j.access_token) {
-        // 用 Supabase 客户端写 cookie（和参考站一样，SDK 自动管理）
-        const { createSupabaseBrowserClient } = await import("../utils/supabase/client");
-        const supabase = createSupabaseBrowserClient();
-        await supabase.auth.setSession({ access_token: j.access_token, refresh_token: j.refresh_token });
-        // 同时存 localStorage 兼容其他客户端组件
-        try { localStorage.setItem("sb_access_token", j.access_token); } catch {}
-      }
-      setSuccess({ plan: j.plan || "member" });
-      setTimeout(() => { window.location.href = "/"; }, 1200);
+
+      setSuccess({
+        email: j.email,
+        expires_at: j.expires_at,
+      });
+
+      setTimeout(() => {
+        router.push(`/login?email=${encodeURIComponent(j.email || "")}&redirectTo=${encodeURIComponent(next)}`);
+      }, 1800);
     } catch (err) {
-      setMsg(prettifyError(err.message));
-    } finally {
+      setMsg(err.message || "网络错误，请重试");
       setLoading(false);
     }
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
-
-      {/* Logo */}
-      <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 12,
-          background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
-          display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14,
-        }}>EC</div>
+    <div style={shellStyle()}>
+      <a
+        href="/"
+        style={{
+          textDecoration: "none",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: 28,
+        }}
+      >
+        <div style={logoStyle()}>EC</div>
         <div style={{ lineHeight: 1.2 }}>
-          <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>油管英语场景库</div>
-          <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕</div>
+          <div style={{ fontSize: 17, fontWeight: 950, color: THEME.colors.ink }}>
+            油管英语场景库
+          </div>
+          <div style={{ fontSize: 12, color: THEME.colors.faint }}>
+            Real scenes · bilingual subtitles · vocabulary cards
+          </div>
         </div>
       </a>
 
-      <div style={{
-        width: "100%", maxWidth: 400,
-        background: THEME.colors.surface, borderRadius: THEME.radii.lg,
-        border: `1px solid ${THEME.colors.border}`,
-        boxShadow: "0 10px 40px rgba(11,18,32,0.10)",
-        padding: 28,
-      }}>
+      <div style={cardStyle()}>
         {success ? (
-          <div style={{ textAlign: "center", padding: "12px 0" }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
-            <div style={{ fontSize: 18, fontWeight: 950, color: THEME.colors.ink, marginBottom: 8 }}>开通成功！</div>
-            <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.7 }}>
-              会员类型：{success.plan === "year" ? "年卡" : success.plan === "month" ? "月卡" : success.plan}
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🎉</div>
+            <div
+              style={{
+                fontSize: 22,
+                lineHeight: 1.2,
+                fontWeight: 980,
+                color: THEME.colors.ink,
+                marginBottom: 8,
+              }}
+            >
+              注册成功
             </div>
-            <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>正在跳转首页...</div>
+            <div
+              style={{
+                fontSize: 14,
+                color: THEME.colors.muted,
+                lineHeight: 1.7,
+              }}
+            >
+              账号：{success.email}
+              {success.expires_at && (
+                <>
+                  <br />
+                  到期时间：{new Date(success.expires_at).toLocaleDateString("zh-CN")}
+                </>
+              )}
+            </div>
+            <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>
+              正在跳转登录页...
+            </div>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink, marginBottom: 6 }}>注册并开通会员</div>
-            <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 22 }}>填写账号信息 + 输入兑换码，一步完成注册和开通</div>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                borderRadius: 999,
+                background: "rgba(124,58,237,0.08)",
+                border: "1px solid rgba(124,58,237,0.12)",
+                color: THEME.colors.vip,
+                fontSize: 12,
+                fontWeight: 900,
+                marginBottom: 16,
+              }}
+            >
+              会员注册
+            </div>
+
+            <div
+              style={{
+                fontSize: 28,
+                lineHeight: 1.1,
+                letterSpacing: "-0.04em",
+                fontWeight: 980,
+                color: THEME.colors.ink,
+                marginBottom: 8,
+              }}
+            >
+              注册并开通会员
+            </div>
+
+            <div
+              style={{
+                fontSize: 14,
+                color: THEME.colors.muted,
+                lineHeight: 1.7,
+                marginBottom: 22,
+              }}
+            >
+              填写账号信息并输入兑换码，一步完成注册和开通。
+            </div>
 
             <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: THEME.colors.ink, marginBottom: 6 }}>邮箱或用户名</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: THEME.colors.ink,
+                    marginBottom: 6,
+                  }}
+                >
+                  邮箱或用户名
+                </div>
                 <input
                   value={identifier}
-                  onChange={e => setIdentifier(e.target.value)}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="邮箱 或 你想要的用户名"
-                  style={{
-                    width: "100%", padding: "11px 14px", boxSizing: "border-box",
-                    border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md,
-                    fontSize: 14, background: THEME.colors.bg, outline: "none", color: THEME.colors.ink,
-                  }}
+                  style={inputStyle(false)}
                 />
               </div>
 
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: THEME.colors.ink, marginBottom: 6 }}>密码</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: THEME.colors.ink,
+                    marginBottom: 6,
+                  }}
+                >
+                  密码
+                </div>
                 <input
                   type="password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="至少 8 位，建议包含大小写+数字"
-                  style={{
-                    width: "100%", padding: "11px 14px", boxSizing: "border-box",
-                    border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md,
-                    fontSize: 14, background: THEME.colors.bg, outline: "none", color: THEME.colors.ink,
-                  }}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="至少 8 位，建议包含大小写和数字"
+                  style={inputStyle(false)}
                 />
               </div>
 
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: THEME.colors.ink, marginBottom: 6 }}>兑换码</div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: THEME.colors.ink,
+                    marginBottom: 6,
+                  }}
+                >
+                  兑换码
+                </div>
                 <input
                   value={code}
-                  onChange={e => setCode(e.target.value)}
+                  onChange={(e) => setCode(e.target.value)}
                   placeholder="输入你的月卡 / 年卡兑换码"
-                  style={{
-                    width: "100%", padding: "11px 14px", boxSizing: "border-box",
-                    border: `1px solid rgba(124,58,237,0.3)`, borderRadius: THEME.radii.md,
-                    fontSize: 14, background: "rgba(124,58,237,0.04)", outline: "none", color: THEME.colors.ink,
-                  }}
+                  style={inputStyle(true)}
                 />
               </div>
 
               {msg && (
-                <div style={{ padding: "10px 14px", background: "#fff0f0", border: "1px solid #ffd0d0", borderRadius: THEME.radii.md, fontSize: 13, color: "#b00000" }}>
+                <div
+                  style={{
+                    padding: "11px 14px",
+                    background: "#fff1f1",
+                    border: "1px solid #ffd4d4",
+                    borderRadius: THEME.radii.md,
+                    fontSize: 13,
+                    color: "#b00000",
+                    lineHeight: 1.6,
+                  }}
+                >
                   {msg}
                 </div>
               )}
@@ -155,18 +316,43 @@ export default function RegisterPage() {
                 type="submit"
                 disabled={loading}
                 style={{
-                  padding: "12px 0", borderRadius: THEME.radii.pill, border: "none",
-                  background: loading ? THEME.colors.border2 : THEME.colors.vip,
-                  color: "#fff", fontSize: 14, fontWeight: 700,
+                  marginTop: 4,
+                  minHeight: 48,
+                  borderRadius: THEME.radii.pill,
+                  border: "none",
+                  background: loading
+                    ? "rgba(124,58,237,0.42)"
+                    : `linear-gradient(135deg, ${THEME.colors.accent2}, ${THEME.colors.vip})`,
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 800,
                   cursor: loading ? "not-allowed" : "pointer",
-                  transition: "background 150ms",
+                  boxShadow: "0 16px 30px rgba(124,58,237,0.24)",
                 }}
-              >{loading ? "注册中..." : "注册并开通会员 ✨"}</button>
+              >
+                {loading ? "注册中..." : "注册并开通会员 ✨"}
+              </button>
             </form>
 
-            <div style={{ marginTop: 18, textAlign: "center", fontSize: 13, color: THEME.colors.muted }}>
+            <div
+              style={{
+                marginTop: 18,
+                textAlign: "center",
+                fontSize: 13,
+                color: THEME.colors.muted,
+              }}
+            >
               已有账号？{" "}
-              <a href="/login" style={{ color: THEME.colors.accent, fontWeight: 600, textDecoration: "none" }}>去登录</a>
+              <a
+                href="/login"
+                style={{
+                  color: THEME.colors.accent,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                }}
+              >
+                去登录
+              </a>
             </div>
           </>
         )}
