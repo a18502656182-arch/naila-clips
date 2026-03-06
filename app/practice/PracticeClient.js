@@ -76,7 +76,48 @@ async function playWord(term) {
   } catch {}
 }
 
-/* ----------------------------- NotEnoughView (outside PracticeClient) ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【一】积分存储工具（playWord 之后）
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+const SCORE_KEY = "naila_game_scores";
+
+const GAME_META = [
+  { id: "bubble", emoji: "🫧", name: "气泡拼写", color: "#7c3aed" },
+  { id: "match", emoji: "🔗", name: "极速连连看", color: "#d97706" },
+  { id: "swipe", emoji: "🃏", name: "单词探探", color: "#ec4899" },
+  { id: "rebuild", emoji: "🧩", name: "台词磁力贴", color: "#059669" },
+  { id: "balloon", emoji: "🎧", name: "盲听气球", color: "#0891b2" },
+  { id: "speed", emoji: "⚡", name: "极速二选一", color: "#d97706" },
+];
+
+function loadScores() {
+  try {
+    return JSON.parse(localStorage.getItem(SCORE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+// 保存得分，返回 { best, last, playCount, isNewBest, oldBest }
+function saveScore(gameId, score) {
+  try {
+    const all = loadScores();
+    const prev = all[gameId] || { best: 0, last: 0, playCount: 0 };
+    const isNewBest = score > 0 && score >= prev.best;
+    all[gameId] = {
+      best: Math.max(prev.best, score),
+      last: score,
+      playCount: (prev.playCount || 0) + 1,
+    };
+    localStorage.setItem(SCORE_KEY, JSON.stringify(all));
+    return { ...all[gameId], isNewBest, oldBest: prev.best };
+  } catch {
+    return null;
+  }
+}
+
+/* ----------------------------- NotEnoughView ----------------------------- */
 
 function NotEnoughView({ onBack }) {
   return (
@@ -115,7 +156,58 @@ function NotEnoughView({ onBack }) {
   );
 }
 
-/* ----------------------------- Shared UI (Bubble game) ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+ScoreResult：结算页统一提示（只渲染一次）
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function ScoreResult({ score, gameId }) {
+  const calledRef = useRef(false);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
+    // 如果 PracticeClient 已经保存过（onGameEnd 里），优先读取 meta，避免重复计次
+    try {
+      const metaMap = window.__nailaScoreSavedMeta || {};
+      const meta = metaMap?.[gameId];
+      if (meta && meta.last === score) {
+        setResult(meta);
+        return;
+      }
+    } catch {}
+
+    const r = saveScore(gameId, score);
+    setResult(r);
+  }, [gameId, score]);
+
+  if (!result) return null;
+
+  const { best = 0, oldBest = 0, isNewBest = false } = result;
+
+  let text = "";
+  let color = THEME.colors.muted;
+
+  if (oldBest === 0) {
+    text = "🌟 首次完成！继续加油";
+    color = "#b45309"; // 金色系
+  } else if (isNewBest && oldBest > 0) {
+    text = `🎉 新纪录！超越了上次的 ${oldBest} 分`;
+    color = "#b45309";
+  } else {
+    text = `历史最高：${best} 分`;
+    color = THEME.colors.muted;
+  }
+
+  return (
+    <div style={{ marginTop: 10, fontWeight: 1000, color, fontSize: 13 }}>
+      {text}
+    </div>
+  );
+}
+
+/* ----------------------------- Shared UI (Bubble) ----------------------------- */
 
 function MasteryBadge({ level }) {
   const map = {
@@ -192,10 +284,13 @@ function ProgressBar({ current, total, onExit }) {
   );
 }
 
-/* ----------------------------- Game: BubbleSpellingGame ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-1】BubbleSpellingGame：新增结算页 + 积分上报
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function BubbleSpellingGame({ vocabItems, onExit }) {
+function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+
   const [idx, setIdx] = useState(0);
   const [slots, setSlots] = useState([]);
   const [bubbles, setBubbles] = useState([]);
@@ -204,15 +299,32 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
   const [playingAudio, setPlayingAudio] = useState(false);
   const [successAnim, setSuccessAnim] = useState(false);
 
+  const [correctCount, setCorrectCount] = useState(0);
+  const [records, setRecords] = useState([]); // { term, wasCorrect }
+  const [done, setDone] = useState(false);
+
+  const endCalledRef = useRef(false);
+
   const card = cards[idx];
   const isLast = idx === cards.length - 1;
+  const total = cards.length;
 
   useEffect(() => {
-    if (!card) return;
+    if (!card || done) return;
     initQuestion(card);
     playWord(card.term);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, card?.id]);
+  }, [idx, card?.id, done]);
+
+  useEffect(() => {
+    if (!done) return;
+    const score = correctCount * 10;
+    if (endCalledRef.current) return;
+    endCalledRef.current = true;
+    try {
+      onGameEnd?.(score);
+    } catch {}
+  }, [done, correctCount, onGameEnd]);
 
   function initQuestion(c) {
     const term = c?.term || "";
@@ -244,8 +356,12 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
     setSuccessAnim(false);
   }
 
+  function finishGame() {
+    setDone(true);
+  }
+
   function handleBubbleClick(bubbleId) {
-    if (checked) return;
+    if (checked || done) return;
     const bubble = bubbles.find((b) => b.id === bubbleId && !b.used);
     if (!bubble) return;
 
@@ -267,11 +383,19 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
       setChecked(true);
       setIsCorrect(allCorrect);
 
+      // 记录本题
+      setRecords((prev) => [...prev, { term: card?.term || "", wasCorrect: allCorrect }]);
+      if (allCorrect) setCorrectCount((c) => c + 1);
+
       if (allCorrect) {
         setSuccessAnim(true);
         setTimeout(() => {
-          if (isLast) onExit();
-          else setIdx((i) => i + 1);
+          if (isLast) {
+            // 最后一题答对 -> 进入结算页（不直接 onExit）
+            finishGame();
+          } else {
+            setIdx((i) => i + 1);
+          }
         }, 900);
       }
     }
@@ -284,18 +408,33 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
   }
 
   function handleNext() {
-    if (isLast) onExit();
-    else setIdx((i) => i + 1);
+    if (done) return;
+    if (isLast) {
+      // 最后一题点完成 -> 进入结算页
+      finishGame();
+    } else {
+      setIdx((i) => i + 1);
+    }
   }
 
   function handleReset() {
+    if (done) return;
     initQuestion(card);
   }
 
-  if (!card) return null;
-
-  const filledCount = slots.filter((s) => s !== null && s !== " ").length;
-  const totalLetters = (card.term || "").split("").filter((c) => c !== " ").length;
+  function resetAll() {
+    endCalledRef.current = false;
+    setIdx(0);
+    setSlots([]);
+    setBubbles([]);
+    setChecked(false);
+    setIsCorrect(false);
+    setPlayingAudio(false);
+    setSuccessAnim(false);
+    setCorrectCount(0);
+    setRecords([]);
+    setDone(false);
+  }
 
   const bubbleColors = [
     { bg: "linear-gradient(135deg,#6366f1,#4f46e5)", shadow: "rgba(99,102,241,0.35)" },
@@ -306,18 +445,114 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
     { bg: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(139,92,246,0.35)" },
   ];
 
+  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box", color: THEME.colors.ink };
+  const topBar = { maxWidth: 980, margin: "0 auto", padding: "8px 6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" };
+
+  if (done) {
+    const score = correctCount * 10;
+    return (
+      <div style={shellStyle}>
+        <div style={topBar}>
+          <button
+            onClick={onExit}
+            style={{
+              border: `1px solid ${THEME.colors.border}`,
+              background: THEME.colors.surface,
+              borderRadius: THEME.radii.pill,
+              padding: "8px 12px",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            ← 返回大厅
+          </button>
+          <div style={{ fontWeight: 1000 }}>🫧 气泡拼写</div>
+          <div style={{ opacity: 0.7, fontWeight: 900 }}>结算</div>
+        </div>
+
+        <div style={{ maxWidth: 760, margin: "18px auto 0", padding: "0 14px" }}>
+          <div
+            style={{
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+              boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
+            }}
+          >
+            <div style={{ fontSize: 22, fontWeight: 1000 }}>本轮结算</div>
+            <div style={{ marginTop: 10, opacity: 0.9, fontWeight: 1000 }}>
+              总积分：<b>{score}</b> 分　·　答对 <b>{correctCount}</b> / <b>{total}</b> 题
+            </div>
+
+            <ScoreResult score={score} gameId="bubble" />
+
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              {records.map((r, i) => {
+                const ok = !!r.wasCorrect;
+                return (
+                  <div
+                    key={`${r.term}-${i}`}
+                    style={{
+                      padding: 12,
+                      borderRadius: THEME.radii.md,
+                      background: ok ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
+                      border: `1px solid ${ok ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+                      fontWeight: 900,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {ok ? `✅ ${r.term} — 拼写正确` : `❌ ${r.term} — 拼写错误`}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+              <button
+                onClick={resetAll}
+                style={{
+                  height: 44,
+                  padding: "0 16px",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border}`,
+                  background: THEME.colors.surface,
+                  cursor: "pointer",
+                  fontWeight: 900,
+                  color: THEME.colors.accent,
+                }}
+              >
+                再来一轮
+              </button>
+              <button
+                onClick={onExit}
+                style={{
+                  height: 44,
+                  padding: "0 16px",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border}`,
+                  background: THEME.colors.surface,
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                返回大厅
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!card) return null;
+
+  const filledCount = slots.filter((s) => s !== null && s !== " ").length;
+  const totalLetters = (card.term || "").split("").filter((c) => c !== " ").length;
+
   return (
-    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box" }}>
-      <div
-        style={{
-          maxWidth: 980,
-          margin: "0 auto",
-          padding: "8px 6px 10px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+    <div style={shellStyle}>
+      <div style={topBar}>
         <button
           onClick={onExit}
           style={{
@@ -382,27 +617,13 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
 
           <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
             {card.data?.zh && (
-              <div
-                style={{
-                  padding: "10px 14px",
-                  background: "#fffbeb",
-                  borderRadius: THEME.radii.md,
-                  border: "1px solid #fde68a",
-                }}
-              >
+              <div style={{ padding: "10px 14px", background: "#fffbeb", borderRadius: THEME.radii.md, border: "1px solid #fde68a" }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#b45309" }}>中文含义　</span>
                 <span style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink }}>{card.data.zh}</span>
               </div>
             )}
             {card.data?.ipa && (
-              <div
-                style={{
-                  padding: "8px 14px",
-                  background: "#f8fafc",
-                  borderRadius: THEME.radii.md,
-                  border: `1px solid ${THEME.colors.border}`,
-                }}
-              >
+              <div style={{ padding: "8px 14px", background: "#f8fafc", borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}` }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: THEME.colors.muted }}>音标　</span>
                 <span style={{ fontSize: 13, fontFamily: "monospace", color: THEME.colors.muted }}>{card.data.ipa}</span>
               </div>
@@ -462,45 +683,24 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
           </div>
 
           {checked && !isCorrect && (
-            <div
-              style={{
-                marginBottom: 20,
-                padding: "12px 16px",
-                borderRadius: THEME.radii.md,
-                background: "#fff5f5",
-                border: "1px solid #fecaca",
-              }}
-            >
+            <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: THEME.radii.md, background: "#fff5f5", border: "1px solid #fecaca" }}>
               <div style={{ fontWeight: 1000, color: "#dc2626", marginBottom: 6 }}>✗ 拼写有误</div>
               <div style={{ fontSize: 13, color: THEME.colors.ink }}>
                 正确拼写：<strong style={{ color: "#dc2626", fontSize: 16 }}>{card.term}</strong>
               </div>
-              {card.data?.zh && (
-                <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{card.data.zh}</div>
-              )}
+              {card.data?.zh && <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{card.data.zh}</div>}
             </div>
           )}
 
           {checked && isCorrect && (
-            <div
-              style={{
-                marginBottom: 20,
-                padding: "12px 16px",
-                borderRadius: THEME.radii.md,
-                background: "#f0fdf4",
-                border: "1px solid #bbf7d0",
-                textAlign: "center",
-              }}
-            >
+            <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: THEME.radii.md, background: "#f0fdf4", border: "1px solid #bbf7d0", textAlign: "center" }}>
               <div style={{ fontWeight: 1000, color: "#16a34a", fontSize: 15 }}>✓ 拼写正确！</div>
             </div>
           )}
 
           {!checked && (
             <div>
-              <div style={{ fontSize: 12, fontWeight: 900, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>
-                点击字母气泡填入答案
-              </div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>点击字母气泡填入答案</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", minHeight: 56 }}>
                 {bubbles
                   .filter((b) => !b.used)
@@ -573,6 +773,8 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
                 {isLast ? "完成" : "下一题"}
               </button>
             )}
+
+            {/* 最后一题且答对时会自动进入结算，不需要按钮 */}
           </div>
         </div>
       </div>
@@ -580,12 +782,14 @@ function BubbleSpellingGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Game: MatchMadnessGame ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-2】MatchMadnessGame：积分上报 + 破纪录提示
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 const MATCH_TIME = 30;
 const BATCH_SIZE = 5;
 
-function MatchMadnessGame({ vocabItems, onExit }) {
+function MatchMadnessGame({ vocabItems, onExit, onGameEnd }) {
   const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
   const border2 = THEME.colors.border2 || THEME.colors.border;
 
@@ -601,6 +805,8 @@ function MatchMadnessGame({ vocabItems, onExit }) {
   const [bestCombo, setBestCombo] = useState(0);
   const [done, setDone] = useState(false);
 
+  const endCalledRef = useRef(false);
+
   const deckRef = useRef([...cards].sort(() => Math.random() - 0.5));
   const offsetRef = useRef(0);
   const timerRef = useRef(null);
@@ -609,6 +815,13 @@ function MatchMadnessGame({ vocabItems, onExit }) {
   function endGame() {
     clearInterval(timerRef.current);
     setDone(true);
+
+    if (!endCalledRef.current) {
+      endCalledRef.current = true;
+      try {
+        onGameEnd?.(score);
+      } catch {}
+    }
   }
 
   function loadNextBatch() {
@@ -637,6 +850,12 @@ function MatchMadnessGame({ vocabItems, onExit }) {
         if (t <= 1) {
           clearInterval(timerRef.current);
           setDone(true);
+          if (!endCalledRef.current) {
+            endCalledRef.current = true;
+            try {
+              onGameEnd?.(score);
+            } catch {}
+          }
           return 0;
         }
         return t - 1;
@@ -727,9 +946,12 @@ function MatchMadnessGame({ vocabItems, onExit }) {
               得分：<b>{score}</b>　·　最高连击：<b>{bestCombo}</b>
             </div>
 
+            <ScoreResult score={score} gameId="match" />
+
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
               <button
                 onClick={() => {
+                  endCalledRef.current = false;
                   deckRef.current = [...cards].sort(() => Math.random() - 0.5);
                   offsetRef.current = 0;
 
@@ -747,6 +969,12 @@ function MatchMadnessGame({ vocabItems, onExit }) {
                       if (t <= 1) {
                         clearInterval(timerRef.current);
                         setDone(true);
+                        if (!endCalledRef.current) {
+                          endCalledRef.current = true;
+                          try {
+                            onGameEnd?.(score);
+                          } catch {}
+                        }
                         return 0;
                       }
                       return t - 1;
@@ -863,15 +1091,7 @@ function MatchMadnessGame({ vocabItems, onExit }) {
             </button>
           </div>
 
-          <div
-            style={{
-              height: 10,
-              background: "#e8eaf0",
-              borderRadius: 999,
-              overflow: "hidden",
-              border: "1px solid rgba(0,0,0,0.06)",
-            }}
-          >
+          <div style={{ height: 10, background: "#e8eaf0", borderRadius: 999, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)" }}>
             <div
               style={{
                 height: "100%",
@@ -884,9 +1104,7 @@ function MatchMadnessGame({ vocabItems, onExit }) {
             />
           </div>
 
-          <div style={{ textAlign: "right", fontSize: 12, color: timeColor, fontWeight: 900, marginTop: 4 }}>
-            {timeLeft}s
-          </div>
+          <div style={{ textAlign: "right", fontSize: 12, color: timeColor, fontWeight: 900, marginTop: 4 }}>{timeLeft}s</div>
         </div>
 
         <div style={{ animation: shake ? "matchShake 500ms ease" : "none", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -969,15 +1187,18 @@ function MatchMadnessGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Game: SwipeGame (modified) ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-3】SwipeGame：积分上报 + 破纪录提示
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SwipeGame({ vocabItems, onExit }) {
+function SwipeGame({ vocabItems, onExit, onGameEnd }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [done, setDone] = useState(false);
 
   const [records, setRecords] = useState([]);
+  const endCalledRef = useRef(false);
 
   const [dx, setDx] = useState(0);
   const [dy, setDy] = useState(0);
@@ -993,6 +1214,7 @@ function SwipeGame({ vocabItems, onExit }) {
   const [isMeaningCorrect, setIsMeaningCorrect] = useState(true);
 
   useEffect(() => {
+    if (done) return;
     if (!current) return;
 
     const correctMeaning = current?.data?.zh || "";
@@ -1016,7 +1238,17 @@ function SwipeGame({ vocabItems, onExit }) {
 
     setCardMeaning(wrongMeaning);
     setIsMeaningCorrect(false);
-  }, [idx, current, items]);
+  }, [idx, current, items, done]);
+
+  useEffect(() => {
+    if (!done) return;
+    const score = correct * 10;
+    if (endCalledRef.current) return;
+    endCalledRef.current = true;
+    try {
+      onGameEnd?.(score);
+    } catch {}
+  }, [done, correct, onGameEnd]);
 
   const threshold = useMemo(() => {
     if (typeof window === "undefined") return 120;
@@ -1024,7 +1256,7 @@ function SwipeGame({ vocabItems, onExit }) {
   }, []);
 
   function judge(dir) {
-    if (!current || animating) return;
+    if (!current || animating || done) return;
 
     const choseMatch = dir === "right"; // 右滑=匹配
     const shouldMatch = isMeaningCorrect; // 展示正确释义 => 应匹配
@@ -1126,24 +1358,8 @@ function SwipeGame({ vocabItems, onExit }) {
   const showLeft = dx < -30;
   const showRight = dx > 30;
 
-  const shellStyle = {
-    minHeight: "100vh",
-    background: THEME.colors.bg,
-    color: THEME.colors.ink,
-    padding: 14,
-    boxSizing: "border-box",
-  };
-
-  const topBarStyle = {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    justifyContent: "space-between",
-    padding: "8px 6px 14px",
-    maxWidth: 980,
-    margin: "0 auto",
-  };
-
+  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
+  const topBarStyle = { display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", padding: "8px 6px 14px", maxWidth: 980, margin: "0 auto" };
   const cardWrap = { position: "relative", maxWidth: 560, margin: "0 auto", paddingTop: 6 };
 
   const cardStyle = {
@@ -1158,26 +1374,13 @@ function SwipeGame({ vocabItems, onExit }) {
     transition: animating ? "transform 0.3s ease" : dragging ? "none" : "transform 0.2s ease",
   };
 
-  const btnRow = {
-    maxWidth: 560,
-    margin: "14px auto 0",
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    gap: 10,
-    alignItems: "center",
-  };
+  const btnRow = { maxWidth: 560, margin: "14px auto 0", display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" };
 
-  const bigBtnBase = {
-    height: 52,
-    borderRadius: THEME.radii.pill,
-    border: `1px solid ${THEME.colors.border}`,
-    background: THEME.colors.surface,
-    fontSize: 16,
-    fontWeight: 900,
-    cursor: "pointer",
-  };
+  const bigBtnBase = { height: 52, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontSize: 16, fontWeight: 900, cursor: "pointer" };
 
   if (done) {
+    const score = correct * 10;
+
     return (
       <div style={shellStyle}>
         <div style={topBarStyle}>
@@ -1212,10 +1415,13 @@ function SwipeGame({ vocabItems, onExit }) {
           <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>本轮结果</div>
 
           <div style={{ fontSize: 16, opacity: 0.9, fontWeight: 900, marginBottom: 6 }}>
-            本轮积分：{correct * 10} 分
+            本轮积分：{score} 分
           </div>
 
-          <div style={{ fontSize: 15, opacity: 0.85, fontWeight: 900 }}>
+          {/* 破纪录提示：积分行下方 */}
+          <ScoreResult score={score} gameId="swipe" />
+
+          <div style={{ fontSize: 15, opacity: 0.85, fontWeight: 900, marginTop: 8 }}>
             正确：<b>{correct}</b> / <b>{total}</b>
           </div>
 
@@ -1249,6 +1455,7 @@ function SwipeGame({ vocabItems, onExit }) {
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <button
               onClick={() => {
+                endCalledRef.current = false;
                 setIdx(0);
                 setCorrect(0);
                 setDone(false);
@@ -1374,12 +1581,16 @@ function SwipeGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Game: RebuildGame (fixed checkAuto + wrong advance) ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-4】RebuildGame：仅 word/phrase + records + 结算积分/破纪录/详情 + 积分上报
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function RebuildGame({ vocabItems, onExit }) {
+function RebuildGame({ vocabItems, onExit, onGameEnd }) {
   const pool = useMemo(() => {
     const eligible = (vocabItems || [])
       .filter((x) => {
+        // 只要单词和短语，不要表达/句子
+        if (x?.kind && x.kind !== "word" && x.kind !== "phrase") return false;
         const ex = (x?.data?.example_en || "").trim();
         if (!ex) return false;
         const words = ex.split(/\s+/).filter(Boolean);
@@ -1399,6 +1610,9 @@ function RebuildGame({ vocabItems, onExit }) {
   const [available, setAvailable] = useState([]);
   const [status, setStatus] = useState("idle"); // idle | correct | wrong
   const [showAnswer, setShowAnswer] = useState(false);
+
+  const [records, setRecords] = useState([]); // { term, answer, userAnswer, wasCorrect }
+  const endCalledRef = useRef(false);
 
   const current = pool[i] || null;
   const total = pool.length;
@@ -1420,14 +1634,42 @@ function RebuildGame({ vocabItems, onExit }) {
     return s.map((x) => x.text).join(" ");
   }
 
-  // ✅ 修复闭包 bug：接收 currentSelected 参数
+  // finished 监听：积分上报
+  const finished = i >= total;
+  useEffect(() => {
+    if (!finished) return;
+    const pts = score * 10;
+    if (endCalledRef.current) return;
+    endCalledRef.current = true;
+    try {
+      onGameEnd?.(pts);
+    } catch {}
+  }, [finished, score, onGameEnd]);
+
+  function pushRecord(term, answerText, userAnswerText, wasCorrect) {
+    setRecords((prev) => [
+      ...prev,
+      {
+        term: term || "",
+        answer: answerText || "",
+        userAnswer: userAnswerText || "",
+        wasCorrect: !!wasCorrect,
+      },
+    ]);
+  }
+
+  // ✅ 修复闭包 bug：接收 currentSelected 参数 + 自动判对也记录
   function checkAuto(currentSelected) {
-    const now = normalizeSentence((currentSelected || []).map((x) => x.text).join(" "));
+    const userAns = (currentSelected || []).map((x) => x.text).join(" ");
+    const now = normalizeSentence(userAns);
     if (!now) return;
 
     if (now === normalizedAnswer) {
+      pushRecord(current?.term || "", answer, userAns, true);
+
       setStatus("correct");
       setScore((s) => s + 1);
+
       setTimeout(() => {
         if (i + 1 >= total) {
           setI(total);
@@ -1441,8 +1683,12 @@ function RebuildGame({ vocabItems, onExit }) {
   function submit() {
     if (!current) return;
 
-    const now = normalizeSentence(selectedText());
+    const userAns = selectedText();
+    const now = normalizeSentence(userAns);
+
     if (now === normalizedAnswer) {
+      pushRecord(current?.term || "", answer, userAns, true);
+
       setStatus("correct");
       setScore((s) => s + 1);
       setTimeout(() => {
@@ -1453,11 +1699,12 @@ function RebuildGame({ vocabItems, onExit }) {
         setI((v) => v + 1);
       }, 950);
     } else {
+      pushRecord(current?.term || "", answer, userAns, false);
+
       setStatus("wrong");
       setWrongCount((w) => w + 1);
       setShowAnswer(true);
 
-      // ✅ 答错显示答案 2 秒后直接进入下一题
       setTimeout(() => {
         setStatus("idle");
         setShowAnswer(false);
@@ -1561,9 +1808,8 @@ function RebuildGame({ vocabItems, onExit }) {
     );
   }
 
-  const finished = i >= total;
-
   if (finished) {
+    const pts = score * 10;
     return (
       <div style={shellStyle}>
         <div style={topBarStyle}>
@@ -1584,19 +1830,48 @@ function RebuildGame({ vocabItems, onExit }) {
           <div style={{ opacity: 0.7, fontWeight: 900 }}>完成</div>
         </div>
 
-        <div style={{ maxWidth: 720, margin: "18px auto 0" }}>
+        <div style={{ maxWidth: 820, margin: "18px auto 0" }}>
           <div style={{ ...card, padding: 18 }}>
             <div style={{ fontSize: 22, fontWeight: 1000 }}>本轮结算</div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 900 }}>
-              得分：<b>{score}</b> / <b>{total}</b>　·　错误次数：<b>{wrongCount}</b>
+
+            <div style={{ marginTop: 10, opacity: 0.9, fontWeight: 1000 }}>
+              答对 <b>{score}</b> 题，获得 <b>{pts}</b> 分　·　错误次数：<b>{wrongCount}</b>
+            </div>
+
+            <ScoreResult score={pts} gameId="rebuild" />
+
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+              {records.map((r, idx) => {
+                const ok = !!r.wasCorrect;
+                return (
+                  <div
+                    key={`${r.term}-${idx}`}
+                    style={{
+                      padding: 12,
+                      borderRadius: THEME.radii.md,
+                      background: ok ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)",
+                      border: `1px solid ${ok ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
+                      fontWeight: 900,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    <div>{ok ? `✅ ${r.term} — 回答正确` : `❌ ${r.term} — 你的答案：${r.userAnswer || "（空）"}`}</div>
+                    <div style={{ marginTop: 6, fontSize: 12, fontWeight: 900, opacity: 0.75 }}>
+                      {ok ? `正确句子：${r.answer}` : `正确答案：${r.answer}`}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
               <button
                 onClick={() => {
+                  endCalledRef.current = false;
                   setI(0);
                   setScore(0);
                   setWrongCount(0);
+                  setRecords([]);
                 }}
                 style={{
                   height: 44,
@@ -1606,6 +1881,7 @@ function RebuildGame({ vocabItems, onExit }) {
                   background: THEME.colors.surface,
                   cursor: "pointer",
                   fontWeight: 900,
+                  color: THEME.colors.accent,
                 }}
               >
                 再来一轮
@@ -1786,15 +2062,19 @@ function RebuildGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Game: BalloonGame ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-5】BalloonGame：积分上报 + 破纪录提示
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function BalloonGame({ vocabItems, onExit }) {
+function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
   const [hearts, setHearts] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+
+  const endCalledRef = useRef(false);
 
   const [roundWord, setRoundWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
@@ -1851,6 +2131,12 @@ function BalloonGame({ vocabItems, onExit }) {
       const next = h - 1;
       if (next <= 0) {
         setGameOver(true);
+        if (!endCalledRef.current) {
+          endCalledRef.current = true;
+          try {
+            onGameEnd?.(score);
+          } catch {}
+        }
         return 0;
       }
       return next;
@@ -1888,34 +2174,10 @@ function BalloonGame({ vocabItems, onExit }) {
     loseHeart();
   }
 
-  const shellStyle = {
-    minHeight: "100vh",
-    background: THEME.colors.bg,
-    color: THEME.colors.ink,
-    padding: 14,
-    boxSizing: "border-box",
-    overflow: "hidden",
-  };
+  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box", overflow: "hidden" };
+  const topBarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 10px", maxWidth: 980, margin: "0 auto" };
 
-  const topBarStyle = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "8px 6px 10px",
-    maxWidth: 980,
-    margin: "0 auto",
-  };
-
-  const hud = {
-    maxWidth: 980,
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 10,
-    alignItems: "center",
-    padding: "0 6px",
-  };
+  const hud = { maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, alignItems: "center", padding: "0 6px" };
 
   const hudPill = {
     background: THEME.colors.surface,
@@ -1952,23 +2214,18 @@ function BalloonGame({ vocabItems, onExit }) {
         </div>
 
         <div style={{ maxWidth: 720, margin: "18px auto 0" }}>
-          <div
-            style={{
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-              boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
-            }}
-          >
+          <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18, boxShadow: "0 12px 30px rgba(15,23,42,0.08)" }}>
             <div style={{ fontSize: 22, fontWeight: 1000 }}>游戏结束</div>
             <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 1000 }}>
               最终得分：<b>{score}</b>　·　最高连击：<b>{maxCombo}</b>
             </div>
 
+            <ScoreResult score={score} gameId="balloon" />
+
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
               <button
                 onClick={() => {
+                  endCalledRef.current = false;
                   setHearts(3);
                   setScore(0);
                   setCombo(0);
@@ -2152,9 +2409,11 @@ function BalloonGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Game: SpeedGame ----------------------------- */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-6】SpeedGame：积分上报 + 破纪录提示
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SpeedGame({ vocabItems, onExit }) {
+function SpeedGame({ vocabItems, onExit, onGameEnd }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
 
   const [round, setRound] = useState(0);
@@ -2170,6 +2429,8 @@ function SpeedGame({ vocabItems, onExit }) {
 
   const [gameOver, setGameOver] = useState(false);
   const [cracked, setCracked] = useState(false);
+
+  const endCalledRef = useRef(false);
 
   const limitMs = useMemo(() => clamp(3000 - combo * 120, 1500, 3000), [combo]);
   const startTsRef = useRef(0);
@@ -2225,6 +2486,14 @@ function SpeedGame({ vocabItems, onExit }) {
     stopTimer();
     setCracked(true);
     setGameOver(true);
+
+    if (!endCalledRef.current) {
+      endCalledRef.current = true;
+      try {
+        onGameEnd?.(score);
+      } catch {}
+    }
+
     setCombo((c) => {
       setMaxCombo((m) => Math.max(m, c));
       return c;
@@ -2368,9 +2637,12 @@ function SpeedGame({ vocabItems, onExit }) {
               最高连击：<b>{maxCombo}</b>　·　答题数：<b>{answered}</b>
             </div>
 
+            <ScoreResult score={score} gameId="speed" />
+
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
               <button
                 onClick={() => {
+                  endCalledRef.current = false;
                   setRound(0);
                   setCombo(0);
                   setMaxCombo(0);
@@ -2606,6 +2878,16 @@ export default function PracticeClient({ accessToken }) {
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 【五-1】scores state + 初始化
+  const [scores, setScores] = useState({});
+  useEffect(() => {
+    try {
+      setScores(loadScores());
+    } catch {
+      setScores({});
+    }
+  }, []);
+
   const authFetch = useMemo(() => makeAuthFetch(accessToken), [accessToken]);
 
   useEffect(() => {
@@ -2652,36 +2934,89 @@ export default function PracticeClient({ accessToken }) {
     return (vocabItems?.length || 0) < 4;
   }
 
-  // ------------------ Game entry routing (MUST exist in order) ------------------
+  // 【五-2】统一的保存+刷新（并写入 window meta 供 ScoreResult 避免重复）
+  function handleGameEnd(gameId, s) {
+    const score = Number(s) || 0;
+    const r = saveScore(gameId, score);
+
+    try {
+      window.__nailaScoreSavedMeta = window.__nailaScoreSavedMeta || {};
+      if (r) window.__nailaScoreSavedMeta[gameId] = r;
+    } catch {}
+
+    try {
+      setScores(loadScores());
+    } catch {
+      setScores((prev) => prev || {});
+    }
+  }
+
+  // ------------------ Game entry routing (按要求顺序) ------------------
 
   if (activeGame === "bubble") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <BubbleSpellingGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <BubbleSpellingGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("bubble", s)}
+      />
+    );
   }
 
   if (activeGame === "match") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <MatchMadnessGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <MatchMadnessGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("match", s)}
+      />
+    );
   }
 
   if (activeGame === "swipe") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <SwipeGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <SwipeGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("swipe", s)}
+      />
+    );
   }
 
   if (activeGame === "rebuild") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <RebuildGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <RebuildGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("rebuild", s)}
+      />
+    );
   }
 
   if (activeGame === "balloon") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <BalloonGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <BalloonGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("balloon", s)}
+      />
+    );
   }
 
   if (activeGame === "speed") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
-    return <SpeedGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
+    return (
+      <SpeedGame
+        vocabItems={vocabItems}
+        onExit={() => setActiveGame(null)}
+        onGameEnd={(s) => handleGameEnd("speed", s)}
+      />
+    );
   }
 
   // ------------------ Lobby view ------------------
@@ -2695,6 +3030,68 @@ export default function PracticeClient({ accessToken }) {
   const statCard = { background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 14, boxShadow: "0 10px 26px rgba(15,23,42,0.06)" };
 
   const gamesGrid = { maxWidth: 980, margin: "14px auto 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: "0 6px 18px" };
+
+  const scoreHeader = {
+    maxWidth: 980,
+    margin: "14px auto 0",
+    padding: "0 6px 10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  };
+
+  const scoreGrid = {
+    maxWidth: 980,
+    margin: "0 auto 0",
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 12,
+    padding: "0 6px",
+  };
+
+  function ScoreCard({ meta, scoreInfo, spanFull }) {
+    const best = Number(scoreInfo?.best || 0);
+    const last = Number(scoreInfo?.last || 0);
+    const playCount = Number(scoreInfo?.playCount || 0);
+    const hasPlayed = playCount > 0;
+
+    return (
+      <div
+        style={{
+          position: "relative",
+          background: THEME.colors.surface,
+          border: `1px solid ${THEME.colors.border}`,
+          borderLeft: `4px solid ${meta.color}`,
+          borderRadius: THEME.radii.lg,
+          padding: 14,
+          boxShadow: "0 10px 26px rgba(15,23,42,0.06)",
+          opacity: hasPlayed ? 1 : 0.5,
+          gridColumn: spanFull ? "1 / -1" : undefined,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 22 }}>{meta.emoji}</div>
+          <div style={{ fontSize: 15, fontWeight: 1000 }}>{meta.name}</div>
+        </div>
+
+        {!hasPlayed ? (
+          <div style={{ marginTop: 10, fontWeight: 1000, opacity: 0.7 }}>尚未挑战</div>
+        ) : (
+          <>
+            <div style={{ marginTop: 10, fontWeight: 1000 }}>
+              🏆 最高分：
+              <span style={{ marginLeft: 6, color: best > 0 ? meta.color : THEME.colors.ink }}>
+                {best} 分
+              </span>
+            </div>
+            <div style={{ marginTop: 6, fontSize: 12, fontWeight: 900, opacity: 0.75 }}>
+              上次：{last} 分　·　已玩 {playCount} 次
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={page}>
@@ -2735,6 +3132,23 @@ export default function PracticeClient({ accessToken }) {
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>✅ 已掌握</div>
           <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.mastered}</div>
         </div>
+      </div>
+
+      {/* 【五-3】大厅积分榜区块 */}
+      <div style={scoreHeader}>
+        <div style={{ fontWeight: 1000, fontSize: 15 }}>🏆 我的最高分</div>
+        <div style={{ opacity: 0.6, fontSize: 12, fontWeight: 900 }}>游玩即自动记录</div>
+      </div>
+
+      <div style={scoreGrid}>
+        {GAME_META.map((m) => (
+          <ScoreCard
+            key={m.id}
+            meta={m}
+            scoreInfo={scores?.[m.id] || { best: 0, last: 0, playCount: 0 }}
+            spanFull={m.id === "speed"}
+          />
+        ))}
       </div>
 
       <div style={gamesGrid}>
