@@ -1,3 +1,4 @@
+```js
 "use client";
 
 import Link from "next/link";
@@ -191,7 +192,7 @@ function ScoreResult({ score, gameId }) {
 
   if (oldBest === 0) {
     text = "🌟 首次完成！继续加油";
-    color = "#b45309"; // 金色系
+    color = "#b45309";
   } else if (isNewBest && oldBest > 0) {
     text = `🎉 新纪录！超越了上次的 ${oldBest} 分`;
     color = "#b45309";
@@ -339,7 +340,10 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
       .filter((l) => !termLetters.has(l));
     const shuffledDistractors = [...distractors].sort(() => Math.random() - 0.5);
 
-    const extraCount = Math.min(4, Math.max(2, Math.floor(letters.length * 0.4)));
+    const extraCount = Math.min(
+      4,
+      Math.max(2, Math.floor(letters.length * 0.4))
+    );
     const extras = shuffledDistractors.slice(0, extraCount);
 
     const allLetters = [...letters, ...extras].sort(() => Math.random() - 0.5);
@@ -375,7 +379,9 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
     newSlots[emptyIdx] = { letter: bubble.letter, correct };
 
     setSlots(newSlots);
-    setBubbles((prev) => prev.map((b) => (b.id === bubbleId ? { ...b, used: true } : b)));
+    setBubbles((prev) =>
+      prev.map((b) => (b.id === bubbleId ? { ...b, used: true } : b))
+    );
 
     const allFilled = newSlots.every((s) => s !== null);
     if (allFilled) {
@@ -383,15 +389,16 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
       setChecked(true);
       setIsCorrect(allCorrect);
 
-      // 记录本题
-      setRecords((prev) => [...prev, { term: card?.term || "", wasCorrect: allCorrect }]);
+      setRecords((prev) => [
+        ...prev,
+        { term: card?.term || "", wasCorrect: allCorrect },
+      ]);
       if (allCorrect) setCorrectCount((c) => c + 1);
 
       if (allCorrect) {
         setSuccessAnim(true);
         setTimeout(() => {
           if (isLast) {
-            // 最后一题答对 -> 进入结算页（不直接 onExit）
             finishGame();
           } else {
             setIdx((i) => i + 1);
@@ -410,7 +417,6 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   function handleNext() {
     if (done) return;
     if (isLast) {
-      // 最后一题点完成 -> 进入结算页
       finishGame();
     } else {
       setIdx((i) => i + 1);
@@ -445,8 +451,21 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
     { bg: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(139,92,246,0.35)" },
   ];
 
-  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box", color: THEME.colors.ink };
-  const topBar = { maxWidth: 980, margin: "0 auto", padding: "8px 6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" };
+  const shellStyle = {
+    minHeight: "100vh",
+    background: THEME.colors.bg,
+    padding: 14,
+    boxSizing: "border-box",
+    color: THEME.colors.ink,
+  };
+  const topBar = {
+    maxWidth: 980,
+    margin: "0 auto",
+    padding: "8px 6px 10px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  };
 
   if (done) {
     const score = correctCount * 10;
@@ -548,7 +567,9 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   if (!card) return null;
 
   const filledCount = slots.filter((s) => s !== null && s !== " ").length;
-  const totalLetters = (card.term || "").split("").filter((c) => c !== " ").length;
+  const totalLetters = (card.term || "")
+    .split("")
+    .filter((c) => c !== " ").length;
 
   return (
     <div style={shellStyle}>
@@ -773,8 +794,6 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
                 {isLast ? "完成" : "下一题"}
               </button>
             )}
-
-            {/* 最后一题且答对时会自动进入结算，不需要按钮 */}
           </div>
         </div>
       </div>
@@ -1277,8 +1296,6 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
 
     if (ok) setCorrect((c) => c + 1);
 
-    // ❌ 无发音：这里不调用 playWord
-
     setAnimating(true);
     const flyX = choseMatch
       ? typeof window !== "undefined"
@@ -1418,7 +1435,6 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
             本轮积分：{score} 分
           </div>
 
-          {/* 破纪录提示：积分行下方 */}
           <ScoreResult score={score} gameId="swipe" />
 
           <div style={{ fontSize: 15, opacity: 0.85, fontWeight: 900, marginTop: 8 }}>
@@ -1582,15 +1598,18 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
-【二-4】RebuildGame：仅 word/phrase + records + 结算积分/破纪录/详情 + 积分上报
+【二-4】RebuildGame：kind 过滤修复 + records/积分/详情（其余不变）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function RebuildGame({ vocabItems, onExit, onGameEnd }) {
   const pool = useMemo(() => {
+    const excludedKinds = ["expression", "sentence", "collocation", "idiom"];
+
     const eligible = (vocabItems || [])
       .filter((x) => {
-        // 只要单词和短语，不要表达/句子
-        if (x?.kind && x.kind !== "word" && x.kind !== "phrase") return false;
+        // ✅ 修复：只有 kind 明确存在且属于排除类型才过滤；kind 不存在/空/undefined 统统保留
+        if (x?.kind && excludedKinds.includes(x.kind)) return false;
+
         const ex = (x?.data?.example_en || "").trim();
         if (!ex) return false;
         const words = ex.split(/\s+/).filter(Boolean);
@@ -1634,7 +1653,6 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
     return s.map((x) => x.text).join(" ");
   }
 
-  // finished 监听：积分上报
   const finished = i >= total;
   useEffect(() => {
     if (!finished) return;
@@ -1658,7 +1676,6 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
     ]);
   }
 
-  // ✅ 修复闭包 bug：接收 currentSelected 参数 + 自动判对也记录
   function checkAuto(currentSelected) {
     const userAns = (currentSelected || []).map((x) => x.text).join(" ");
     const now = normalizeSentence(userAns);
@@ -2878,7 +2895,6 @@ export default function PracticeClient({ accessToken }) {
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 【五-1】scores state + 初始化
   const [scores, setScores] = useState({});
   useEffect(() => {
     try {
@@ -2934,7 +2950,6 @@ export default function PracticeClient({ accessToken }) {
     return (vocabItems?.length || 0) < 4;
   }
 
-  // 【五-2】统一的保存+刷新（并写入 window meta 供 ScoreResult 避免重复）
   function handleGameEnd(gameId, s) {
     const score = Number(s) || 0;
     const r = saveScore(gameId, score);
@@ -2950,8 +2965,6 @@ export default function PracticeClient({ accessToken }) {
       setScores((prev) => prev || {});
     }
   }
-
-  // ------------------ Game entry routing (按要求顺序) ------------------
 
   if (activeGame === "bubble") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
@@ -3019,8 +3032,6 @@ export default function PracticeClient({ accessToken }) {
     );
   }
 
-  // ------------------ Lobby view ------------------
-
   const page = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
 
   const topBar = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 14px" };
@@ -3031,63 +3042,65 @@ export default function PracticeClient({ accessToken }) {
 
   const gamesGrid = { maxWidth: 980, margin: "14px auto 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: "0 6px 18px" };
 
-  const scoreHeader = {
+  // ✅ 新的紧凑积分榜容器
+  const scoreSection = {
     maxWidth: 980,
     margin: "14px auto 0",
-    padding: "0 6px 10px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  };
-
-  const scoreGrid = {
-    maxWidth: 980,
-    margin: "0 auto 0",
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
     padding: "0 6px",
   };
 
-  function ScoreCard({ meta, scoreInfo, spanFull }) {
-    const best = Number(scoreInfo?.best || 0);
-    const last = Number(scoreInfo?.last || 0);
-    const playCount = Number(scoreInfo?.playCount || 0);
+  const scoreContainer = {
+    background: THEME.colors.surface,
+    border: `1px solid ${THEME.colors.border}`,
+    borderRadius: THEME.radii.lg,
+    padding: "10px 14px",
+    boxShadow: "0 4px 12px rgba(15,23,42,0.06)",
+  };
+
+  const scoreTitleRow = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottom: `1px solid ${THEME.colors.border}`,
+  };
+
+  const scoreGrid = {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "4px 16px",
+  };
+
+  function ScoreLine({ meta }) {
+    const info = scores?.[meta.id] || { best: 0, last: 0, playCount: 0 };
+    const best = Number(info.best || 0);
+    const playCount = Number(info.playCount || 0);
     const hasPlayed = playCount > 0;
 
     return (
       <div
         style={{
-          position: "relative",
-          background: THEME.colors.surface,
-          border: `1px solid ${THEME.colors.border}`,
-          borderLeft: `4px solid ${meta.color}`,
-          borderRadius: THEME.radii.lg,
-          padding: 14,
-          boxShadow: "0 10px 26px rgba(15,23,42,0.06)",
-          opacity: hasPlayed ? 1 : 0.5,
-          gridColumn: spanFull ? "1 / -1" : undefined,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 0",
+          borderBottom: `1px solid ${THEME.colors.border}`,
+          fontSize: 13,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 22 }}>{meta.emoji}</div>
-          <div style={{ fontSize: 15, fontWeight: 1000 }}>{meta.name}</div>
-        </div>
+        <span style={{ fontSize: 16 }}>{meta.emoji}</span>
+        <span style={{ fontWeight: 1000, flex: 1, fontSize: 13 }}>{meta.name}</span>
 
-        {!hasPlayed ? (
-          <div style={{ marginTop: 10, fontWeight: 1000, opacity: 0.7 }}>尚未挑战</div>
+        {hasPlayed ? (
+          <span style={{ fontWeight: 1000, color: meta.color }}>
+            最高 {best}分
+            <span style={{ opacity: 0.5, fontSize: 11, marginLeft: 4, fontWeight: 900 }}>
+              / {playCount}次
+            </span>
+          </span>
         ) : (
-          <>
-            <div style={{ marginTop: 10, fontWeight: 1000 }}>
-              🏆 最高分：
-              <span style={{ marginLeft: 6, color: best > 0 ? meta.color : THEME.colors.ink }}>
-                {best} 分
-              </span>
-            </div>
-            <div style={{ marginTop: 6, fontSize: 12, fontWeight: 900, opacity: 0.75 }}>
-              上次：{last} 分　·　已玩 {playCount} 次
-            </div>
-          </>
+          <span style={{ opacity: 0.4, fontWeight: 900 }}>—</span>
         )}
       </div>
     );
@@ -3134,25 +3147,37 @@ export default function PracticeClient({ accessToken }) {
         </div>
       </div>
 
-      {/* 【五-3】大厅积分榜区块 */}
-      <div style={scoreHeader}>
-        <div style={{ fontWeight: 1000, fontSize: 15 }}>🏆 我的最高分</div>
-        <div style={{ opacity: 0.6, fontSize: 12, fontWeight: 900 }}>游玩即自动记录</div>
-      </div>
+      {/* ✅ 新的“我的最高分”紧凑区块 */}
+      <div style={scoreSection}>
+        <div style={scoreContainer}>
+          <div style={scoreTitleRow}>
+            <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
+            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
+          </div>
 
-      <div style={scoreGrid}>
-        {GAME_META.map((m) => (
-          <ScoreCard
-            key={m.id}
-            meta={m}
-            scoreInfo={scores?.[m.id] || { best: 0, last: 0, playCount: 0 }}
-            spanFull={m.id === "speed"}
-          />
-        ))}
+          <div style={scoreGrid}>
+            {GAME_META.map((m, idx) => {
+              const isLastRow = idx >= GAME_META.length - 2; // 最后一行两列不加分隔线
+              return (
+                <div key={m.id} style={{ borderBottom: isLastRow ? "none" : undefined }}>
+                  {/* 通过外层覆盖 borderBottom：若是最后一行，清掉 */}
+                  <div style={{ borderBottom: isLastRow ? "none" : undefined }}>
+                    <ScoreLine meta={m} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 清理掉最后一行的线：更稳的方式（覆盖） */}
+          <style>{`
+            /* 让最后一行（第5、6项）的border-bottom无效 */
+            [data-score-grid] > :nth-last-child(-n+2) > div > div { border-bottom: none !important; }
+          `}</style>
+        </div>
       </div>
 
       <div style={gamesGrid}>
-        {/* 1. 🫧 气泡拼写 */}
         <GameCard
           emoji="🫧"
           title="气泡拼写"
@@ -3163,7 +3188,6 @@ export default function PracticeClient({ accessToken }) {
           onClick={() => setActiveGame("bubble")}
         />
 
-        {/* 2. 🔗 极速连连看 */}
         <GameCard
           emoji="🔗"
           title="极速连连看"
@@ -3174,7 +3198,6 @@ export default function PracticeClient({ accessToken }) {
           onClick={() => setActiveGame("match")}
         />
 
-        {/* 3. 🃏 单词探探 */}
         <GameCard
           emoji="🃏"
           title="单词探探"
@@ -3185,7 +3208,6 @@ export default function PracticeClient({ accessToken }) {
           onClick={() => setActiveGame("swipe")}
         />
 
-        {/* 4. 🧩 台词磁力贴 */}
         <GameCard
           emoji="🧩"
           title="台词磁力贴"
@@ -3196,7 +3218,6 @@ export default function PracticeClient({ accessToken }) {
           onClick={() => setActiveGame("rebuild")}
         />
 
-        {/* 5. 🎧 盲听气球 */}
         <GameCard
           emoji="🎧"
           title="盲听气球"
@@ -3207,7 +3228,6 @@ export default function PracticeClient({ accessToken }) {
           onClick={() => setActiveGame("balloon")}
         />
 
-        {/* 6. ⚡ 极速二选一（spanFull） */}
         <GameCard
           emoji="⚡"
           title="极速二选一"
@@ -3230,3 +3250,4 @@ export default function PracticeClient({ accessToken }) {
     </div>
   );
 }
+```
