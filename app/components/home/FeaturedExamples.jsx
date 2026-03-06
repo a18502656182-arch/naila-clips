@@ -13,24 +13,26 @@ function formatDuration(sec) {
 
 function Pill({ children, tone = "neutral" }) {
   const map = {
-    neutral: { bg: "rgba(11,18,32,0.06)", fg: THEME.colors.ink, bd: THEME.colors.border },
-    free: { bg: "rgba(16,185,129,0.12)", fg: "#065f46", bd: "rgba(16,185,129,0.18)" },
-    vip: { bg: "rgba(124,58,237,0.12)", fg: "#5b21b6", bd: "rgba(124,58,237,0.20)" },
-    info: { bg: "rgba(79,70,229,0.12)", fg: "#3730a3", bd: "rgba(79,70,229,0.20)" },
-    cyan: { bg: "rgba(6,182,212,0.12)", fg: "#155e75", bd: "rgba(6,182,212,0.20)" },
-    warn: { bg: "rgba(245,158,11,0.14)", fg: "#92400e", bd: "rgba(245,158,11,0.20)" },
+    neutral: { bg: "rgba(11,18,32,0.05)", fg: THEME.colors.ink, bd: THEME.colors.border },
+    free: { bg: "rgba(16,185,129,0.12)", fg: "#065f46", bd: "rgba(16,185,129,0.16)" },
+    vip: { bg: "rgba(124,58,237,0.12)", fg: "#5b21b6", bd: "rgba(124,58,237,0.18)" },
+    info: { bg: "rgba(79,70,229,0.10)", fg: "#3730a3", bd: "rgba(79,70,229,0.16)" },
+    cyan: { bg: "rgba(6,182,212,0.10)", fg: "#155e75", bd: "rgba(6,182,212,0.16)" },
+    warn: { bg: "rgba(245,158,11,0.12)", fg: "#92400e", bd: "rgba(245,158,11,0.18)" },
   };
   const t = map[tone] || map.neutral;
+
   return (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
-        padding: "4px 8px",
+        padding: "5px 9px",
         borderRadius: 999,
         background: t.bg,
         color: t.fg,
         fontSize: 12,
+        fontWeight: 700,
         border: `1px solid ${t.bd}`,
         whiteSpace: "nowrap",
       }}
@@ -45,9 +47,9 @@ function CoverPlaceholder() {
     <div
       style={{
         width: "100%",
-        height: 210,
+        height: 260,
         background:
-          "linear-gradient(135deg, rgba(79,70,229,0.16), rgba(6,182,212,0.12)), radial-gradient(600px 220px at 20% 0%, rgba(255,255,255,0.55), transparent 55%), rgba(11,18,32,0.06)",
+          "linear-gradient(135deg, rgba(79,70,229,0.18), rgba(6,182,212,0.14)), radial-gradient(700px 240px at 20% 0%, rgba(255,255,255,0.58), transparent 55%), rgba(11,18,32,0.06)",
         position: "relative",
       }}
     >
@@ -56,14 +58,24 @@ function CoverPlaceholder() {
           position: "absolute",
           inset: 0,
           backgroundImage:
-            "linear-gradient(rgba(11,18,32,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(11,18,32,0.08) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
-          opacity: 0.22,
+            "linear-gradient(rgba(255,255,255,0.18) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.18) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+          opacity: 0.2,
           pointerEvents: "none",
         }}
       />
-      <div style={{ position: "absolute", left: 14, bottom: 14, color: THEME.colors.ink, opacity: 0.65, fontWeight: 800 }}>
-        示例视频（免费）
+      <div
+        style={{
+          position: "absolute",
+          left: 18,
+          bottom: 18,
+          color: "#fff",
+          fontWeight: 900,
+          fontSize: 18,
+          textShadow: "0 8px 24px rgba(0,0,0,0.25)",
+        }}
+      >
+        Featured Example
       </div>
     </div>
   );
@@ -75,30 +87,30 @@ export default function FeaturedExamples({ featured }) {
       <div
         style={{
           width: "100%",
-          borderRadius: THEME.radii.lg,
-          background: THEME.colors.surface,
+          borderRadius: 24,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78))",
           border: `1px solid ${THEME.colors.border}`,
           boxShadow: THEME.colors.shadow,
           overflow: "hidden",
+          minHeight: 100,
         }}
       >
         <CoverPlaceholder />
-        <div style={{ padding: 14, color: THEME.colors.faint, fontSize: 13 }}>暂无示例视频</div>
+        <div style={{ padding: 18, color: THEME.colors.faint, fontSize: 13 }}>暂无示例视频</div>
       </div>
     );
   }
 
   const cover = featured.cover_url || featured.video_url || "";
   const duration = formatDuration(featured.duration_sec);
-
   const title = featured.title || `Clip #${featured.id}`;
-  const desc = featured.description || "打开一条场景短片，边看边学地道表达。";
+  const desc = featured.description || "从真实场景中理解表达，再把它带进自己的口语系统。";
 
   const topics = Array.isArray(featured.topics) ? featured.topics.slice(0, 2) : [];
   const channels = Array.isArray(featured.channels) ? featured.channels.slice(0, 2) : [];
 
   const isVip = featured.access_tier === "vip";
-  const accessPill = isVip ? <Pill tone="vip">会员专享</Pill> : <Pill tone="free">免费示例</Pill>;
+  const accessPill = isVip ? <Pill tone="vip">会员专享</Pill> : <Pill tone="free">免费试看</Pill>;
   const difficultyPill = featured.difficulty ? <Pill tone="warn">{String(featured.difficulty)}</Pill> : null;
 
   return (
@@ -106,10 +118,10 @@ export default function FeaturedExamples({ featured }) {
       <style>{`
         a.featuredCard {
           transform: translateY(0);
-          transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+          transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
         }
         a.featuredCard:hover {
-          transform: translateY(-1px);
+          transform: translateY(-2px);
           box-shadow: ${THEME.colors.shadowHover};
           border-color: ${THEME.colors.border2};
         }
@@ -120,8 +132,8 @@ export default function FeaturedExamples({ featured }) {
         className="featuredCard"
         style={{
           width: "100%",
-          borderRadius: THEME.radii.lg,
-          background: THEME.colors.surface,
+          borderRadius: 24,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.78))",
           border: `1px solid ${THEME.colors.border}`,
           boxShadow: THEME.colors.shadow,
           overflow: "hidden",
@@ -129,16 +141,17 @@ export default function FeaturedExamples({ featured }) {
           flexDirection: "column",
           textDecoration: "none",
           color: "inherit",
+          backdropFilter: "blur(12px)",
         }}
       >
         <div style={{ position: "relative" }}>
           {cover ? (
-            <div style={{ position: "relative", width: "100%", height: 210 }}>
+            <div style={{ position: "relative", width: "100%", height: 260 }}>
               <Image
                 src={cover}
                 alt={title}
                 fill
-                sizes="(max-width: 768px) 100vw, 500px"
+                sizes="(max-width: 768px) 100vw, 520px"
                 style={{ objectFit: "cover" }}
                 priority
               />
@@ -147,55 +160,144 @@ export default function FeaturedExamples({ featured }) {
             <CoverPlaceholder />
           )}
 
-          {/* ✅ 收藏按钮：纯展示占位，不绑定 onClick（避免 Server->Client 事件传递报错） */}
           <div
             style={{
               position: "absolute",
-              left: 10,
-              top: 10,
-              width: 34,
-              height: 34,
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.72)",
-              border: `1px solid ${THEME.colors.border}`,
-              display: "grid",
-              placeItems: "center",
-              color: THEME.colors.ink,
-              fontSize: 16,
-              userSelect: "none",
-              pointerEvents: "none", // ✅ 防止点到它影响 Link 点击
+              inset: 0,
+              background:
+                "linear-gradient(180deg, rgba(8,15,30,0.04) 0%, rgba(8,15,30,0.00) 30%, rgba(8,15,30,0.36) 100%)",
+              pointerEvents: "none",
             }}
-            aria-label="bookmark"
+          />
+
+          <div
+            style={{
+              position: "absolute",
+              left: 14,
+              top: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
           >
-            ♡
-          </div>
-
-          <div style={{ position: "absolute", left: 52, top: 12 }}>{accessPill}</div>
-
-          {duration ? (
             <div
               style={{
-                position: "absolute",
-                right: 10,
-                bottom: 10,
-                background: "rgba(11,18,32,0.78)",
-                color: "#fff",
+                width: 38,
+                height: 38,
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.78)",
+                border: `1px solid rgba(255,255,255,0.62)`,
+                display: "grid",
+                placeItems: "center",
+                color: THEME.colors.ink,
+                fontSize: 16,
+                userSelect: "none",
+                pointerEvents: "none",
+                backdropFilter: "blur(10px)",
+                boxShadow: "0 10px 24px rgba(15,23,42,0.10)",
+              }}
+              aria-label="bookmark"
+            >
+              ♡
+            </div>
+
+            {accessPill}
+          </div>
+
+          <div
+            style={{
+              position: "absolute",
+              left: 16,
+              bottom: 16,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 10px",
+                borderRadius: 999,
+                background: "rgba(255,255,255,0.82)",
+                border: "1px solid rgba(255,255,255,0.62)",
+                backdropFilter: "blur(12px)",
+                color: THEME.colors.ink,
                 fontSize: 12,
-                padding: "4px 6px",
-                borderRadius: 8,
-                letterSpacing: "0.02em",
+                fontWeight: 800,
+                boxShadow: "0 12px 26px rgba(15,23,42,0.10)",
               }}
             >
-              {duration}
-            </div>
-          ) : null}
+              本周示例视频
+            </span>
+
+            {duration ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "8px 10px",
+                  borderRadius: 999,
+                  background: "rgba(11,18,32,0.68)",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: "0.02em",
+                  boxShadow: "0 12px 26px rgba(15,23,42,0.16)",
+                }}
+              >
+                {duration}
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div style={{ padding: 14 }}>
-          <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 6, color: THEME.colors.ink }}>{title}</div>
-          <div style={{ color: THEME.colors.muted, fontSize: 13, lineHeight: 1.55 }}>{desc}</div>
+        <div style={{ padding: 18 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 950,
+                  fontSize: 20,
+                  lineHeight: 1.25,
+                  color: THEME.colors.ink,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {title}
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  color: THEME.colors.muted,
+                  fontSize: 13,
+                  lineHeight: 1.72,
+                }}
+              >
+                {desc}
+              </div>
+            </div>
+          </div>
 
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div
+            style={{
+              marginTop: 14,
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
             {channels.map((t) => (
               <Pill key={`c-${t}`} tone="info">
                 {String(t)}
@@ -208,9 +310,43 @@ export default function FeaturedExamples({ featured }) {
             ))}
           </div>
 
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{difficultyPill}</div>
-            <div style={{ color: THEME.colors.faint, fontSize: 12 }}>
+          <div
+            style={{
+              marginTop: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
+              {difficultyPill}
+              <span
+                style={{
+                  color: THEME.colors.faint,
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                适合用来快速进入学习状态
+              </span>
+            </div>
+
+            <div
+              style={{
+                color: THEME.colors.faint,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
               {featured.created_at ? String(featured.created_at).slice(0, 10) : ""}
             </div>
           </div>
