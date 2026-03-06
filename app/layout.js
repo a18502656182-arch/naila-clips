@@ -1,4 +1,4 @@
-import PenguinMascot from "./components/PenguinMascot";
+import PenguinWrapper from "./components/PenguinWrapper";
 
 export const metadata = {
   title: "油管英语场景库 — 精选场景短片·双语字幕·词汇卡片",
@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
     <html lang="zh-CN">
       <body style={{ margin: 0 }}>
         {children}
-        <PenguinMascot />
+        <PenguinWrapper />
       </body>
     </html>
   );
