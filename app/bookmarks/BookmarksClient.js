@@ -1,22 +1,18 @@
 "use client";
 import Image from "next/image";
-import ExamSystem from "./ExamSystem";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-// 和参考站一样：token 直接从 prop 传入
 function makeAuthFetch(token) {
   return function authFetch(url, options = {}) {
     const headers = { ...(options.headers || {}) };
-    // 优先用服务端传入的 token，降级用 localStorage
     const t = token || (() => { try { return localStorage.getItem("sb_access_token"); } catch { return null; } })();
     if (t) headers["Authorization"] = `Bearer ${t}`;
     return fetch(url, { ...options, headers, credentials: "include" });
   };
 }
 
-// app/bookmarks/page.js
 import { useEffect, useState } from "react";
 import { THEME } from "../components/home/theme";
 
@@ -79,7 +75,7 @@ function VideoCard({ item, onRemove }) {
   );
 }
 
-// ─── 词汇卡片（和详情页体验一致）────────────────────────────
+// ─── 词汇卡片 ─────────────────────────────────────────────
 function VocabFavCard({ item, onRemove, showZh }) {
   const { term, kind, data, clip_id } = item;
   const [collapsed, setCollapsed] = useState(false);
@@ -98,7 +94,6 @@ function VocabFavCard({ item, onRemove, showZh }) {
       background: THEME.colors.surface, padding: 14,
       boxShadow: "0 2px 8px rgba(11,18,32,0.06)",
     }}>
-      {/* 头部：词条 + 操作按钮 */}
       <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -124,7 +119,6 @@ function VocabFavCard({ item, onRemove, showZh }) {
         </div>
       </div>
 
-      {/* 展开内容 */}
       {!collapsed && (
         <>
           {showZh && data?.meaning_zh && (
@@ -154,27 +148,22 @@ function VocabFavCard({ item, onRemove, showZh }) {
 
 // ─── 主页面 ───────────────────────────────────────────────
 export default function BookmarksClient({ accessToken = null }) {
-  // 和参考站一样：直接用 accessToken 创建 authFetch
   const authFetch = makeAuthFetch(accessToken);
   const [me, setMe] = useState(null);
-  const [tab, setTab] = useState("videos"); // "videos" | "vocab"
-  const [showZh, setShowZh] = useState(true); // 词汇本中文开关
+  const [tab, setTab] = useState("videos");
+  const [showZh, setShowZh] = useState(true);
 
-  // 视频收藏
   const [videoItems, setVideoItems] = useState([]);
   const [videoLoading, setVideoLoading] = useState(true);
   const [videoSearch, setVideoSearch] = useState("");
 
-  // 词汇收藏
   const [vocabItems, setVocabItems] = useState([]);
   const [vocabLoading, setVocabLoading] = useState(true);
-  const [examOpen, setExamOpen] = useState(false);
-  const [examActive, setExamActive] = useState(false);
   const [vocabSearch, setVocabSearch] = useState("");
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-authFetch(remote("/api/me"), { cache: "no-store" })
+    authFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
@@ -250,7 +239,6 @@ authFetch(remote("/api/me"), { cache: "no-store" })
     </div>
   );
 
-  // 未登录
   if (me !== null && !me.logged_in) {
     return (
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
@@ -274,128 +262,107 @@ authFetch(remote("/api/me"), { cache: "no-store" })
     <>
       <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      {navBar}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
+        {navBar}
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
 
-        {/* 标签切换 */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          <button type="button" onClick={() => setTab("videos")} style={{
-            padding: "10px 20px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
-            border: `1px solid ${tab === "videos" ? THEME.colors.ink : THEME.colors.border2}`,
-            background: tab === "videos" ? THEME.colors.ink : THEME.colors.surface,
-            color: tab === "videos" ? "#fff" : THEME.colors.ink,
-          }}>❤️ 收藏视频 {videoItems.length > 0 ? `(${videoItems.length})` : ""}</button>
-          <button type="button" onClick={() => setTab("vocab")} style={{
-            padding: "10px 20px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
-            border: `1px solid ${tab === "vocab" ? THEME.colors.ink : THEME.colors.border2}`,
-            background: tab === "vocab" ? THEME.colors.ink : THEME.colors.surface,
-            color: tab === "vocab" ? "#fff" : THEME.colors.ink,
-          }}>📖 我的词汇本 {vocabItems.length > 0 ? `(${vocabItems.length})` : ""}</button>
+          {/* 标签切换 */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <button type="button" onClick={() => setTab("videos")} style={{
+              padding: "10px 20px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
+              border: `1px solid ${tab === "videos" ? THEME.colors.ink : THEME.colors.border2}`,
+              background: tab === "videos" ? THEME.colors.ink : THEME.colors.surface,
+              color: tab === "videos" ? "#fff" : THEME.colors.ink,
+            }}>❤️ 收藏视频 {videoItems.length > 0 ? `(${videoItems.length})` : ""}</button>
+            <button type="button" onClick={() => setTab("vocab")} style={{
+              padding: "10px 20px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 14, cursor: "pointer",
+              border: `1px solid ${tab === "vocab" ? THEME.colors.ink : THEME.colors.border2}`,
+              background: tab === "vocab" ? THEME.colors.ink : THEME.colors.surface,
+              color: tab === "vocab" ? "#fff" : THEME.colors.ink,
+            }}>📖 我的词汇本 {vocabItems.length > 0 ? `(${vocabItems.length})` : ""}</button>
+          </div>
 
-        </div>
-
-        {/* ── 视频收藏 tab ── */}
-        {tab === "videos" && (
-          <>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <input
-                value={videoSearch} onChange={e => setVideoSearch(e.target.value)}
-                placeholder="搜索收藏的视频标题..."
-                style={{ flex: 1, padding: "10px 14px", border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md, fontSize: 13, background: THEME.colors.surface, outline: "none" }}
-              />
-              <span style={{ fontSize: 13, color: THEME.colors.faint, whiteSpace: "nowrap" }}>共 {filteredVideos.length} 条</span>
-              <button type="button" onClick={loadVideos} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
-            </div>
-
-            {videoLoading ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} style={{ borderRadius: THEME.radii.lg, overflow: "hidden", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}` }}>
-                    <div style={{ width: "100%", paddingTop: "56.25%", background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
-                    <div style={{ padding: 12 }}>
-                      <div style={{ height: 14, borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 8 }} />
-                      <div style={{ height: 12, width: "60%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+          {/* ── 视频收藏 tab ── */}
+          {tab === "videos" && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                <input value={videoSearch} onChange={e => setVideoSearch(e.target.value)}
+                  placeholder="搜索收藏的视频标题..."
+                  style={{ flex: 1, padding: "10px 14px", border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md, fontSize: 13, background: THEME.colors.surface, outline: "none" }} />
+                <span style={{ fontSize: 13, color: THEME.colors.faint, whiteSpace: "nowrap" }}>共 {filteredVideos.length} 条</span>
+                <button type="button" onClick={loadVideos} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
+              </div>
+              {videoLoading ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} style={{ borderRadius: THEME.radii.lg, overflow: "hidden", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}` }}>
+                      <div style={{ width: "100%", paddingTop: "56.25%", background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                      <div style={{ padding: 12 }}>
+                        <div style={{ height: 14, borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 8 }} />
+                        <div style={{ height: 12, width: "60%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : filteredVideos.length === 0 ? (
-              <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
-                还没有收藏任何视频，去首页挑一个吧 ~
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
-                {filteredVideos.map(item => (
-                  <VideoCard key={item.bookmark_id} item={item} onRemove={removeVideo} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+                  ))}
+                </div>
+              ) : filteredVideos.length === 0 ? (
+                <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
+                  还没有收藏任何视频，去首页挑一个吧 ~
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+                  {filteredVideos.map(item => <VideoCard key={item.bookmark_id} item={item} onRemove={removeVideo} />)}
+                </div>
+              )}
+            </>
+          )}
 
-        {/* ── 词汇本 tab ── */}
-        {tab === "vocab" && (
-          <>
-            <ExamSystem
-              vocabItems={vocabItems}
-              isSetupOpen={examOpen}
-              onSetupClose={() => setExamOpen(false)}
-              onMasteryUpdated={loadVocab}
-              onExamActiveChange={setExamActive}
-            />
-          {!examActive && <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-              <input
-                value={vocabSearch} onChange={e => setVocabSearch(e.target.value)}
-                placeholder="搜索单词或中文含义..."
-                style={{ flex: 1, minWidth: 200, padding: "10px 14px", border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md, fontSize: 13, background: THEME.colors.surface, outline: "none" }}
-              />
-              <div style={{ display: "flex", gap: 6 }}>
-                {[["all", "全部"], ["words", "单词"], ["phrases", "短语"], ["expressions", "地道表达"]].map(([k, label]) => (
-                  <button key={k} type="button" onClick={() => setVocabKind(k)} style={{
-                    padding: "8px 12px", borderRadius: THEME.radii.pill, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    border: `1px solid ${vocabKind === k ? THEME.colors.ink : THEME.colors.border2}`,
-                    background: vocabKind === k ? THEME.colors.ink : THEME.colors.surface,
-                    color: vocabKind === k ? "#fff" : THEME.colors.ink,
-                  }}>{label}</button>
-                ))}
+          {/* ── 词汇本 tab ── */}
+          {tab === "vocab" && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                <input value={vocabSearch} onChange={e => setVocabSearch(e.target.value)}
+                  placeholder="搜索单词或中文含义..."
+                  style={{ flex: 1, minWidth: 200, padding: "10px 14px", border: `1px solid ${THEME.colors.border2}`, borderRadius: THEME.radii.md, fontSize: 13, background: THEME.colors.surface, outline: "none" }} />
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[["all", "全部"], ["words", "单词"], ["phrases", "短语"], ["expressions", "地道表达"]].map(([k, label]) => (
+                    <button key={k} type="button" onClick={() => setVocabKind(k)} style={{
+                      padding: "8px 12px", borderRadius: THEME.radii.pill, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      border: `1px solid ${vocabKind === k ? THEME.colors.ink : THEME.colors.border2}`,
+                      background: vocabKind === k ? THEME.colors.ink : THEME.colors.surface,
+                      color: vocabKind === k ? "#fff" : THEME.colors.ink,
+                    }}>{label}</button>
+                  ))}
+                </div>
+                <span style={{ fontSize: 13, color: THEME.colors.faint, whiteSpace: "nowrap" }}>共 {filteredVocab.length} 条</span>
+                <button type="button" onClick={() => setShowZh(x => !x)} style={{
+                  border: `1px solid ${showZh ? THEME.colors.accent : THEME.colors.border2}`,
+                  background: showZh ? THEME.colors.accent : THEME.colors.surface,
+                  color: showZh ? "#fff" : THEME.colors.ink,
+                  borderRadius: THEME.radii.pill, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                }}>{showZh ? "中文 ON" : "中文 OFF"}</button>
+                <button type="button" onClick={loadVocab} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
               </div>
-              <span style={{ fontSize: 13, color: THEME.colors.faint, whiteSpace: "nowrap" }}>共 {filteredVocab.length} 条</span>
-              <button type="button" onClick={() => setShowZh(x => !x)} style={{
-                border: `1px solid ${showZh ? THEME.colors.accent : THEME.colors.border2}`,
-                background: showZh ? THEME.colors.accent : THEME.colors.surface,
-                color: showZh ? "#fff" : THEME.colors.ink,
-                borderRadius: THEME.radii.pill, padding: "8px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer",
-              }}>{showZh ? "中文 ON" : "中文 OFF"}</button>
-              <button type="button" onClick={loadVocab} style={{ border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>刷新</button>
-              {vocabItems.length >= 2 && <button type="button" onClick={() => setExamOpen(true)} style={{ padding: "8px 16px", borderRadius: THEME.radii.pill, fontWeight: 700, fontSize: 13, cursor: "pointer", border: "none", background: THEME.colors.ink, color: "#fff", whiteSpace: "nowrap" }}>🎯 开始练习</button>}
-            </div>}
-
-            {!examActive && (vocabLoading ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} style={{ borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, padding: 16 }}>
-                    <div style={{ height: 16, width: "30%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 10 }} />
-                    <div style={{ height: 12, width: "80%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 6 }} />
-                    <div style={{ height: 12, width: "50%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
-                  </div>
-                ))}
-              </div>
-            ) : filteredVocab.length === 0 ? (
-              <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
-                还没有收藏任何词汇，去看视频时点击词汇卡的 🤍 按钮收藏吧 ~
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {filteredVocab.map(item => (
-                  <VocabFavCard key={item.id} item={item} onRemove={removeVocab} showZh={showZh} />
-                ))}
-              </div>
-            ))}
-          </>
-        )}
+              {vocabLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} style={{ borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, padding: 16 }}>
+                      <div style={{ height: 16, width: "30%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite", marginBottom: 10 }} />
+                      <div style={{ height: 12, width: "80%", borderRadius: 6, background: "linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%)", backgroundSize: "200% 100%", animation: "shimmer 1.4s infinite" }} />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredVocab.length === 0 ? (
+                <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 40, textAlign: "center", color: THEME.colors.muted, fontSize: 14 }}>
+                  还没有收藏任何词汇，去看视频时点击词汇卡的 🤍 按钮收藏吧 ~
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {filteredVocab.map(item => <VocabFavCard key={item.id} item={item} onRemove={removeVocab} showZh={showZh} />)}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  
     </>
   );
 }
