@@ -98,55 +98,136 @@ export default async function Page() {
     items = r.items;
     has_more = r.has_more;
   } catch (e) {
-    return <div style={{ padding: 16 }}><pre style={{ color: "crimson" }}>{e?.message}</pre></div>;
+    return (
+      <div style={{ padding: 16 }}>
+        <pre style={{ color: "crimson" }}>{e?.message}</pre>
+      </div>
+    );
   }
 
   let featured = null;
-  try { featured = await fetchFeatured(); } catch {}
+  try {
+    featured = await fetchFeatured();
+  } catch {}
   if (!featured) featured = items[0] || null;
 
   let taxonomies = { difficulties: [], topics: [], channels: [] };
-  try { taxonomies = await fetchTaxonomies(); } catch {}
+  try {
+    taxonomies = await fetchTaxonomies();
+  } catch {}
 
   return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-      <div style={{
-        position: "sticky", top: 0, zIndex: 20,
-        background: "rgba(246,247,251,0.86)", backdropFilter: "blur(10px)",
-        borderBottom: `1px solid ${THEME.colors.border}`,
-      }}>
-        <div style={{
-          maxWidth: 1200, margin: "0 auto", padding: "12px 16px",
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 12,
-              background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
-              display: "grid", placeItems: "center", color: "#fff", fontWeight: 900,
-            }}>EC</div>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(1200px 560px at 10% -10%, rgba(79,70,229,0.08), transparent 50%), radial-gradient(1000px 420px at 100% 0%, rgba(6,182,212,0.08), transparent 45%), linear-gradient(180deg, #f6f8fc 0%, #f4f6fb 100%)",
+      }}
+    >
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          background: "rgba(246,248,252,0.74)",
+          backdropFilter: "blur(16px)",
+          borderBottom: `1px solid ${THEME.colors.border}`,
+          boxShadow: "0 8px 24px rgba(15,23,42,0.03)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "14px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 14,
+                background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
+                display: "grid",
+                placeItems: "center",
+                color: "#fff",
+                fontWeight: 950,
+                fontSize: 14,
+                letterSpacing: "-0.03em",
+                boxShadow: "0 14px 28px rgba(79,70,229,0.26)",
+              }}
+            >
+              EC
+            </div>
+
             <div style={{ lineHeight: 1.15 }}>
-              <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink }}>油管英语场景库</div>
-              <div style={{ fontSize: 12, color: THEME.colors.faint }}>精选场景短片 · 双语字幕 · 词汇卡片</div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 950,
+                  color: THEME.colors.ink,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                油管英语场景库
+              </div>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 12,
+                  color: THEME.colors.faint,
+                }}
+              >
+                Real scenes · bilingual subtitles · vocabulary cards
+              </div>
             </div>
           </div>
+
           <UserMenuClient />
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 40px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
         <HeroSection>
           <HowItWorks />
           <FeaturedExamples featured={featured} />
         </HeroSection>
 
-        <div style={{ marginTop: 18 }}>
-          <SectionTitle title="全部视频" />
-          <Suspense fallback={<div style={{ padding: 20, textAlign: "center", color: THEME.colors.faint }}>加载中...</div>}>
-            <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 30 }}>
+          <SectionTitle title="内容库" />
+
+          <div
+            style={{
+              marginTop: 14,
+              borderRadius: 24,
+              padding: 12,
+              background: "linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.50))",
+              border: `1px solid ${THEME.colors.border}`,
+              boxShadow: "0 18px 50px rgba(15,23,42,0.05)",
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    padding: 24,
+                    textAlign: "center",
+                    color: THEME.colors.faint,
+                  }}
+                >
+                  加载中...
+                </div>
+              }
+            >
               <HomeClient initialItems={items} initialHasMore={has_more} initialTaxonomies={taxonomies} />
-            </div>
-          </Suspense>
+            </Suspense>
+          </div>
         </div>
       </div>
     </div>
