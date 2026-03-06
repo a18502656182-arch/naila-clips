@@ -194,9 +194,13 @@ export default async function Page() {
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
         <HeroSection>
-          <HowItWorks />
+          {null}
           <FeaturedExamples featured={featured} />
         </HeroSection>
+
+        <div style={{ marginTop: 22 }}>
+          <HowItWorks />
+        </div>
 
         <div style={{ marginTop: 30 }}>
           <SectionTitle title="内容库" />
