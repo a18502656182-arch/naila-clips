@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME } from "../components/home/theme";
-import ExamSystem from "../bookmarks/ExamSystem";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -30,7 +29,7 @@ function clamp(n, a, b) {
 }
 
 function shuffle(arr) {
-  const a = [...arr];
+  const a = [...(arr || [])];
   for (let i = a.length - 1; i > 0; i--) {
     const j = (Math.random() * (i + 1)) | 0;
     [a[i], a[j]] = [a[j], a[i]];
@@ -47,16 +46,16 @@ function normalizeSentence(s) {
   return (s || "")
     .toLowerCase()
     .replace(/[“”‘’]/g, "'")
-    .replace(/[^a-z0-9'\s]/gi, "") // drop punctuation
+    .replace(/[^a-z0-9'\s]/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
+// Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
 async function playWord(term) {
   const t = (term || "").trim();
   if (!t) return;
 
-  // 1) Youdao voice first
   try {
     const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(
       t
@@ -65,11 +64,8 @@ async function playWord(term) {
     audio.crossOrigin = "anonymous";
     await audio.play();
     return;
-  } catch (_) {
-    // ignore
-  }
+  } catch {}
 
-  // 2) speechSynthesis fallback
   try {
     if ("speechSynthesis" in window) {
       const u = new SpeechSynthesisUtterance(t);
@@ -77,18 +73,911 @@ async function playWord(term) {
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     }
-  } catch (_) {
-    // ignore
-  }
+  } catch {}
 }
 
-/* ----------------------------- Game 1: Swipe ----------------------------- */
+/* ----------------------------- NotEnoughView (outside PracticeClient) ----------------------------- */
+
+function NotEnoughView({ onBack }) {
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
+      <div
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          background: THEME.colors.surface,
+          border: `1px solid ${THEME.colors.border}`,
+          borderRadius: THEME.radii.lg,
+          padding: 18,
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
+        <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 900 }}>
+          至少需要收藏 4 个词汇，才能开始游戏。
+        </div>
+        <button
+          onClick={onBack}
+          style={{
+            marginTop: 14,
+            height: 44,
+            padding: "0 16px",
+            borderRadius: THEME.radii.pill,
+            border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface,
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          返回大厅
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Shared UI (Bubble game) ----------------------------- */
+
+function MasteryBadge({ level }) {
+  const map = {
+    0: { label: "新收藏", bg: "#f3f4f6", color: "#374151", border: "#d1d5db" },
+    1: { label: "学习中", bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" },
+    2: { label: "已掌握", bg: "#f0fdf4", color: "#16a34a", border: "#bbf7d0" },
+  };
+  const m = map[level ?? 0] || map[0];
+  return (
+    <span
+      style={{
+        fontSize: 11,
+        padding: "2px 8px",
+        borderRadius: 999,
+        background: m.bg,
+        color: m.color,
+        border: `1px solid ${m.border}`,
+        fontWeight: 700,
+      }}
+    >
+      {level === 0 ? "⭐" : level === 1 ? "🔄" : "✅"} {m.label}
+    </span>
+  );
+}
+
+function ProgressBar({ current, total, onExit }) {
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 8,
+        }}
+      >
+        <span style={{ fontSize: 13, color: THEME.colors.muted }}>
+          第 {current + 1} 题 / 共 {total} 题
+        </span>
+        <button
+          type="button"
+          onClick={onExit}
+          style={{
+            fontSize: 13,
+            color: THEME.colors.muted,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            fontWeight: 800,
+          }}
+        >
+          退出
+        </button>
+      </div>
+      <div
+        style={{
+          height: 6,
+          background: "#e8eaf0",
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            background: THEME.colors.accent,
+            borderRadius: 999,
+            width: `${((current + 1) / total) * 100}%`,
+            transition: "width 0.3s",
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Game: BubbleSpellingGame ----------------------------- */
+
+function BubbleSpellingGame({ vocabItems, onExit }) {
+  const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  const [idx, setIdx] = useState(0);
+  const [slots, setSlots] = useState([]);
+  const [bubbles, setBubbles] = useState([]);
+  const [checked, setChecked] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [playingAudio, setPlayingAudio] = useState(false);
+  const [successAnim, setSuccessAnim] = useState(false);
+
+  const card = cards[idx];
+  const isLast = idx === cards.length - 1;
+
+  useEffect(() => {
+    if (!card) return;
+    initQuestion(card);
+    playWord(card.term);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, card?.id]);
+
+  function initQuestion(c) {
+    const term = c?.term || "";
+    const slotArr = term.split("").map((ch) => (ch === " " ? " " : null));
+    setSlots(slotArr);
+
+    const letters = term.split("").filter((ch) => ch !== " ");
+    const distractorPool = "abcdefghijklmnopqrstuvwxyz";
+    const termLetters = new Set(letters.map((l) => l.toLowerCase()));
+    const distractors = distractorPool
+      .split("")
+      .filter((l) => !termLetters.has(l));
+    const shuffledDistractors = [...distractors].sort(() => Math.random() - 0.5);
+
+    const extraCount = Math.min(4, Math.max(2, Math.floor(letters.length * 0.4)));
+    const extras = shuffledDistractors.slice(0, extraCount);
+
+    const allLetters = [...letters, ...extras].sort(() => Math.random() - 0.5);
+    setBubbles(
+      allLetters.map((letter, i) => ({
+        letter,
+        id: i,
+        used: false,
+      }))
+    );
+
+    setChecked(false);
+    setIsCorrect(false);
+    setSuccessAnim(false);
+  }
+
+  function handleBubbleClick(bubbleId) {
+    if (checked) return;
+    const bubble = bubbles.find((b) => b.id === bubbleId && !b.used);
+    if (!bubble) return;
+
+    const emptyIdx = slots.findIndex((s) => s === null);
+    if (emptyIdx === -1) return;
+
+    const expectedLetter = (card?.term || "")[emptyIdx] || "";
+    const correct = bubble.letter.toLowerCase() === expectedLetter.toLowerCase();
+
+    const newSlots = [...slots];
+    newSlots[emptyIdx] = { letter: bubble.letter, correct };
+
+    setSlots(newSlots);
+    setBubbles((prev) => prev.map((b) => (b.id === bubbleId ? { ...b, used: true } : b)));
+
+    const allFilled = newSlots.every((s) => s !== null);
+    if (allFilled) {
+      const allCorrect = newSlots.every((s) => s === " " || s.correct);
+      setChecked(true);
+      setIsCorrect(allCorrect);
+
+      if (allCorrect) {
+        setSuccessAnim(true);
+        setTimeout(() => {
+          if (isLast) onExit();
+          else setIdx((i) => i + 1);
+        }, 900);
+      }
+    }
+  }
+
+  function handlePlayAudio() {
+    setPlayingAudio(true);
+    playWord(card?.term);
+    setTimeout(() => setPlayingAudio(false), 1500);
+  }
+
+  function handleNext() {
+    if (isLast) onExit();
+    else setIdx((i) => i + 1);
+  }
+
+  function handleReset() {
+    initQuestion(card);
+  }
+
+  if (!card) return null;
+
+  const filledCount = slots.filter((s) => s !== null && s !== " ").length;
+  const totalLetters = (card.term || "").split("").filter((c) => c !== " ").length;
+
+  const bubbleColors = [
+    { bg: "linear-gradient(135deg,#6366f1,#4f46e5)", shadow: "rgba(99,102,241,0.35)" },
+    { bg: "linear-gradient(135deg,#ec4899,#db2777)", shadow: "rgba(236,72,153,0.35)" },
+    { bg: "linear-gradient(135deg,#06b6d4,#0891b2)", shadow: "rgba(6,182,212,0.35)" },
+    { bg: "linear-gradient(135deg,#10b981,#059669)", shadow: "rgba(16,185,129,0.35)" },
+    { bg: "linear-gradient(135deg,#f59e0b,#d97706)", shadow: "rgba(245,158,11,0.35)" },
+    { bg: "linear-gradient(135deg,#8b5cf6,#7c3aed)", shadow: "rgba(139,92,246,0.35)" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box" }}>
+      <div
+        style={{
+          maxWidth: 980,
+          margin: "0 auto",
+          padding: "8px 6px 10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <button
+          onClick={onExit}
+          style={{
+            border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface,
+            borderRadius: THEME.radii.pill,
+            padding: "8px 12px",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          ← 返回大厅
+        </button>
+        <div style={{ fontWeight: 1000 }}>🫧 气泡拼写</div>
+        <div style={{ opacity: 0.7, fontWeight: 900 }}>
+          {idx + 1} / {cards.length}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "8px 16px 40px" }}>
+        <style>{`
+          @keyframes slotPop { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
+          @keyframes successPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+          @keyframes bubbleAppear { 0%{transform:scale(0);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
+        `}</style>
+
+        <ProgressBar current={idx} total={cards.length} onExit={onExit} />
+
+        <div
+          style={{
+            background: THEME.colors.surface,
+            borderRadius: THEME.radii.lg,
+            border: `1px solid ${THEME.colors.border}`,
+            padding: "24px 20px 28px",
+            boxShadow: "0 4px 16px rgba(11,18,32,0.08)",
+            animation: successAnim ? "successPulse 400ms ease" : "none",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <MasteryBadge level={card.mastery_level ?? 0} />
+            <button
+              type="button"
+              onClick={handlePlayAudio}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 14px",
+                borderRadius: THEME.radii.pill,
+                background: playingAudio ? THEME.colors.accent : "#eef2ff",
+                border: `1px solid ${playingAudio ? THEME.colors.accent : "#c7d2fe"}`,
+                color: playingAudio ? "#fff" : THEME.colors.accent,
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: "pointer",
+                transition: "all 200ms",
+              }}
+            >
+              {playingAudio ? "🔊 播放中..." : "🔊 听发音"}
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+            {card.data?.zh && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  background: "#fffbeb",
+                  borderRadius: THEME.radii.md,
+                  border: "1px solid #fde68a",
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 900, color: "#b45309" }}>中文含义　</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink }}>{card.data.zh}</span>
+              </div>
+            )}
+            {card.data?.ipa && (
+              <div
+                style={{
+                  padding: "8px 14px",
+                  background: "#f8fafc",
+                  borderRadius: THEME.radii.md,
+                  border: `1px solid ${THEME.colors.border}`,
+                }}
+              >
+                <span style={{ fontSize: 11, fontWeight: 900, color: THEME.colors.muted }}>音标　</span>
+                <span style={{ fontSize: 13, fontFamily: "monospace", color: THEME.colors.muted }}>{card.data.ipa}</span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 12, fontWeight: 900, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>
+              点击字母拼出答案 · {filledCount}/{totalLetters} 个字母
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                justifyContent: "center",
+                minHeight: 52,
+                padding: "8px 12px",
+                background: "#f8fafc",
+                borderRadius: THEME.radii.md,
+                border: `2px dashed ${checked ? (isCorrect ? "#22c55e" : "#ef4444") : "#c7d2fe"}`,
+                transition: "border-color 300ms",
+              }}
+            >
+              {slots.map((s, i) => {
+                if (s === " ") return <div key={i} style={{ width: 14 }} />;
+                const filled = s && s !== " ";
+                const letterCorrect = filled ? s.correct : null;
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      width: 38,
+                      height: 42,
+                      borderRadius: 10,
+                      border: `2px solid ${filled ? (letterCorrect ? "#22c55e" : "#ef4444") : "#c7d2fe"}`,
+                      background: filled ? (letterCorrect ? "#f0fdf4" : "#fff5f5") : "white",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 18,
+                      fontWeight: 1000,
+                      color: filled ? (letterCorrect ? "#16a34a" : "#dc2626") : "#4f46e5",
+                      transition: "all 200ms",
+                      animation: filled && !checked ? "slotPop 300ms ease" : "none",
+                      boxShadow: filled
+                        ? `0 2px 8px ${letterCorrect ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)"}`
+                        : "none",
+                    }}
+                  >
+                    {filled ? s.letter : ""}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {checked && !isCorrect && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: "12px 16px",
+                borderRadius: THEME.radii.md,
+                background: "#fff5f5",
+                border: "1px solid #fecaca",
+              }}
+            >
+              <div style={{ fontWeight: 1000, color: "#dc2626", marginBottom: 6 }}>✗ 拼写有误</div>
+              <div style={{ fontSize: 13, color: THEME.colors.ink }}>
+                正确拼写：<strong style={{ color: "#dc2626", fontSize: 16 }}>{card.term}</strong>
+              </div>
+              {card.data?.zh && (
+                <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{card.data.zh}</div>
+              )}
+            </div>
+          )}
+
+          {checked && isCorrect && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: "12px 16px",
+                borderRadius: THEME.radii.md,
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontWeight: 1000, color: "#16a34a", fontSize: 15 }}>✓ 拼写正确！</div>
+            </div>
+          )}
+
+          {!checked && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: THEME.colors.muted, marginBottom: 10, textAlign: "center" }}>
+                点击字母气泡填入答案
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", minHeight: 56 }}>
+                {bubbles
+                  .filter((b) => !b.used)
+                  .map((b, i) => {
+                    const colorScheme = bubbleColors[b.id % bubbleColors.length];
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => handleBubbleClick(b.id)}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "50%",
+                          background: colorScheme.bg,
+                          border: "none",
+                          color: "#fff",
+                          fontSize: 18,
+                          fontWeight: 1000,
+                          cursor: "pointer",
+                          boxShadow: `0 4px 14px ${colorScheme.shadow}`,
+                          animation: `bubbleAppear ${200 + i * 40}ms ease both`,
+                          transition: "transform 100ms, box-shadow 100ms",
+                          userSelect: "none",
+                        }}
+                      >
+                        {b.letter}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 20 }}>
+            {!checked && (
+              <button
+                type="button"
+                onClick={handleReset}
+                style={{
+                  padding: "9px 20px",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border}`,
+                  background: THEME.colors.surface,
+                  fontSize: 13,
+                  fontWeight: 900,
+                  color: THEME.colors.muted,
+                  cursor: "pointer",
+                }}
+              >
+                🔄 重新排列
+              </button>
+            )}
+
+            {checked && !isCorrect && (
+              <button
+                type="button"
+                onClick={handleNext}
+                style={{
+                  padding: "10px 28px",
+                  borderRadius: THEME.radii.pill,
+                  background: THEME.colors.ink,
+                  color: "#fff",
+                  border: "none",
+                  fontSize: 14,
+                  fontWeight: 1000,
+                  cursor: "pointer",
+                }}
+              >
+                {isLast ? "完成" : "下一题"}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Game: MatchMadnessGame ----------------------------- */
+
+const MATCH_TIME = 30;
+const BATCH_SIZE = 5;
+
+function MatchMadnessGame({ vocabItems, onExit }) {
+  const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  const border2 = THEME.colors.border2 || THEME.colors.border;
+
+  const [batch, setBatch] = useState([]);
+  const [leftSel, setLeftSel] = useState(null);
+  const [rightSel, setRightSel] = useState(null);
+  const [matched, setMatched] = useState(new Set());
+  const [flash, setFlash] = useState(null);
+  const [shake, setShake] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(MATCH_TIME);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const deckRef = useRef([...cards].sort(() => Math.random() - 0.5));
+  const offsetRef = useRef(0);
+  const timerRef = useRef(null);
+  const [rightOrder, setRightOrder] = useState([]);
+
+  function endGame() {
+    clearInterval(timerRef.current);
+    setDone(true);
+  }
+
+  function loadNextBatch() {
+    const deck = deckRef.current;
+    const start = offsetRef.current;
+
+    if (start >= deck.length) {
+      endGame();
+      return;
+    }
+
+    const next = deck.slice(start, start + BATCH_SIZE);
+    offsetRef.current = start + next.length;
+
+    setBatch(next);
+    setMatched(new Set());
+    setLeftSel(null);
+    setRightSel(null);
+    setRightOrder([...next].sort(() => Math.random() - 0.5));
+  }
+
+  useEffect(() => {
+    loadNextBatch();
+    timerRef.current = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(timerRef.current);
+          setDone(true);
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timerRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (batch.length > 0 && matched.size === batch.length) {
+      setTimeout(loadNextBatch, 400);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matched]);
+
+  function tryMatch(lId, rId) {
+    const correct = lId === rId;
+
+    if (correct) {
+      const newMatched = new Set([...matched, lId]);
+      setMatched(newMatched);
+
+      const newCombo = combo + 1;
+      setCombo(newCombo);
+      setBestCombo((b) => Math.max(b, newCombo));
+      setScore((s) => s + 10 + newCombo * 2);
+
+      setFlash({ id: lId, ok: true });
+      setTimeout(() => setFlash(null), 400);
+    } else {
+      setCombo(0);
+      setTimeLeft((t) => Math.max(0, t - 3));
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+    }
+
+    setLeftSel(null);
+    setRightSel(null);
+  }
+
+  function handleLeft(id) {
+    if (matched.has(id) || done) return;
+    setLeftSel(id);
+    if (rightSel !== null) tryMatch(id, rightSel);
+  }
+
+  function handleRight(id) {
+    if (matched.has(id) || done) return;
+    setRightSel(id);
+    if (leftSel !== null) tryMatch(leftSel, id);
+  }
+
+  if (done) {
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box" }}>
+        <div style={{ maxWidth: 980, margin: "0 auto", padding: "8px 6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button
+            onClick={onExit}
+            style={{
+              border: `1px solid ${THEME.colors.border}`,
+              background: THEME.colors.surface,
+              borderRadius: THEME.radii.pill,
+              padding: "8px 12px",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            ← 返回大厅
+          </button>
+          <div style={{ fontWeight: 1000 }}>🔗 极速连连看</div>
+          <div />
+        </div>
+
+        <div style={{ maxWidth: 720, margin: "18px auto 0" }}>
+          <div
+            style={{
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+              boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
+            }}
+          >
+            <div style={{ fontSize: 22, fontWeight: 1000 }}>本局结束</div>
+            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 900 }}>
+              得分：<b>{score}</b>　·　最高连击：<b>{bestCombo}</b>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+              <button
+                onClick={() => {
+                  deckRef.current = [...cards].sort(() => Math.random() - 0.5);
+                  offsetRef.current = 0;
+
+                  setTimeLeft(MATCH_TIME);
+                  setScore(0);
+                  setCombo(0);
+                  setBestCombo(0);
+                  setDone(false);
+
+                  loadNextBatch();
+
+                  clearInterval(timerRef.current);
+                  timerRef.current = setInterval(() => {
+                    setTimeLeft((t) => {
+                      if (t <= 1) {
+                        clearInterval(timerRef.current);
+                        setDone(true);
+                        return 0;
+                      }
+                      return t - 1;
+                    });
+                  }, 1000);
+                }}
+                style={{
+                  height: 44,
+                  padding: "0 16px",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border}`,
+                  background: THEME.colors.surface,
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                再来一局
+              </button>
+
+              <button
+                onClick={onExit}
+                style={{
+                  height: 44,
+                  padding: "0 16px",
+                  borderRadius: THEME.radii.pill,
+                  border: `1px solid ${THEME.colors.border}`,
+                  background: THEME.colors.surface,
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                返回大厅
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const timePct = (timeLeft / MATCH_TIME) * 100;
+  const timeColor = timeLeft > 15 ? "#22c55e" : timeLeft > 8 ? "#f59e0b" : "#ef4444";
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "8px 6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <button
+          onClick={onExit}
+          style={{
+            border: `1px solid ${THEME.colors.border}`,
+            background: THEME.colors.surface,
+            borderRadius: THEME.radii.pill,
+            padding: "8px 12px",
+            cursor: "pointer",
+            fontWeight: 900,
+          }}
+        >
+          ← 返回大厅
+        </button>
+        <div style={{ fontWeight: 1000 }}>🔗 极速连连看</div>
+        <div style={{ opacity: 0.7, fontWeight: 900 }}>剩余 {timeLeft}s</div>
+      </div>
+
+      <div style={{ maxWidth: 600, margin: "0 auto", padding: "8px 16px 40px" }}>
+        <style>{`
+          @keyframes matchShake {
+            0%,100%{transform:translateX(0)}
+            20%{transform:translateX(-8px)}
+            40%{transform:translateX(8px)}
+            60%{transform:translateX(-5px)}
+            80%{transform:translateX(5px)}
+          }
+          @keyframes matchPop {
+            0%{transform:scale(1)}
+            40%{transform:scale(1.08)}
+            100%{transform:scale(1)}
+          }
+        `}</style>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <span style={{ fontSize: 20, fontWeight: 1000, color: THEME.colors.ink }}>🔗 {score}</span>
+              {combo >= 2 && (
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 900,
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    background: "linear-gradient(135deg,#f59e0b,#ef4444)",
+                    color: "#fff",
+                    animation: "matchPop 300ms ease",
+                  }}
+                >
+                  🔥 {combo}连击
+                </span>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onExit}
+              style={{
+                fontSize: 13,
+                color: THEME.colors.muted,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              退出
+            </button>
+          </div>
+
+          <div
+            style={{
+              height: 10,
+              background: "#e8eaf0",
+              borderRadius: 999,
+              overflow: "hidden",
+              border: "1px solid rgba(0,0,0,0.06)",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                borderRadius: 999,
+                width: `${timePct}%`,
+                background: `linear-gradient(90deg, ${timeColor}, ${timeColor}cc)`,
+                transition: "width 1s linear, background 0.5s",
+                boxShadow: `0 0 8px ${timeColor}88`,
+              }}
+            />
+          </div>
+
+          <div style={{ textAlign: "right", fontSize: 12, color: timeColor, fontWeight: 900, marginTop: 4 }}>
+            {timeLeft}s
+          </div>
+        </div>
+
+        <div style={{ animation: shake ? "matchShake 500ms ease" : "none", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {batch.map((card) => {
+              const isMatched = matched.has(card.id);
+              const isSelected = leftSel === card.id;
+              const isFlashing = flash?.id === card.id;
+
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => handleLeft(card.id)}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    border: "2px solid",
+                    borderColor: isMatched ? "#bbf7d0" : isSelected ? THEME.colors.accent : border2,
+                    background: isMatched ? "#f0fdf4" : isSelected ? "#eef2ff" : THEME.colors.surface,
+                    color: isMatched ? "#16a34a" : isSelected ? THEME.colors.accent : THEME.colors.ink,
+                    fontSize: 14,
+                    fontWeight: 900,
+                    cursor: isMatched ? "default" : "pointer",
+                    textAlign: "center",
+                    transition: "all 150ms",
+                    opacity: isMatched ? 0.45 : 1,
+                    animation: isFlashing ? "matchPop 400ms ease" : "none",
+                    boxShadow: isSelected ? "0 0 0 3px rgba(99,102,241,0.20)" : "none",
+                    textDecoration: isMatched ? "line-through" : "none",
+                  }}
+                >
+                  {card.term}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {rightOrder.map((card) => {
+              const isMatched = matched.has(card.id);
+              const isSelected = rightSel === card.id;
+              const isFlashing = flash?.id === card.id;
+
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => handleRight(card.id)}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 14,
+                    border: "2px solid",
+                    borderColor: isMatched ? "#bbf7d0" : isSelected ? "#ec4899" : border2,
+                    background: isMatched ? "#f0fdf4" : isSelected ? "#fdf2f8" : THEME.colors.surface,
+                    color: isMatched ? "#16a34a" : isSelected ? "#db2777" : THEME.colors.ink,
+                    fontSize: 13,
+                    fontWeight: 900,
+                    cursor: isMatched ? "default" : "pointer",
+                    textAlign: "center",
+                    transition: "all 150ms",
+                    opacity: isMatched ? 0.45 : 1,
+                    animation: isFlashing ? "matchPop 400ms ease" : "none",
+                    boxShadow: isSelected ? "0 0 0 3px rgba(236,72,153,0.20)" : "none",
+                    textDecoration: isMatched ? "line-through" : "none",
+                  }}
+                >
+                  {card.data?.zh || "（无释义）"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ marginTop: 14, textAlign: "center", fontSize: 12, color: THEME.colors.faint, fontWeight: 900 }}>
+          本轮 {matched.size}/{batch.length} · 最高连击 {bestCombo}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------- Game: SwipeGame (modified) ----------------------------- */
 
 function SwipeGame({ vocabItems, onExit }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [done, setDone] = useState(false);
+
+  const [records, setRecords] = useState([]);
 
   const [dx, setDx] = useState(0);
   const [dy, setDy] = useState(0);
@@ -104,7 +993,6 @@ function SwipeGame({ vocabItems, onExit }) {
   const [isMeaningCorrect, setIsMeaningCorrect] = useState(true);
 
   useEffect(() => {
-    // setup current card meaning (50/50 correct)
     if (!current) return;
 
     const correctMeaning = current?.data?.zh || "";
@@ -116,15 +1004,16 @@ function SwipeGame({ vocabItems, onExit }) {
       return;
     }
 
-    // pick wrong meaning from other items
     const others = items.filter((x) => x?.id !== current?.id);
     const other = pickOne(others) || pickOne(items);
     const wrongMeaning = other?.data?.zh || "";
+
     if (!wrongMeaning || wrongMeaning === correctMeaning) {
       setCardMeaning(correctMeaning);
       setIsMeaningCorrect(true);
       return;
     }
+
     setCardMeaning(wrongMeaning);
     setIsMeaningCorrect(false);
   }, [idx, current, items]);
@@ -136,24 +1025,37 @@ function SwipeGame({ vocabItems, onExit }) {
 
   function judge(dir) {
     if (!current || animating) return;
-    const choseRight = dir === "right";
-    const shouldRight = isMeaningCorrect; // correct meaning => right
-    const ok = choseRight === shouldRight;
+
+    const choseMatch = dir === "right"; // 右滑=匹配
+    const shouldMatch = isMeaningCorrect; // 展示正确释义 => 应匹配
+    const ok = choseMatch === shouldMatch;
+
+    const correctMeaning = current?.data?.zh || "";
+    setRecords((prev) => [
+      ...prev,
+      {
+        term: current?.term || "",
+        displayedMeaning: cardMeaning || "",
+        correctMeaning: correctMeaning || "",
+        wasCorrect: ok,
+        isMatchQuestion: isMeaningCorrect,
+        userChoseMatch: choseMatch,
+      },
+    ]);
 
     if (ok) setCorrect((c) => c + 1);
 
-    // play audio only when correct
-    if (ok) playWord(current?.term);
+    // ❌ 无发音：这里不调用 playWord
 
-    // fly out
     setAnimating(true);
-    const flyX = choseRight
+    const flyX = choseMatch
       ? typeof window !== "undefined"
         ? window.innerWidth
         : 1200
       : typeof window !== "undefined"
       ? -window.innerWidth
       : -1200;
+
     setDx(flyX);
     setDy(dy * 0.2);
 
@@ -163,11 +1065,8 @@ function SwipeGame({ vocabItems, onExit }) {
       setDx(0);
       setDy(0);
 
-      if (idx + 1 >= total) {
-        setDone(true);
-      } else {
-        setIdx((i) => i + 1);
-      }
+      if (idx + 1 >= total) setDone(true);
+      else setIdx((i) => i + 1);
     }, 320);
   }
 
@@ -183,8 +1082,7 @@ function SwipeGame({ vocabItems, onExit }) {
 
   function onPointerMove(e) {
     if (!dragging || animating) return;
-    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
-      return;
+    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
     const nx = e.clientX - startRef.current.x;
     const ny = e.clientY - startRef.current.y;
     setDx(nx);
@@ -193,8 +1091,7 @@ function SwipeGame({ vocabItems, onExit }) {
 
   function onPointerUp(e) {
     if (!dragging || animating) return;
-    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
-      return;
+    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
     pointerIdRef.current = null;
 
     if (Math.abs(dx) >= threshold) {
@@ -202,7 +1099,6 @@ function SwipeGame({ vocabItems, onExit }) {
       return;
     }
 
-    // snap back
     setAnimating(true);
     setDx(0);
     setDy(0);
@@ -224,7 +1120,7 @@ function SwipeGame({ vocabItems, onExit }) {
     window.addEventListener("keydown", onKey, { passive: false });
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [done, animating, idx, isMeaningCorrect]);
+  }, [done, animating, idx, isMeaningCorrect, cardMeaning]);
 
   const rotate = clamp(dx / 20, -15, 15);
   const showLeft = dx < -30;
@@ -248,12 +1144,7 @@ function SwipeGame({ vocabItems, onExit }) {
     margin: "0 auto",
   };
 
-  const cardWrap = {
-    position: "relative",
-    maxWidth: 560,
-    margin: "0 auto",
-    paddingTop: 6,
-  };
+  const cardWrap = { position: "relative", maxWidth: 560, margin: "0 auto", paddingTop: 6 };
 
   const cardStyle = {
     background: THEME.colors.surface,
@@ -264,11 +1155,7 @@ function SwipeGame({ vocabItems, onExit }) {
     userSelect: "none",
     touchAction: "none",
     transform: `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`,
-    transition: animating
-      ? "transform 0.3s ease"
-      : dragging
-      ? "none"
-      : "transform 0.2s ease",
+    transition: animating ? "transform 0.3s ease" : dragging ? "none" : "transform 0.2s ease",
   };
 
   const btnRow = {
@@ -286,7 +1173,7 @@ function SwipeGame({ vocabItems, onExit }) {
     border: `1px solid ${THEME.colors.border}`,
     background: THEME.colors.surface,
     fontSize: 16,
-    fontWeight: 800,
+    fontWeight: 900,
     cursor: "pointer",
   };
 
@@ -302,18 +1189,18 @@ function SwipeGame({ vocabItems, onExit }) {
               borderRadius: THEME.radii.pill,
               padding: "8px 12px",
               cursor: "pointer",
-              fontWeight: 800,
+              fontWeight: 900,
             }}
           >
             ← 返回大厅
           </button>
-          <div style={{ fontWeight: 900 }}>🃏 单词探探</div>
-          <div style={{ opacity: 0.7, fontWeight: 800 }}>完成</div>
+          <div style={{ fontWeight: 1000 }}>🃏 单词探探</div>
+          <div style={{ opacity: 0.7, fontWeight: 900 }}>完成</div>
         </div>
 
         <div
           style={{
-            maxWidth: 560,
+            maxWidth: 760,
             margin: "22px auto 0",
             background: THEME.colors.surface,
             border: `1px solid ${THEME.colors.border}`,
@@ -322,18 +1209,50 @@ function SwipeGame({ vocabItems, onExit }) {
             boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
           }}
         >
-          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>
-            本轮结果
+          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>本轮结果</div>
+
+          <div style={{ fontSize: 16, opacity: 0.9, fontWeight: 900, marginBottom: 6 }}>
+            本轮积分：{correct * 10} 分
           </div>
-          <div style={{ fontSize: 16, opacity: 0.85 }}>
+
+          <div style={{ fontSize: 15, opacity: 0.85, fontWeight: 900 }}>
             正确：<b>{correct}</b> / <b>{total}</b>
           </div>
+
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+            {records.map((r, i) => {
+              const ok = !!r.wasCorrect;
+              const bg = ok ? "rgba(34,197,94,0.10)" : "rgba(239,68,68,0.10)";
+              const border = ok ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)";
+              const text = ok
+                ? `✅ ${r.term} — 你选了${r.userChoseMatch ? "匹配" : "不匹配"}，正确`
+                : `❌ ${r.term} — 展示的释义是「${r.displayedMeaning || "（空）"}」，正确释义是「${r.correctMeaning || "（空）"}」，你选错了`;
+
+              return (
+                <div
+                  key={`${r.term}-${i}`}
+                  style={{
+                    padding: 12,
+                    borderRadius: THEME.radii.md,
+                    background: bg,
+                    border: `1px solid ${border}`,
+                    fontWeight: 900,
+                    lineHeight: 1.35,
+                  }}
+                >
+                  {text}
+                </div>
+              );
+            })}
+          </div>
+
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
             <button
               onClick={() => {
                 setIdx(0);
                 setCorrect(0);
                 setDone(false);
+                setRecords([]);
                 setDx(0);
                 setDy(0);
               }}
@@ -346,13 +1265,7 @@ function SwipeGame({ vocabItems, onExit }) {
             >
               再来一轮
             </button>
-            <button
-              onClick={onExit}
-              style={{
-                ...bigBtnBase,
-                padding: "0 16px",
-              }}
-            >
+            <button onClick={onExit} style={{ ...bigBtnBase, padding: "0 16px" }}>
               返回大厅
             </button>
           </div>
@@ -372,29 +1285,19 @@ function SwipeGame({ vocabItems, onExit }) {
             borderRadius: THEME.radii.pill,
             padding: "8px 12px",
             cursor: "pointer",
-            fontWeight: 800,
+            fontWeight: 900,
           }}
         >
           ← 返回大厅
         </button>
         <div style={{ fontWeight: 1000 }}>🃏 单词探探</div>
-        <div style={{ opacity: 0.75, fontWeight: 800 }}>
+        <div style={{ opacity: 0.75, fontWeight: 900 }}>
           {Math.min(idx + 1, total)} / {total}
         </div>
       </div>
 
       <div style={cardWrap}>
-        {/* glow */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 140,
-            pointerEvents: "none",
-          }}
-        >
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 140, pointerEvents: "none" }}>
           <div
             style={{
               position: "absolute",
@@ -423,53 +1326,21 @@ function SwipeGame({ vocabItems, onExit }) {
               transition: "opacity 0.15s ease",
             }}
           />
-          <div
-            style={{
-              position: "absolute",
-              top: 14,
-              left: 14,
-              fontSize: 34,
-              opacity: showLeft ? 1 : 0,
-              transition: "opacity 0.15s ease",
-            }}
-          >
-            ❌
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              top: 14,
-              right: 14,
-              fontSize: 34,
-              opacity: showRight ? 1 : 0,
-              transition: "opacity 0.15s ease",
-            }}
-          >
-            ✅
-          </div>
+          <div style={{ position: "absolute", top: 14, left: 14, fontSize: 34, opacity: showLeft ? 1 : 0, transition: "opacity 0.15s ease" }}>❌</div>
+          <div style={{ position: "absolute", top: 14, right: 14, fontSize: 34, opacity: showRight ? 1 : 0, transition: "opacity 0.15s ease" }}>✅</div>
         </div>
 
-        <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          style={cardStyle}
-        >
-          <div style={{ fontSize: 14, opacity: 0.6, fontWeight: 800 }}>英文</div>
-          <div style={{ fontSize: 34, fontWeight: 1000, marginTop: 6, wordBreak: "break-word" }}>
-            {current?.term || "-"}
-          </div>
+        <div onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp} style={cardStyle}>
+          <div style={{ fontSize: 14, opacity: 0.6, fontWeight: 900 }}>英文</div>
+          <div style={{ fontSize: 34, fontWeight: 1000, marginTop: 6, wordBreak: "break-word" }}>{current?.term || "-"}</div>
 
           <div style={{ height: 14 }} />
 
-          <div style={{ fontSize: 14, opacity: 0.6, fontWeight: 800 }}>中文释义</div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8, lineHeight: 1.35 }}>
-            {cardMeaning || "（无释义）"}
-          </div>
+          <div style={{ fontSize: 14, opacity: 0.6, fontWeight: 900 }}>中文释义</div>
+          <div style={{ fontSize: 18, fontWeight: 900, marginTop: 8, lineHeight: 1.35 }}>{cardMeaning || "（无释义）"}</div>
 
-          <div style={{ marginTop: 16, fontSize: 12, opacity: 0.55 }}>
-            左滑❌：不认识 / 右滑✅：认识（也可用键盘 ← →）
+          <div style={{ marginTop: 16, fontSize: 12, opacity: 0.6, fontWeight: 900 }}>
+            左滑❌：不匹配 / 右滑✅：匹配（也可用键盘 ← →）
           </div>
         </div>
 
@@ -482,12 +1353,10 @@ function SwipeGame({ vocabItems, onExit }) {
               borderColor: "rgba(239,68,68,0.25)",
             }}
           >
-            ❌ 不认识
+            ❌ 不匹配
           </button>
 
-          <div style={{ textAlign: "center", opacity: 0.75, fontWeight: 900 }}>
-            剩余 {Math.max(0, total - idx)}
-          </div>
+          <div style={{ textAlign: "center", opacity: 0.75, fontWeight: 1000 }}>剩余 {Math.max(0, total - idx)}</div>
 
           <button
             onClick={() => judge("right")}
@@ -497,7 +1366,7 @@ function SwipeGame({ vocabItems, onExit }) {
               borderColor: "rgba(34,197,94,0.25)",
             }}
           >
-            ✅ 认识
+            ✅ 匹配
           </button>
         </div>
       </div>
@@ -505,7 +1374,7 @@ function SwipeGame({ vocabItems, onExit }) {
   );
 }
 
-/* ---------------------------- Game 2: Rebuild ---------------------------- */
+/* ----------------------------- Game: RebuildGame (fixed checkAuto + wrong advance) ----------------------------- */
 
 function RebuildGame({ vocabItems, onExit }) {
   const pool = useMemo(() => {
@@ -543,25 +1412,27 @@ function RebuildGame({ vocabItems, onExit }) {
     setShowAnswer(false);
   }, [current?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const answer = useMemo(() => {
-    const ex = current?.data?.example_en || "";
-    return ex.trim();
-  }, [current]);
-
+  const answer = useMemo(() => (current?.data?.example_en || "").trim(), [current]);
   const normalizedAnswer = useMemo(() => normalizeSentence(answer), [answer]);
 
-  function selectedText() {
-    return selected.map((x) => x.text).join(" ");
+  function selectedText(arr) {
+    const s = arr || selected;
+    return s.map((x) => x.text).join(" ");
   }
 
-  function checkAuto() {
-    const now = normalizeSentence(selectedText());
+  // ✅ 修复闭包 bug：接收 currentSelected 参数
+  function checkAuto(currentSelected) {
+    const now = normalizeSentence((currentSelected || []).map((x) => x.text).join(" "));
     if (!now) return;
+
     if (now === normalizedAnswer) {
       setStatus("correct");
       setScore((s) => s + 1);
       setTimeout(() => {
-        if (i + 1 >= total) return;
+        if (i + 1 >= total) {
+          setI(total);
+          return;
+        }
         setI((v) => v + 1);
       }, 950);
     }
@@ -569,24 +1440,33 @@ function RebuildGame({ vocabItems, onExit }) {
 
   function submit() {
     if (!current) return;
+
     const now = normalizeSentence(selectedText());
     if (now === normalizedAnswer) {
       setStatus("correct");
       setScore((s) => s + 1);
       setTimeout(() => {
-        if (i + 1 >= total) return;
+        if (i + 1 >= total) {
+          setI(total);
+          return;
+        }
         setI((v) => v + 1);
       }, 950);
     } else {
       setStatus("wrong");
       setWrongCount((w) => w + 1);
       setShowAnswer(true);
+
+      // ✅ 答错显示答案 2 秒后直接进入下一题
       setTimeout(() => {
         setStatus("idle");
         setShowAnswer(false);
         setSelected([]);
-        const words = current.__exampleWords || [];
-        setAvailable(shuffle(words.map((w, idx) => ({ id: `${current.id}-${idx}-${w}`, text: w }))));
+        if (i + 1 >= total) {
+          setI(total);
+        } else {
+          setI((v) => v + 1);
+        }
       }, 2000);
     }
   }
@@ -596,7 +1476,7 @@ function RebuildGame({ vocabItems, onExit }) {
     setAvailable((a) => a.filter((x) => x.id !== token.id));
     setSelected((s) => {
       const next = [...s, token];
-      setTimeout(checkAuto, 0);
+      setTimeout(() => checkAuto(next), 0);
       return next;
     });
   }
@@ -607,33 +1487,13 @@ function RebuildGame({ vocabItems, onExit }) {
     setAvailable((a) => shuffle([...a, token]));
   }
 
-  const shellStyle = {
-    minHeight: "100vh",
-    background: THEME.colors.bg,
-    color: THEME.colors.ink,
-    padding: 14,
-    boxSizing: "border-box",
-  };
+  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
 
-  const topBarStyle = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "8px 6px 10px",
-    maxWidth: 980,
-    margin: "0 auto",
-  };
+  const topBarStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 10px", maxWidth: 980, margin: "0 auto" };
 
   const contentWrap = { maxWidth: 920, margin: "0 auto" };
 
-  const card = {
-    background: THEME.colors.surface,
-    border: `1px solid ${THEME.colors.border}`,
-    borderRadius: THEME.radii.lg,
-    boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
-    padding: 14,
-  };
+  const card = { background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, boxShadow: "0 10px 28px rgba(15,23,42,0.08)", padding: 14 };
 
   const tokenBase = {
     display: "inline-flex",
@@ -645,17 +1505,13 @@ function RebuildGame({ vocabItems, onExit }) {
     border: `1px solid ${THEME.colors.border}`,
     boxShadow: "0 6px 14px rgba(15,23,42,0.06)",
     cursor: "pointer",
-    fontWeight: 800,
+    fontWeight: 900,
     transition: "transform 0.12s ease, background 0.12s ease",
     userSelect: "none",
   };
 
   const answerTokenBorder =
-    status === "correct"
-      ? "rgba(34,197,94,0.7)"
-      : status === "wrong"
-      ? "rgba(239,68,68,0.75)"
-      : THEME.colors.accent;
+    status === "correct" ? "rgba(34,197,94,0.7)" : status === "wrong" ? "rgba(239,68,68,0.75)" : THEME.colors.accent;
 
   if (!pool || pool.length === 0) {
     return (
@@ -669,7 +1525,7 @@ function RebuildGame({ vocabItems, onExit }) {
               borderRadius: THEME.radii.pill,
               padding: "8px 12px",
               cursor: "pointer",
-              fontWeight: 800,
+              fontWeight: 900,
             }}
           >
             ← 返回大厅
@@ -681,7 +1537,7 @@ function RebuildGame({ vocabItems, onExit }) {
         <div style={{ maxWidth: 720, margin: "16px auto 0" }}>
           <div style={{ ...card, textAlign: "center", padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 1000 }}>没有可用例句</div>
-            <div style={{ opacity: 0.7, marginTop: 8 }}>
+            <div style={{ opacity: 0.7, marginTop: 8, fontWeight: 900 }}>
               需要收藏带英文例句的词汇（example_en 不为空，且至少 4 个单词）。
             </div>
             <button
@@ -719,21 +1575,22 @@ function RebuildGame({ vocabItems, onExit }) {
               borderRadius: THEME.radii.pill,
               padding: "8px 12px",
               cursor: "pointer",
-              fontWeight: 800,
+              fontWeight: 900,
             }}
           >
             ← 返回大厅
           </button>
           <div style={{ fontWeight: 1000 }}>🧩 台词磁力贴</div>
-          <div style={{ opacity: 0.7, fontWeight: 800 }}>完成</div>
+          <div style={{ opacity: 0.7, fontWeight: 900 }}>完成</div>
         </div>
 
         <div style={{ maxWidth: 720, margin: "18px auto 0" }}>
           <div style={{ ...card, padding: 18 }}>
             <div style={{ fontSize: 22, fontWeight: 1000 }}>本轮结算</div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 800 }}>
+            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 900 }}>
               得分：<b>{score}</b> / <b>{total}</b>　·　错误次数：<b>{wrongCount}</b>
             </div>
+
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
               <button
                 onClick={() => {
@@ -753,6 +1610,7 @@ function RebuildGame({ vocabItems, onExit }) {
               >
                 再来一轮
               </button>
+
               <button
                 onClick={onExit}
                 style={{
@@ -787,49 +1645,35 @@ function RebuildGame({ vocabItems, onExit }) {
             borderRadius: THEME.radii.pill,
             padding: "8px 12px",
             cursor: "pointer",
-            fontWeight: 800,
+            fontWeight: 900,
           }}
         >
           ← 返回大厅
         </button>
         <div style={{ fontWeight: 1000 }}>🧩 台词磁力贴</div>
-        <div style={{ opacity: 0.75, fontWeight: 900 }}>
+        <div style={{ opacity: 0.75, fontWeight: 1000 }}>
           {Math.min(i + 1, total)} / {total}
         </div>
       </div>
 
       <div style={{ maxWidth: 920, margin: "0 auto 10px" }}>
-        <div
-          style={{
-            height: 8,
-            background: THEME.colors.faint,
-            borderRadius: 999,
-            overflow: "hidden",
-            border: `1px solid ${THEME.colors.border}`,
-          }}
-        >
+        <div style={{ height: 8, background: THEME.colors.faint, borderRadius: 999, overflow: "hidden", border: `1px solid ${THEME.colors.border}` }}>
           <div style={{ width: `${progress}%`, height: "100%", background: THEME.colors.accent }} />
         </div>
       </div>
 
       <div style={contentWrap}>
-        <div style={{ ...card }}>
+        <div style={card}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>当前词汇</div>
               <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 4, wordBreak: "break-word" }}>
                 {current?.term || "-"}{" "}
-                <span style={{ fontSize: 14, opacity: 0.7, fontWeight: 900 }}>
-                  {current?.data?.ipa ? `/${current.data.ipa}/` : ""}
-                </span>
+                <span style={{ fontSize: 14, opacity: 0.7, fontWeight: 900 }}>{current?.data?.ipa ? `/${current.data.ipa}/` : ""}</span>
               </div>
-              <div style={{ marginTop: 6, opacity: 0.85, fontWeight: 800 }}>
-                {current?.data?.zh || "（无释义）"}
-              </div>
+              <div style={{ marginTop: 6, opacity: 0.85, fontWeight: 900 }}>{current?.data?.zh || "（无释义）"}</div>
               {current?.data?.example_zh ? (
-                <div style={{ marginTop: 10, opacity: 0.55, fontWeight: 800, lineHeight: 1.35 }}>
-                  提示：{current.data.example_zh}
-                </div>
+                <div style={{ marginTop: 10, opacity: 0.55, fontWeight: 900, lineHeight: 1.35 }}>提示：{current.data.example_zh}</div>
               ) : null}
             </div>
 
@@ -853,30 +1697,11 @@ function RebuildGame({ vocabItems, onExit }) {
 
           <div style={{ height: 14 }} />
 
-          {/* Answer area */}
-          <div
-            style={{
-              border: `1px dashed ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 12,
-              minHeight: 86,
-              background: "rgba(79,70,229,0.04)",
-            }}
-          >
+          <div style={{ border: `1px dashed ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 12, minHeight: 86, background: "rgba(79,70,229,0.04)" }}>
             <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>答题区</div>
 
-            <div
-              style={{
-                marginTop: 10,
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "center",
-              }}
-            >
-              {selected.length === 0 ? (
-                <div style={{ opacity: 0.55, fontWeight: 800 }}>点击下方方块，把句子拼回来…</div>
-              ) : null}
+            <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+              {selected.length === 0 ? <div style={{ opacity: 0.55, fontWeight: 900 }}>点击下方方块，把句子拼回来…</div> : null}
 
               {selected.map((t) => (
                 <div
@@ -885,13 +1710,7 @@ function RebuildGame({ vocabItems, onExit }) {
                   style={{
                     ...tokenBase,
                     borderColor: answerTokenBorder,
-                    background:
-                      status === "correct"
-                        ? "rgba(34,197,94,0.10)"
-                        : status === "wrong"
-                        ? "rgba(239,68,68,0.10)"
-                        : THEME.colors.surface,
-                    transform: status === "wrong" ? "translateX(0)" : undefined,
+                    background: status === "correct" ? "rgba(34,197,94,0.10)" : status === "wrong" ? "rgba(239,68,68,0.10)" : THEME.colors.surface,
                     animation: status === "wrong" ? "shakeX 0.28s ease-in-out 0s 2" : "none",
                   }}
                 >
@@ -901,9 +1720,9 @@ function RebuildGame({ vocabItems, onExit }) {
             </div>
 
             {showAnswer ? (
-              <div style={{ marginTop: 10, opacity: 0.8 }}>
+              <div style={{ marginTop: 10, opacity: 0.85 }}>
                 <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.65 }}>正确答案</div>
-                <div style={{ fontWeight: 900, marginTop: 4 }}>{answer}</div>
+                <div style={{ fontWeight: 1000, marginTop: 4 }}>{answer}</div>
               </div>
             ) : null}
 
@@ -929,7 +1748,6 @@ function RebuildGame({ vocabItems, onExit }) {
 
           <div style={{ height: 14 }} />
 
-          {/* Available area */}
           <div style={{ padding: 2 }}>
             <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900, marginBottom: 8 }}>待选区</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -937,10 +1755,7 @@ function RebuildGame({ vocabItems, onExit }) {
                 <div
                   key={t.id}
                   onClick={() => moveToSelected(t)}
-                  style={{
-                    ...tokenBase,
-                    background: "rgba(79,70,229,0.04)",
-                  }}
+                  style={{ ...tokenBase, background: "rgba(79,70,229,0.04)" }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "rgba(79,70,229,0.08)";
                     e.currentTarget.style.transform = "translateY(-1px)";
@@ -971,7 +1786,7 @@ function RebuildGame({ vocabItems, onExit }) {
   );
 }
 
-/* ---------------------------- Game 3: Balloon ---------------------------- */
+/* ----------------------------- Game: BalloonGame ----------------------------- */
 
 function BalloonGame({ vocabItems, onExit }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
@@ -983,7 +1798,7 @@ function BalloonGame({ vocabItems, onExit }) {
 
   const [roundWord, setRoundWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
-  const [exploding, setExploding] = useState(null); // balloon id
+  const [exploding, setExploding] = useState(null);
   const roundRef = useRef(0);
 
   const colors = ["#fb7185", "#60a5fa", "#34d399", "#fb923c", "#a78bfa", "#facc15"];
@@ -994,6 +1809,7 @@ function BalloonGame({ vocabItems, onExit }) {
 
     const word = pickOne(items);
     const correctMeaning = word?.data?.zh || "";
+
     const otherMeanings = items
       .filter((x) => x?.id !== word?.id)
       .map((x) => x?.data?.zh || "")
@@ -1003,9 +1819,9 @@ function BalloonGame({ vocabItems, onExit }) {
     const texts = shuffle([correctMeaning, ...wrongs]).slice(0, 6);
 
     const newBalloons = texts.map((txt, idx) => {
-      const size = 80 + ((Math.random() * 31) | 0); // 80-110
-      const duration = 5.4 + Math.random() * 2.4; // 5.4-7.8
-      const left = Math.random() * 80 + 5; // 5-85
+      const size = 80 + ((Math.random() * 31) | 0);
+      const duration = 5.4 + Math.random() * 2.4;
+      const left = Math.random() * 80 + 5;
       const c = colors[(Math.random() * colors.length) | 0];
       return {
         id: `${rid}-${idx}-${Math.random().toString(16).slice(2)}`,
@@ -1057,20 +1873,16 @@ function BalloonGame({ vocabItems, onExit }) {
         if (navigator.vibrate) navigator.vibrate(20);
       } catch {}
 
-      setTimeout(() => {
-        makeRound();
-      }, 420);
+      setTimeout(() => makeRound(), 420);
     } else {
       setExploding(b.id);
       setCombo(0);
       loseHeart();
-      setTimeout(() => {
-        makeRound();
-      }, 520);
+      setTimeout(() => makeRound(), 520);
     }
   }
 
-  function onMissBalloon(b) {
+  function onMissBalloon() {
     if (gameOver) return;
     setCombo(0);
     loseHeart();
@@ -1110,7 +1922,7 @@ function BalloonGame({ vocabItems, onExit }) {
     border: `1px solid ${THEME.colors.border}`,
     borderRadius: THEME.radii.pill,
     padding: "8px 12px",
-    fontWeight: 900,
+    fontWeight: 1000,
     boxShadow: "0 10px 22px rgba(15,23,42,0.06)",
     display: "inline-flex",
     alignItems: "center",
@@ -1130,7 +1942,7 @@ function BalloonGame({ vocabItems, onExit }) {
               borderRadius: THEME.radii.pill,
               padding: "8px 12px",
               cursor: "pointer",
-              fontWeight: 800,
+              fontWeight: 900,
             }}
           >
             ← 返回大厅
@@ -1150,7 +1962,7 @@ function BalloonGame({ vocabItems, onExit }) {
             }}
           >
             <div style={{ fontSize: 22, fontWeight: 1000 }}>游戏结束</div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 900 }}>
+            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 1000 }}>
               最终得分：<b>{score}</b>　·　最高连击：<b>{maxCombo}</b>
             </div>
 
@@ -1176,6 +1988,7 @@ function BalloonGame({ vocabItems, onExit }) {
               >
                 再来一局
               </button>
+
               <button
                 onClick={onExit}
                 style={{
@@ -1212,7 +2025,7 @@ function BalloonGame({ vocabItems, onExit }) {
             borderRadius: THEME.radii.pill,
             padding: "8px 12px",
             cursor: "pointer",
-            fontWeight: 800,
+            fontWeight: 900,
           }}
         >
           ← 返回大厅
@@ -1226,7 +2039,7 @@ function BalloonGame({ vocabItems, onExit }) {
             borderRadius: THEME.radii.pill,
             padding: "8px 12px",
             cursor: "pointer",
-            fontWeight: 900,
+            fontWeight: 1000,
           }}
         >
           再听一遍 🔁
@@ -1247,29 +2060,21 @@ function BalloonGame({ vocabItems, onExit }) {
         </div>
       </div>
 
-      <div
-        style={{
-          maxWidth: 980,
-          margin: "14px auto 0",
-          padding: "0 6px",
-          opacity: 0.65,
-          fontWeight: 900,
-        }}
-      >
+      <div style={{ maxWidth: 980, margin: "14px auto 0", padding: "0 6px", opacity: 0.65, fontWeight: 900 }}>
         听发音，点击正确释义的气球
       </div>
 
-      {/* balloons layer */}
       <div style={{ position: "relative", width: "100%", height: "78vh", marginTop: 6 }}>
         {balloons.map((b) => {
           const fontSize = clamp((b.size / 110) * 14, 12, 16);
           const isExploding = exploding === b.id;
+
           return (
             <div
               key={b.id}
               onClick={() => clickBalloon(b)}
               onAnimationEnd={() => {
-                if (!isExploding) onMissBalloon(b);
+                if (!isExploding) onMissBalloon();
               }}
               style={{
                 position: "absolute",
@@ -1285,7 +2090,7 @@ function BalloonGame({ vocabItems, onExit }) {
                 justifyContent: "center",
                 padding: 10,
                 textAlign: "center",
-                fontWeight: 900,
+                fontWeight: 1000,
                 color: "#0b1220",
                 cursor: "pointer",
                 userSelect: "none",
@@ -1296,17 +2101,10 @@ function BalloonGame({ vocabItems, onExit }) {
               }}
               title="点击"
             >
-              <div
-                style={{
-                  fontSize,
-                  lineHeight: 1.15,
-                  filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.35))",
-                }}
-              >
+              <div style={{ fontSize, lineHeight: 1.15, filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.35))" }}>
                 {b.text || "（无释义）"}
               </div>
 
-              {/* balloon string */}
               <div
                 style={{
                   position: "absolute",
@@ -1320,7 +2118,6 @@ function BalloonGame({ vocabItems, onExit }) {
                 }}
               />
 
-              {/* explosion */}
               {isExploding ? (
                 <div
                   style={{
@@ -1355,7 +2152,7 @@ function BalloonGame({ vocabItems, onExit }) {
   );
 }
 
-/* ---------------------------- Game 4: Speed ----------------------------- */
+/* ----------------------------- Game: SpeedGame ----------------------------- */
 
 function SpeedGame({ vocabItems, onExit }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
@@ -1365,10 +2162,12 @@ function SpeedGame({ vocabItems, onExit }) {
   const [leftText, setLeftText] = useState("");
   const [rightText, setRightText] = useState("");
   const [correctSide, setCorrectSide] = useState("left"); // left | right
+
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [score, setScore] = useState(0);
   const [answered, setAnswered] = useState(0);
+
   const [gameOver, setGameOver] = useState(false);
   const [cracked, setCracked] = useState(false);
 
@@ -1471,17 +2270,9 @@ function SpeedGame({ vocabItems, onExit }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word?.id, limitMs, gameOver]);
 
-  useEffect(() => {
-    return () => stopTimer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => () => stopTimer(), []);
 
-  const shellStyle = {
-    minHeight: "100vh",
-    background: THEME.colors.bg,
-    color: THEME.colors.ink,
-    boxSizing: "border-box",
-  };
+  const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, boxSizing: "border-box" };
 
   const topHud = {
     position: "sticky",
@@ -1493,32 +2284,21 @@ function SpeedGame({ vocabItems, onExit }) {
     borderBottom: `1px solid ${THEME.colors.border}`,
   };
 
-  const hudRow = {
-    maxWidth: 980,
-    margin: "0 auto",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-  };
+  const hudRow = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 };
 
   const pill = {
     background: THEME.colors.surface,
     border: `1px solid ${THEME.colors.border}`,
     borderRadius: THEME.radii.pill,
     padding: "8px 12px",
-    fontWeight: 900,
+    fontWeight: 1000,
     boxShadow: "0 10px 22px rgba(15,23,42,0.06)",
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
   };
 
-  const wordArea = {
-    maxWidth: 980,
-    margin: "14px auto 0",
-    padding: "0 14px",
-  };
+  const wordArea = { maxWidth: 980, margin: "14px auto 0", padding: "0 14px" };
 
   const wordStyle = {
     fontSize: "clamp(28px, 6vw, 52px)",
@@ -1538,11 +2318,7 @@ function SpeedGame({ vocabItems, onExit }) {
   const halo = combo >= 10;
 
   const barColor =
-    tRatio > 0.66
-      ? "rgba(34,197,94,0.95)"
-      : tRatio > 0.33
-      ? "rgba(234,179,8,0.95)"
-      : "rgba(239,68,68,0.95)";
+    tRatio > 0.66 ? "rgba(34,197,94,0.95)" : tRatio > 0.33 ? "rgba(234,179,8,0.95)" : "rgba(239,68,68,0.95)";
 
   const halves = {
     maxWidth: 980,
@@ -1585,22 +2361,11 @@ function SpeedGame({ vocabItems, onExit }) {
         </div>
 
         <div style={{ maxWidth: 720, margin: "18px auto 0", padding: "0 14px" }}>
-          <div
-            style={{
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-              boxShadow: "0 12px 30px rgba(15,23,42,0.08)",
-            }}
-          >
+          <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18, boxShadow: "0 12px 30px rgba(15,23,42,0.08)" }}>
             <div style={{ fontSize: 22, fontWeight: 1000 }}>本局结束</div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 900 }}>
-              最终得分：<b>{score}</b>
-            </div>
-            <div style={{ marginTop: 6, opacity: 0.8, fontWeight: 900 }}>
-              最高连击：<b>{maxCombo}</b>　·　答对题数：<b>{answered - 1 >= 0 ? answered - 1 : 0}</b> /{" "}
-              <b>{answered}</b>
+            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 1000 }}>最终得分：<b>{score}</b></div>
+            <div style={{ marginTop: 6, opacity: 0.8, fontWeight: 1000 }}>
+              最高连击：<b>{maxCombo}</b>　·　答题数：<b>{answered}</b>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
@@ -1626,6 +2391,7 @@ function SpeedGame({ vocabItems, onExit }) {
               >
                 再来一局
               </button>
+
               <button
                 onClick={onExit}
                 style={{
@@ -1648,34 +2414,11 @@ function SpeedGame({ vocabItems, onExit }) {
   }
 
   return (
-    <div
-      style={{
-        ...shellStyle,
-        background: flash
-          ? "linear-gradient(180deg, rgba(246,247,251,1), rgba(246,247,251,0.92))"
-          : THEME.colors.bg,
-      }}
-    >
+    <div style={{ ...shellStyle, background: flash ? "linear-gradient(180deg, rgba(246,247,251,1), rgba(246,247,251,0.92))" : THEME.colors.bg }}>
       <div style={topHud}>
         <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 2px" }}>
-          <div
-            style={{
-              height: 6,
-              borderRadius: 999,
-              overflow: "hidden",
-              border: `1px solid ${THEME.colors.border}`,
-              background: THEME.colors.faint,
-              marginBottom: 10,
-            }}
-          >
-            <div
-              style={{
-                width: `${tRatio * 100}%`,
-                height: "100%",
-                background: barColor,
-                transition: "width 0.05s linear",
-              }}
-            />
+          <div style={{ height: 6, borderRadius: 999, overflow: "hidden", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.faint, marginBottom: 10 }}>
+            <div style={{ width: `${tRatio * 100}%`, height: "100%", background: barColor, transition: "width 0.05s linear" }} />
           </div>
 
           <div style={hudRow}>
@@ -1699,12 +2442,7 @@ function SpeedGame({ vocabItems, onExit }) {
       </div>
 
       <div style={wordArea}>
-        <div
-          style={{
-            ...wordStyle,
-            animation: flash ? "pulseBg 0.9s ease-in-out infinite" : "none",
-          }}
-        >
+        <div style={{ ...wordStyle, animation: flash ? "pulseBg 0.9s ease-in-out infinite" : "none" }}>
           {halo ? (
             <div
               style={{
@@ -1740,9 +2478,7 @@ function SpeedGame({ vocabItems, onExit }) {
           ) : null}
         </div>
 
-        <div style={{ marginTop: 8, textAlign: "center", opacity: 0.65, fontWeight: 900 }}>
-          3 秒内选对（连击越高越快）
-        </div>
+        <div style={{ marginTop: 8, textAlign: "center", opacity: 0.65, fontWeight: 900 }}>3 秒内选对（连击越高越快）</div>
       </div>
 
       <div style={halves}>
@@ -1770,7 +2506,7 @@ function SpeedGame({ vocabItems, onExit }) {
   );
 }
 
-/* ----------------------------- Main Lobby ----------------------------- */
+/* ----------------------------- Lobby Card ----------------------------- */
 
 function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanFull }) {
   return (
@@ -1814,9 +2550,7 @@ function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanF
           <div style={{ fontSize: 26 }}>{emoji}</div>
           <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink }}>{title}</div>
         </div>
-        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.7, fontWeight: 800, lineHeight: 1.35 }}>
-          {subtitle}
-        </div>
+        <div style={{ marginTop: 8, fontSize: 13, opacity: 0.7, fontWeight: 900, lineHeight: 1.35 }}>{subtitle}</div>
 
         <div style={{ marginTop: 10, display: "inline-flex" }}>
           <span
@@ -1862,15 +2596,15 @@ function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanF
   );
 }
 
+/* ----------------------------- PracticeClient (export default) ----------------------------- */
+
 export default function PracticeClient({ accessToken }) {
-  const [activeGame, setActiveGame] = useState(null); // null | "exam" | "swipe" | "rebuild" | "balloon" | "speed"
+  const [activeGame, setActiveGame] = useState(null);
+  // null | "bubble" | "match" | "swipe" | "rebuild" | "balloon" | "speed"
+
   const [me, setMe] = useState(null);
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // ExamSystem integration states
-  const [examOpen, setExamOpen] = useState(false);
-  const [examActive, setExamActive] = useState(false);
 
   const authFetch = useMemo(() => makeAuthFetch(accessToken), [accessToken]);
 
@@ -1880,7 +2614,6 @@ export default function PracticeClient({ accessToken }) {
     async function load() {
       try {
         setLoading(true);
-
         const [meRes, vocabRes] = await Promise.all([
           authFetch(remote("/api/me")),
           authFetch(remote("/api/vocab_favorites")),
@@ -1890,10 +2623,9 @@ export default function PracticeClient({ accessToken }) {
         const vocabJson = vocabRes.ok ? await vocabRes.json() : { items: [] };
 
         if (cancelled) return;
-
         setMe(meJson);
         setVocabItems(Array.isArray(vocabJson?.items) ? vocabJson.items : []);
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           setMe(null);
           setVocabItems([]);
@@ -1909,17 +2641,6 @@ export default function PracticeClient({ accessToken }) {
     };
   }, [authFetch]);
 
-  // keep "examOpen" behavior: entering exam mode auto opens setup
-  useEffect(() => {
-    if (activeGame === "exam") {
-      setExamOpen(true);
-    } else {
-      setExamOpen(false);
-      setExamActive(false);
-    }
-  }, [activeGame]);
-
-  // stats (mastery_level may exist on item; fallback 0)
   const stats = useMemo(() => {
     const total = vocabItems?.length || 0;
     const learning = (vocabItems || []).filter((x) => Number(x?.mastery_level) === 1).length;
@@ -1931,260 +2652,49 @@ export default function PracticeClient({ accessToken }) {
     return (vocabItems?.length || 0) < 4;
   }
 
-  function updateMastery(id, newLevel) {
-    setVocabItems((prev) =>
-      (prev || []).map((it) => {
-        if (it?.id === id) return { ...it, mastery_level: newLevel };
-        return it;
-      })
-    );
+  // ------------------ Game entry routing (MUST exist in order) ------------------
+
+  if (activeGame === "bubble") {
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    return <BubbleSpellingGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
-  // Game views
-  if (activeGame === "exam") {
-    return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg }}>
-        <div style={{ padding: 12, borderBottom: `1px solid ${THEME.colors.border}`, background: THEME.colors.bg }}>
-          <div
-            style={{
-              maxWidth: 980,
-              margin: "0 auto",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <button
-              onClick={() => setActiveGame(null)}
-              style={{
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                borderRadius: THEME.radii.pill,
-                padding: "8px 12px",
-                cursor: "pointer",
-                fontWeight: 900,
-              }}
-            >
-              ← 返回大厅
-            </button>
-            <div style={{ fontWeight: 1000 }}>🎮 考试系统</div>
-            <div style={{ opacity: 0.7, fontWeight: 900 }}>{examActive ? "进行中" : "准备中"}</div>
-          </div>
-        </div>
-
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <ExamSystem
-            vocabItems={vocabItems}
-            isSetupOpen={examOpen}
-            onSetupClose={() => setExamOpen(false)}
-            onMasteryUpdated={(id, level) => updateMastery(id, level)}
-            onExamActiveChange={(v) => setExamActive(!!v)}
-          />
-        </div>
-      </div>
-    );
+  if (activeGame === "match") {
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    return <MatchMadnessGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "swipe") {
-    if (notEnough())
-      return (
-        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-          <div
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
-              至少需要收藏 4 个词汇，才能开始游戏。
-            </div>
-            <button
-              onClick={() => setActiveGame(null)}
-              style={{
-                marginTop: 14,
-                height: 44,
-                padding: "0 16px",
-                borderRadius: THEME.radii.pill,
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                cursor: "pointer",
-                fontWeight: 900,
-              }}
-            >
-              返回大厅
-            </button>
-          </div>
-        </div>
-      );
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
     return <SwipeGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "rebuild") {
-    if (notEnough())
-      return (
-        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-          <div
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
-              至少需要收藏 4 个词汇，才能开始游戏。
-            </div>
-            <button
-              onClick={() => setActiveGame(null)}
-              style={{
-                marginTop: 14,
-                height: 44,
-                padding: "0 16px",
-                borderRadius: THEME.radii.pill,
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                cursor: "pointer",
-                fontWeight: 900,
-              }}
-            >
-              返回大厅
-            </button>
-          </div>
-        </div>
-      );
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
     return <RebuildGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "balloon") {
-    if (notEnough())
-      return (
-        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-          <div
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
-              至少需要收藏 4 个词汇，才能开始游戏。
-            </div>
-            <button
-              onClick={() => setActiveGame(null)}
-              style={{
-                marginTop: 14,
-                height: 44,
-                padding: "0 16px",
-                borderRadius: THEME.radii.pill,
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                cursor: "pointer",
-                fontWeight: 900,
-              }}
-            >
-              返回大厅
-            </button>
-          </div>
-        </div>
-      );
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
     return <BalloonGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "speed") {
-    if (notEnough())
-      return (
-        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-          <div
-            style={{
-              maxWidth: 720,
-              margin: "0 auto",
-              background: THEME.colors.surface,
-              border: `1px solid ${THEME.colors.border}`,
-              borderRadius: THEME.radii.lg,
-              padding: 18,
-            }}
-          >
-            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
-              至少需要收藏 4 个词汇，才能开始游戏。
-            </div>
-            <button
-              onClick={() => setActiveGame(null)}
-              style={{
-                marginTop: 14,
-                height: 44,
-                padding: "0 16px",
-                borderRadius: THEME.radii.pill,
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                cursor: "pointer",
-                fontWeight: 900,
-              }}
-            >
-              返回大厅
-            </button>
-          </div>
-        </div>
-      );
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
     return <SpeedGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
-  // Lobby view
-  const page = {
-    minHeight: "100vh",
-    background: THEME.colors.bg,
-    color: THEME.colors.ink,
-    padding: 14,
-    boxSizing: "border-box",
-  };
+  // ------------------ Lobby view ------------------
 
-  const topBar = {
-    maxWidth: 980,
-    margin: "0 auto",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "8px 6px 14px",
-  };
+  const page = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
 
-  const statGrid = {
-    maxWidth: 980,
-    margin: "0 auto",
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 12,
-    padding: "0 6px",
-  };
+  const topBar = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 14px" };
 
-  const statCard = {
-    background: THEME.colors.surface,
-    border: `1px solid ${THEME.colors.border}`,
-    borderRadius: THEME.radii.lg,
-    padding: 14,
-    boxShadow: "0 10px 26px rgba(15,23,42,0.06)",
-  };
+  const statGrid = { maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, padding: "0 6px" };
 
-  const gamesGrid = {
-    maxWidth: 980,
-    margin: "14px auto 0",
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
-    padding: "0 6px 18px",
-  };
+  const statCard = { background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 14, boxShadow: "0 10px 26px rgba(15,23,42,0.06)" };
+
+  const gamesGrid = { maxWidth: 980, margin: "14px auto 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: "0 6px 18px" };
 
   return (
     <div style={page}>
@@ -2228,15 +2738,29 @@ export default function PracticeClient({ accessToken }) {
       </div>
 
       <div style={gamesGrid}>
+        {/* 1. 🫧 气泡拼写 */}
         <GameCard
-          emoji="🎮"
-          title="考试系统"
-          subtitle="气泡拼写 · 极速连连看 · 选择题"
-          tag="经典模式"
-          color={THEME.colors.accent}
+          emoji="🫧"
+          title="气泡拼写"
+          subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写"
+          tag="拼写训练"
+          color="#7c3aed"
           disabled={loading ? true : notEnough()}
-          onClick={() => setActiveGame("exam")}
+          onClick={() => setActiveGame("bubble")}
         />
+
+        {/* 2. 🔗 极速连连看 */}
+        <GameCard
+          emoji="🔗"
+          title="极速连连看"
+          subtitle="30秒内快速配对英文与中文，连击越多分越高"
+          tag="速记模式"
+          color="#d97706"
+          disabled={loading ? true : notEnough()}
+          onClick={() => setActiveGame("match")}
+        />
+
+        {/* 3. 🃏 单词探探 */}
         <GameCard
           emoji="🃏"
           title="单词探探"
@@ -2246,6 +2770,8 @@ export default function PracticeClient({ accessToken }) {
           disabled={loading ? true : notEnough()}
           onClick={() => setActiveGame("swipe")}
         />
+
+        {/* 4. 🧩 台词磁力贴 */}
         <GameCard
           emoji="🧩"
           title="台词磁力贴"
@@ -2255,6 +2781,8 @@ export default function PracticeClient({ accessToken }) {
           disabled={loading ? true : notEnough()}
           onClick={() => setActiveGame("rebuild")}
         />
+
+        {/* 5. 🎧 盲听气球 */}
         <GameCard
           emoji="🎧"
           title="盲听气球"
@@ -2264,6 +2792,8 @@ export default function PracticeClient({ accessToken }) {
           disabled={loading ? true : notEnough()}
           onClick={() => setActiveGame("balloon")}
         />
+
+        {/* 6. ⚡ 极速二选一（spanFull） */}
         <GameCard
           emoji="⚡"
           title="极速二选一"
@@ -2276,7 +2806,7 @@ export default function PracticeClient({ accessToken }) {
         />
       </div>
 
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px", opacity: 0.65, fontWeight: 800 }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px", opacity: 0.65, fontWeight: 900 }}>
         {loading
           ? "正在加载你的词汇本…"
           : notEnough()
