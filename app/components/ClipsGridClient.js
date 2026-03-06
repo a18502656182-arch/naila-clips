@@ -170,41 +170,124 @@ function formatDuration(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+function isHls(url) {
+  if (!url) return false;
+  return String(url).toLowerCase().includes(".m3u8");
+}
+
 function isMp4(url) {
   if (!url) return false;
   return String(url).toLowerCase().includes(".mp4");
+}
+
+function isPlayable(url) {
+  return isHls(url) || isMp4(url);
 }
 
 function isTouchDevice() {
   try { return window.matchMedia("(hover: none)").matches; } catch { return false; }
 }
 
+// 动态加载 hls.js（只加载一次）
+let hlsJsPromise = null;
+function loadHlsJs() {
+  if (hlsJsPromise) return hlsJsPromise;
+  hlsJsPromise = new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve(null);
+    if (window.Hls) return resolve(window.Hls);
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js";
+    script.onload = () => resolve(window.Hls || null);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return hlsJsPromise;
+}
+
 function HoverMedia({ coverUrl, videoUrl, title }) {
   const [hover, setHover] = useState(false);
   const vref = useRef(null);
+  const hlsRef = useRef(null);
 
   useEffect(() => {
     const v = vref.current;
     if (!v) return;
+
+    // 离开时：销毁 hls 实例，清空视频
     if (!hover) {
       try {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
         v.pause();
         v.removeAttribute("src");
         v.load();
       } catch {}
       return;
     }
-    if (!isMp4(videoUrl)) return;
-    try {
-      v.src = videoUrl;
-      v.muted = true;
-      v.playsInline = true;
-      v.loop = true;
-      v.currentTime = 0;
-      const p = v.play();
-      if (p && typeof p.catch === "function") p.catch(() => {});
-    } catch {}
+
+    if (!isPlayable(videoUrl)) return;
+
+    v.muted = true;
+    v.playsInline = true;
+    v.loop = true;
+
+    if (isHls(videoUrl)) {
+      // HLS 流：用 hls.js 播放
+      loadHlsJs().then((Hls) => {
+        if (!Hls) {
+          // 浏览器原生支持 HLS（Safari）
+          if (v.canPlayType("application/vnd.apple.mpegurl")) {
+            v.src = videoUrl;
+            v.play().catch(() => {});
+          }
+          return;
+        }
+        if (!Hls.isSupported()) return;
+        // 再次检查是否还在 hover（异步加载期间可能已离开）
+        if (!vref.current) return;
+
+        const hls = new Hls({
+          enableWorker: false,
+          lowLatencyMode: true,
+          maxBufferLength: 8,
+          maxMaxBufferLength: 15,
+        });
+        hlsRef.current = hls;
+        hls.loadSource(videoUrl);
+        hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          v.play().catch(() => {});
+        });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            hls.destroy();
+            hlsRef.current = null;
+          }
+        });
+      });
+    } else {
+      // 普通 mp4
+      try {
+        v.src = videoUrl;
+        v.currentTime = 0;
+        v.play().catch(() => {});
+      } catch {}
+    }
+
+    return () => {
+      // cleanup：组件卸载时销毁
+      try {
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+      } catch {}
+    };
   }, [hover, videoUrl]);
+
+  const showVideo = hover && isPlayable(videoUrl);
 
   return (
     <div
@@ -212,23 +295,24 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
       onMouseLeave={() => setHover(false)}
       style={{ position: "relative", width: "100%", height: "100%" }}
     >
+      {/* 封面图：始终渲染，视频出现时淡出 */}
       {coverUrl ? (
         <Image
           src={coverUrl}
           alt={title || ""}
           fill
-          style={{ objectFit: "cover" }}
+          style={{
+            objectFit: "cover",
+            transition: "opacity 200ms ease",
+            opacity: showVideo ? 0 : 1,
+          }}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
       ) : (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            background: "rgba(11,18,32,0.06)",
-          }}
-        />
+        <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
       )}
+
+      {/* 视频层：始终挂载，hover 时显示 */}
       <video
         ref={vref}
         style={{
@@ -237,9 +321,14 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          display: hover && isMp4(videoUrl) ? "block" : "none",
+          opacity: showVideo ? 1 : 0,
+          transition: "opacity 200ms ease",
+          pointerEvents: "none",
         }}
         preload="none"
+        muted
+        playsInline
+        loop
       />
     </div>
   );
@@ -608,16 +697,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .card { display: block; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
         .card:hover { transform: translateY(-1px); box-shadow: ${THEME.colors.shadowHover}; border-color: ${THEME.colors.border2}; }
         .coverWrap { position: relative; width: 100%; height: 150px; background: rgba(11,18,32,0.06); overflow: hidden; }
-        .pillRow { position: absolute; left: 10px; top: 10px; display: flex; gap: 8px; align-items: center; z-index: 2; }
-        .pill { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; font-size: 12px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.72); color: ${THEME.colors.ink}; white-space: nowrap; }
-        .pillFree { border-color: rgba(16,185,129,0.22); background: rgba(16,185,129,0.12); color:#065f46; }
-        .pillVip { border-color: rgba(124,58,237,0.22); background: rgba(124,58,237,0.12); color:#5b21b6; }
-        .pillDiff { border-color: rgba(245,158,11,0.22); background: rgba(245,158,11,0.14); color:#92400e; }
+        .pillRow { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; align-items: center; z-index: 2; }
+        .pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.82); color: ${THEME.colors.ink}; white-space: nowrap; backdrop-filter: blur(4px); }
+        .pillFree { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.15); color:#065f46; }
+        .pillVip { border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.15); color:#5b21b6; }
         .duration { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: rgba(11,18,32,0.78); color: #fff; font-size: 12px; padding: 4px 6px; border-radius: 8px; }
         .body { padding: 12px; }
         .title { font-size: 15px; font-weight: 950; color: ${THEME.colors.ink}; line-height: 1.25; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .desc { font-size: 12.5px; color: ${THEME.colors.muted}; line-height: 1.5; margin: 0 0 10px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 38px; }
-        .meta { font-size: 12px; color: ${THEME.colors.faint}; white-space: nowrap; }
+        .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: ${THEME.colors.faint}; }
+        .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.bg}; color: ${THEME.colors.faint}; white-space: nowrap; }
         .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
@@ -644,7 +733,6 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                       <span className={`pill ${isVip ? "pillVip" : "pillFree"}`}>
                         {isVip ? "会员" : "免费"}
                       </span>
-                      {r.difficulty ? <span className="pill pillDiff">{r.difficulty}</span> : null}
                     </div>
                     {duration ? <div className="duration">{duration}</div> : null}
                     <BookmarkBtn
@@ -660,7 +748,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
                     <p className="desc">
                       {r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}
                     </p>
-                    <div className="meta">{dateStr}</div>
+                    <div className="meta">
+                      {dateStr ? <span>{dateStr}</span> : null}
+                      {r.difficulty ? <span className="metaTag">{r.difficulty}</span> : null}
+                      {(r.topics || []).map((t) => (
+                        <span key={t} className="metaTag">{t}</span>
+                      ))}
+                      {(r.channels || []).map((c) => (
+                        <span key={c} className="metaTag">{c}</span>
+                      ))}
+                    </div>
                   </div>
                 </>
               );
