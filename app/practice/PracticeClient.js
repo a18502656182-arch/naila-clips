@@ -107,7 +107,7 @@ function SwipeGame({ vocabItems, onExit }) {
     // setup current card meaning (50/50 correct)
     if (!current) return;
 
-    const correctMeaning = current?.data?.meaning_zh || "";
+    const correctMeaning = current?.data?.zh || "";
     const shouldBeCorrect = Math.random() < 0.5;
 
     if (shouldBeCorrect || items.length < 2) {
@@ -119,7 +119,7 @@ function SwipeGame({ vocabItems, onExit }) {
     // pick wrong meaning from other items
     const others = items.filter((x) => x?.id !== current?.id);
     const other = pickOne(others) || pickOne(items);
-    const wrongMeaning = other?.data?.meaning_zh || "";
+    const wrongMeaning = other?.data?.zh || "";
     if (!wrongMeaning || wrongMeaning === correctMeaning) {
       setCardMeaning(correctMeaning);
       setIsMeaningCorrect(true);
@@ -147,7 +147,13 @@ function SwipeGame({ vocabItems, onExit }) {
 
     // fly out
     setAnimating(true);
-    const flyX = choseRight ? (typeof window !== "undefined" ? window.innerWidth : 1200) : -(typeof window !== "undefined" ? window.innerWidth : 1200);
+    const flyX = choseRight
+      ? typeof window !== "undefined"
+        ? window.innerWidth
+        : 1200
+      : typeof window !== "undefined"
+      ? -window.innerWidth
+      : -1200;
     setDx(flyX);
     setDy(dy * 0.2);
 
@@ -177,7 +183,8 @@ function SwipeGame({ vocabItems, onExit }) {
 
   function onPointerMove(e) {
     if (!dragging || animating) return;
-    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
+    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
+      return;
     const nx = e.clientX - startRef.current.x;
     const ny = e.clientY - startRef.current.y;
     setDx(nx);
@@ -186,7 +193,8 @@ function SwipeGame({ vocabItems, onExit }) {
 
   function onPointerUp(e) {
     if (!dragging || animating) return;
-    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current) return;
+    if (pointerIdRef.current != null && e.pointerId !== pointerIdRef.current)
+      return;
     pointerIdRef.current = null;
 
     if (Math.abs(dx) >= threshold) {
@@ -256,7 +264,11 @@ function SwipeGame({ vocabItems, onExit }) {
     userSelect: "none",
     touchAction: "none",
     transform: `translate(${dx}px, ${dy}px) rotate(${rotate}deg)`,
-    transition: animating ? "transform 0.3s ease" : dragging ? "none" : "transform 0.2s ease",
+    transition: animating
+      ? "transform 0.3s ease"
+      : dragging
+      ? "none"
+      : "transform 0.2s ease",
   };
 
   const btnRow = {
@@ -310,7 +322,9 @@ function SwipeGame({ vocabItems, onExit }) {
             boxShadow: "0 8px 24px rgba(15,23,42,0.08)",
           }}
         >
-          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>本轮结果</div>
+          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>
+            本轮结果
+          </div>
           <div style={{ fontSize: 16, opacity: 0.85 }}>
             正确：<b>{correct}</b> / <b>{total}</b>
           </div>
@@ -502,7 +516,10 @@ function RebuildGame({ vocabItems, onExit }) {
         const words = ex.split(/\s+/).filter(Boolean);
         return words.length >= 4;
       })
-      .map((x) => ({ ...x, __exampleWords: (x?.data?.example_en || "").trim().split(/\s+/).filter(Boolean) }));
+      .map((x) => ({
+        ...x,
+        __exampleWords: (x?.data?.example_en || "").trim().split(/\s+/).filter(Boolean),
+      }));
     return shuffle(eligible);
   }, [vocabItems]);
 
@@ -541,7 +558,6 @@ function RebuildGame({ vocabItems, onExit }) {
     const now = normalizeSentence(selectedText());
     if (!now) return;
     if (now === normalizedAnswer) {
-      // correct
       setStatus("correct");
       setScore((s) => s + 1);
       setTimeout(() => {
@@ -566,7 +582,6 @@ function RebuildGame({ vocabItems, onExit }) {
       setWrongCount((w) => w + 1);
       setShowAnswer(true);
       setTimeout(() => {
-        // reset for retry
         setStatus("idle");
         setShowAnswer(false);
         setSelected([]);
@@ -581,7 +596,6 @@ function RebuildGame({ vocabItems, onExit }) {
     setAvailable((a) => a.filter((x) => x.id !== token.id));
     setSelected((s) => {
       const next = [...s, token];
-      // check after state updates
       setTimeout(checkAuto, 0);
       return next;
     });
@@ -611,10 +625,7 @@ function RebuildGame({ vocabItems, onExit }) {
     margin: "0 auto",
   };
 
-  const contentWrap = {
-    maxWidth: 920,
-    margin: "0 auto",
-  };
+  const contentWrap = { maxWidth: 920, margin: "0 auto" };
 
   const card = {
     background: THEME.colors.surface,
@@ -666,6 +677,7 @@ function RebuildGame({ vocabItems, onExit }) {
           <div style={{ fontWeight: 1000 }}>🧩 台词磁力贴</div>
           <div />
         </div>
+
         <div style={{ maxWidth: 720, margin: "16px auto 0" }}>
           <div style={{ ...card, textAlign: "center", padding: 18 }}>
             <div style={{ fontSize: 18, fontWeight: 1000 }}>没有可用例句</div>
@@ -812,7 +824,7 @@ function RebuildGame({ vocabItems, onExit }) {
                 </span>
               </div>
               <div style={{ marginTop: 6, opacity: 0.85, fontWeight: 800 }}>
-                {current?.data?.meaning_zh || "（无释义）"}
+                {current?.data?.zh || "（无释义）"}
               </div>
               {current?.data?.example_zh ? (
                 <div style={{ marginTop: 10, opacity: 0.55, fontWeight: 800, lineHeight: 1.35 }}>
@@ -981,10 +993,10 @@ function BalloonGame({ vocabItems, onExit }) {
     const rid = (roundRef.current += 1);
 
     const word = pickOne(items);
-    const correctMeaning = word?.data?.meaning_zh || "";
+    const correctMeaning = word?.data?.zh || "";
     const otherMeanings = items
       .filter((x) => x?.id !== word?.id)
-      .map((x) => x?.data?.meaning_zh || "")
+      .map((x) => x?.data?.zh || "")
       .filter(Boolean);
 
     const wrongs = shuffle(otherMeanings).slice(0, 5);
@@ -1010,7 +1022,6 @@ function BalloonGame({ vocabItems, onExit }) {
     setExploding(null);
     setBalloons(newBalloons);
 
-    // auto play
     setTimeout(() => playWord(word?.term), 50);
   }
 
@@ -1042,13 +1053,11 @@ function BalloonGame({ vocabItems, onExit }) {
         return next;
       });
 
-      // small "pop" feedback
       try {
         if (navigator.vibrate) navigator.vibrate(20);
       } catch {}
 
       setTimeout(() => {
-        // next round
         makeRound();
       }, 420);
     } else {
@@ -1063,9 +1072,6 @@ function BalloonGame({ vocabItems, onExit }) {
 
   function onMissBalloon(b) {
     if (gameOver) return;
-    // Only count miss if it's from current round and still present
-    // Miss means it floated away without being clicked.
-    // Deduct heart and reset combo.
     setCombo(0);
     loseHeart();
   }
@@ -1263,7 +1269,6 @@ function BalloonGame({ vocabItems, onExit }) {
               key={b.id}
               onClick={() => clickBalloon(b)}
               onAnimationEnd={() => {
-                // if balloon finished floating and still not exploded
                 if (!isExploding) onMissBalloon(b);
               }}
               style={{
@@ -1291,7 +1296,13 @@ function BalloonGame({ vocabItems, onExit }) {
               }}
               title="点击"
             >
-              <div style={{ fontSize, lineHeight: 1.15, filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.35))" }}>
+              <div
+                style={{
+                  fontSize,
+                  lineHeight: 1.15,
+                  filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.35))",
+                }}
+              >
                 {b.text || "（无释义）"}
               </div>
 
@@ -1370,10 +1381,10 @@ function SpeedGame({ vocabItems, onExit }) {
     if (!items || items.length < 2) return;
 
     const w = pickOne(items);
-    const correctMeaning = w?.data?.meaning_zh || "";
+    const correctMeaning = w?.data?.zh || "";
     const others = items.filter((x) => x?.id !== w?.id);
     const wrong = pickOne(others);
-    const wrongMeaning = wrong?.data?.meaning_zh || "";
+    const wrongMeaning = wrong?.data?.zh || "";
 
     const correctIsLeft = Math.random() < 0.5;
 
@@ -1383,7 +1394,6 @@ function SpeedGame({ vocabItems, onExit }) {
     setRightText(correctIsLeft ? wrongMeaning : correctMeaning);
     setCracked(false);
 
-    // play word (fast game, but still helpful)
     setTimeout(() => playWord(w?.term), 40);
   }
 
@@ -1404,7 +1414,6 @@ function SpeedGame({ vocabItems, onExit }) {
       setTRatio(ratio);
 
       if (ratio <= 0) {
-        // timeout
         endGame();
         return;
       }
@@ -1433,8 +1442,6 @@ function SpeedGame({ vocabItems, onExit }) {
       const nextCombo = combo + 1;
       setCombo(nextCombo);
       setMaxCombo((m) => Math.max(m, nextCombo));
-
-      // score: 10 × combo加成（这里用下一次combo作为倍率）
       setScore((s) => s + 10 * nextCombo);
       setAnswered((n) => n + 1);
 
@@ -1442,7 +1449,6 @@ function SpeedGame({ vocabItems, onExit }) {
         if (navigator.vibrate) navigator.vibrate(30);
       } catch {}
 
-      // next
       setRound((r) => r + 1);
     } else {
       setAnswered((n) => n + 1);
@@ -1531,7 +1537,12 @@ function SpeedGame({ vocabItems, onExit }) {
   const flash = combo >= 5;
   const halo = combo >= 10;
 
-  const barColor = tRatio > 0.66 ? "rgba(34,197,94,0.95)" : tRatio > 0.33 ? "rgba(234,179,8,0.95)" : "rgba(239,68,68,0.95)";
+  const barColor =
+    tRatio > 0.66
+      ? "rgba(34,197,94,0.95)"
+      : tRatio > 0.33
+      ? "rgba(234,179,8,0.95)"
+      : "rgba(239,68,68,0.95)";
 
   const halves = {
     maxWidth: 980,
@@ -1565,13 +1576,7 @@ function SpeedGame({ vocabItems, onExit }) {
       <div style={shellStyle}>
         <div style={topHud}>
           <div style={hudRow}>
-            <button
-              onClick={onExit}
-              style={{
-                ...pill,
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>
               ← 返回大厅
             </button>
             <div style={{ fontWeight: 1000 }}>⚡ 极速二选一</div>
@@ -1594,7 +1599,8 @@ function SpeedGame({ vocabItems, onExit }) {
               最终得分：<b>{score}</b>
             </div>
             <div style={{ marginTop: 6, opacity: 0.8, fontWeight: 900 }}>
-              最高连击：<b>{maxCombo}</b>　·　答对题数：<b>{answered - 1 >= 0 ? answered - 1 : 0}</b> / <b>{answered}</b>
+              最高连击：<b>{maxCombo}</b>　·　答对题数：<b>{answered - 1 >= 0 ? answered - 1 : 0}</b> /{" "}
+              <b>{answered}</b>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
@@ -1645,7 +1651,9 @@ function SpeedGame({ vocabItems, onExit }) {
     <div
       style={{
         ...shellStyle,
-        background: flash ? "linear-gradient(180deg, rgba(246,247,251,1), rgba(246,247,251,0.92))" : THEME.colors.bg,
+        background: flash
+          ? "linear-gradient(180deg, rgba(246,247,251,1), rgba(246,247,251,0.92))"
+          : THEME.colors.bg,
       }}
     >
       <div style={topHud}>
@@ -1660,17 +1668,18 @@ function SpeedGame({ vocabItems, onExit }) {
               marginBottom: 10,
             }}
           >
-            <div style={{ width: `${tRatio * 100}%`, height: "100%", background: barColor, transition: "width 0.05s linear" }} />
+            <div
+              style={{
+                width: `${tRatio * 100}%`,
+                height: "100%",
+                background: barColor,
+                transition: "width 0.05s linear",
+              }}
+            />
           </div>
 
           <div style={hudRow}>
-            <button
-              onClick={onExit}
-              style={{
-                ...pill,
-                cursor: "pointer",
-              }}
-            >
+            <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>
               ← 返回大厅
             </button>
 
@@ -1737,20 +1746,10 @@ function SpeedGame({ vocabItems, onExit }) {
       </div>
 
       <div style={halves}>
-        <div
-          onClick={() => answer("left")}
-          style={{
-            ...halfBase("rgba(239,68,68,0.24)"),
-          }}
-        >
+        <div onClick={() => answer("left")} style={halfBase("rgba(239,68,68,0.24)")}>
           {leftText || "（无释义）"}
         </div>
-        <div
-          onClick={() => answer("right")}
-          style={{
-            ...halfBase("rgba(59,130,246,0.22)"),
-          }}
-        >
+        <div onClick={() => answer("right")} style={halfBase("rgba(59,130,246,0.22)")}>
           {rightText || "（无释义）"}
         </div>
       </div>
@@ -1773,16 +1772,7 @@ function SpeedGame({ vocabItems, onExit }) {
 
 /* ----------------------------- Main Lobby ----------------------------- */
 
-function GameCard({
-  title,
-  subtitle,
-  tag,
-  color,
-  emoji,
-  disabled,
-  onClick,
-  spanFull,
-}) {
+function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanFull }) {
   return (
     <div
       onClick={disabled ? undefined : onClick}
@@ -1846,9 +1836,7 @@ function GameCard({
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-        <div style={{ fontWeight: 1000, color: disabled ? THEME.colors.muted : color }}>
-          开始 →
-        </div>
+        <div style={{ fontWeight: 1000, color: disabled ? THEME.colors.muted : color }}>开始 →</div>
       </div>
 
       {disabled ? (
@@ -1957,7 +1945,15 @@ export default function PracticeClient({ accessToken }) {
     return (
       <div style={{ minHeight: "100vh", background: THEME.colors.bg }}>
         <div style={{ padding: 12, borderBottom: `1px solid ${THEME.colors.border}`, background: THEME.colors.bg }}>
-          <div style={{ maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              maxWidth: 980,
+              margin: "0 auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <button
               onClick={() => setActiveGame(null)}
               style={{
@@ -1990,74 +1986,158 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "swipe") {
-    if (notEnough()) return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-          <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>至少需要收藏 4 个词汇，才能开始游戏。</div>
-          <button
-            onClick={() => setActiveGame(null)}
-            style={{ marginTop: 14, height: 44, padding: "0 16px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900 }}
+    if (notEnough())
+      return (
+        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto",
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+            }}
           >
-            返回大厅
-          </button>
+            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
+            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
+              至少需要收藏 4 个词汇，才能开始游戏。
+            </div>
+            <button
+              onClick={() => setActiveGame(null)}
+              style={{
+                marginTop: 14,
+                height: 44,
+                padding: "0 16px",
+                borderRadius: THEME.radii.pill,
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface,
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              返回大厅
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
     return <SwipeGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "rebuild") {
-    if (notEnough()) return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-          <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>至少需要收藏 4 个词汇，才能开始游戏。</div>
-          <button
-            onClick={() => setActiveGame(null)}
-            style={{ marginTop: 14, height: 44, padding: "0 16px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900 }}
+    if (notEnough())
+      return (
+        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto",
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+            }}
           >
-            返回大厅
-          </button>
+            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
+            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
+              至少需要收藏 4 个词汇，才能开始游戏。
+            </div>
+            <button
+              onClick={() => setActiveGame(null)}
+              style={{
+                marginTop: 14,
+                height: 44,
+                padding: "0 16px",
+                borderRadius: THEME.radii.pill,
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface,
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              返回大厅
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
     return <RebuildGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "balloon") {
-    if (notEnough()) return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-          <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>至少需要收藏 4 个词汇，才能开始游戏。</div>
-          <button
-            onClick={() => setActiveGame(null)}
-            style={{ marginTop: 14, height: 44, padding: "0 16px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900 }}
+    if (notEnough())
+      return (
+        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto",
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+            }}
           >
-            返回大厅
-          </button>
+            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
+            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
+              至少需要收藏 4 个词汇，才能开始游戏。
+            </div>
+            <button
+              onClick={() => setActiveGame(null)}
+              style={{
+                marginTop: 14,
+                height: 44,
+                padding: "0 16px",
+                borderRadius: THEME.radii.pill,
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface,
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              返回大厅
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
     return <BalloonGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
   if (activeGame === "speed") {
-    if (notEnough()) return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18 }}>
-          <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-          <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>至少需要收藏 4 个词汇，才能开始游戏。</div>
-          <button
-            onClick={() => setActiveGame(null)}
-            style={{ marginTop: 14, height: 44, padding: "0 16px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900 }}
+    if (notEnough())
+      return (
+        <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
+          <div
+            style={{
+              maxWidth: 720,
+              margin: "0 auto",
+              background: THEME.colors.surface,
+              border: `1px solid ${THEME.colors.border}`,
+              borderRadius: THEME.radii.lg,
+              padding: 18,
+            }}
           >
-            返回大厅
-          </button>
+            <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
+            <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 800 }}>
+              至少需要收藏 4 个词汇，才能开始游戏。
+            </div>
+            <button
+              onClick={() => setActiveGame(null)}
+              style={{
+                marginTop: 14,
+                height: 44,
+                padding: "0 16px",
+                borderRadius: THEME.radii.pill,
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface,
+                cursor: "pointer",
+                fontWeight: 900,
+              }}
+            >
+              返回大厅
+            </button>
+          </div>
         </div>
-      </div>
-    );
+      );
     return <SpeedGame vocabItems={vocabItems} onExit={() => setActiveGame(null)} />;
   }
 
@@ -2129,29 +2209,21 @@ export default function PracticeClient({ accessToken }) {
 
         <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
 
-        <div style={{ opacity: 0.7, fontWeight: 900 }}>
-          {me?.email ? me.email : "未登录"}
-        </div>
+        <div style={{ opacity: 0.7, fontWeight: 900 }}>{me?.email ? me.email : "未登录"}</div>
       </div>
 
       <div style={statGrid}>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>📚 词汇总数</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>
-            {loading ? "…" : stats.total}
-          </div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.total}</div>
         </div>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>🔄 学习中</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>
-            {loading ? "…" : stats.learning}
-          </div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.learning}</div>
         </div>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>✅ 已掌握</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>
-            {loading ? "…" : stats.mastered}
-          </div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.mastered}</div>
         </div>
       </div>
 
@@ -2205,7 +2277,11 @@ export default function PracticeClient({ accessToken }) {
       </div>
 
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px", opacity: 0.65, fontWeight: 800 }}>
-        {loading ? "正在加载你的词汇本…" : notEnough() ? "提示：去「我的收藏 → 词汇本」多收藏一些词汇，解锁全部游戏。" : "选一个游戏开始练习吧！"}
+        {loading
+          ? "正在加载你的词汇本…"
+          : notEnough()
+          ? "提示：去「我的收藏 → 词汇本」多收藏一些词汇，解锁全部游戏。"
+          : "选一个游戏开始练习吧！"}
       </div>
     </div>
   );
