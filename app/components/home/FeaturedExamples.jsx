@@ -16,7 +16,6 @@ function Pill({ children, tone = "neutral" }) {
     neutral: { bg: "rgba(11,18,32,0.05)", fg: THEME.colors.ink, bd: THEME.colors.border },
     free: { bg: "rgba(16,185,129,0.12)", fg: "#065f46", bd: "rgba(16,185,129,0.16)" },
     vip: { bg: "rgba(124,58,237,0.12)", fg: "#5b21b6", bd: "rgba(124,58,237,0.18)" },
-    info: { bg: "rgba(79,70,229,0.10)", fg: "#3730a3", bd: "rgba(79,70,229,0.16)" },
     cyan: { bg: "rgba(6,182,212,0.10)", fg: "#155e75", bd: "rgba(6,182,212,0.16)" },
   };
   const t = map[tone] || map.neutral;
@@ -47,7 +46,7 @@ function CoverPlaceholder() {
       style={{
         width: "100%",
         height: "100%",
-        minHeight: 430,
+        minHeight: 320,
         background:
           "linear-gradient(135deg, rgba(79,70,229,0.18), rgba(6,182,212,0.14)), radial-gradient(700px 240px at 20% 0%, rgba(255,255,255,0.58), transparent 55%), rgba(11,18,32,0.06)",
         position: "relative",
@@ -62,8 +61,8 @@ export default function FeaturedExamples({ featured }) {
       <div
         style={{
           width: "100%",
-          minHeight: 430,
-          borderRadius: 26,
+          height: 320,
+          borderRadius: 24,
           overflow: "hidden",
           border: `1px solid ${THEME.colors.border}`,
           background: "rgba(255,255,255,0.76)",
@@ -78,7 +77,7 @@ export default function FeaturedExamples({ featured }) {
   const duration = formatDuration(featured.duration_sec);
   const title = featured.title || `Clip #${featured.id}`;
   const desc = featured.description || "从真实场景里理解表达，也把表达带进自己的口语系统。";
-  const topics = Array.isArray(featured.topics) ? featured.topics.slice(0, 2) : [];
+  const topics = Array.isArray(featured.topics) ? featured.topics.slice(0, 1) : [];
   const isVip = featured.access_tier === "vip";
 
   return (
@@ -90,7 +89,38 @@ export default function FeaturedExamples({ featured }) {
         }
         .featuredHeroCard:hover {
           transform: translateY(-2px);
-          box-shadow: 0 24px 64px rgba(15,23,42,0.16);
+          box-shadow: 0 20px 48px rgba(15,23,42,0.14);
+        }
+
+        @media (max-width: 960px) {
+          .featuredHeroCard {
+            height: 300px !important;
+            min-height: 300px !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .featuredHeroCard {
+            height: 260px !important;
+            min-height: 260px !important;
+            border-radius: 22px !important;
+          }
+          .featuredHeroInfo {
+            left: 14px !important;
+            right: 14px !important;
+            bottom: 14px !important;
+          }
+          .featuredHeroInner {
+            padding: 14px !important;
+            border-radius: 18px !important;
+          }
+          .featuredHeroTitle {
+            font-size: 20px !important;
+            line-height: 1.1 !important;
+          }
+          .featuredHeroDesc {
+            display: none !important;
+          }
         }
       `}</style>
 
@@ -100,14 +130,15 @@ export default function FeaturedExamples({ featured }) {
         style={{
           position: "relative",
           width: "100%",
-          minHeight: 430,
-          borderRadius: 26,
+          height: 320,
+          minHeight: 320,
+          borderRadius: 24,
           overflow: "hidden",
           display: "block",
           textDecoration: "none",
           color: "inherit",
           border: `1px solid ${THEME.colors.border}`,
-          boxShadow: "0 20px 56px rgba(15,23,42,0.10)",
+          boxShadow: "0 16px 38px rgba(15,23,42,0.10)",
           background: "#dbe4f3",
         }}
       >
@@ -117,7 +148,7 @@ export default function FeaturedExamples({ featured }) {
               src={cover}
               alt={title}
               fill
-              sizes="(max-width: 960px) 100vw, 520px"
+              sizes="(max-width: 960px) 100vw, 460px"
               style={{ objectFit: "cover" }}
               priority
             />
@@ -138,9 +169,9 @@ export default function FeaturedExamples({ featured }) {
         <div
           style={{
             position: "absolute",
-            left: 18,
-            right: 18,
-            top: 18,
+            left: 16,
+            right: 16,
+            top: 16,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
@@ -152,9 +183,9 @@ export default function FeaturedExamples({ featured }) {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              padding: "9px 12px",
+              padding: "8px 12px",
               borderRadius: 999,
-              background: "rgba(255,255,255,0.82)",
+              background: "rgba(255,255,255,0.86)",
               border: "1px solid rgba(255,255,255,0.65)",
               color: THEME.colors.ink,
               fontSize: 12,
@@ -188,11 +219,12 @@ export default function FeaturedExamples({ featured }) {
         </div>
 
         <div
+          className="featuredHeroInfo"
           style={{
             position: "absolute",
-            left: 18,
-            right: 18,
-            bottom: 18,
+            left: 16,
+            right: 16,
+            bottom: 16,
           }}
         >
           <div
@@ -201,7 +233,7 @@ export default function FeaturedExamples({ featured }) {
               display: "flex",
               gap: 8,
               flexWrap: "wrap",
-              marginBottom: 10,
+              marginBottom: 8,
             }}
           >
             {topics.map((t) => (
@@ -212,21 +244,23 @@ export default function FeaturedExamples({ featured }) {
           </div>
 
           <div
+            className="featuredHeroInner"
             style={{
-              padding: 18,
-              borderRadius: 20,
-              background: "rgba(255,255,255,0.78)",
+              padding: 16,
+              borderRadius: 18,
+              background: "rgba(255,255,255,0.82)",
               border: "1px solid rgba(255,255,255,0.62)",
               backdropFilter: "blur(14px)",
-              boxShadow: "0 16px 36px rgba(15,23,42,0.12)",
+              boxShadow: "0 14px 30px rgba(15,23,42,0.12)",
             }}
           >
             <div
+              className="featuredHeroTitle"
               style={{
-                fontSize: 28,
-                lineHeight: 1.12,
-                fontWeight: 980,
-                letterSpacing: "-0.04em",
+                fontSize: 18,
+                lineHeight: 1.15,
+                fontWeight: 950,
+                letterSpacing: "-0.03em",
                 color: THEME.colors.ink,
               }}
             >
@@ -234,11 +268,12 @@ export default function FeaturedExamples({ featured }) {
             </div>
 
             <div
+              className="featuredHeroDesc"
               style={{
-                marginTop: 8,
+                marginTop: 6,
                 color: THEME.colors.muted,
-                fontSize: 14,
-                lineHeight: 1.7,
+                fontSize: 13,
+                lineHeight: 1.6,
               }}
             >
               {desc}
@@ -246,7 +281,7 @@ export default function FeaturedExamples({ featured }) {
 
             <div
               style={{
-                marginTop: 12,
+                marginTop: 10,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
