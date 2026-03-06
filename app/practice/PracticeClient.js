@@ -1276,8 +1276,8 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
   function judge(dir) {
     if (!current || animating || done) return;
 
-    const choseMatch = dir === "right"; // 右滑=匹配
-    const shouldMatch = isMeaningCorrect; // 展示正确释义 => 应匹配
+    const choseMatch = dir === "right";
+    const shouldMatch = isMeaningCorrect;
     const ok = choseMatch === shouldMatch;
 
     const correctMeaning = current?.data?.zh || "";
@@ -1367,7 +1367,6 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
     }
     window.addEventListener("keydown", onKey, { passive: false });
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done, animating, idx, isMeaningCorrect, cardMeaning]);
 
   const rotate = clamp(dx / 20, -15, 15);
@@ -1597,18 +1596,16 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
-【二-4】RebuildGame：kind 过滤修复 + records/积分/详情（其余不变）
+【二-4】RebuildGame：kind 字段单复数修复（白名单）+ 其余保持
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function RebuildGame({ vocabItems, onExit, onGameEnd }) {
   const pool = useMemo(() => {
-    const excludedKinds = ["expression", "sentence", "collocation", "idiom"];
-
     const eligible = (vocabItems || [])
       .filter((x) => {
-        // ✅ 修复：只有 kind 明确存在且属于排除类型才过滤；kind 不存在/空/undefined 统统保留
-        if (x?.kind && excludedKinds.includes(x.kind)) return false;
-
+        const k = x?.kind;
+        // 白名单：只允许 words 和 phrases；kind 不存在时默认保留（兼容旧数据）
+        if (k && k !== "words" && k !== "phrases") return false;
         const ex = (x?.data?.example_en || "").trim();
         if (!ex) return false;
         const words = ex.split(/\s+/).filter(Boolean);
@@ -1824,7 +1821,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
     );
   }
 
-  if (finished) {
+  if (i >= total) {
     const pts = score * 10;
     return (
       <div style={shellStyle}>
@@ -2436,7 +2433,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd }) {
   const [word, setWord] = useState(null);
   const [leftText, setLeftText] = useState("");
   const [rightText, setRightText] = useState("");
-  const [correctSide, setCorrectSide] = useState("left"); // left | right
+  const [correctSide, setCorrectSide] = useState("left");
 
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
@@ -2894,6 +2891,7 @@ export default function PracticeClient({ accessToken }) {
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ SSR hydration：初始值空对象，不在 SSR 阶段读 localStorage
   const [scores, setScores] = useState({});
   useEffect(() => {
     try {
@@ -2965,6 +2963,8 @@ export default function PracticeClient({ accessToken }) {
     }
   }
 
+  // ------------------ Game entry routing (按要求顺序) ------------------
+
   if (activeGame === "bubble") {
     if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
     return (
@@ -3031,6 +3031,47 @@ export default function PracticeClient({ accessToken }) {
     );
   }
 
+  // ------------------ Skeleton (fix hydration) ------------------
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, boxSizing: "border-box", color: THEME.colors.ink }}>
+        <style>{`@keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+
+        {/* 顶栏 */}
+        <div style={{ maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 14px" }}>
+          <Link href="/" style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", textDecoration: "none", color: THEME.colors.ink, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 8 }}>
+            ← 返回首页
+          </Link>
+          <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
+          <div style={{ opacity: 0.5, fontWeight: 900, fontSize: 13 }}>加载中…</div>
+        </div>
+
+        <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px" }}>
+          {/* 统计卡片骨架 */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
+            {[0, 1, 2].map((i) => (
+              <div key={i} style={{ height: 72, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite" }} />
+            ))}
+          </div>
+
+          {/* 积分榜骨架 */}
+          <div style={{ height: 192, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, marginBottom: 14, animation: "shimmer 1.4s ease-in-out infinite" }} />
+
+          {/* 游戏卡片骨架 */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+            <div style={{ height: 118, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite" }} />
+            <div style={{ height: 118, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite" }} />
+            <div style={{ height: 118, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite" }} />
+            <div style={{ height: 118, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite" }} />
+            <div style={{ height: 118, borderRadius: THEME.radii.lg, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, animation: "shimmer 1.4s ease-in-out infinite", gridColumn: "1 / -1" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------ Lobby view ------------------
+
   const page = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
 
   const topBar = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 14px" };
@@ -3041,12 +3082,7 @@ export default function PracticeClient({ accessToken }) {
 
   const gamesGrid = { maxWidth: 980, margin: "14px auto 0", display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, padding: "0 6px 18px" };
 
-  // ✅ 新的紧凑积分榜容器
-  const scoreSection = {
-    maxWidth: 980,
-    margin: "14px auto 0",
-    padding: "0 6px",
-  };
+  const scoreSection = { maxWidth: 980, margin: "14px auto 0", padding: "0 6px" };
 
   const scoreContainer = {
     background: THEME.colors.surface,
@@ -3071,7 +3107,7 @@ export default function PracticeClient({ accessToken }) {
     gap: "4px 16px",
   };
 
-  function ScoreLine({ meta }) {
+  function ScoreLine({ meta, isLastRow }) {
     const info = scores?.[meta.id] || { best: 0, last: 0, playCount: 0 };
     const best = Number(info.best || 0);
     const playCount = Number(info.playCount || 0);
@@ -3084,7 +3120,7 @@ export default function PracticeClient({ accessToken }) {
           alignItems: "center",
           gap: 8,
           padding: "7px 0",
-          borderBottom: `1px solid ${THEME.colors.border}`,
+          borderBottom: isLastRow ? "none" : `1px solid ${THEME.colors.border}`,
           fontSize: 13,
         }}
       >
@@ -3134,45 +3170,33 @@ export default function PracticeClient({ accessToken }) {
       <div style={statGrid}>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>📚 词汇总数</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.total}</div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.total}</div>
         </div>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>🔄 学习中</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.learning}</div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.learning}</div>
         </div>
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>✅ 已掌握</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{loading ? "…" : stats.mastered}</div>
+          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.mastered}</div>
         </div>
       </div>
 
-      {/* ✅ 新的“我的最高分”紧凑区块 */}
       <div style={scoreSection}>
         <div style={scoreContainer}>
           <div style={scoreTitleRow}>
             <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
-            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
+            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>
+              游玩即自动记录
+            </div>
           </div>
 
           <div style={scoreGrid}>
             {GAME_META.map((m, idx) => {
-              const isLastRow = idx >= GAME_META.length - 2; // 最后一行两列不加分隔线
-              return (
-                <div key={m.id} style={{ borderBottom: isLastRow ? "none" : undefined }}>
-                  {/* 通过外层覆盖 borderBottom：若是最后一行，清掉 */}
-                  <div style={{ borderBottom: isLastRow ? "none" : undefined }}>
-                    <ScoreLine meta={m} />
-                  </div>
-                </div>
-              );
+              const isLastRow = idx >= GAME_META.length - 2;
+              return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
             })}
           </div>
-
-          {/* 清理掉最后一行的线：更稳的方式（覆盖） */}
-          <style>{`
-            /* 让最后一行（第5、6项）的border-bottom无效 */
-            [data-score-grid] > :nth-last-child(-n+2) > div > div { border-bottom: none !important; }
-          `}</style>
         </div>
       </div>
 
@@ -3183,7 +3207,7 @@ export default function PracticeClient({ accessToken }) {
           subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写"
           tag="拼写训练"
           color="#7c3aed"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("bubble")}
         />
 
@@ -3193,7 +3217,7 @@ export default function PracticeClient({ accessToken }) {
           subtitle="30秒内快速配对英文与中文，连击越多分越高"
           tag="速记模式"
           color="#d97706"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("match")}
         />
 
@@ -3203,7 +3227,7 @@ export default function PracticeClient({ accessToken }) {
           subtitle="左滑❌ 右滑✅ 判断释义是否正确"
           tag="休闲模式"
           color="#ec4899"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("swipe")}
         />
 
@@ -3213,7 +3237,7 @@ export default function PracticeClient({ accessToken }) {
           subtitle="点击方块，把打散的例句拼回去"
           tag="语感训练"
           color="#059669"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("rebuild")}
         />
 
@@ -3223,7 +3247,7 @@ export default function PracticeClient({ accessToken }) {
           subtitle="听发音，点击正确释义的气球"
           tag="听力专精"
           color="#0891b2"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("balloon")}
         />
 
@@ -3233,16 +3257,14 @@ export default function PracticeClient({ accessToken }) {
           subtitle="3秒内点击正确释义，连击拿高分"
           tag="挑战模式"
           color="#d97706"
-          disabled={loading ? true : notEnough()}
+          disabled={notEnough()}
           onClick={() => setActiveGame("speed")}
           spanFull
         />
       </div>
 
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px", opacity: 0.65, fontWeight: 900 }}>
-        {loading
-          ? "正在加载你的词汇本…"
-          : notEnough()
+        {notEnough()
           ? "提示：去「我的收藏 → 词汇本」多收藏一些词汇，解锁全部游戏。"
           : "选一个游戏开始练习吧！"}
       </div>
