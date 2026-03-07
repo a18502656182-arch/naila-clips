@@ -324,6 +324,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
     return shuffle(filtered);
   }, [vocabItems]);
 
+  const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
   const [slots, setSlots] = useState([]);
   const [bubbles, setBubbles] = useState([]);
@@ -345,9 +346,9 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   useEffect(() => {
     if (!card || done) return;
     initQuestion(card);
-    // 不在useEffect里自动播放，手机浏览器会拦截非用户手势的音频
+    if (started) playWord(card.term);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idx, card?.id, done]);
+  }, [idx, card?.id, done, started]);
 
   useEffect(() => {
     if (!done) return;
@@ -593,6 +594,28 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!started) {
+    return (
+      <div style={{ ...shellStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+        <div style={{ fontSize: 48 }}>🫧</div>
+        <div style={{ fontSize: 20, fontWeight: 1000 }}>气泡拼写</div>
+        <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>
+          听到单词发音，点击字母气泡按顺序拼出来
+        </div>
+        <button
+          onClick={async () => {
+            await unlockAudio();
+            setStarted(true);
+          }}
+          style={{ marginTop: 8, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}
+        >
+          开始游戏 →
+        </button>
+        <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
       </div>
     );
   }
@@ -2000,23 +2023,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
               ) : null}
             </div>
 
-            <button
-              onClick={() => playWord(current?.term)}
-              title="播放发音"
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: THEME.radii.pill,
-                border: `1px solid ${THEME.colors.border}`,
-                background: THEME.colors.surface,
-                cursor: "pointer",
-                fontSize: 18,
-                fontWeight: 900,
-              }}
-            >
-              🔊
-            </button>
-          </div>
+            </div>
 
           <div style={{ height: 14 }} />
 
@@ -2115,6 +2122,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
 
 function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  const [started, setStarted] = useState(false);
   const [hearts, setHearts] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -2169,9 +2177,10 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   useEffect(() => {
+    if (!started) return;
     makeRound();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [started]);
 
   function loseHeart() {
     setHearts((h) => {
@@ -2318,6 +2327,28 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   const heartsText = Array.from({ length: 3 })
     .map((_, idx) => (idx < hearts ? "❤️" : "🤍"))
     .join("");
+
+  if (!started) {
+    return (
+      <div style={{ ...shellStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+        <div style={{ fontSize: 48 }}>🎧</div>
+        <div style={{ fontSize: 20, fontWeight: 1000 }}>盲听气球</div>
+        <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>
+          听到单词发音，点击含有正确中文释义的气球
+        </div>
+        <button
+          onClick={async () => {
+            await unlockAudio();
+            setStarted(true);
+          }}
+          style={{ marginTop: 8, padding: "14px 40px", borderRadius: THEME.radii.pill, background: "#f59e0b", color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}
+        >
+          开始游戏 →
+        </button>
+        <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
+      </div>
+    );
+  }
 
   return (
     <div style={shellStyle}>
@@ -2501,8 +2532,6 @@ function SpeedGame({ vocabItems, onExit, onGameEnd }) {
     setLeftText(correctIsLeft ? correctMeaning : wrongMeaning);
     setRightText(correctIsLeft ? wrongMeaning : correctMeaning);
     setCracked(false);
-
-    setTimeout(() => playWord(w?.term), 40);
   }
 
   function stopTimer() {
@@ -2549,7 +2578,6 @@ function SpeedGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   function answer(side) {
-    unlockAudio();
     if (gameOver) return;
 
     const ok = side === correctSide;
