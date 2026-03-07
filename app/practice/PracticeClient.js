@@ -54,52 +54,41 @@ function normalizeSentence(s) {
 // Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
 // 解锁浏览器自动播放限制（必须在用户手势内调用一次）
 let audioUnlocked = false;
-async function unlockAudio() {
+// 用户手势触发后预热speechSynthesis（部分浏览器第一次speak需要手势）
+function unlockAudio() {
   if (audioUnlocked) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    await ctx.resume();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf;
-    src.connect(ctx.destination);
-    src.start(0);
+    if ("speechSynthesis" in window) {
+      // 静默触发一次，激活权限
+      const u = new SpeechSynthesisUtterance("");
+      u.volume = 0;
+      window.speechSynthesis.speak(u);
+      window.speechSynthesis.cancel();
+    }
     audioUnlocked = true;
   } catch {}
 }
 
-async function playWord(term) {
+// 统一发音函数：纯 Web Speech API，零网络依赖，全浏览器兼容
+function playWord(term) {
   const t = (term || "").trim();
   if (!t) return;
-
-  // 优先用有道发音
-  const tryYoudao = () => new Promise((resolve) => {
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(t)}&type=2`;
-    const audio = new Audio();
-    audio.crossOrigin = "anonymous";
-    const cleanup = () => { audio.onended = null; audio.onerror = null; };
-    audio.onended = () => { cleanup(); resolve(true); };
-    audio.onerror = () => { cleanup(); resolve(false); };
-    audio.src = url;
-    audio.play().catch(() => { cleanup(); resolve(false); });
-  });
-
-  // 备用：Web Speech API
-  const trySpeech = () => new Promise((resolve) => {
-    if (!("speechSynthesis" in window)) return resolve(false);
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(t);
-      u.lang = "en-US";
-      u.rate = 0.9;
-      u.onend = () => resolve(true);
-      u.onerror = () => resolve(false);
-      window.speechSynthesis.speak(u);
-    } catch { resolve(false); }
-  });
-
-  const ok = await tryYoudao();
-  if (!ok) await trySpeech();
+  if (!("speechSynthesis" in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = "en-US";
+    u.rate = 0.88;
+    u.pitch = 1;
+    u.volume = 1;
+    // 优先选英语语音
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.startsWith("en") && !v.localService === false)
+      || voices.find(v => v.lang.startsWith("en-US"))
+      || voices.find(v => v.lang.startsWith("en"));
+    if (enVoice) u.voice = enVoice;
+    window.speechSynthesis.speak(u);
+  } catch {}
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2136,8 +2125,18 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   const [exploding, setExploding] = useState(null);
   const roundRef = useRef(0);
 
-  const colors = ["#fb7185", "#60a5fa", "#34d399", "#fb923c", "#a78bfa", "#facc15"];
+  // 气球颜色：更好看的渐变配色
+  const balloonColors = [
+    { bg: "linear-gradient(145deg,#ff6b9d,#c9184a)", text: "#fff", shadow: "rgba(201,24,74,0.35)" },
+    { bg: "linear-gradient(145deg,#74b9ff,#0984e3)", text: "#fff", shadow: "rgba(9,132,227,0.35)" },
+    { bg: "linear-gradient(145deg,#55efc4,#00b894)", text: "#fff", shadow: "rgba(0,184,148,0.35)" },
+    { bg: "linear-gradient(145deg,#fdcb6e,#e17055)", text: "#fff", shadow: "rgba(225,112,85,0.35)" },
+    { bg: "linear-gradient(145deg,#a29bfe,#6c5ce7)", text: "#fff", shadow: "rgba(108,92,231,0.35)" },
+    { bg: "linear-gradient(145deg,#ffeaa7,#fdcb6e)", text: "#2d3436", shadow: "rgba(253,203,110,0.45)" },
+  ];
 
+  // 预加载下一轮音频，返回Audio对象
+  // Speech API 即调即播，不需要预加载
   function makeRound() {
     if (!items || items.length < 2) return;
     const rid = (roundRef.current += 1);
@@ -2153,27 +2152,28 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
     const wrongs = shuffle(otherMeanings).slice(0, 5);
     const texts = shuffle([correctMeaning, ...wrongs]).slice(0, 6);
 
-    const newBalloons = texts.map((txt, idx) => {
-      const size = 80 + ((Math.random() * 31) | 0);
-      const duration = 5.4 + Math.random() * 2.4;
-      const left = Math.random() * 80 + 5;
-      const c = colors[(Math.random() * colors.length) | 0];
+    const newBalloons = texts.map((txt, bIdx) => {
+      const size = 88 + ((Math.random() * 24) | 0);
+      const duration = 6.5 + Math.random() * 2.5;
+      const left = 4 + Math.random() * 74;
+      const scheme = balloonColors[(Math.random() * balloonColors.length) | 0];
       return {
-        id: `${rid}-${idx}-${Math.random().toString(16).slice(2)}`,
+        id: `${rid}-${bIdx}-${Math.random().toString(16).slice(2)}`,
         text: txt,
         correct: txt === correctMeaning,
-        size,
-        duration,
-        left,
-        color: c,
+        size, duration, left, scheme,
+        delay: 0.3 + bIdx * 0.12,
       };
     });
 
-    setRoundWord(word);
-    setExploding(null);
-    setBalloons(newBalloons);
-
-    setTimeout(() => playWord(word?.term), 50);
+    // 先播语音（Speech API 几乎零延迟），300ms后气球出现
+    playWord(word?.term);
+    setTimeout(() => {
+      if (roundRef.current !== rid) return;
+      setRoundWord(word);
+      setExploding(null);
+      setBalloons(newBalloons);
+    }, 300);
   }
 
   useEffect(() => {
@@ -2400,90 +2400,116 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
         听发音，点击正确释义的气球
       </div>
 
+      <style>{`
+        @keyframes floatUp {
+          0%   { transform: translateY(0) scale(1); opacity: 1; }
+          85%  { opacity: 1; }
+          100% { transform: translateY(-115vh) scale(0.92); opacity: 0; }
+        }
+        @keyframes balloonIn {
+          0%   { transform: scale(0.3) translateY(20px); opacity: 0; }
+          60%  { transform: scale(1.08) translateY(-4px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        @keyframes pop {
+          0%   { transform: scale(0.6); opacity: 0.3; }
+          50%  { transform: scale(1.5); opacity: 1; }
+          100% { transform: scale(1.2); opacity: 0; }
+        }
+        @keyframes ropeSwing {
+          0%,100% { transform: translateX(-50%) rotate(-2deg); }
+          50%     { transform: translateX(-50%) rotate(2deg); }
+        }
+      `}</style>
+
       <div style={{ position: "relative", width: "100%", height: "78vh", marginTop: 6 }}>
         {balloons.map((b) => {
-          const fontSize = clamp((b.size / 110) * 14, 12, 16);
+          const fontSize = clamp((b.size / 110) * 14, 11, 15);
           const isExploding = exploding === b.id;
 
           return (
             <div
               key={b.id}
-              onClick={() => clickBalloon(b)}
-              onAnimationEnd={() => {
-                if (!isExploding) onMissBalloon();
-              }}
               style={{
                 position: "absolute",
                 left: `${b.left}%`,
-                bottom: "-140px",
+                bottom: "-160px",
+                width: b.size,
+                animationName: "floatUp",
+                animationDuration: `${b.duration}s`,
+                animationDelay: `${b.delay}s`,
+                animationTimingFunction: "linear",
+                animationFillMode: "forwards",
+                animationPlayState: isExploding ? "paused" : "running",
+                opacity: isExploding ? 0 : 1,
+                pointerEvents: isExploding ? "none" : "auto",
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+              onClick={() => clickBalloon(b)}
+              onAnimationEnd={() => { if (!isExploding) onMissBalloon(); }}
+            >
+              {/* 气球主体 */}
+              <div style={{
                 width: b.size,
                 height: b.size,
-                borderRadius: 999,
-                background: b.color,
-                boxShadow: "0 18px 40px rgba(15,23,42,0.16)",
+                borderRadius: "50% 50% 50% 50% / 48% 48% 52% 52%",
+                background: b.scheme.bg,
+                boxShadow: `0 12px 32px ${b.scheme.shadow}, inset 0 -6px 14px rgba(0,0,0,0.12), inset 4px 4px 12px rgba(255,255,255,0.22)`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: 10,
+                padding: "12px 10px",
                 textAlign: "center",
-                fontWeight: 1000,
-                color: "#0b1220",
-                cursor: "pointer",
-                userSelect: "none",
-                transform: "translateZ(0)",
-                animation: `floatUp ${b.duration}s linear forwards`,
-                opacity: isExploding ? 0 : 1,
-                pointerEvents: isExploding ? "none" : "auto",
-              }}
-              title="点击"
-            >
-              <div style={{ fontSize, lineHeight: 1.15, filter: "drop-shadow(0 1px 0 rgba(255,255,255,0.35))" }}>
-                {b.text || "（无释义）"}
+                position: "relative",
+                animation: `balloonIn 0.45s cubic-bezier(.34,1.56,.64,1) ${b.delay}s both`,
+              }}>
+                {/* 高光 */}
+                <div style={{
+                  position: "absolute", top: "14%", left: "22%",
+                  width: "28%", height: "18%",
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.32)",
+                  filter: "blur(2px)",
+                  pointerEvents: "none",
+                }} />
+                <div style={{ fontSize, fontWeight: 1000, color: b.scheme.text, lineHeight: 1.2, position: "relative", zIndex: 1, textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>
+                  {b.text || "（无释义）"}
+                </div>
               </div>
 
-              <div
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: "100%",
-                  width: 2,
-                  height: 62,
-                  background: "rgba(15,23,42,0.25)",
-                  transform: "translateX(-50%)",
-                  borderRadius: 2,
-                }}
-              />
+              {/* 气球底部结扎点 */}
+              <div style={{
+                width: 0, height: 0,
+                borderLeft: "5px solid transparent",
+                borderRight: "5px solid transparent",
+                borderTop: `8px solid ${b.scheme.shadow.replace("0.35", "0.8").replace("0.45","0.8")}`,
+                margin: "0 auto",
+              }} />
 
-              {isExploding ? (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 42,
-                    animation: "pop 0.35s ease-out forwards",
-                  }}
-                >
-                  💥
-                </div>
-              ) : null}
+              {/* 绳子 */}
+              <div style={{
+                width: 1.5, height: 50,
+                background: "rgba(15,23,42,0.2)",
+                margin: "0 auto",
+                borderRadius: 2,
+                animation: "ropeSwing 3s ease-in-out infinite",
+                transformOrigin: "top center",
+              }} />
+
+              {isExploding && (
+                <div style={{
+                  position: "absolute", inset: -10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 48,
+                  animation: "pop 0.4s ease-out forwards",
+                  pointerEvents: "none",
+                }}>🎉</div>
+              )}
             </div>
           );
         })}
       </div>
-
-      <style>{`
-        @keyframes floatUp {
-          from { transform: translateY(0); }
-          to { transform: translateY(-110vh); }
-        }
-        @keyframes pop {
-          from { transform: scale(0.6); opacity: 0.3; }
-          to { transform: scale(1.25); opacity: 1; }
-        }
-      `}</style>
     </div>
   );
 }
