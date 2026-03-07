@@ -3268,6 +3268,7 @@ export default function PracticeClient({ accessToken }) {
             );
           })}
         </div>
+      </div>
 
       <div className="practice-games-grid">
         <GameCard
