@@ -3143,6 +3143,18 @@ export default function PracticeClient({ accessToken }) {
 
   return (
     <div style={page}>
+      <style>{`
+        .practice-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 0 auto; padding: 0 6px; }
+        .practice-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 14px auto 0; padding: 0 6px 18px; }
+        .practice-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+        .practice-topbar-email { opacity: 0.7; font-weight: 900; }
+        @media (max-width: 600px) {
+          .practice-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 4px; }
+          .practice-games-grid { grid-template-columns: 1fr; gap: 10px; padding: 0 4px 18px; }
+          .practice-score-grid { grid-template-columns: 1fr; gap: 4px; }
+          .practice-topbar-email { display: none; }
+        }
+      `}</style>
       <div style={topBar}>
         <Link
           href="/"
@@ -3164,10 +3176,10 @@ export default function PracticeClient({ accessToken }) {
 
         <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
 
-        <div style={{ opacity: 0.7, fontWeight: 900 }}>{me?.email ? me.email : "未登录"}</div>
+        <div className="practice-topbar-email">{me?.email ? me.email : "未登录"}</div>
       </div>
 
-      <div style={statGrid}>
+      <div className="practice-stat-grid">
         <div style={statCard}>
           <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>📚 词汇总数</div>
           <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.total}</div>
@@ -3191,7 +3203,7 @@ export default function PracticeClient({ accessToken }) {
             </div>
           </div>
 
-          <div style={scoreGrid}>
+          <div className="practice-score-grid">
             {GAME_META.map((m, idx) => {
               const isLastRow = idx >= GAME_META.length - 2;
               return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
@@ -3200,7 +3212,7 @@ export default function PracticeClient({ accessToken }) {
         </div>
       </div>
 
-      <div style={gamesGrid}>
+      <div className="practice-games-grid">
         <GameCard
           emoji="🫧"
           title="气泡拼写"
@@ -3259,7 +3271,6 @@ export default function PracticeClient({ accessToken }) {
           color="#d97706"
           disabled={notEnough()}
           onClick={() => setActiveGame("speed")}
-          spanFull
         />
       </div>
 
