@@ -558,6 +558,8 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [showVipModal, setShowVipModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  const [filtering, setFiltering] = useState(false);
+
   const inFlightRef = useRef(false);
   const reqVersionRef = useRef(0);
   const coolDownRef = useRef(false);
@@ -573,7 +575,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     reqVersionRef.current += 1;
     const myVersion = reqVersionRef.current;
 
-    setLoading(true);
+    setFiltering(true);
     setErr("");
     inFlightRef.current = false;
     coolDownRef.current = false;
@@ -593,7 +595,7 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         setErr(e?.message || "加载失败");
       })
       .finally(() => {
-        if (myVersion === reqVersionRef.current) setLoading(false);
+        if (myVersion === reqVersionRef.current) setFiltering(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(filters)]);
@@ -710,13 +712,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
-        .loadingOverlay { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease; }
+        .loadingOverlay { opacity: 0.45; pointer-events: none; transition: opacity 150ms ease; }
       `}</style>
 
-      <div className={loading && items.length > 0 ? "loadingOverlay" : ""}>
-        {loading && items.length === 0 ? (
+      <div className={filtering ? "loadingOverlay" : ""}>
+        {items.length === 0 && !filtering ? (
           <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
-            加载中...
+            没有符合条件的视频
           </div>
         ) : (
           <div className="grid">
