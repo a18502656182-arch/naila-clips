@@ -44,8 +44,8 @@ export default function UserMenuClient() {
     let mounted = true;
 
     const fetchMe = (token) => {
-      if (!token) return;
-      fetch(remote("/api/me"), {
+      if (!token) return Promise.resolve();
+      return fetch(remote("/api/me"), {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
         credentials: "include",
@@ -61,11 +61,11 @@ export default function UserMenuClient() {
     };
 
     Promise.all([supabase.auth.getUser(), supabase.auth.getSession()]).then(
-      ([{ data: userData }, { data: sessionData }]) => {
+      async ([{ data: userData }, { data: sessionData }]) => {
         if (!mounted) return;
         setEmail(userData?.user?.email ?? null);
-        setLoading(false);
-        fetchMe(sessionData?.session?.access_token ?? null);
+        await fetchMe(sessionData?.session?.access_token ?? null);
+        if (mounted) setLoading(false);
       }
     );
 
