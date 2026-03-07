@@ -58,54 +58,74 @@ function unlockAudio() {
   if (audioUnlocked) return;
   try {
     if ("speechSynthesis" in window) {
-      const u = new SpeechSynthesisUtterance("");
+      const u = new SpeechSynthesisUtterance(" ");
       u.volume = 0;
       window.speechSynthesis.speak(u);
-      window.speechSynthesis.cancel();
     }
     audioUnlocked = true;
-  } catch {}
+  } catch (e) {
+    console.warn("[audio] unlockAudio failed:", e);
+  }
 }
 
-// 用有道词典发音，先load再canplay后play，失败fallback Speech
-// 返回audio实例供外部stop用
-function playWord(term, onDone) {
+// 获取最佳英语语音（缓存，避免每次重新扫描）
+let _enVoice = null;
+function getEnVoice() {
+  if (_enVoice) return _enVoice;
+  const voices = window.speechSynthesis?.getVoices() || [];
+  _enVoice =
+    voices.find(v => v.lang === "en-US" && !v.localService) ||
+    voices.find(v => v.lang === "en-US") ||
+    voices.find(v => v.lang.startsWith("en-GB")) ||
+    voices.find(v => v.lang.startsWith("en")) ||
+    null;
+  return _enVoice;
+}
+
+// 语音加载后刷新缓存（仅客户端）
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  try { window.speechSynthesis.onvoiceschanged = () => { _enVoice = null; }; } catch {}
+}
+
+function playWord(term) {
   const t = (term || "").trim();
-  if (!t) return null;
+  if (!t) return;
 
-  const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(t)}&type=2`;
-  const audio = new Audio();
+  if (!("speechSynthesis" in window)) {
+    console.warn("[audio] speechSynthesis not supported");
+    return;
+  }
 
-  let done = false;
-  const fallback = () => {
-    if (done) return;
-    done = true;
-    try {
-      if (!("speechSynthesis" in window)) return;
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(t);
-      u.lang = "en-US";
-      u.rate = 0.88;
-      window.speechSynthesis.speak(u);
-    } catch {}
-  };
+  // Android Chrome 已知bug：speechSynthesis 卡住时需要先 cancel 再 resume
+  try { window.speechSynthesis.cancel(); } catch {}
 
-  // canplay 后才 play，确保音频已加载
-  audio.addEventListener("canplay", () => {
-    if (done) return;
-    audio.play().catch(fallback);
-  }, { once: true });
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = "en-US";
+  u.rate = 0.88;
+  u.pitch = 1;
+  u.volume = 1;
 
-  audio.addEventListener("error", fallback, { once: true });
+  const voice = getEnVoice();
+  if (voice) u.voice = voice;
 
-  // 3秒超时兜底
-  const timer = setTimeout(fallback, 3000);
-  audio.addEventListener("ended", () => { clearTimeout(timer); done = true; }, { once: true });
+  u.onstart = () => console.log("[audio] playing:", t, "| voice:", voice?.name || "default");
+  u.onerror = (e) => console.warn("[audio] speech error:", e.error, "| term:", t);
+  u.onend = () => console.log("[audio] done:", t);
 
-  audio.src = url;
-  audio.load();
+  try {
+    window.speechSynthesis.speak(u);
 
-  return audio;
+    // Android Chrome bug：speak后如果 speaking===false，说明被静默丢弃，需要resume
+    setTimeout(() => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        console.warn("[audio] speech silently dropped, retrying...");
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(u);
+      }
+    }, 200);
+  } catch (e) {
+    console.warn("[audio] speak() threw:", e);
+  }
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
