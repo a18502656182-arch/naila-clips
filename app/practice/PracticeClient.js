@@ -2120,6 +2120,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   const [roundWord, setRoundWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
   const [exploding, setExploding] = useState(null);
+  const [locked, setLocked] = useState(false); // 点击后锁定，防止连续点击
   const roundRef = useRef(0);
 
   // 气球颜色：更好看的渐变配色
@@ -2149,27 +2150,36 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
     const wrongs = shuffle(otherMeanings).slice(0, 5);
     const texts = shuffle([correctMeaning, ...wrongs]).slice(0, 6);
 
+    // 6列均匀分布，每列宽约14%，防止重叠
+    const cols = 6;
+    const colPositions = shuffle([0,1,2,3,4,5]);
     const newBalloons = texts.map((txt, bIdx) => {
-      const size = 88 + ((Math.random() * 24) | 0);
-      // duration 额外加 0.8s 补偿 500ms 延迟 + 气球自身入场动画
-      const duration = 7.5 + Math.random() * 2.5;
-      const left = 4 + Math.random() * 74;
+      const size = 68 + ((Math.random() * 14) | 0); // 缩小：68~82px
+      const duration = 8 + Math.random() * 3;
+      const colIdx = colPositions[bIdx];
+      const left = 2 + colIdx * (96 / cols) + Math.random() * 6;
       const scheme = balloonColors[(Math.random() * balloonColors.length) | 0];
       return {
         id: `${rid}-${bIdx}-${Math.random().toString(16).slice(2)}`,
         text: txt,
         correct: txt === correctMeaning,
-        size, duration, left, scheme,
-        delay: bIdx * 0.08, // 缩短错落间距，减少等待
+        size, duration,
+        left: Math.min(left, 92),
+        scheme,
+        delay: bIdx * 0.15,
       };
     });
 
-    // 先触发音频请求，500ms后气球出现（给有道词典加载时间）
+    // 先播音频，同时立刻把旧气球清空，500ms后新气球出现
+    // 这样不会出现"旧气球瞬消再出现"的闪烁
     playWord(word?.term);
+    setBalloons([]); // 立刻清空旧气球
+    setExploding(null);
+    setLocked(false);
+
     setTimeout(() => {
       if (roundRef.current !== rid) return;
       setRoundWord(word);
-      setExploding(null);
       setBalloons(newBalloons);
     }, 500);
   }
@@ -2199,7 +2209,8 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
 
   function clickBalloon(b) {
     unlockAudio();
-    if (gameOver) return;
+    if (gameOver || locked) return;
+    setLocked(true); // 立刻锁定，本轮其他气球不可再点
 
     if (b.correct) {
       setExploding(b.id);
@@ -2441,7 +2452,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
                 animationPlayState: isExploding ? "paused" : "running",
                 opacity: isExploding ? 0 : 1,
                 pointerEvents: isExploding ? "none" : "auto",
-                cursor: "pointer",
+                cursor: locked ? "default" : "pointer",
                 userSelect: "none",
               }}
               onClick={() => clickBalloon(b)}
