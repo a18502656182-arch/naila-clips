@@ -2150,23 +2150,13 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
     const wrongs = shuffle(otherMeanings).slice(0, 5);
     const texts = shuffle([correctMeaning, ...wrongs]).slice(0, 6);
 
-    // 6列均匀分布，每列宽约14%，防止重叠
-    const cols = 6;
-    const colPositions = shuffle([0,1,2,3,4,5]);
     const newBalloons = texts.map((txt, bIdx) => {
-      const size = 68 + ((Math.random() * 14) | 0); // 缩小：68~82px
-      const duration = 8 + Math.random() * 3;
-      const colIdx = colPositions[bIdx];
-      const left = 2 + colIdx * (96 / cols) + Math.random() * 6;
-      const scheme = balloonColors[(Math.random() * balloonColors.length) | 0];
+      const scheme = balloonColors[bIdx % balloonColors.length]; // 每个气球不同颜色
       return {
         id: `${rid}-${bIdx}-${Math.random().toString(16).slice(2)}`,
         text: txt,
         correct: txt === correctMeaning,
-        size, duration,
-        left: Math.min(left, 92),
         scheme,
-        delay: bIdx * 0.15,
       };
     });
 
@@ -2235,9 +2225,11 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   function onMissBalloon() {
-    if (gameOver) return;
+    if (gameOver || locked) return;
+    setLocked(true);
     setCombo(0);
     loseHeart();
+    setTimeout(() => makeRound(), 400);
   }
 
   const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box", overflow: "hidden" };
@@ -2410,113 +2402,60 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
       </div>
 
       <style>{`
-        @keyframes floatUp {
-          0%   { transform: translateY(0) scale(1); opacity: 1; }
-          85%  { opacity: 1; }
-          100% { transform: translateY(-115vh) scale(0.92); opacity: 0; }
+        @keyframes cardFloat {
+          0%   { transform: translateY(0px); }
+          50%  { transform: translateY(-10px); }
+          100% { transform: translateY(0px); }
         }
-        @keyframes balloonIn {
-          0%   { transform: scale(0.3) translateY(20px); opacity: 0; }
-          60%  { transform: scale(1.08) translateY(-4px); opacity: 1; }
+        @keyframes cardIn {
+          0%   { transform: scale(0.5) translateY(16px); opacity: 0; }
+          70%  { transform: scale(1.06) translateY(-2px); opacity: 1; }
           100% { transform: scale(1) translateY(0); opacity: 1; }
         }
-        @keyframes pop {
-          0%   { transform: scale(0.6); opacity: 0.3; }
-          50%  { transform: scale(1.5); opacity: 1; }
-          100% { transform: scale(1.2); opacity: 0; }
+        @keyframes cardPop {
+          0%   { transform: scale(1); opacity: 1; }
+          40%  { transform: scale(1.18); opacity: 1; }
+          100% { transform: scale(0); opacity: 0; }
         }
-        @keyframes ropeSwing {
-          0%,100% { transform: translateX(-50%) rotate(-2deg); }
-          50%     { transform: translateX(-50%) rotate(2deg); }
+        @keyframes cardFlyOff {
+          0%   { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(-120vh); opacity: 0; }
         }
       `}</style>
 
-      <div style={{ position: "relative", width: "100%", height: "78vh", marginTop: 6 }}>
-        {balloons.map((b) => {
-          const fontSize = clamp((b.size / 110) * 14, 11, 15);
+      <div style={{ maxWidth: 980, margin: "8px auto 0", padding: "0 6px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        {balloons.map((b, bi) => {
           const isExploding = exploding === b.id;
-
           return (
             <div
               key={b.id}
+              onClick={() => clickBalloon(b)}
               style={{
-                position: "absolute",
-                left: `${b.left}%`,
-                bottom: "-160px",
-                width: b.size,
-                animationName: "floatUp",
-                animationDuration: `${b.duration}s`,
-                animationDelay: `${b.delay}s`,
-                animationTimingFunction: "linear",
-                animationFillMode: "forwards",
-                animationPlayState: isExploding ? "paused" : "running",
-                opacity: isExploding ? 0 : 1,
-                pointerEvents: isExploding ? "none" : "auto",
+                background: b.scheme.bg,
+                borderRadius: 18,
+                boxShadow: `0 6px 18px ${b.scheme.shadow}`,
+                padding: "14px 10px",
+                textAlign: "center",
+                fontWeight: 1000,
+                fontSize: 14,
+                color: b.scheme.text,
                 cursor: locked ? "default" : "pointer",
                 userSelect: "none",
-              }}
-              onClick={() => clickBalloon(b)}
-              onAnimationEnd={(e) => {
-                if (e.animationName === "floatUp" && !isExploding) onMissBalloon();
-              }}
-            >
-              {/* 气球主体 */}
-              <div style={{
-                width: b.size,
-                height: b.size,
-                borderRadius: "50% 50% 50% 50% / 48% 48% 52% 52%",
-                background: b.scheme.bg,
-                boxShadow: `0 12px 32px ${b.scheme.shadow}, inset 0 -6px 14px rgba(0,0,0,0.12), inset 4px 4px 12px rgba(255,255,255,0.22)`,
+                minHeight: 72,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "12px 10px",
-                textAlign: "center",
+                lineHeight: 1.3,
                 position: "relative",
-                animation: `balloonIn 0.45s cubic-bezier(.34,1.56,.64,1) ${b.delay}s both`,
-              }}>
-                {/* 高光 */}
-                <div style={{
-                  position: "absolute", top: "14%", left: "22%",
-                  width: "28%", height: "18%",
-                  borderRadius: "50%",
-                  background: "rgba(255,255,255,0.32)",
-                  filter: "blur(2px)",
-                  pointerEvents: "none",
-                }} />
-                <div style={{ fontSize, fontWeight: 1000, color: b.scheme.text, lineHeight: 1.2, position: "relative", zIndex: 1, textShadow: "0 1px 3px rgba(0,0,0,0.15)" }}>
-                  {b.text || "（无释义）"}
-                </div>
-              </div>
-
-              {/* 气球底部结扎点 */}
-              <div style={{
-                width: 0, height: 0,
-                borderLeft: "5px solid transparent",
-                borderRight: "5px solid transparent",
-                borderTop: `8px solid ${b.scheme.shadow.replace("0.35", "0.8").replace("0.45","0.8")}`,
-                margin: "0 auto",
-              }} />
-
-              {/* 绳子 */}
-              <div style={{
-                width: 1.5, height: 50,
-                background: "rgba(15,23,42,0.2)",
-                margin: "0 auto",
-                borderRadius: 2,
-                animation: "ropeSwing 3s ease-in-out infinite",
-                transformOrigin: "top center",
-              }} />
-
-              {isExploding && (
-                <div style={{
-                  position: "absolute", inset: -10,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 48,
-                  animation: "pop 0.4s ease-out forwards",
-                  pointerEvents: "none",
-                }}>🎉</div>
-              )}
+                animation: isExploding
+                  ? `cardPop 0.35s ease-out forwards`
+                  : `cardIn 0.4s cubic-bezier(.34,1.56,.64,1) ${bi * 0.08}s both, cardFloat ${2.8 + bi * 0.3}s ease-in-out ${bi * 0.08 + 0.4}s infinite`,
+                textShadow: "0 1px 3px rgba(0,0,0,0.12)",
+              }}
+            >
+              {/* 高光 */}
+              <div style={{ position: "absolute", top: 8, left: 14, width: 28, height: 10, borderRadius: 10, background: "rgba(255,255,255,0.28)", pointerEvents: "none" }} />
+              {b.text || "（无释义）"}
             </div>
           );
         })}
