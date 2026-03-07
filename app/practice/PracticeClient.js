@@ -2151,7 +2151,8 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
 
     const newBalloons = texts.map((txt, bIdx) => {
       const size = 88 + ((Math.random() * 24) | 0);
-      const duration = 6.5 + Math.random() * 2.5;
+      // duration 额外加 0.8s 补偿 500ms 延迟 + 气球自身入场动画
+      const duration = 7.5 + Math.random() * 2.5;
       const left = 4 + Math.random() * 74;
       const scheme = balloonColors[(Math.random() * balloonColors.length) | 0];
       return {
@@ -2159,7 +2160,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
         text: txt,
         correct: txt === correctMeaning,
         size, duration, left, scheme,
-        delay: 0.3 + bIdx * 0.12,
+        delay: bIdx * 0.08, // 缩短错落间距，减少等待
       };
     });
 
