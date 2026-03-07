@@ -56,56 +56,56 @@ function normalizeSentence(s) {
 每条格式与收藏词一致：{ id, term, kind, data: { zh } }
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 const BUILTIN_VOCAB = [
-  { id: "b01", term: "apple",       kind: "words", data: { zh: "苹果" } },
-  { id: "b02", term: "book",        kind: "words", data: { zh: "书" } },
-  { id: "b03", term: "cat",         kind: "words", data: { zh: "猫" } },
-  { id: "b04", term: "dog",         kind: "words", data: { zh: "狗" } },
-  { id: "b05", term: "eat",         kind: "words", data: { zh: "吃" } },
-  { id: "b06", term: "friend",      kind: "words", data: { zh: "朋友" } },
-  { id: "b07", term: "happy",       kind: "words", data: { zh: "开心的" } },
-  { id: "b08", term: "house",       kind: "words", data: { zh: "房子" } },
-  { id: "b09", term: "idea",        kind: "words", data: { zh: "想法" } },
-  { id: "b10", term: "job",         kind: "words", data: { zh: "工作" } },
-  { id: "b11", term: "keep",        kind: "words", data: { zh: "保持" } },
-  { id: "b12", term: "learn",       kind: "words", data: { zh: "学习" } },
-  { id: "b13", term: "money",       kind: "words", data: { zh: "钱" } },
-  { id: "b14", term: "night",       kind: "words", data: { zh: "夜晚" } },
-  { id: "b15", term: "open",        kind: "words", data: { zh: "打开" } },
-  { id: "b16", term: "people",      kind: "words", data: { zh: "人们" } },
-  { id: "b17", term: "quiet",       kind: "words", data: { zh: "安静的" } },
-  { id: "b18", term: "run",         kind: "words", data: { zh: "跑" } },
-  { id: "b19", term: "sleep",       kind: "words", data: { zh: "睡觉" } },
-  { id: "b20", term: "talk",        kind: "words", data: { zh: "说话" } },
-  { id: "b21", term: "understand",  kind: "words", data: { zh: "理解" } },
-  { id: "b22", term: "visit",       kind: "words", data: { zh: "拜访" } },
-  { id: "b23", term: "water",       kind: "words", data: { zh: "水" } },
-  { id: "b24", term: "example",     kind: "words", data: { zh: "例子" } },
-  { id: "b25", term: "young",       kind: "words", data: { zh: "年轻的" } },
-  { id: "b26", term: "beautiful",   kind: "words", data: { zh: "漂亮的" } },
-  { id: "b27", term: "change",      kind: "words", data: { zh: "改变" } },
-  { id: "b28", term: "decide",      kind: "words", data: { zh: "决定" } },
-  { id: "b29", term: "enjoy",       kind: "words", data: { zh: "享受" } },
-  { id: "b30", term: "forget",      kind: "words", data: { zh: "忘记" } },
-  { id: "b31", term: "give",        kind: "words", data: { zh: "给" } },
-  { id: "b32", term: "help",        kind: "words", data: { zh: "帮助" } },
-  { id: "b33", term: "important",   kind: "words", data: { zh: "重要的" } },
-  { id: "b34", term: "jump",        kind: "words", data: { zh: "跳" } },
-  { id: "b35", term: "kind",        kind: "words", data: { zh: "友善的" } },
-  { id: "b36", term: "listen",      kind: "words", data: { zh: "听" } },
-  { id: "b37", term: "move",        kind: "words", data: { zh: "移动" } },
-  { id: "b38", term: "need",        kind: "words", data: { zh: "需要" } },
-  { id: "b39", term: "offer",       kind: "words", data: { zh: "提供" } },
-  { id: "b40", term: "promise",     kind: "words", data: { zh: "承诺" } },
-  { id: "b41", term: "question",    kind: "words", data: { zh: "问题" } },
-  { id: "b42", term: "remember",    kind: "words", data: { zh: "记得" } },
-  { id: "b43", term: "share",       kind: "words", data: { zh: "分享" } },
-  { id: "b44", term: "think",       kind: "words", data: { zh: "思考" } },
-  { id: "b45", term: "use",         kind: "words", data: { zh: "使用" } },
-  { id: "b46", term: "voice",       kind: "words", data: { zh: "声音" } },
-  { id: "b47", term: "wait",        kind: "words", data: { zh: "等待" } },
-  { id: "b48", term: "experience",  kind: "words", data: { zh: "经历" } },
-  { id: "b49", term: "yesterday",   kind: "words", data: { zh: "昨天" } },
-  { id: "b50", term: "zero",        kind: "words", data: { zh: "零" } },
+  { id: "b01", term: "apple",       kind: "words", data: { zh: "苹果",       example_en: "She ate an apple for breakfast every morning." } },
+  { id: "b02", term: "book",        kind: "words", data: { zh: "书",         example_en: "He read a book before going to sleep." } },
+  { id: "b03", term: "cat",         kind: "words", data: { zh: "猫",         example_en: "The cat jumped onto the warm window sill." } },
+  { id: "b04", term: "dog",         kind: "words", data: { zh: "狗",         example_en: "The dog wagged its tail when it saw me." } },
+  { id: "b05", term: "eat",         kind: "words", data: { zh: "吃",         example_en: "We like to eat together as a family." } },
+  { id: "b06", term: "friend",      kind: "words", data: { zh: "朋友",       example_en: "She is my best friend from middle school." } },
+  { id: "b07", term: "happy",       kind: "words", data: { zh: "开心的",     example_en: "I feel happy when the sun is shining." } },
+  { id: "b08", term: "house",       kind: "words", data: { zh: "房子",       example_en: "They built a new house near the river." } },
+  { id: "b09", term: "idea",        kind: "words", data: { zh: "想法",       example_en: "That is a really great idea for the project." } },
+  { id: "b10", term: "job",         kind: "words", data: { zh: "工作",       example_en: "He found a good job after months of searching." } },
+  { id: "b11", term: "keep",        kind: "words", data: { zh: "保持",       example_en: "You should keep trying even when things are hard." } },
+  { id: "b12", term: "learn",       kind: "words", data: { zh: "学习",       example_en: "Children learn best when they are having fun." } },
+  { id: "b13", term: "money",       kind: "words", data: { zh: "钱",         example_en: "She saved her money to buy a new phone." } },
+  { id: "b14", term: "night",       kind: "words", data: { zh: "夜晚",       example_en: "The stars looked beautiful on a clear night." } },
+  { id: "b15", term: "open",        kind: "words", data: { zh: "打开",       example_en: "Please open the window to let in some fresh air." } },
+  { id: "b16", term: "people",      kind: "words", data: { zh: "人们",       example_en: "Many people gathered in the square to celebrate." } },
+  { id: "b17", term: "quiet",       kind: "words", data: { zh: "安静的",     example_en: "The library must stay quiet so everyone can focus." } },
+  { id: "b18", term: "run",         kind: "words", data: { zh: "跑",         example_en: "She likes to run in the park every morning." } },
+  { id: "b19", term: "sleep",       kind: "words", data: { zh: "睡觉",       example_en: "You need to sleep at least eight hours a night." } },
+  { id: "b20", term: "talk",        kind: "words", data: { zh: "说话",       example_en: "They talk on the phone every single day." } },
+  { id: "b21", term: "understand",  kind: "words", data: { zh: "理解",       example_en: "I did not understand the question at first." } },
+  { id: "b22", term: "visit",       kind: "words", data: { zh: "拜访",       example_en: "We plan to visit my grandparents this weekend." } },
+  { id: "b23", term: "water",       kind: "words", data: { zh: "水",         example_en: "Drink enough water to stay healthy every day." } },
+  { id: "b24", term: "example",     kind: "words", data: { zh: "例子",       example_en: "Can you give me an example of what you mean?" } },
+  { id: "b25", term: "young",       kind: "words", data: { zh: "年轻的",     example_en: "She looks very young for her age." } },
+  { id: "b26", term: "beautiful",   kind: "words", data: { zh: "漂亮的",     example_en: "The sunset over the ocean was truly beautiful." } },
+  { id: "b27", term: "change",      kind: "words", data: { zh: "改变",       example_en: "Small habits can change your life over time." } },
+  { id: "b28", term: "decide",      kind: "words", data: { zh: "决定",       example_en: "It was hard to decide which path to take." } },
+  { id: "b29", term: "enjoy",       kind: "words", data: { zh: "享受",       example_en: "I really enjoy listening to music while cooking." } },
+  { id: "b30", term: "forget",      kind: "words", data: { zh: "忘记",       example_en: "Do not forget to call your mom today." } },
+  { id: "b31", term: "give",        kind: "words", data: { zh: "给",         example_en: "She decided to give her old books to the school." } },
+  { id: "b32", term: "help",        kind: "words", data: { zh: "帮助",       example_en: "He always helps his neighbors when they need it." } },
+  { id: "b33", term: "important",   kind: "words", data: { zh: "重要的",     example_en: "It is important to be honest with the people you love." } },
+  { id: "b34", term: "jump",        kind: "words", data: { zh: "跳",         example_en: "The kids love to jump on the trampoline outside." } },
+  { id: "b35", term: "kind",        kind: "words", data: { zh: "友善的",     example_en: "Being kind to others costs you nothing at all." } },
+  { id: "b36", term: "listen",      kind: "words", data: { zh: "听",         example_en: "Please listen carefully before you answer the question." } },
+  { id: "b37", term: "move",        kind: "words", data: { zh: "移动",       example_en: "They decided to move to a bigger city last year." } },
+  { id: "b38", term: "need",        kind: "words", data: { zh: "需要",       example_en: "We need more time to finish the report properly." } },
+  { id: "b39", term: "offer",       kind: "words", data: { zh: "提供",       example_en: "He was kind enough to offer his seat on the bus." } },
+  { id: "b40", term: "promise",     kind: "words", data: { zh: "承诺",       example_en: "She made a promise to never give up on her dream." } },
+  { id: "b41", term: "question",    kind: "words", data: { zh: "问题",       example_en: "Raise your hand if you have a question for the teacher." } },
+  { id: "b42", term: "remember",    kind: "words", data: { zh: "记得",       example_en: "I still remember the first day I started this job." } },
+  { id: "b43", term: "share",       kind: "words", data: { zh: "分享",       example_en: "They share everything with each other as good friends." } },
+  { id: "b44", term: "think",       kind: "words", data: { zh: "思考",       example_en: "Take a moment to think before you make a decision." } },
+  { id: "b45", term: "use",         kind: "words", data: { zh: "使用",       example_en: "You can use this app to track your daily habits." } },
+  { id: "b46", term: "voice",       kind: "words", data: { zh: "声音",       example_en: "Her voice was calm and steady during the presentation." } },
+  { id: "b47", term: "wait",        kind: "words", data: { zh: "等待",       example_en: "We had to wait for over an hour at the airport." } },
+  { id: "b48", term: "experience",  kind: "words", data: { zh: "经历",       example_en: "Traveling alone was the best experience of my life." } },
+  { id: "b49", term: "yesterday",   kind: "words", data: { zh: "昨天",       example_en: "I finished reading that novel yesterday afternoon." } },
+  { id: "b50", term: "zero",        kind: "words", data: { zh: "零",         example_en: "The temperature dropped to zero degrees overnight." } },
 ];
 
 // Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
@@ -2744,17 +2744,22 @@ function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanF
             position: "absolute",
             inset: 0,
             borderRadius: THEME.radii.lg,
-            background: "rgba(11,18,32,0.06)",
+            background: "rgba(15,23,42,0.52)",
+            backdropFilter: "blur(3px)",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
+            gap: 6,
             padding: 14,
             textAlign: "center",
-            fontWeight: 1000,
-            color: THEME.colors.ink,
           }}
         >
-          收藏更多词汇后解锁
+          <div style={{ fontSize: 22 }}>🔒</div>
+          <div style={{ fontWeight: 1000, fontSize: 13, color: "#fff", lineHeight: 1.4, textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>
+            收藏单词不足 10 个<br />
+            <span style={{ fontWeight: 900, opacity: 0.8, fontSize: 12 }}>切换内置词库即可练习</span>
+          </div>
         </div>
       ) : null}
     </div>
@@ -3165,9 +3170,10 @@ export default function PracticeClient({ accessToken }) {
           ))}
         </div>
         {vocabSource === "my" && myWordCount < 10 && (
-          <span style={{ marginLeft: 10, fontSize: 12, color: "#ef4444", fontWeight: 900 }}>
-            ⚠️ 收藏词不足10个，建议切换内置词库
-          </span>
+          <div style={{ marginTop: 8, fontSize: 12, color: "#ef4444", fontWeight: 900, lineHeight: 1.5 }}>
+            ⚠️ 收藏单词不足 10 个<br />
+            <span style={{ opacity: 0.85 }}>建议切换内置词库练习</span>
+          </div>
         )}
       </div>
 
