@@ -54,12 +54,10 @@ function normalizeSentence(s) {
 // Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
 // 解锁浏览器自动播放限制（必须在用户手势内调用一次）
 let audioUnlocked = false;
-// 用户手势触发后预热speechSynthesis（部分浏览器第一次speak需要手势）
 function unlockAudio() {
   if (audioUnlocked) return;
   try {
     if ("speechSynthesis" in window) {
-      // 静默触发一次，激活权限
       const u = new SpeechSynthesisUtterance("");
       u.volume = 0;
       window.speechSynthesis.speak(u);
@@ -69,26 +67,25 @@ function unlockAudio() {
   } catch {}
 }
 
-// 统一发音函数：纯 Web Speech API，零网络依赖，全浏览器兼容
+// 用有道词典发音（no-cors，不加crossOrigin），失败则fallback Speech API
 function playWord(term) {
   const t = (term || "").trim();
   if (!t) return;
-  if (!("speechSynthesis" in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(t);
-    u.lang = "en-US";
-    u.rate = 0.88;
-    u.pitch = 1;
-    u.volume = 1;
-    // 优先选英语语音
-    const voices = window.speechSynthesis.getVoices();
-    const enVoice = voices.find(v => v.lang.startsWith("en") && !v.localService === false)
-      || voices.find(v => v.lang.startsWith("en-US"))
-      || voices.find(v => v.lang.startsWith("en"));
-    if (enVoice) u.voice = enVoice;
-    window.speechSynthesis.speak(u);
-  } catch {}
+
+  const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(t)}&type=2`;
+  const audio = new Audio(url);
+  // 不设置 crossOrigin，浏览器用 no-cors 模式，和参考站一致
+  audio.play().catch(() => {
+    // 有道失败时fallback到Web Speech
+    try {
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(t);
+      u.lang = "en-US";
+      u.rate = 0.88;
+      window.speechSynthesis.speak(u);
+    } catch {}
+  });
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2166,14 +2163,14 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
       };
     });
 
-    // 先播语音（Speech API 几乎零延迟），300ms后气球出现
+    // 先触发音频请求，500ms后气球出现（给有道词典加载时间）
     playWord(word?.term);
     setTimeout(() => {
       if (roundRef.current !== rid) return;
       setRoundWord(word);
       setExploding(null);
       setBalloons(newBalloons);
-    }, 300);
+    }, 500);
   }
 
   useEffect(() => {
