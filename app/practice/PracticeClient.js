@@ -2768,7 +2768,7 @@ function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanF
 
 /* ----------------------------- PracticeClient (export default) ----------------------------- */
 
-export default function PracticeClient({ accessToken }) {
+export default function PracticeClient({ accessToken: ssrToken }) {
   const [activeGame, setActiveGame] = useState(null);
   // null | "bubble" | "match" | "swipe" | "rebuild" | "balloon" | "speed"
 
@@ -2780,6 +2780,10 @@ export default function PracticeClient({ accessToken }) {
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // ✅ 始终持有最新的 access_token（SSR token 仅作首屏初始值）
+  const tokenRef = useRef(ssrToken || null);
+  const [liveToken, setLiveToken] = useState(ssrToken || null);
+
   // ✅ SSR hydration：初始值空对象，不在 SSR 阶段读 localStorage
   const [scores, setScores] = useState({});
   useEffect(() => {
@@ -2790,12 +2794,65 @@ export default function PracticeClient({ accessToken }) {
     }
   }, []);
 
-  const authFetch = useMemo(() => makeAuthFetch(accessToken), [accessToken]);
+  // ✅ 订阅 Supabase session 变化，token 刷新时自动更新
+  useEffect(() => {
+    let mounted = true;
+    let subscription = null;
+
+    async function init() {
+      try {
+        const { createSupabaseBrowserClient } = await import("../../utils/supabase/client");
+        const supabase = createSupabaseBrowserClient();
+
+        // 立即拿一次最新 session（可能比 SSR cookie 更新）
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted && session?.access_token) {
+          tokenRef.current = session.access_token;
+          setLiveToken(session.access_token);
+        }
+
+        // 监听后续的 token 刷新 / 登录 / 登出
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (!mounted) return;
+          const newToken = session?.access_token ?? null;
+          tokenRef.current = newToken;
+          setLiveToken(newToken);
+        });
+        subscription = data.subscription;
+      } catch (e) {
+        console.warn("[PracticeClient] supabase init error:", e);
+      }
+    }
+
+    init();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  // ✅ authFetch 永远读 tokenRef.current，不受闭包旧值影响
+  const authFetch = useMemo(() => {
+    return function authFetch(url, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      const t = tokenRef.current;
+      if (t) headers["Authorization"] = `Bearer ${t}`;
+      return fetch(url, { ...options, headers, credentials: "include" });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
+      // 等待有效 token（最多等 2 秒，避免首屏无限 loading）
+      let token = tokenRef.current;
+      if (!token) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        token = tokenRef.current;
+      }
+
       try {
         setLoading(true);
         const [meRes, vocabRes] = await Promise.all([
@@ -2823,7 +2880,9 @@ export default function PracticeClient({ accessToken }) {
     return () => {
       cancelled = true;
     };
-  }, [authFetch]);
+  // liveToken 变化时重新加载（token 刷新后重拉数据）
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveToken]);
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
