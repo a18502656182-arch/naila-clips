@@ -53,13 +53,16 @@ const listeners = new Set();
 export function triggerPenguin(event) { listeners.forEach(fn => fn(event)); }
 
 const STORAGE_POS = "penguin_pos_v2";
+const STORAGE_HIDDEN = "penguin_hidden_v1";
 
 export default function PenguinMascot() {
   const [pos, setPos] = useState(null);
   const [text, setText] = useState("");
   const [bounce, setBounce] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
-  const [minimized, setMinimized] = useState(false);
+  const [minimized, setMinimized] = useState(() => {
+    try { return localStorage.getItem(STORAGE_HIDDEN) === "1"; } catch { return false; }
+  });
   const [dragging, setDragging] = useState(false);
   const hideTimer = useRef(null);
   const idleTimer = useRef(null);
@@ -176,11 +179,39 @@ export default function PenguinMascot() {
 
   function handleClick() {
     if (isDragMove.current) return;
-    if (minimized) { setMinimized(false); show(getRandom(LINES.welcome)); return; }
+    if (minimized) {
+      setMinimized(false);
+      try { localStorage.removeItem(STORAGE_HIDDEN); } catch {}
+      show(getRandom(LINES.welcome));
+      return;
+    }
     showBubble ? setShowBubble(false) : show(getRandom([...LINES.welcome, ...LINES.idle]));
   }
 
   if (!pos) return null;
+
+  // 隐藏状态：右下角显示一个极小的点，点击可恢复
+  if (minimized) {
+    return (
+      <button
+        onClick={() => {
+          setMinimized(false);
+          try { localStorage.removeItem(STORAGE_HIDDEN); } catch {}
+          show(getRandom(LINES.welcome));
+        }}
+        title="点击显示企鹅"
+        style={{
+          position: "fixed", right: 14, bottom: 14, zIndex: 9000,
+          width: 28, height: 28, borderRadius: "50%",
+          background: "rgba(79,70,229,0.15)",
+          border: "1px solid rgba(79,70,229,0.25)",
+          cursor: "pointer", fontSize: 14,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "none", padding: 0,
+        }}
+      >🐧</button>
+    );
+  }
   const bubbleOnLeft = pos.left > (typeof window !== "undefined" ? window.innerWidth / 2 : 400);
 
   return (
@@ -232,7 +263,7 @@ export default function PenguinMascot() {
 
         {/* 隐藏 */}
         {!minimized && !dragging && (
-          <button onClick={() => { setMinimized(true); setShowBubble(false); }} style={{ fontSize: 10, color: "rgba(11,18,32,0.28)", background: "none", border: "none", cursor: "pointer", padding: "1px 4px", fontWeight: 600 }}>隐藏</button>
+          <button onClick={() => { setMinimized(true); setShowBubble(false); try { localStorage.setItem(STORAGE_HIDDEN, "1"); } catch {} }} style={{ fontSize: 10, color: "rgba(11,18,32,0.28)", background: "none", border: "none", cursor: "pointer", padding: "1px 4px", fontWeight: 600 }}>隐藏</button>
         )}
       </div>
     </>
