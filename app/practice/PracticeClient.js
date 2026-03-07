@@ -2936,13 +2936,6 @@ export default function PracticeClient({ accessToken }) {
     };
   }, [authFetch]);
 
-  const stats = useMemo(() => {
-    const total = vocabItems?.length || 0;
-    const learning = (vocabItems || []).filter((x) => Number(x?.mastery_level) === 1).length;
-    const mastered = (vocabItems || []).filter((x) => Number(x?.mastery_level) === 2).length;
-    return { total, learning, mastered };
-  }, [vocabItems]);
-
   function notEnough() {
     return (vocabItems?.length || 0) < 4;
   }
@@ -2962,6 +2955,57 @@ export default function PracticeClient({ accessToken }) {
       setScores((prev) => prev || {});
     }
   }
+
+  // ------------------ 排行榜（假数据 + 真实用户混合）------------------
+
+  const leaderboard = useMemo(() => {
+    // 用邮箱作为种子生成稳定随机数
+    function seededRand(seed, index) {
+      let h = 0;
+      const str = seed + String(index);
+      for (let i = 0; i < str.length; i++) {
+        h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+      }
+      return Math.abs(h) / 2147483647;
+    }
+
+    const seed = me?.email || "guest";
+
+    // 假用户名库
+    const namePools = [
+      ["lihua","liming","liwei","lijun","liyang","lixiao","lixin","lifang"],
+      ["wangfang","wangwei","wangna","wangxia","wangying","wangjun","wangbo"],
+      ["zhangwei","zhangfang","zhangli","zhangjun","zhangna","zhangmin"],
+      ["chenwei","chenli","chenfang","chenjun","chenxiao","chenyang"],
+      ["liujun","liuwei","liufang","liuyang","liuxia","liuming"],
+      ["yangfang","yangwei","yangjun","yangna","yangmin","yangbo"],
+      ["huangwei","huangfang","huangjun","huangna","huangxia"],
+      ["zhaofang","zhaowei","zhaojun","zhaoli","zhaoxia","zhaoyang"],
+    ];
+
+    // 生成10个假用户，每个用户名和分数由seed决定
+    const fakeUsers = Array.from({ length: 10 }, (_, i) => {
+      const poolIdx = Math.floor(seededRand(seed, i * 3) * namePools.length);
+      const nameIdx = Math.floor(seededRand(seed, i * 3 + 1) * namePools[poolIdx].length);
+      const name = namePools[poolIdx][nameIdx];
+      // 分数分布在 60~290 之间，梯度分散
+      const baseScore = 60 + Math.floor(seededRand(seed, i * 3 + 2) * 230);
+      return { name, totalScore: baseScore, isMe: false };
+    });
+
+    // 当前用户真实总分（所有游戏最高分之和）
+    const myTotal = GAME_META.reduce((sum, m) => sum + Number(scores?.[m.id]?.best || 0), 0);
+    const myName = me?.email ? me.email.split("@")[0].slice(0, 8) : null;
+
+    const allEntries = [...fakeUsers];
+    if (myName) {
+      allEntries.push({ name: myName, totalScore: myTotal, isMe: true });
+    }
+
+    // 按总分降序，取前10
+    allEntries.sort((a, b) => b.totalScore - a.totalScore);
+    return allEntries.slice(0, 10);
+  }, [me, scores]);
 
   // ------------------ Game entry routing (按要求顺序) ------------------
 
@@ -3179,30 +3223,12 @@ export default function PracticeClient({ accessToken }) {
         <div className="practice-topbar-email">{me?.email ? me.email : "未登录"}</div>
       </div>
 
-      <div className="practice-stat-grid">
-        <div style={statCard}>
-          <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>📚 词汇总数</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.total}</div>
-        </div>
-        <div style={statCard}>
-          <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>🔄 学习中</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.learning}</div>
-        </div>
-        <div style={statCard}>
-          <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>✅ 已掌握</div>
-          <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 8 }}>{stats.mastered}</div>
-        </div>
-      </div>
-
-      <div style={scoreSection}>
-        <div style={scoreContainer}>
-          <div style={scoreTitleRow}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px" }}>
+        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
             <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
-            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>
-              游玩即自动记录
-            </div>
+            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
           </div>
-
           <div className="practice-score-grid">
             {GAME_META.map((m, idx) => {
               const isLastRow = idx >= GAME_META.length - 2;
@@ -3211,6 +3237,37 @@ export default function PracticeClient({ accessToken }) {
           </div>
         </div>
       </div>
+
+      {/* 排行榜 */}
+      <div style={{ maxWidth: 980, margin: "14px auto 0", padding: "0 6px" }}>
+        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 1000 }}>🥇 总分排行榜</div>
+            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>全站 Top 10</div>
+          </div>
+          {leaderboard.map((entry, idx) => {
+            const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+            const isMe = entry.isMe;
+            return (
+              <div key={idx} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 10px", borderRadius: 10, marginBottom: 4,
+                background: isMe ? "rgba(99,102,241,0.08)" : "transparent",
+                border: isMe ? `1px solid rgba(99,102,241,0.18)` : "1px solid transparent",
+              }}>
+                <div style={{ width: 22, textAlign: "center", fontSize: medal ? 16 : 13, fontWeight: 1000, color: THEME.colors.faint, flexShrink: 0 }}>
+                  {medal || `${idx + 1}`}
+                </div>
+                <div style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {entry.name}{isMe ? " (我)" : ""}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.ink, flexShrink: 0 }}>
+                  {entry.totalScore} 分
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
       <div className="practice-games-grid">
         <GameCard
