@@ -3200,19 +3200,18 @@ export default function PracticeClient({ accessToken }) {
   return (
     <div style={page}>
       <style>{`
-        .practice-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 0 auto; padding: 0 6px; }
         .practice-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 14px auto 0; padding: 0 6px 18px; }
         .practice-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
-        .practice-score-row { display: flex; gap: 12px; align-items: flex-start; }
-        .practice-lb-desktop { display: block; }
-        .practice-lb-mobile { display: none; }
+        .practice-score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 980px; margin: 0 auto; padding: 0 6px; }
+        .practice-lb-desktop { display: flex !important; }
+        .practice-lb-mobile { display: none !important; }
         .practice-topbar-email { opacity: 0.7; font-weight: 900; }
         @media (max-width: 600px) {
           .practice-games-grid { grid-template-columns: 1fr; gap: 10px; padding: 0 4px 18px; }
           .practice-score-grid { grid-template-columns: 1fr; gap: 4px; }
-          .practice-score-row { flex-direction: column; }
-          .practice-lb-desktop { display: none; }
-          .practice-lb-mobile { display: flex; }
+          .practice-score-row { grid-template-columns: 1fr; padding: 0 4px; }
+          .practice-lb-desktop { display: none !important; }
+          .practice-lb-mobile { display: flex !important; }
           .practice-topbar-email { display: none; }
         }
       `}</style>
@@ -3267,52 +3266,46 @@ export default function PracticeClient({ accessToken }) {
       )}
 
       {/* 最高分 + 排行榜入口 */}
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px" }}>
-        <div className="practice-score-row">
-          {/* 我的最高分 */}
-          <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
-              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
-            </div>
-            <div className="practice-score-grid">
-              {GAME_META.map((m, idx) => {
-                const isLastRow = idx >= GAME_META.length - 2;
-                return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
-              })}
-            </div>
+      <div className="practice-score-row">
+        {/* 我的最高分 */}
+        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
+            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
           </div>
-
-          {/* 桌面端：直接显示排行榜；手机端：按钮 */}
-          <div className="practice-lb-desktop" style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
-              <div style={{ fontSize: 14, fontWeight: 1000 }}>🥇 总分排行榜</div>
-              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>全站 Top 10</div>
-            </div>
-            {leaderboard.map((entry, idx) => {
-              const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
-              const isMe = entry.isMe;
-              return (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 8, marginBottom: 2, background: isMe ? "rgba(99,102,241,0.08)" : "transparent", border: isMe ? `1px solid rgba(99,102,241,0.18)` : "1px solid transparent" }}>
-                  <div style={{ width: 20, textAlign: "center", fontSize: medal ? 14 : 12, fontWeight: 1000, color: THEME.colors.faint, flexShrink: 0 }}>{medal || `${idx + 1}`}</div>
-                  <div style={{ flex: 1, fontSize: 12, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}{isMe ? " (我)" : ""}</div>
-                  <div style={{ fontSize: 12, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.ink, flexShrink: 0 }}>{entry.totalScore}分</div>
-                </div>
-              );
+          <div className="practice-score-grid">
+            {GAME_META.map((m, idx) => {
+              const isLastRow = idx >= GAME_META.length - 2;
+              return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
             })}
           </div>
-
-          {/* 手机端：排行榜按钮 */}
-          <button className="practice-lb-mobile" onClick={() => setShowLeaderboard(true)} style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "12px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 1000, color: THEME.colors.ink }}>🥇 总分排行榜</div>
-              <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4, fontWeight: 900 }}>
-                {leaderboard.findIndex(e => e.isMe) >= 0 ? `你当前排第 ${leaderboard.findIndex(e => e.isMe) + 1} 名` : "点击查看排名"}
-              </div>
-            </div>
-            <div style={{ fontSize: 18, opacity: 0.4 }}>›</div>
-          </button>
         </div>
+
+        {/* 排行榜入口按钮（桌面+手机统一用弹窗）*/}
+        <button
+          onClick={() => setShowLeaderboard(true)}
+          style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%", textAlign: "left" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+            <div style={{ fontSize: 14, fontWeight: 1000, color: THEME.colors.ink }}>🥇 总分排行榜</div>
+            <div style={{ fontSize: 18, opacity: 0.35, color: THEME.colors.ink }}>›</div>
+          </div>
+          {/* 预览前3名 */}
+          {leaderboard.slice(0, 3).map((entry, idx) => {
+            const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+            const isMe = entry.isMe;
+            return (
+              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "5px 0", borderBottom: idx < 2 ? `1px solid ${THEME.colors.border}` : "none" }}>
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{medal}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}{isMe ? " (我)" : ""}</span>
+                <span style={{ fontSize: 13, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.faint, flexShrink: 0 }}>{entry.totalScore}分</span>
+              </div>
+            );
+          })}
+          <div style={{ marginTop: 10, fontSize: 12, color: THEME.colors.faint, fontWeight: 900, alignSelf: "center" }}>
+            {leaderboard.findIndex(e => e.isMe) >= 0 ? `你当前排第 ${leaderboard.findIndex(e => e.isMe) + 1} 名 · 点击查看完整榜单` : "点击查看完整榜单"}
+          </div>
+        </button>
       </div>
 
       <div className="practice-games-grid">
