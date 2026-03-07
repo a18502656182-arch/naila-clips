@@ -302,8 +302,9 @@ const COUNT_OPTIONS = [
   { label: "20 题", count: 20, desc: "精练" },
 ];
 
-function CountStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
-  const [sel, setSel] = useState(1);
+function CountStartScreen({ emoji, name, desc, sourceLabel, vocabCount = 99, onStart, onExit }) {
+  const options = COUNT_OPTIONS.filter(d => d.count <= vocabCount);
+  const [sel, setSel] = useState(0); // 默认选第一个可用选项
   return (
     <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 20 }}>
       <div style={{ fontSize: 48 }}>{emoji}</div>
@@ -314,8 +315,8 @@ function CountStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
       </div>
       <div style={{ width: "100%", maxWidth: 280 }}>
         <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, opacity: 0.7 }}>选择题数</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {COUNT_OPTIONS.map((d, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${options.length},1fr)`, gap: 8 }}>
+          {options.map((d, i) => (
             <button key={i} onClick={() => setSel(i)} style={{
               padding: "10px 0", borderRadius: THEME.radii.md, cursor: "pointer", fontWeight: 1000, fontSize: 13,
               border: sel === i ? `2px solid ${THEME.colors.accent}` : `1px solid ${THEME.colors.border}`,
@@ -328,7 +329,7 @@ function CountStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
           ))}
         </div>
       </div>
-      <button onClick={async () => { await unlockAudio(); onStart(COUNT_OPTIONS[sel].count); }}
+      <button onClick={async () => { await unlockAudio(); onStart(options[sel].count); }}
         style={{ marginTop: 4, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}>
         开始游戏 →
       </button>
@@ -471,14 +472,14 @@ function ProgressBar({ current, total, onExit }) {
 
 function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
   const [questionCount, setQuestionCount] = useState(maxQuestions);
-  const cards = useMemo(() => {
-    const filtered = (vocabItems || []).filter((x) => {
+  const allFiltered = useMemo(() => {
+    return (vocabItems || []).filter((x) => {
       const k = x?.kind;
       if (k && k !== "words" && k !== "phrases") return false;
       return true;
     });
-    return shuffle(filtered).slice(0, questionCount);
-  }, [vocabItems, questionCount]);
+  }, [vocabItems]);
+  const cards = useMemo(() => shuffle(allFiltered).slice(0, questionCount), [allFiltered, questionCount]);
 
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -760,6 +761,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
         emoji="🫧" name="气泡拼写"
         desc="听到单词发音，点击字母气泡按顺序拼出来"
         sourceLabel={sourceLabel}
+        vocabCount={allFiltered.length}
         onStart={(count) => { setQuestionCount(count); setStarted(true); }}
         onExit={onExit}
       />
@@ -1438,6 +1440,8 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   const [cardMeaning, setCardMeaning] = useState("");
   const [isMeaningCorrect, setIsMeaningCorrect] = useState(true);
 
+  // 挂载后立刻开始倒计时
+  useEffect(() => { setStarted(true); }, []);
   // 全局倒计时
   const timeLeft = useCountdown(started ? TIMER_SECONDS : 0, () => setDone(true));
 
@@ -1815,11 +1819,10 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
   const [questionCount, setQuestionCount] = useState(maxQuestions);
   const [started, setStarted] = useState(false);
 
-  const pool = useMemo(() => {
-    const eligible = (vocabItems || [])
+  const allPool = useMemo(() => {
+    return (vocabItems || [])
       .filter((x) => {
         const k = x?.kind;
-        // 白名单：只允许 words 和 phrases；kind 不存在时默认保留（兼容旧数据）
         if (k && k !== "words" && k !== "phrases") return false;
         const ex = (x?.data?.example_en || "").trim();
         if (!ex) return false;
@@ -1830,8 +1833,9 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
         ...x,
         __exampleWords: (x?.data?.example_en || "").trim().split(/\s+/).filter(Boolean),
       }));
-    return shuffle(eligible).slice(0, questionCount);
-  }, [vocabItems, questionCount]);
+  }, [vocabItems]);
+
+  const pool = useMemo(() => shuffle(allPool).slice(0, questionCount), [allPool, questionCount]);
 
   const [i, setI] = useState(0);
   const [score, setScore] = useState(0);
@@ -2042,6 +2046,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
         emoji="🧩" name="台词磁力贴"
         desc="把打乱的单词重新排列成正确句子"
         sourceLabel={sourceLabel}
+        vocabCount={allPool.length}
         onStart={(count) => { setQuestionCount(count); setStarted(true); }}
         onExit={onExit}
       />
@@ -2302,11 +2307,13 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
   })), [vocabItems]);
 
   const TIMER_SECONDS = 60;
+  const [started, setStarted] = useState(false);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const endCalledRef = useRef(false);
+  const gameOverRef = useRef(false);
 
   const [currentWord, setCurrentWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
@@ -2324,7 +2331,8 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
   ];
 
   // 全局倒计时
-  const timeLeft = useCountdown(TIMER_SECONDS, () => {
+  const timeLeft = useCountdown(started ? TIMER_SECONDS : 0, () => {
+    gameOverRef.current = true;
     setGameOver(true);
     if (!endCalledRef.current) {
       endCalledRef.current = true;
@@ -2334,6 +2342,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
 
   function startRound() {
     if (!pool || pool.length < 2) return;
+    if (gameOverRef.current) return;
     const rid = (roundIdRef.current += 1);
     const word = pickOne(pool);
     const correctMeaning = word?.data?.zh || "";
@@ -2383,11 +2392,13 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     setTimeout(() => { if (roundIdRef.current !== rid) return; startRound(); }, 500);
   }
 
+  useEffect(() => { setStarted(true); }, []);
   useEffect(() => {
+    if (!started) return;
     startRound();
     return () => { if (roundTimerRef.current) clearTimeout(roundTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [started]);
 
   if (gameOver) {
     return (
@@ -2403,7 +2414,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
           <div style={{ fontSize: 32, fontWeight: 1000, color: THEME.colors.accent, marginBottom: 6 }}>{score} 分</div>
           <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; }}
+            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; gameOverRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
               style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: "#f59e0b", color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
             <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
@@ -2481,6 +2492,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
 
   const TIMER_SECONDS = 60;
+  const [started, setStarted] = useState(false);
 
   const [round, setRound] = useState(0);
   const [word, setWord] = useState(null);
@@ -2504,7 +2516,8 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   const [tRatio, setTRatio] = useState(1);
 
   // 全局倒计时
-  const timeLeft = useCountdown(TIMER_SECONDS, () => {
+  useEffect(() => { setStarted(true); }, []);
+  const timeLeft = useCountdown(started ? TIMER_SECONDS : 0, () => {
     stopTimer();
     setGameOver(true);
     if (!endCalledRef.current) {
@@ -2606,7 +2619,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
           <div style={{ fontSize: 32, fontWeight: 1000, color: THEME.colors.accent, marginBottom: 6 }}>{score} 分</div>
           <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); setRound(0); endCalledRef.current = false; }}
+            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); setRound(0); endCalledRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
               style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
             <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
@@ -2627,7 +2640,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
           <div style={pill}>🔥 {combo > 0 ? `x${combo}` : score + "分"}</div>
         </div>
         <div style={{ maxWidth: 980, margin: "8px auto 0" }}>
-          <TimerBar timeLeft={timeLeft} totalSeconds={TIMER_SECONDS} />
+          <TimerBar timeLeft={timeLeft} totalSeconds={started ? TIMER_SECONDS : TIMER_SECONDS} />
         </div>
         {/* 每题答题进度条 */}
         <div style={{ maxWidth: 980, margin: "6px auto 0", height: 4, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
