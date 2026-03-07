@@ -51,6 +51,63 @@ function normalizeSentence(s) {
     .trim();
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+内置固定词库（50个常用单词，不需要后端）
+每条格式与收藏词一致：{ id, term, kind, data: { zh } }
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const BUILTIN_VOCAB = [
+  { id: "b01", term: "apple",       kind: "words", data: { zh: "苹果" } },
+  { id: "b02", term: "book",        kind: "words", data: { zh: "书" } },
+  { id: "b03", term: "cat",         kind: "words", data: { zh: "猫" } },
+  { id: "b04", term: "dog",         kind: "words", data: { zh: "狗" } },
+  { id: "b05", term: "eat",         kind: "words", data: { zh: "吃" } },
+  { id: "b06", term: "friend",      kind: "words", data: { zh: "朋友" } },
+  { id: "b07", term: "happy",       kind: "words", data: { zh: "开心的" } },
+  { id: "b08", term: "house",       kind: "words", data: { zh: "房子" } },
+  { id: "b09", term: "idea",        kind: "words", data: { zh: "想法" } },
+  { id: "b10", term: "job",         kind: "words", data: { zh: "工作" } },
+  { id: "b11", term: "keep",        kind: "words", data: { zh: "保持" } },
+  { id: "b12", term: "learn",       kind: "words", data: { zh: "学习" } },
+  { id: "b13", term: "money",       kind: "words", data: { zh: "钱" } },
+  { id: "b14", term: "night",       kind: "words", data: { zh: "夜晚" } },
+  { id: "b15", term: "open",        kind: "words", data: { zh: "打开" } },
+  { id: "b16", term: "people",      kind: "words", data: { zh: "人们" } },
+  { id: "b17", term: "quiet",       kind: "words", data: { zh: "安静的" } },
+  { id: "b18", term: "run",         kind: "words", data: { zh: "跑" } },
+  { id: "b19", term: "sleep",       kind: "words", data: { zh: "睡觉" } },
+  { id: "b20", term: "talk",        kind: "words", data: { zh: "说话" } },
+  { id: "b21", term: "understand",  kind: "words", data: { zh: "理解" } },
+  { id: "b22", term: "visit",       kind: "words", data: { zh: "拜访" } },
+  { id: "b23", term: "water",       kind: "words", data: { zh: "水" } },
+  { id: "b24", term: "example",     kind: "words", data: { zh: "例子" } },
+  { id: "b25", term: "young",       kind: "words", data: { zh: "年轻的" } },
+  { id: "b26", term: "beautiful",   kind: "words", data: { zh: "漂亮的" } },
+  { id: "b27", term: "change",      kind: "words", data: { zh: "改变" } },
+  { id: "b28", term: "decide",      kind: "words", data: { zh: "决定" } },
+  { id: "b29", term: "enjoy",       kind: "words", data: { zh: "享受" } },
+  { id: "b30", term: "forget",      kind: "words", data: { zh: "忘记" } },
+  { id: "b31", term: "give",        kind: "words", data: { zh: "给" } },
+  { id: "b32", term: "help",        kind: "words", data: { zh: "帮助" } },
+  { id: "b33", term: "important",   kind: "words", data: { zh: "重要的" } },
+  { id: "b34", term: "jump",        kind: "words", data: { zh: "跳" } },
+  { id: "b35", term: "kind",        kind: "words", data: { zh: "友善的" } },
+  { id: "b36", term: "listen",      kind: "words", data: { zh: "听" } },
+  { id: "b37", term: "move",        kind: "words", data: { zh: "移动" } },
+  { id: "b38", term: "need",        kind: "words", data: { zh: "需要" } },
+  { id: "b39", term: "offer",       kind: "words", data: { zh: "提供" } },
+  { id: "b40", term: "promise",     kind: "words", data: { zh: "承诺" } },
+  { id: "b41", term: "question",    kind: "words", data: { zh: "问题" } },
+  { id: "b42", term: "remember",    kind: "words", data: { zh: "记得" } },
+  { id: "b43", term: "share",       kind: "words", data: { zh: "分享" } },
+  { id: "b44", term: "think",       kind: "words", data: { zh: "思考" } },
+  { id: "b45", term: "use",         kind: "words", data: { zh: "使用" } },
+  { id: "b46", term: "voice",       kind: "words", data: { zh: "声音" } },
+  { id: "b47", term: "wait",        kind: "words", data: { zh: "等待" } },
+  { id: "b48", term: "experience",  kind: "words", data: { zh: "经历" } },
+  { id: "b49", term: "yesterday",   kind: "words", data: { zh: "昨天" } },
+  { id: "b50", term: "zero",        kind: "words", data: { zh: "零" } },
+];
+
 // Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
 // 解锁浏览器自动播放限制（必须在用户手势内调用一次）
 let audioUnlocked = false;
@@ -128,39 +185,78 @@ function saveScore(gameId, score) {
 
 /* ----------------------------- NotEnoughView ----------------------------- */
 
-function NotEnoughView({ onBack }) {
+function NotEnoughView({ onBack, onSwitchBuiltin }) {
   return (
-    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14 }}>
-      <div
-        style={{
-          maxWidth: 720,
-          margin: "0 auto",
-          background: THEME.colors.surface,
-          border: `1px solid ${THEME.colors.border}`,
-          borderRadius: THEME.radii.lg,
-          padding: 18,
-        }}
-      >
-        <div style={{ fontSize: 18, fontWeight: 1000 }}>词汇不足</div>
-        <div style={{ opacity: 0.75, marginTop: 8, fontWeight: 900 }}>
-          至少需要收藏 4 个词汇，才能开始游戏。
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ maxWidth: 400, width: "100%", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 28, textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>📚</div>
+        <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 8 }}>收藏词太少了</div>
+        <div style={{ opacity: 0.7, fontWeight: 900, fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
+          至少需要收藏 6 个词汇才能开始游戏。<br />
+          去视频页收藏更多词，或者先用内置词库练习。
         </div>
-        <button
-          onClick={onBack}
-          style={{
-            marginTop: 14,
-            height: 44,
-            padding: "0 16px",
-            borderRadius: THEME.radii.pill,
-            border: `1px solid ${THEME.colors.border}`,
-            background: THEME.colors.surface,
-            cursor: "pointer",
-            fontWeight: 900,
-          }}
-        >
-          返回大厅
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <button onClick={onSwitchBuiltin}
+            style={{ padding: "12px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer", fontSize: 15 }}>
+            用内置词库练习 →
+          </button>
+          <button onClick={onBack}
+            style={{ padding: "10px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>
+            返回大厅
+          </button>
+        </div>
       </div>
+    </div>
+  );
+}
+
+/* ----------------------------- GameStartScreen（通用开始页，含题数选择）----------------------------- */
+
+const DIFFICULTY_OPTIONS = [
+  { label: "初级", count: 5,  desc: "5题" },
+  { label: "中级", count: 10, desc: "10题" },
+  { label: "高级", count: 20, desc: "20题" },
+];
+
+function GameStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
+  const [diff, setDiff] = useState(1); // 默认中级
+
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 20 }}>
+      <div style={{ fontSize: 48 }}>{emoji}</div>
+      <div style={{ fontSize: 20, fontWeight: 1000 }}>{name}</div>
+      <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>{desc}</div>
+
+      {/* 词库来源标签 */}
+      <div style={{ fontSize: 12, fontWeight: 900, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "4px 12px", color: THEME.colors.faint }}>
+        词库：{sourceLabel}
+      </div>
+
+      {/* 题数选择 */}
+      <div style={{ width: "100%", maxWidth: 280 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, opacity: 0.7 }}>选择难度</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+          {DIFFICULTY_OPTIONS.map((d, i) => (
+            <button key={i} onClick={() => setDiff(i)}
+              style={{
+                padding: "10px 0", borderRadius: THEME.radii.md,
+                border: diff === i ? `2px solid ${THEME.colors.accent}` : `1px solid ${THEME.colors.border}`,
+                background: diff === i ? `${THEME.colors.accent}18` : THEME.colors.surface,
+                cursor: "pointer", fontWeight: 1000, fontSize: 13,
+                color: diff === i ? THEME.colors.accent : THEME.colors.ink,
+              }}>
+              <div>{d.label}</div>
+              <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 900 }}>{d.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button onClick={async () => { await unlockAudio(); onStart(DIFFICULTY_OPTIONS[diff].count); }}
+        style={{ marginTop: 4, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}>
+        开始游戏 →
+      </button>
+      <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
     </div>
   );
 }
@@ -297,15 +393,15 @@ function ProgressBar({ current, total, onExit }) {
 【二-1】BubbleSpellingGame：新增结算页 + 积分上报
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
+function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
   const cards = useMemo(() => {
     const filtered = (vocabItems || []).filter((x) => {
       const k = x?.kind;
       if (k && k !== "words" && k !== "phrases") return false;
       return true;
     });
-    return shuffle(filtered);
-  }, [vocabItems]);
+    return shuffle(filtered).slice(0, maxQuestions);
+  }, [vocabItems, maxQuestions]);
 
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -583,23 +679,13 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
 
   if (!started) {
     return (
-      <div style={{ ...shellStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
-        <div style={{ fontSize: 48 }}>🫧</div>
-        <div style={{ fontSize: 20, fontWeight: 1000 }}>气泡拼写</div>
-        <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>
-          听到单词发音，点击字母气泡按顺序拼出来
-        </div>
-        <button
-          onClick={async () => {
-            await unlockAudio();
-            setStarted(true);
-          }}
-          style={{ marginTop: 8, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}
-        >
-          开始游戏 →
-        </button>
-        <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
-      </div>
+      <GameStartScreen
+        emoji="🫧" name="气泡拼写"
+        desc="听到单词发音，点击字母气泡按顺序拼出来"
+        sourceLabel={sourceLabel}
+        onStart={() => setStarted(true)}
+        onExit={onExit}
+      />
     );
   }
 
@@ -847,8 +933,8 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
 const MATCH_TIME = 30;
 const BATCH_SIZE = 5;
 
-function MatchMadnessGame({ vocabItems, onExit, onGameEnd }) {
-  const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
+  const cards = useMemo(() => shuffle(vocabItems || []).slice(0, maxQuestions), [vocabItems, maxQuestions]);
   const border2 = THEME.colors.border2 || THEME.colors.border;
 
   const [batch, setBatch] = useState([]);
@@ -1249,8 +1335,8 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd }) {
 【二-3】SwipeGame：积分上报 + 破纪录提示
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SwipeGame({ vocabItems, onExit, onGameEnd }) {
-  const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
+  const items = useMemo(() => shuffle(vocabItems || []).slice(0, maxQuestions), [vocabItems, maxQuestions]);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [done, setDone] = useState(false);
@@ -1639,7 +1725,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd }) {
 【二-4】RebuildGame：kind 字段单复数修复（白名单）+ 其余保持
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function RebuildGame({ vocabItems, onExit, onGameEnd }) {
+function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
   const pool = useMemo(() => {
     const eligible = (vocabItems || [])
       .filter((x) => {
@@ -2103,12 +2189,11 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
 【二-5】BalloonGame：积分上报 + 破纪录提示
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function BalloonGame({ vocabItems, onExit, onGameEnd }) {
-  // 只用单词，过滤掉短语和地道表达（有道词典对短语返回500）
+function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
   const items = useMemo(() => shuffle((vocabItems || []).filter(x => {
     const k = x?.kind;
     return !k || k === "words";
-  })), [vocabItems]);
+  })).slice(0, maxQuestions), [vocabItems, maxQuestions]);
   const [started, setStarted] = useState(false);
   const [hearts, setHearts] = useState(3);
   const [score, setScore] = useState(0);
@@ -2225,16 +2310,13 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
 
   if (!started) {
     return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 20 }}>
-        <div style={{ fontSize: 48 }}>🎧</div>
-        <div style={{ fontSize: 20, fontWeight: 1000 }}>盲听气球</div>
-        <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>听到单词发音，戳破含有正确中文释义的气球</div>
-        <button onClick={async () => { await unlockAudio(); setStarted(true); }}
-          style={{ marginTop: 8, padding: "14px 40px", borderRadius: THEME.radii.pill, background: "#f59e0b", color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}>
-          开始游戏 →
-        </button>
-        <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
-      </div>
+      <GameStartScreen
+        emoji="🎧" name="盲听气球"
+        desc="听到单词发音，戳破含有正确中文释义的气球"
+        sourceLabel={sourceLabel}
+        onStart={() => setStarted(true)}
+        onExit={onExit}
+      />
     );
   }
 
@@ -2327,8 +2409,8 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
 【二-6】SpeedGame：积分上报 + 破纪录提示
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SpeedGame({ vocabItems, onExit, onGameEnd }) {
-  const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
+  const items = useMemo(() => shuffle(vocabItems || []).slice(0, maxQuestions), [vocabItems, maxQuestions]);
 
   const [round, setRound] = useState(0);
   const [word, setWord] = useState(null);
@@ -2786,6 +2868,10 @@ export default function PracticeClient({ accessToken }) {
   const [activeGame, setActiveGame] = useState(null);
   // null | "bubble" | "match" | "swipe" | "rebuild" | "balloon" | "speed"
 
+  const [vocabSource, setVocabSource] = useState("my"); // "my" | "builtin"
+  const [maxQuestions, setMaxQuestions] = useState(10);
+  // maxQuestions 在 GameStartScreen 里选，存到这里供路由层读取
+
   const [me, setMe] = useState(null);
   const [vocabItems, setVocabItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2837,8 +2923,16 @@ export default function PracticeClient({ accessToken }) {
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+  const activeVocab = vocabSource === "builtin" ? BUILTIN_VOCAB : vocabItems;
+  const sourceLabel = vocabSource === "builtin" ? "内置词库" : "我的收藏";
+
   function notEnough() {
-    return (vocabItems?.length || 0) < 4;
+    return vocabSource === "my" && (vocabItems?.length || 0) < 6;
+  }
+
+  function handleSwitchBuiltin() {
+    setVocabSource("builtin");
+    setActiveGame(null);
   }
 
   function handleGameEnd(gameId, s) {
@@ -2923,10 +3017,12 @@ export default function PracticeClient({ accessToken }) {
   // ------------------ Game entry routing (按要求顺序) ------------------
 
   if (activeGame === "bubble") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <BubbleSpellingGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("bubble", s)}
       />
@@ -2934,10 +3030,12 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "match") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <MatchMadnessGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("match", s)}
       />
@@ -2945,10 +3043,12 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "swipe") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <SwipeGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("swipe", s)}
       />
@@ -2956,10 +3056,12 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "rebuild") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <RebuildGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("rebuild", s)}
       />
@@ -2967,10 +3069,12 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "balloon") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <BalloonGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("balloon", s)}
       />
@@ -2978,10 +3082,12 @@ export default function PracticeClient({ accessToken }) {
   }
 
   if (activeGame === "speed") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} />;
+    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
     return (
       <SpeedGame
-        vocabItems={vocabItems}
+        vocabItems={activeVocab}
+        sourceLabel={sourceLabel}
+        maxQuestions={maxQuestions}
         onExit={() => setActiveGame(null)}
         onGameEnd={(s) => handleGameEnd("speed", s)}
       />
@@ -3138,6 +3244,28 @@ export default function PracticeClient({ accessToken }) {
         <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
 
         <div className="practice-topbar-email">{me?.email ? me.email : "未登录"}</div>
+      </div>
+
+      {/* 词库来源切换 */}
+      <div style={{ maxWidth: 980, margin: "0 auto 10px", padding: "0 6px" }}>
+        <div style={{ display: "inline-flex", border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, overflow: "hidden", background: THEME.colors.surface }}>
+          {[{ key: "my", label: `我的收藏 (${vocabItems?.length || 0}词)` }, { key: "builtin", label: "内置词库 (50词)" }].map(opt => (
+            <button key={opt.key} onClick={() => setVocabSource(opt.key)}
+              style={{
+                padding: "8px 16px", border: "none", cursor: "pointer", fontWeight: 1000, fontSize: 13,
+                background: vocabSource === opt.key ? THEME.colors.accent : "transparent",
+                color: vocabSource === opt.key ? "#fff" : THEME.colors.ink,
+                transition: "all 0.15s",
+              }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        {vocabSource === "my" && (vocabItems?.length || 0) < 6 && (
+          <span style={{ marginLeft: 10, fontSize: 12, color: "#ef4444", fontWeight: 900 }}>
+            ⚠️ 收藏词不足6个，建议切换内置词库
+          </span>
+        )}
       </div>
 
       {/* 排行榜弹窗 */}
