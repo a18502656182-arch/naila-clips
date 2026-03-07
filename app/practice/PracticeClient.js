@@ -2936,6 +2936,8 @@ export default function PracticeClient({ accessToken }) {
     };
   }, [authFetch]);
 
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+
   function notEnough() {
     return (vocabItems?.length || 0) < 4;
   }
@@ -2959,10 +2961,9 @@ export default function PracticeClient({ accessToken }) {
   // ------------------ 排行榜（假数据 + 真实用户混合）------------------
 
   const leaderboard = useMemo(() => {
-    // 用邮箱作为种子生成稳定随机数
     function seededRand(seed, index) {
       let h = 0;
-      const str = seed + String(index);
+      const str = seed + "lb" + String(index * 7919);
       for (let i = 0; i < str.length; i++) {
         h = Math.imul(31, h) + str.charCodeAt(i) | 0;
       }
@@ -2971,38 +2972,49 @@ export default function PracticeClient({ accessToken }) {
 
     const seed = me?.email || "guest";
 
-    // 假用户名库
-    const namePools = [
-      ["lihua","liming","liwei","lijun","liyang","lixiao","lixin","lifang"],
-      ["wangfang","wangwei","wangna","wangxia","wangying","wangjun","wangbo"],
-      ["zhangwei","zhangfang","zhangli","zhangjun","zhangna","zhangmin"],
-      ["chenwei","chenli","chenfang","chenjun","chenxiao","chenyang"],
-      ["liujun","liuwei","liufang","liuyang","liuxia","liuming"],
-      ["yangfang","yangwei","yangjun","yangna","yangmin","yangbo"],
-      ["huangwei","huangfang","huangjun","huangna","huangxia"],
-      ["zhaofang","zhaowei","zhaojun","zhaoli","zhaoxia","zhaoyang"],
+    // 扁平名字库：100个，混合拼音+邮箱前缀风格，无规律
+    const namePool = [
+      "xiao_yu","breezy92","tangjun","forest_k","qinghe",
+      "nova_li","zhuwei","pixel88","sunnyday","cfeng21",
+      "mintleaf","haochen","sky_blue","rui2024","dandelion",
+      "wuming","luckyx3","peach_bb","jiaming","comet77",
+      "xlei","morning_z","tigger","baixue","echo_ran",
+      "jingtao","spark_y","coconut","feifei9","breeze_w",
+      "longfei","purple_m","xingchen","cloudy_q","ray2025",
+      "hazel_x","zhiyuan","orbit_k","meimei","dusk_fan",
+      "binbin","starfall","yuchen3","misty_l","foxrun",
+      "caiyun","neon_j","huxiao","leafy_w","zephyr9",
+      "xiaoxue","blaze_r","pengfei","cotton_y","storm88",
+      "ruoxi","glitch_z","tianhao","maple_q","drift_c",
+      "linlin","wave_xu","chengyu","panda_f","jade_w",
+      "bowen","pixel_s","ruolin","echo99","sunny_t",
+      "yanyan","ghost_li","mingze","velvet_r","crane_w",
+      "junjun","amber_x","zhenyu","flash_q","brook_f",
+      "xixi","cobalt_z","haoran","mint_y","blaze_j",
+      "feiyu","dusk_w","jiahao","river_x","pearl_q",
+      "momo_z","spark_f","yuxuan","stone_r","bloom_c",
+      "leilei","prism_w","zhengyu","dew_x","lunar_j",
     ];
 
-    // 生成10个假用户，每个用户名和分数由seed决定
-    const fakeUsers = Array.from({ length: 10 }, (_, i) => {
-      const poolIdx = Math.floor(seededRand(seed, i * 3) * namePools.length);
-      const nameIdx = Math.floor(seededRand(seed, i * 3 + 1) * namePools[poolIdx].length);
-      const name = namePools[poolIdx][nameIdx];
-      // 分数分布在 60~290 之间，梯度分散
-      const baseScore = 60 + Math.floor(seededRand(seed, i * 3 + 2) * 230);
+    // 用种子打乱名字库顺序，保证每个用户看到的顺序不同
+    const shuffled = [...namePool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(seededRand(seed, i) * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // 取前10个，保证不重复
+    const fakeUsers = shuffled.slice(0, 10).map((name, i) => {
+      const baseScore = 55 + Math.floor(seededRand(seed, i + 100) * 240);
       return { name, totalScore: baseScore, isMe: false };
     });
 
-    // 当前用户真实总分（所有游戏最高分之和）
     const myTotal = GAME_META.reduce((sum, m) => sum + Number(scores?.[m.id]?.best || 0), 0);
-    const myName = me?.email ? me.email.split("@")[0].slice(0, 8) : null;
+    const myName = me?.email ? me.email.split("@")[0].slice(0, 10) : null;
 
     const allEntries = [...fakeUsers];
-    if (myName) {
-      allEntries.push({ name: myName, totalScore: myTotal, isMe: true });
-    }
+    if (myName) allEntries.push({ name: myName, totalScore: myTotal, isMe: true });
 
-    // 按总分降序，取前10
     allEntries.sort((a, b) => b.totalScore - a.totalScore);
     return allEntries.slice(0, 10);
   }, [me, scores]);
@@ -3191,11 +3203,16 @@ export default function PracticeClient({ accessToken }) {
         .practice-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 0 auto; padding: 0 6px; }
         .practice-games-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 980px; margin: 14px auto 0; padding: 0 6px 18px; }
         .practice-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+        .practice-score-row { display: flex; gap: 12px; align-items: flex-start; }
+        .practice-lb-desktop { display: block; }
+        .practice-lb-mobile { display: none; }
         .practice-topbar-email { opacity: 0.7; font-weight: 900; }
         @media (max-width: 600px) {
-          .practice-stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 0 4px; }
           .practice-games-grid { grid-template-columns: 1fr; gap: 10px; padding: 0 4px 18px; }
           .practice-score-grid { grid-template-columns: 1fr; gap: 4px; }
+          .practice-score-row { flex-direction: column; }
+          .practice-lb-desktop { display: none; }
+          .practice-lb-mobile { display: flex; }
           .practice-topbar-email { display: none; }
         }
       `}</style>
@@ -3223,50 +3240,78 @@ export default function PracticeClient({ accessToken }) {
         <div className="practice-topbar-email">{me?.email ? me.email : "未登录"}</div>
       </div>
 
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px" }}>
-        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
-            <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
-            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
-          </div>
-          <div className="practice-score-grid">
-            {GAME_META.map((m, idx) => {
-              const isLastRow = idx >= GAME_META.length - 2;
-              return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
+      {/* 排行榜弹窗 */}
+      {showLeaderboard && (
+        <div onClick={() => setShowLeaderboard(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(11,18,32,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: THEME.colors.surface, borderRadius: THEME.radii.lg, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 24px 60px rgba(11,18,32,0.18)", padding: "14px 16px", width: "100%", maxWidth: 360 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 1000 }}>🥇 总分排行榜</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>全站 Top 10</div>
+                <button onClick={() => setShowLeaderboard(false)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}>关闭</button>
+              </div>
+            </div>
+            {leaderboard.map((entry, idx) => {
+              const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+              const isMe = entry.isMe;
+              return (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: 8, marginBottom: 3, background: isMe ? "rgba(99,102,241,0.08)" : "transparent", border: isMe ? `1px solid rgba(99,102,241,0.18)` : "1px solid transparent" }}>
+                  <div style={{ width: 22, textAlign: "center", fontSize: medal ? 15 : 12, fontWeight: 1000, color: THEME.colors.faint, flexShrink: 0 }}>{medal || `${idx + 1}`}</div>
+                  <div style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}{isMe ? " (我)" : ""}</div>
+                  <div style={{ fontSize: 13, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.ink, flexShrink: 0 }}>{entry.totalScore} 分</div>
+                </div>
+              );
             })}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 排行榜 */}
-      <div style={{ maxWidth: 980, margin: "14px auto 0", padding: "0 6px" }}>
-        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
-            <div style={{ fontSize: 14, fontWeight: 1000 }}>🥇 总分排行榜</div>
-            <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>全站 Top 10</div>
+      {/* 最高分 + 排行榜入口 */}
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px" }}>
+        <div className="practice-score-row">
+          {/* 我的最高分 */}
+          <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 1000 }}>🏆 我的最高分</div>
+              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>游玩即自动记录</div>
+            </div>
+            <div className="practice-score-grid">
+              {GAME_META.map((m, idx) => {
+                const isLastRow = idx >= GAME_META.length - 2;
+                return <ScoreLine key={m.id} meta={m} isLastRow={isLastRow} />;
+              })}
+            </div>
           </div>
-          {leaderboard.map((entry, idx) => {
-            const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
-            const isMe = entry.isMe;
-            return (
-              <div key={idx} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 10px", borderRadius: 10, marginBottom: 4,
-                background: isMe ? "rgba(99,102,241,0.08)" : "transparent",
-                border: isMe ? `1px solid rgba(99,102,241,0.18)` : "1px solid transparent",
-              }}>
-                <div style={{ width: 22, textAlign: "center", fontSize: medal ? 16 : 13, fontWeight: 1000, color: THEME.colors.faint, flexShrink: 0 }}>
-                  {medal || `${idx + 1}`}
+
+          {/* 桌面端：直接显示排行榜；手机端：按钮 */}
+          <div className="practice-lb-desktop" style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "10px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${THEME.colors.border}` }}>
+              <div style={{ fontSize: 14, fontWeight: 1000 }}>🥇 总分排行榜</div>
+              <div style={{ fontSize: 11, opacity: 0.55, fontWeight: 900 }}>全站 Top 10</div>
+            </div>
+            {leaderboard.map((entry, idx) => {
+              const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : null;
+              const isMe = entry.isMe;
+              return (
+                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 8, marginBottom: 2, background: isMe ? "rgba(99,102,241,0.08)" : "transparent", border: isMe ? `1px solid rgba(99,102,241,0.18)` : "1px solid transparent" }}>
+                  <div style={{ width: 20, textAlign: "center", fontSize: medal ? 14 : 12, fontWeight: 1000, color: THEME.colors.faint, flexShrink: 0 }}>{medal || `${idx + 1}`}</div>
+                  <div style={{ flex: 1, fontSize: 12, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.name}{isMe ? " (我)" : ""}</div>
+                  <div style={{ fontSize: 12, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.ink, flexShrink: 0 }}>{entry.totalScore}分</div>
                 </div>
-                <div style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 1000 : 900, color: isMe ? THEME.colors.accent : THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {entry.name}{isMe ? " (我)" : ""}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 1000, color: isMe ? THEME.colors.accent : THEME.colors.ink, flexShrink: 0 }}>
-                  {entry.totalScore} 分
-                </div>
+              );
+            })}
+          </div>
+
+          {/* 手机端：排行榜按钮 */}
+          <button className="practice-lb-mobile" onClick={() => setShowLeaderboard(true)} style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: "12px 14px", boxShadow: "0 4px 12px rgba(15,23,42,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 1000, color: THEME.colors.ink }}>🥇 总分排行榜</div>
+              <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4, fontWeight: 900 }}>
+                {leaderboard.findIndex(e => e.isMe) >= 0 ? `你当前排第 ${leaderboard.findIndex(e => e.isMe) + 1} 名` : "点击查看排名"}
               </div>
-            );
-          })}
+            </div>
+            <div style={{ fontSize: 18, opacity: 0.4 }}>›</div>
+          </button>
         </div>
       </div>
 
