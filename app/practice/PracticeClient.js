@@ -2445,7 +2445,9 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
                 userSelect: "none",
               }}
               onClick={() => clickBalloon(b)}
-              onAnimationEnd={() => { if (!isExploding) onMissBalloon(); }}
+              onAnimationEnd={(e) => {
+                if (e.animationName === "floatUp" && !isExploding) onMissBalloon();
+              }}
             >
               {/* 气球主体 */}
               <div style={{
