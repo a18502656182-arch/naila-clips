@@ -61,71 +61,28 @@ function unlockAudio() {
       const u = new SpeechSynthesisUtterance(" ");
       u.volume = 0;
       window.speechSynthesis.speak(u);
+      window.speechSynthesis.cancel();
     }
     audioUnlocked = true;
-  } catch (e) {
-    console.warn("[audio] unlockAudio failed:", e);
-  }
-}
-
-// 获取最佳英语语音（缓存，避免每次重新扫描）
-let _enVoice = null;
-function getEnVoice() {
-  if (_enVoice) return _enVoice;
-  const voices = window.speechSynthesis?.getVoices() || [];
-  _enVoice =
-    voices.find(v => v.lang === "en-US" && !v.localService) ||
-    voices.find(v => v.lang === "en-US") ||
-    voices.find(v => v.lang.startsWith("en-GB")) ||
-    voices.find(v => v.lang.startsWith("en")) ||
-    null;
-  return _enVoice;
-}
-
-// 语音加载后刷新缓存（仅客户端）
-if (typeof window !== "undefined" && "speechSynthesis" in window) {
-  try { window.speechSynthesis.onvoiceschanged = () => { _enVoice = null; }; } catch {}
+  } catch {}
 }
 
 function playWord(term) {
   const t = (term || "").trim();
   if (!t) return;
-
-  if (!("speechSynthesis" in window)) {
-    console.warn("[audio] speechSynthesis not supported");
-    return;
-  }
-
-  // Android Chrome 已知bug：speechSynthesis 卡住时需要先 cancel 再 resume
-  try { window.speechSynthesis.cancel(); } catch {}
-
-  const u = new SpeechSynthesisUtterance(t);
-  u.lang = "en-US";
-  u.rate = 0.88;
-  u.pitch = 1;
-  u.volume = 1;
-
-  const voice = getEnVoice();
-  if (voice) u.voice = voice;
-
-  u.onstart = () => console.log("[audio] playing:", t, "| voice:", voice?.name || "default");
-  u.onerror = (e) => console.warn("[audio] speech error:", e.error, "| term:", t);
-  u.onend = () => console.log("[audio] done:", t);
-
-  try {
-    window.speechSynthesis.speak(u);
-
-    // Android Chrome bug：speak后如果 speaking===false，说明被静默丢弃，需要resume
-    setTimeout(() => {
-      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-        console.warn("[audio] speech silently dropped, retrying...");
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(u);
-      }
-    }, 200);
-  } catch (e) {
-    console.warn("[audio] speak() threw:", e);
-  }
+  // 有道词典，no-cors模式，不设crossOrigin
+  const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(t)}&type=2`);
+  audio.play().catch(() => {
+    // 失败则用Speech API兜底
+    try {
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(t);
+      u.lang = "en-US";
+      u.rate = 0.88;
+      window.speechSynthesis.speak(u);
+    } catch {}
+  });
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2147,7 +2104,11 @@ function RebuildGame({ vocabItems, onExit, onGameEnd }) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function BalloonGame({ vocabItems, onExit, onGameEnd }) {
-  const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  // 只用单词，过滤掉短语和地道表达（有道词典对短语返回500）
+  const items = useMemo(() => shuffle((vocabItems || []).filter(x => {
+    const k = x?.kind;
+    return !k || k === "words";
+  })), [vocabItems]);
   const [started, setStarted] = useState(false);
   const [hearts, setHearts] = useState(3);
   const [score, setScore] = useState(0);
