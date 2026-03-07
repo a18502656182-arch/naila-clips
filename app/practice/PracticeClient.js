@@ -52,28 +52,54 @@ function normalizeSentence(s) {
 }
 
 // Bubble / Balloon / Speed / Rebuild(🔊按钮) 复用
+// 解锁浏览器自动播放限制（必须在用户手势内调用一次）
+let audioUnlocked = false;
+async function unlockAudio() {
+  if (audioUnlocked) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await ctx.resume();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    audioUnlocked = true;
+  } catch {}
+}
+
 async function playWord(term) {
   const t = (term || "").trim();
   if (!t) return;
 
-  try {
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(
-      t
-    )}&type=2`;
-    const audio = new Audio(url);
+  // 优先用有道发音
+  const tryYoudao = () => new Promise((resolve) => {
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(t)}&type=2`;
+    const audio = new Audio();
     audio.crossOrigin = "anonymous";
-    await audio.play();
-    return;
-  } catch {}
+    const cleanup = () => { audio.onended = null; audio.onerror = null; };
+    audio.onended = () => { cleanup(); resolve(true); };
+    audio.onerror = () => { cleanup(); resolve(false); };
+    audio.src = url;
+    audio.play().catch(() => { cleanup(); resolve(false); });
+  });
 
-  try {
-    if ("speechSynthesis" in window) {
+  // 备用：Web Speech API
+  const trySpeech = () => new Promise((resolve) => {
+    if (!("speechSynthesis" in window)) return resolve(false);
+    try {
+      window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(t);
       u.lang = "en-US";
-      window.speechSynthesis.cancel();
+      u.rate = 0.9;
+      u.onend = () => resolve(true);
+      u.onerror = () => resolve(false);
       window.speechSynthesis.speak(u);
-    }
-  } catch {}
+    } catch { resolve(false); }
+  });
+
+  const ok = await tryYoudao();
+  if (!ok) await trySpeech();
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -289,7 +315,14 @@ function ProgressBar({ current, total, onExit }) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
-  const cards = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  const cards = useMemo(() => {
+    const filtered = (vocabItems || []).filter((x) => {
+      const k = x?.kind;
+      if (k && k !== "words" && k !== "phrases") return false;
+      return true;
+    });
+    return shuffle(filtered);
+  }, [vocabItems]);
 
   const [idx, setIdx] = useState(0);
   const [slots, setSlots] = useState([]);
@@ -312,7 +345,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   useEffect(() => {
     if (!card || done) return;
     initQuestion(card);
-    playWord(card.term);
+    // 不在useEffect里自动播放，手机浏览器会拦截非用户手势的音频
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, card?.id, done]);
 
@@ -408,6 +441,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   function handlePlayAudio() {
+    unlockAudio();
     setPlayingAudio(true);
     playWord(card?.term);
     setTimeout(() => setPlayingAudio(false), 1500);
@@ -2157,6 +2191,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   function clickBalloon(b) {
+    unlockAudio();
     if (gameOver) return;
 
     if (b.correct) {
@@ -2514,6 +2549,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd }) {
   }
 
   function answer(side) {
+    unlockAudio();
     if (gameOver) return;
 
     const ok = side === correctSide;
@@ -3003,10 +3039,12 @@ export default function PracticeClient({ accessToken }) {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    // 取前10个，保证不重复
+    // 取前10个，保证不重复；分数强制梯度分散，每档间距至少15分
+    const scoreSlots = [255, 238, 220, 198, 175, 155, 132, 110, 88, 65];
     const fakeUsers = shuffled.slice(0, 10).map((name, i) => {
-      const baseScore = 55 + Math.floor(seededRand(seed, i + 100) * 240);
-      return { name, totalScore: baseScore, isMe: false };
+      // 在每档基础分上加小幅随机抖动（±6），避免整齐感但不破坏梯度
+      const jitter = Math.floor(seededRand(seed, i + 200) * 12) - 6;
+      return { name, totalScore: scoreSlots[i] + jitter, isMe: false };
     });
 
     const myTotal = GAME_META.reduce((sum, m) => sum + Number(scores?.[m.id]?.best || 0), 0);
