@@ -14,6 +14,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="zh-CN">
+      <head>
+        <style>{`
+          *, *::before, *::after { -webkit-tap-highlight-color: transparent; }
+          :focus-visible { outline: 2px solid rgba(99,102,241,0.5); outline-offset: 2px; }
+          :focus:not(:focus-visible) { outline: none; }
+        `}</style>
+      </head>
       <body style={{ margin: 0 }}>
         {children}
         <PenguinWrapper />
