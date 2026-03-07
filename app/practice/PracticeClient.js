@@ -192,7 +192,7 @@ function NotEnoughView({ onBack, onSwitchBuiltin }) {
         <div style={{ fontSize: 36, marginBottom: 12 }}>📚</div>
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 8 }}>收藏词太少了</div>
         <div style={{ opacity: 0.7, fontWeight: 900, fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
-          至少需要收藏 6 个词汇才能开始游戏。<br />
+          至少需要收藏 10 个词汇才能开始游戏。<br />
           去视频页收藏更多词，或者先用内置词库练习。
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -212,47 +212,123 @@ function NotEnoughView({ onBack, onSwitchBuiltin }) {
 
 /* ----------------------------- GameStartScreen（通用开始页，含题数选择）----------------------------- */
 
-const DIFFICULTY_OPTIONS = [
-  { label: "初级", count: 5,  desc: "5题" },
-  { label: "中级", count: 10, desc: "10题" },
-  { label: "高级", count: 20, desc: "20题" },
+/* ─── 通用倒计时 hook ─── */
+function useCountdown(seconds, onDone) {
+  const [timeLeft, setTimeLeft] = useState(seconds);
+  const doneRef = useRef(false);
+  useEffect(() => {
+    doneRef.current = false;
+    setTimeLeft(seconds);
+    const id = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(id);
+          if (!doneRef.current) { doneRef.current = true; onDone(); }
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seconds]);
+  return timeLeft;
+}
+
+/* ─── 限时进度条 ─── */
+function TimerBar({ timeLeft, totalSeconds }) {
+  const pct = totalSeconds > 0 ? (timeLeft / totalSeconds) * 100 : 0;
+  const color = pct > 40 ? "#22c55e" : pct > 20 ? "#f59e0b" : "#ef4444";
+  const m = Math.floor(timeLeft / 60);
+  const s = timeLeft % 60;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 9999, transition: "width 1s linear, background 0.3s" }} />
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 1000, color, minWidth: 36, textAlign: "right" }}>
+        {m}:{String(s).padStart(2, "0")}
+      </div>
+    </div>
+  );
+}
+
+/* ─── 限时游戏开始页（单词探探 / 极速二选一 / 盲听气球）─── */
+const TIMED_OPTIONS = [
+  { label: "1 分钟", seconds: 60,  desc: "轻松" },
+  { label: "2 分钟", seconds: 120, desc: "标准" },
+  { label: "3 分钟", seconds: 180, desc: "挑战" },
 ];
 
-function GameStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
-  const [diff, setDiff] = useState(1); // 默认中级
-
+function TimedStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
+  const [sel, setSel] = useState(1);
   return (
     <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 20 }}>
       <div style={{ fontSize: 48 }}>{emoji}</div>
       <div style={{ fontSize: 20, fontWeight: 1000 }}>{name}</div>
       <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>{desc}</div>
-
-      {/* 词库来源标签 */}
       <div style={{ fontSize: 12, fontWeight: 900, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "4px 12px", color: THEME.colors.faint }}>
         词库：{sourceLabel}
       </div>
-
-      {/* 题数选择 */}
       <div style={{ width: "100%", maxWidth: 280 }}>
-        <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, opacity: 0.7 }}>选择难度</div>
+        <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, opacity: 0.7 }}>选择时长</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {DIFFICULTY_OPTIONS.map((d, i) => (
-            <button key={i} onClick={() => setDiff(i)}
-              style={{
-                padding: "10px 0", borderRadius: THEME.radii.md,
-                border: diff === i ? `2px solid ${THEME.colors.accent}` : `1px solid ${THEME.colors.border}`,
-                background: diff === i ? `${THEME.colors.accent}18` : THEME.colors.surface,
-                cursor: "pointer", fontWeight: 1000, fontSize: 13,
-                color: diff === i ? THEME.colors.accent : THEME.colors.ink,
-              }}>
+          {TIMED_OPTIONS.map((d, i) => (
+            <button key={i} onClick={() => setSel(i)} style={{
+              padding: "10px 0", borderRadius: THEME.radii.md, cursor: "pointer", fontWeight: 1000, fontSize: 13,
+              border: sel === i ? `2px solid ${THEME.colors.accent}` : `1px solid ${THEME.colors.border}`,
+              background: sel === i ? `${THEME.colors.accent}18` : THEME.colors.surface,
+              color: sel === i ? THEME.colors.accent : THEME.colors.ink,
+            }}>
               <div>{d.label}</div>
               <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 900 }}>{d.desc}</div>
             </button>
           ))}
         </div>
       </div>
+      <button onClick={async () => { await unlockAudio(); onStart(TIMED_OPTIONS[sel].seconds); }}
+        style={{ marginTop: 4, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}>
+        开始游戏 →
+      </button>
+      <button onClick={onExit} style={{ padding: "8px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>返回大厅</button>
+    </div>
+  );
+}
 
-      <button onClick={async () => { await unlockAudio(); onStart(DIFFICULTY_OPTIONS[diff].count); }}
+/* ─── 按题数游戏开始页（气泡拼写 / 台词磁力贴）─── */
+const COUNT_OPTIONS = [
+  { label: "5 题",  count: 5,  desc: "速战" },
+  { label: "10 题", count: 10, desc: "标准" },
+  { label: "20 题", count: 20, desc: "精练" },
+];
+
+function CountStartScreen({ emoji, name, desc, sourceLabel, onStart, onExit }) {
+  const [sel, setSel] = useState(1);
+  return (
+    <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, padding: 20 }}>
+      <div style={{ fontSize: 48 }}>{emoji}</div>
+      <div style={{ fontSize: 20, fontWeight: 1000 }}>{name}</div>
+      <div style={{ fontSize: 14, color: THEME.colors.faint, fontWeight: 900, textAlign: "center", maxWidth: 280 }}>{desc}</div>
+      <div style={{ fontSize: 12, fontWeight: 900, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "4px 12px", color: THEME.colors.faint }}>
+        词库：{sourceLabel}
+      </div>
+      <div style={{ width: "100%", maxWidth: 280 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, marginBottom: 8, opacity: 0.7 }}>选择题数</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
+          {COUNT_OPTIONS.map((d, i) => (
+            <button key={i} onClick={() => setSel(i)} style={{
+              padding: "10px 0", borderRadius: THEME.radii.md, cursor: "pointer", fontWeight: 1000, fontSize: 13,
+              border: sel === i ? `2px solid ${THEME.colors.accent}` : `1px solid ${THEME.colors.border}`,
+              background: sel === i ? `${THEME.colors.accent}18` : THEME.colors.surface,
+              color: sel === i ? THEME.colors.accent : THEME.colors.ink,
+            }}>
+              <div>{d.label}</div>
+              <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 900 }}>{d.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+      <button onClick={async () => { await unlockAudio(); onStart(COUNT_OPTIONS[sel].count); }}
         style={{ marginTop: 4, padding: "14px 40px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontSize: 16, fontWeight: 1000, cursor: "pointer" }}>
         开始游戏 →
       </button>
@@ -394,14 +470,15 @@ function ProgressBar({ current, total, onExit }) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
+  const [questionCount, setQuestionCount] = useState(maxQuestions);
   const cards = useMemo(() => {
     const filtered = (vocabItems || []).filter((x) => {
       const k = x?.kind;
       if (k && k !== "words" && k !== "phrases") return false;
       return true;
     });
-    return shuffle(filtered).slice(0, maxQuestions);
-  }, [vocabItems, maxQuestions]);
+    return shuffle(filtered).slice(0, questionCount);
+  }, [vocabItems, questionCount]);
 
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
@@ -679,11 +756,11 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
 
   if (!started) {
     return (
-      <GameStartScreen
+      <CountStartScreen
         emoji="🫧" name="气泡拼写"
         desc="听到单词发音，点击字母气泡按顺序拼出来"
         sourceLabel={sourceLabel}
-        onStart={() => setStarted(true)}
+        onStart={(count) => { setQuestionCount(count); setStarted(true); }}
         onExit={onExit}
       />
     );
@@ -1335,8 +1412,10 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
 【二-3】SwipeGame：积分上报 + 破纪录提示
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
-  const items = useMemo(() => shuffle(vocabItems || []).slice(0, maxQuestions), [vocabItems, maxQuestions]);
+function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏" }) {
+  const pool = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+  const [timerSeconds, setTimerSeconds] = useState(0); // 0=未开始
+  const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [done, setDone] = useState(false);
@@ -1351,11 +1430,16 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
   const startRef = useRef({ x: 0, y: 0 });
   const pointerIdRef = useRef(null);
 
+  // 无限循环：idx超出时从头再来
+  const items = pool;
   const total = items.length;
-  const current = items[idx] || null;
+  const current = items[total > 0 ? idx % total : 0] || null;
 
   const [cardMeaning, setCardMeaning] = useState("");
   const [isMeaningCorrect, setIsMeaningCorrect] = useState(true);
+
+  // 全局倒计时
+  const timeLeft = useCountdown(started ? timerSeconds : 0, () => setDone(true));
 
   useEffect(() => {
     if (done) return;
@@ -1439,7 +1523,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
       setDx(0);
       setDy(0);
 
-      if (idx + 1 >= total) setDone(true);
+      if (idx + 1 >= total * 3) setIdx(0); // 防止idx无限增长，每3轮重置
       else setIdx((i) => i + 1);
     }, 320);
   }
@@ -1518,6 +1602,18 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
   const btnRow = { maxWidth: 560, margin: "14px auto 0", display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" };
 
   const bigBtnBase = { height: 52, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontSize: 16, fontWeight: 900, cursor: "pointer" };
+
+  if (!started) {
+    return (
+      <TimedStartScreen
+        emoji="🃏" name="单词探探"
+        desc="看到单词和释义，向右划表示匹配，向左划表示不匹配"
+        sourceLabel={sourceLabel}
+        onStart={(secs) => { setTimerSeconds(secs); setStarted(true); }}
+        onExit={onExit}
+      />
+    );
+  }
 
   if (done) {
     const score = correct * 10;
@@ -1602,6 +1698,8 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
                 setRecords([]);
                 setDx(0);
                 setDy(0);
+                setIdx(0);
+                setStarted(false);
               }}
               style={{
                 ...bigBtnBase,
@@ -1638,9 +1736,10 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
           ← 返回大厅
         </button>
         <div style={{ fontWeight: 1000 }}>🃏 单词探探</div>
-        <div style={{ opacity: 0.75, fontWeight: 900 }}>
-          {Math.min(idx + 1, total)} / {total}
-        </div>
+        <div style={{ opacity: 0.75, fontWeight: 900 }}>答对 {correct}</div>
+      </div>
+      <div style={{ maxWidth: 560, margin: "0 auto 10px", padding: "0 14px" }}>
+        <TimerBar timeLeft={timeLeft} totalSeconds={timerSeconds} />
       </div>
 
       <div style={cardWrap}>
@@ -1726,6 +1825,9 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
 function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
+  const [questionCount, setQuestionCount] = useState(maxQuestions);
+  const [started, setStarted] = useState(false);
+
   const pool = useMemo(() => {
     const eligible = (vocabItems || [])
       .filter((x) => {
@@ -1741,8 +1843,8 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
         ...x,
         __exampleWords: (x?.data?.example_en || "").trim().split(/\s+/).filter(Boolean),
       }));
-    return shuffle(eligible);
-  }, [vocabItems]);
+    return shuffle(eligible).slice(0, questionCount);
+  }, [vocabItems, questionCount]);
 
   const [i, setI] = useState(0);
   const [score, setScore] = useState(0);
@@ -1947,6 +2049,18 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
     );
   }
 
+  if (!started) {
+    return (
+      <CountStartScreen
+        emoji="🧩" name="台词磁力贴"
+        desc="把打乱的单词重新排列成正确句子"
+        sourceLabel={sourceLabel}
+        onStart={(count) => { setQuestionCount(count); setStarted(true); }}
+        onExit={onExit}
+      />
+    );
+  }
+
   if (i >= total) {
     const pts = score * 10;
     return (
@@ -2011,6 +2125,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
                   setScore(0);
                   setWrongCount(0);
                   setRecords([]);
+                  setStarted(false);
                 }}
                 style={{
                   height: 44,
@@ -2189,13 +2304,18 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
 【二-5】BalloonGame：积分上报 + 破纪录提示
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
-  const items = useMemo(() => shuffle((vocabItems || []).filter(x => {
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二-5】BalloonGame：限时模式
+━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏" }) {
+  const pool = useMemo(() => shuffle((vocabItems || []).filter(x => {
     const k = x?.kind;
     return !k || k === "words";
-  })).slice(0, maxQuestions), [vocabItems, maxQuestions]);
+  })), [vocabItems]);
+
+  const [timerSeconds, setTimerSeconds] = useState(0);
   const [started, setStarted] = useState(false);
-  const [hearts, setHearts] = useState(3);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
@@ -2205,7 +2325,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
   const [currentWord, setCurrentWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
   const [answered, setAnswered] = useState(false);
-  const timerRef = useRef(null);
+  const roundTimerRef = useRef(null);
   const roundIdRef = useRef(0);
 
   const balloonColors = [
@@ -2217,18 +2337,24 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
     { bg: "#fd79a8", shadow: "rgba(253,121,168,0.4)" },
   ];
 
-  function startRound() {
-    if (!items || items.length < 2) return;
-    const rid = (roundIdRef.current += 1);
+  // 全局倒计时
+  const timeLeft = useCountdown(started ? timerSeconds : 0, () => {
+    setGameOver(true);
+    if (!endCalledRef.current) {
+      endCalledRef.current = true;
+      try { onGameEnd?.(score); } catch {}
+    }
+  });
 
-    const word = pickOne(items);
+  function startRound() {
+    if (!pool || pool.length < 2) return;
+    const rid = (roundIdRef.current += 1);
+    const word = pickOne(pool);
     const correctMeaning = word?.data?.zh || "";
     const otherMeanings = shuffle(
-      items.filter(x => x?.id !== word?.id).map(x => x?.data?.zh || "").filter(Boolean)
+      pool.filter(x => x?.id !== word?.id).map(x => x?.data?.zh || "").filter(Boolean)
     ).slice(0, 5);
     const texts = shuffle([correctMeaning, ...otherMeanings]).slice(0, 6);
-
-    // 横向6个区域均匀分布，避免重叠
     const positions = shuffle([0,1,2,3,4,5]);
     const newBalloons = texts.map((txt, i) => ({
       id: `${rid}-${i}`,
@@ -2240,31 +2366,16 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
       color: balloonColors[i % balloonColors.length],
       popped: false,
     }));
-
     setCurrentWord(word);
     setBalloons(newBalloons);
     setAnswered(false);
-
     playWord(word?.term);
-
     const maxTime = (7 + 3 + 5 * 0.4 + 1) * 1000;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (roundIdRef.current !== rid || gameOver) return;
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
+    roundTimerRef.current = setTimeout(() => {
+      if (roundIdRef.current !== rid) return;
       setAnswered(true);
       setCombo(0);
-      setHearts(h => {
-        const next = h - 1;
-        if (next <= 0) {
-          setGameOver(true);
-          if (!endCalledRef.current) {
-            endCalledRef.current = true;
-            try { onGameEnd?.(score); } catch {}
-          }
-          return 0;
-        }
-        return next;
-      });
       setTimeout(() => { if (roundIdRef.current !== rid) return; startRound(); }, 600);
     }, maxTime);
   }
@@ -2273,54 +2384,37 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
     unlockAudio();
     if (gameOver || answered || b.popped) return;
     setAnswered(true);
-    if (timerRef.current) clearTimeout(timerRef.current);
-
+    if (roundTimerRef.current) clearTimeout(roundTimerRef.current);
     setBalloons(prev => prev.map(x => x.id === b.id ? { ...x, popped: true } : x));
     const rid = roundIdRef.current;
-
     if (b.correct) {
       setScore(s => s + 10);
       setCombo(c => { const n = c + 1; setMaxCombo(m => Math.max(m, n)); return n; });
       try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
-      setTimeout(() => { if (roundIdRef.current !== rid) return; startRound(); }, 500);
     } else {
       setCombo(0);
-      setHearts(h => {
-        const next = h - 1;
-        if (next <= 0) {
-          setGameOver(true);
-          if (!endCalledRef.current) {
-            endCalledRef.current = true;
-            try { onGameEnd?.(score); } catch {}
-          }
-          return 0;
-        }
-        return next;
-      });
-      setTimeout(() => { if (roundIdRef.current !== rid) return; startRound(); }, 600);
     }
+    setTimeout(() => { if (roundIdRef.current !== rid) return; startRound(); }, 500);
   }
 
   useEffect(() => {
     if (!started) return;
     startRound();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    return () => { if (roundTimerRef.current) clearTimeout(roundTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started]);
 
   if (!started) {
     return (
-      <GameStartScreen
+      <TimedStartScreen
         emoji="🎧" name="盲听气球"
         desc="听到单词发音，戳破含有正确中文释义的气球"
         sourceLabel={sourceLabel}
-        onStart={() => setStarted(true)}
+        onStart={(secs) => { setTimerSeconds(secs); setStarted(true); }}
         onExit={onExit}
       />
     );
   }
-
-  const heartsText = Array.from({ length: 3 }).map((_, i) => i < hearts ? "❤️" : "🤍").join("");
 
   if (gameOver) {
     return (
@@ -2332,11 +2426,11 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
         </div>
         <div style={{ maxWidth: 500, margin: "40px auto", background: THEME.colors.surface, borderRadius: THEME.radii.lg, border: `1px solid ${THEME.colors.border}`, padding: 28, textAlign: "center" }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🎈</div>
-          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>游戏结束</div>
+          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>时间到！</div>
           <div style={{ fontSize: 32, fontWeight: 1000, color: THEME.colors.accent, marginBottom: 6 }}>{score} 分</div>
           <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <button onClick={() => { setHearts(3); setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; setStarted(false); }}
+            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; setStarted(false); }}
               style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: "#f59e0b", color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
             <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
@@ -2347,20 +2441,22 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
 
   return (
     <div style={{ minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 10px", maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 6px", maxWidth: 980, margin: "0 auto" }}>
         <button onClick={onExit} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", cursor: "pointer", fontWeight: 900 }}>← 返回大厅</button>
         <div style={{ fontWeight: 1000 }}>🎧 盲听气球</div>
         <button onClick={() => playWord(currentWord?.term)}
           style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", cursor: "pointer", fontWeight: 1000 }}>再听 🔁</button>
       </div>
-      <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, padding: "0 6px", alignItems: "center" }}>
-        <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "8px 12px", fontWeight: 1000, textAlign: "center" }}>{heartsText}</div>
+      <div style={{ maxWidth: 980, margin: "0 auto 6px", padding: "0 6px" }}>
+        <TimerBar timeLeft={timeLeft} totalSeconds={timerSeconds} />
+      </div>
+      <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 6px", alignItems: "center" }}>
         <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "8px 12px", fontWeight: 1000, textAlign: "center" }}>分数：{score}</div>
         <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "8px 12px", fontWeight: 1000, textAlign: "center" }}>
           {combo >= 3 ? <>🔥x{combo}</> : <>连击：{combo}</>}
         </div>
       </div>
-      <div style={{ maxWidth: 980, margin: "8px auto 0", padding: "0 6px", opacity: 0.6, fontWeight: 900, fontSize: 13 }}>听发音，戳破正确释义的气球</div>
+      <div style={{ maxWidth: 980, margin: "6px auto 0", padding: "0 6px", opacity: 0.6, fontWeight: 900, fontSize: 13 }}>听发音，戳破正确释义的气球</div>
       <style>{`
         @keyframes floatUp {
           from { transform: translateY(0); opacity: 1; }
@@ -2372,7 +2468,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
           100% { transform: scale(0); opacity: 0; }
         }
       `}</style>
-      <div style={{ position: "relative", width: "100%", height: "75vh", marginTop: 8, overflow: "hidden" }}>
+      <div style={{ position: "relative", width: "100%", height: "72vh", marginTop: 6, overflow: "hidden" }}>
         {balloons.map((b) => (
           <div key={b.id} onClick={() => clickBalloon(b)} style={{
             position: "absolute", bottom: "-130px", left: `${b.left}%`, width: 60,
@@ -2404,13 +2500,15 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
   );
 }
 
-
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━
-【二-6】SpeedGame：积分上报 + 破纪录提示
+【二-6】SpeedGame：限时模式，答错不结束，时间到才结算
 ━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
-  const items = useMemo(() => shuffle(vocabItems || []).slice(0, maxQuestions), [vocabItems, maxQuestions]);
+function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏" }) {
+  const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
+
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [started, setStarted] = useState(false);
 
   const [round, setRound] = useState(0);
   const [word, setWord] = useState(null);
@@ -2421,29 +2519,37 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
   const [combo, setCombo] = useState(0);
   const [maxCombo, setMaxCombo] = useState(0);
   const [score, setScore] = useState(0);
-  const [answered, setAnswered] = useState(0);
 
   const [gameOver, setGameOver] = useState(false);
   const [cracked, setCracked] = useState(false);
 
   const endCalledRef = useRef(false);
 
+  // 每题独立计时条（答题速度越快连击越多）
   const limitMs = useMemo(() => clamp(3000 - combo * 120, 1500, 3000), [combo]);
   const startTsRef = useRef(0);
   const rafRef = useRef(null);
   const [tRatio, setTRatio] = useState(1);
 
+  // 全局倒计时
+  const timeLeft = useCountdown(started ? timerSeconds : 0, () => {
+    stopTimer();
+    setGameOver(true);
+    if (!endCalledRef.current) {
+      endCalledRef.current = true;
+      setCombo(c => { setMaxCombo(m => Math.max(m, c)); return c; });
+      try { onGameEnd?.(score); } catch {}
+    }
+  });
+
   function pickQuestion() {
     if (!items || items.length < 2) return;
-
     const w = pickOne(items);
     const correctMeaning = w?.data?.zh || "";
     const others = items.filter((x) => x?.id !== w?.id);
     const wrong = pickOne(others);
     const wrongMeaning = wrong?.data?.zh || "";
-
     const correctIsLeft = Math.random() < 0.5;
-
     setWord(w);
     setCorrectSide(correctIsLeft ? "left" : "right");
     setLeftText(correctIsLeft ? correctMeaning : wrongMeaning);
@@ -2460,15 +2566,15 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
     stopTimer();
     startTsRef.current = performance.now();
     setTRatio(1);
-
     const tick = () => {
       const now = performance.now();
       const elapsed = now - startTsRef.current;
       const ratio = clamp(1 - elapsed / limitMs, 0, 1);
       setTRatio(ratio);
-
       if (ratio <= 0) {
-        endGame();
+        // 单题超时：扣连击，进下一题（不结束游戏）
+        setCombo(0);
+        setRound(r => r + 1);
         return;
       }
       rafRef.current = requestAnimationFrame(tick);
@@ -2476,47 +2582,21 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
     rafRef.current = requestAnimationFrame(tick);
   }
 
-  function endGame() {
-    stopTimer();
-    setCracked(true);
-    setGameOver(true);
-
-    if (!endCalledRef.current) {
-      endCalledRef.current = true;
-      try {
-        onGameEnd?.(score);
-      } catch {}
-    }
-
-    setCombo((c) => {
-      setMaxCombo((m) => Math.max(m, c));
-      return c;
-    });
-  }
-
   function answer(side) {
     if (gameOver) return;
-
     const ok = side === correctSide;
     stopTimer();
-
     if (ok) {
       const nextCombo = combo + 1;
       setCombo(nextCombo);
       setMaxCombo((m) => Math.max(m, nextCombo));
       setScore((s) => s + 10 * nextCombo);
-      setAnswered((n) => n + 1);
-
-      try {
-        if (navigator.vibrate) navigator.vibrate(30);
-      } catch {}
-
-      setRound((r) => r + 1);
+      try { if (navigator.vibrate) navigator.vibrate(30); } catch {}
     } else {
-      setAnswered((n) => n + 1);
+      setCracked(true);
       setCombo(0);
-      endGame();
     }
+    setTimeout(() => setRound(r => r + 1), ok ? 0 : 300);
   }
 
   useEffect(() => {
@@ -2535,244 +2615,90 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLab
 
   useEffect(() => () => stopTimer(), []);
 
+  if (!started) {
+    return (
+      <TimedStartScreen
+        emoji="⚡" name="极速二选一"
+        desc="快速选出单词对应的正确中文释义"
+        sourceLabel={sourceLabel}
+        onStart={(secs) => { setTimerSeconds(secs); setStarted(true); }}
+        onExit={onExit}
+      />
+    );
+  }
+
   const shellStyle = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, boxSizing: "border-box" };
-
-  const topHud = {
-    position: "sticky",
-    top: 0,
-    zIndex: 5,
-    padding: 12,
-    background: "rgba(246,247,251,0.88)",
-    backdropFilter: "blur(10px)",
-    borderBottom: `1px solid ${THEME.colors.border}`,
-  };
-
+  const topHud = { position: "sticky", top: 0, zIndex: 5, padding: 12, background: "rgba(246,247,251,0.88)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${THEME.colors.border}` };
   const hudRow = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 };
-
-  const pill = {
-    background: THEME.colors.surface,
-    border: `1px solid ${THEME.colors.border}`,
-    borderRadius: THEME.radii.pill,
-    padding: "8px 12px",
-    fontWeight: 1000,
-    boxShadow: "0 10px 22px rgba(15,23,42,0.06)",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-  };
-
-  const wordArea = { maxWidth: 980, margin: "14px auto 0", padding: "0 14px" };
-
-  const wordStyle = {
-    fontSize: "clamp(28px, 6vw, 52px)",
-    fontWeight: 1000,
-    textAlign: "center",
-    padding: "18px 12px",
-    background: THEME.colors.surface,
-    border: `1px solid ${THEME.colors.border}`,
-    borderRadius: THEME.radii.lg,
-    boxShadow: "0 12px 28px rgba(15,23,42,0.08)",
-    position: "relative",
-    overflow: "hidden",
-    textShadow: "0 1px 0 rgba(255,255,255,0.35)",
-  };
-
-  const flash = combo >= 5;
-  const halo = combo >= 10;
-
-  const barColor =
-    tRatio > 0.66 ? "rgba(34,197,94,0.95)" : tRatio > 0.33 ? "rgba(234,179,8,0.95)" : "rgba(239,68,68,0.95)";
-
-  const halves = {
-    maxWidth: 980,
-    margin: "14px auto 0",
-    padding: "0 14px 18px",
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 14,
-    minHeight: "45vh",
-  };
-
-  const halfBase = (bg) => ({
-    borderRadius: THEME.radii.lg,
-    border: `1px solid ${THEME.colors.border}`,
-    boxShadow: "0 16px 34px rgba(15,23,42,0.10)",
-    background: bg,
-    color: "#0b1220",
-    cursor: "pointer",
-    userSelect: "none",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    padding: 18,
-    fontSize: 20,
-    fontWeight: 1000,
-  });
+  const pill = { background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "8px 12px", fontWeight: 1000, boxShadow: "0 10px 22px rgba(15,23,42,0.06)", display: "inline-flex", alignItems: "center", gap: 6 };
 
   if (gameOver) {
     return (
       <div style={shellStyle}>
-        <div style={topHud}>
-          <div style={hudRow}>
-            <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>
-              ← 返回大厅
-            </button>
-            <div style={{ fontWeight: 1000 }}>⚡ 极速二选一</div>
-            <div style={{ opacity: 0.7, fontWeight: 900 }}>结算</div>
-          </div>
-        </div>
-
-        <div style={{ maxWidth: 720, margin: "18px auto 0", padding: "0 14px" }}>
-          <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 18, boxShadow: "0 12px 30px rgba(15,23,42,0.08)" }}>
-            <div style={{ fontSize: 22, fontWeight: 1000 }}>本局结束</div>
-            <div style={{ marginTop: 10, opacity: 0.85, fontWeight: 1000 }}>最终得分：<b>{score}</b></div>
-            <div style={{ marginTop: 6, opacity: 0.8, fontWeight: 1000 }}>
-              最高连击：<b>{maxCombo}</b>　·　答题数：<b>{answered}</b>
-            </div>
-
-            <ScoreResult score={score} gameId="speed" />
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-              <button
-                onClick={() => {
-                  endCalledRef.current = false;
-                  setRound(0);
-                  setCombo(0);
-                  setMaxCombo(0);
-                  setScore(0);
-                  setAnswered(0);
-                  setGameOver(false);
-                  setCracked(false);
-                }}
-                style={{
-                  height: 44,
-                  padding: "0 16px",
-                  borderRadius: THEME.radii.pill,
-                  border: `1px solid ${THEME.colors.border}`,
-                  background: THEME.colors.surface,
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
-                再来一局
-              </button>
-
-              <button
-                onClick={onExit}
-                style={{
-                  height: 44,
-                  padding: "0 16px",
-                  borderRadius: THEME.radii.pill,
-                  border: `1px solid ${THEME.colors.border}`,
-                  background: THEME.colors.surface,
-                  cursor: "pointer",
-                  fontWeight: 900,
-                }}
-              >
-                返回大厅
-              </button>
-            </div>
+        <div style={topHud}><div style={hudRow}>
+          <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>← 返回大厅</button>
+          <div style={{ fontWeight: 1000 }}>⚡ 极速二选一</div>
+          <div style={pill}>完成</div>
+        </div></div>
+        <div style={{ maxWidth: 500, margin: "40px auto", padding: "0 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>⚡</div>
+          <div style={{ fontSize: 22, fontWeight: 1000, marginBottom: 8 }}>时间到！</div>
+          <div style={{ fontSize: 32, fontWeight: 1000, color: THEME.colors.accent, marginBottom: 6 }}>{score} 分</div>
+          <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); setRound(0); endCalledRef.current = false; setStarted(false); }}
+              style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
+            <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
         </div>
       </div>
     );
   }
 
+  const termStyle = { fontSize: clamp(typeof window !== "undefined" ? Math.min(36, 260 / Math.max((word?.term || "").length, 1)) : 28, 18, 36), fontWeight: 1000, lineHeight: 1.2, letterSpacing: "-0.02em" };
+  const choiceBase = { flex: 1, minHeight: 110, borderRadius: THEME.radii.lg, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", padding: "14px 10px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 1000, textAlign: "center", lineHeight: 1.3, transition: "transform 0.1s, box-shadow 0.1s", boxShadow: "0 6px 20px rgba(15,23,42,0.08)" };
+
   return (
-    <div style={{ ...shellStyle, background: flash ? "linear-gradient(180deg, rgba(246,247,251,1), rgba(246,247,251,0.92))" : THEME.colors.bg }}>
+    <div style={shellStyle}>
       <div style={topHud}>
-        <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 2px" }}>
-          <div style={{ height: 6, borderRadius: 999, overflow: "hidden", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.faint, marginBottom: 10 }}>
-            <div style={{ width: `${tRatio * 100}%`, height: "100%", background: barColor, transition: "width 0.05s linear" }} />
-          </div>
-
-          <div style={hudRow}>
-            <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>
-              ← 返回大厅
-            </button>
-
-            <div style={{ ...pill, justifyContent: "center" }}>
-              {combo >= 3 ? (
-                <>
-                  🔥 x <span style={{ fontSize: 18 }}>{combo}</span>
-                </>
-              ) : (
-                <>连击：{combo}</>
-              )}
-            </div>
-
-            <div style={{ ...pill, justifyContent: "center" }}>分数：{score}</div>
-          </div>
+        <div style={hudRow}>
+          <button onClick={onExit} style={{ ...pill, cursor: "pointer" }}>← 返回大厅</button>
+          <div style={{ fontWeight: 1000 }}>⚡ 极速二选一</div>
+          <div style={pill}>🔥 {combo > 0 ? `x${combo}` : score + "分"}</div>
+        </div>
+        <div style={{ maxWidth: 980, margin: "8px auto 0" }}>
+          <TimerBar timeLeft={timeLeft} totalSeconds={timerSeconds} />
+        </div>
+        {/* 每题答题进度条 */}
+        <div style={{ maxWidth: 980, margin: "6px auto 0", height: 4, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
+          <div style={{ width: `${tRatio * 100}%`, height: "100%", background: tRatio > 0.4 ? THEME.colors.accent : "#ef4444", borderRadius: 9999, transition: "width 0.1s linear" }} />
         </div>
       </div>
 
-      <div style={wordArea}>
-        <div style={{ ...wordStyle, animation: flash ? "pulseBg 0.9s ease-in-out infinite" : "none" }}>
-          {halo ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: -20,
-                borderRadius: 999,
-                background: "radial-gradient(circle, rgba(250,204,21,0.25), transparent 60%)",
-                animation: "halo 1.2s ease-in-out infinite",
-                pointerEvents: "none",
-              }}
-            />
-          ) : null}
-
-          <div style={{ position: "relative", zIndex: 2 }}>{word?.term || "-"}</div>
-
-          {cracked ? (
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 3 }}>
-              {Array.from({ length: 14 }).map((_, k) => (
-                <div
-                  key={k}
-                  style={{
-                    position: "absolute",
-                    left: `${(Math.random() * 100) | 0}%`,
-                    top: `${(Math.random() * 100) | 0}%`,
-                    width: `${80 + ((Math.random() * 220) | 0)}px`,
-                    height: 1,
-                    background: "rgba(15,23,42,0.35)",
-                    transform: `rotate(${(Math.random() * 180) | 0}deg)`,
-                  }}
-                />
-              ))}
-            </div>
-          ) : null}
+      <div style={{ maxWidth: 560, margin: "28px auto 0", padding: "0 14px" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, opacity: 0.5, marginBottom: 6, letterSpacing: "0.08em" }}>选出正确释义</div>
+          <div style={termStyle}>{word?.term || "…"}</div>
         </div>
 
-        <div style={{ marginTop: 8, textAlign: "center", opacity: 0.65, fontWeight: 900 }}>3 秒内选对（连击越高越快）</div>
-      </div>
-
-      <div style={halves}>
-        <div onClick={() => answer("left")} style={halfBase("rgba(239,68,68,0.24)")}>
-          {leftText || "（无释义）"}
-        </div>
-        <div onClick={() => answer("right")} style={halfBase("rgba(59,130,246,0.22)")}>
-          {rightText || "（无释义）"}
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={() => answer("left")}
+            style={{ ...choiceBase, borderColor: cracked && correctSide === "left" ? "#ef4444" : THEME.colors.border }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(15,23,42,0.12)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 6px 20px rgba(15,23,42,0.08)"; }}
+          >{leftText}</button>
+          <button
+            onClick={() => answer("right")}
+            style={{ ...choiceBase, borderColor: cracked && correctSide === "right" ? "#ef4444" : THEME.colors.border }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 10px 28px rgba(15,23,42,0.12)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 6px 20px rgba(15,23,42,0.08)"; }}
+          >{rightText}</button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes pulseBg {
-          0% { filter: brightness(1); }
-          50% { filter: brightness(1.03); }
-          100% { filter: brightness(1); }
-        }
-        @keyframes halo {
-          0% { transform: scale(0.98); opacity: 0.65; }
-          50% { transform: scale(1.02); opacity: 1; }
-          100% { transform: scale(0.98); opacity: 0.65; }
-        }
-      `}</style>
     </div>
   );
 }
-
-/* ----------------------------- Lobby Card ----------------------------- */
 
 function GameCard({ title, subtitle, tag, color, emoji, disabled, onClick, spanFull }) {
   return (
@@ -2927,7 +2853,7 @@ export default function PracticeClient({ accessToken }) {
   const sourceLabel = vocabSource === "builtin" ? "内置词库" : "我的收藏";
 
   function notEnough() {
-    return vocabSource === "my" && (vocabItems?.length || 0) < 6;
+    return vocabSource === "my" && (vocabItems?.length || 0) < 10;
   }
 
   function handleSwitchBuiltin() {
@@ -3263,7 +3189,7 @@ export default function PracticeClient({ accessToken }) {
         </div>
         {vocabSource === "my" && (vocabItems?.length || 0) < 6 && (
           <span style={{ marginLeft: 10, fontSize: 12, color: "#ef4444", fontWeight: 900 }}>
-            ⚠️ 收藏词不足6个，建议切换内置词库
+            ⚠️ 收藏词不足10个，建议切换内置词库
           </span>
         )}
       </div>
