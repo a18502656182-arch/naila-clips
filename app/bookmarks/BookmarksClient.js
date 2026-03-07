@@ -13,7 +13,7 @@ function makeAuthFetch(token) {
   };
 }
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { THEME } from "../components/home/theme";
 
 function fmtSec(s) {
@@ -147,8 +147,46 @@ function VocabFavCard({ item, onRemove, showZh }) {
 }
 
 // ─── 主页面 ───────────────────────────────────────────────
-export default function BookmarksClient({ accessToken = null }) {
-  const authFetch = makeAuthFetch(accessToken);
+export default function BookmarksClient({ accessToken: ssrToken = null }) {
+  const tokenRef = useRef(ssrToken);
+  const [liveToken, setLiveToken] = useState(ssrToken);
+
+  // 客户端订阅 Supabase session，token 刷新时自动更新
+  useEffect(() => {
+    let mounted = true;
+    let subscription = null;
+    async function init() {
+      try {
+        const { createSupabaseBrowserClient } = await import("../../utils/supabase/client");
+        const supabase = createSupabaseBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted && session?.access_token) {
+          tokenRef.current = session.access_token;
+          setLiveToken(session.access_token);
+        }
+        const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (!mounted) return;
+          const t = session?.access_token ?? null;
+          tokenRef.current = t;
+          setLiveToken(t);
+        });
+        subscription = data.subscription;
+      } catch {}
+    }
+    init();
+    return () => { mounted = false; subscription?.unsubscribe(); };
+  }, []);
+
+  // authFetch 每次读 tokenRef.current，不受闭包旧值影响
+  const authFetch = useRef(null);
+  authFetch.current = (url, options = {}) => {
+    const headers = { ...(options.headers || {}) };
+    const t = tokenRef.current;
+    if (t) headers["Authorization"] = `Bearer ${t}`;
+    return fetch(url, { ...options, headers, credentials: "include" });
+  };
+  const doFetch = (url, options) => authFetch.current(url, options);
+
   const [me, setMe] = useState(null);
   const [tab, setTab] = useState("videos");
   const [showZh, setShowZh] = useState(true);
@@ -163,18 +201,20 @@ export default function BookmarksClient({ accessToken = null }) {
   const [vocabKind, setVocabKind] = useState("all");
 
   useEffect(() => {
-    authFetch(remote("/api/me"), { cache: "no-store" })
+    doFetch(remote("/api/me"), { cache: "no-store" })
       .then(r => r.json())
       .then(d => setMe(d))
       .catch(() => setMe({ logged_in: false }));
     loadVideos();
     loadVocab();
-  }, [accessToken]);
+  // liveToken 变化时重新加载
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveToken]);
 
   async function loadVideos() {
     setVideoLoading(true);
     try {
-      const r = await authFetch(remote("/api/bookmarks?limit=100"), { cache: "no-store" });
+      const r = await doFetch(remote("/api/bookmarks?limit=100"), { cache: "no-store" });
       const d = await r.json();
       setVideoItems(d?.items || []);
     } catch {}
@@ -184,7 +224,7 @@ export default function BookmarksClient({ accessToken = null }) {
   async function loadVocab() {
     setVocabLoading(true);
     try {
-      const r = await authFetch(remote("/api/vocab_favorites"), { cache: "no-store" });
+      const r = await doFetch(remote("/api/vocab_favorites"), { cache: "no-store" });
       const d = await r.json();
       setVocabItems(d?.items || []);
     } catch {}
@@ -193,7 +233,7 @@ export default function BookmarksClient({ accessToken = null }) {
 
   async function removeVideo(bookmarkId, clipId) {
     try {
-      await authFetch(remote("/api/bookmarks_delete"), {
+      await doFetch(remote("/api/bookmarks_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clip_id: clipId }),
       });
@@ -203,7 +243,7 @@ export default function BookmarksClient({ accessToken = null }) {
 
   async function removeVocab(id, term, clipId) {
     try {
-      await authFetch(remote("/api/vocab_fav_delete"), {
+      await doFetch(remote("/api/vocab_fav_delete"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ term, clip_id: clipId }),
       });
