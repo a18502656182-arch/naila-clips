@@ -5,7 +5,7 @@ import { useState } from "react";
 import FiltersClient from "./FiltersClient";
 import ClipsGridClient from "./ClipsGridClient";
 
-export default function HomeClient({ initialItems, initialHasMore, initialTaxonomies }) {
+export default function HomeClient({ allItems, initialTaxonomies }) {
   const [filters, setFilters] = useState({
     sort: "newest",
     access: [],
@@ -19,8 +19,7 @@ export default function HomeClient({ initialItems, initialHasMore, initialTaxono
       <FiltersClient filters={filters} onFiltersChange={setFilters} initialTaxonomies={initialTaxonomies} />
       <div style={{ marginTop: 14 }}>
         <ClipsGridClient
-          initialItems={initialItems}
-          initialHasMore={initialHasMore}
+          allItems={allItems || []}
           filters={filters}
         />
       </div>
