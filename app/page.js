@@ -11,7 +11,7 @@ import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
@@ -49,7 +49,7 @@ const fetchAllClips = unstable_cache(
     return (data || []).map(normRow);
   },
   ["clips_view:all"],
-  { revalidate: 60 }
+  { revalidate: false }
 );
 
 const fetchTaxonomies = unstable_cache(
@@ -85,7 +85,7 @@ const fetchFeatured = unstable_cache(
     return null;
   },
   ["clips_view:featured"],
-  { revalidate: 60 }
+  { revalidate: false }
 );
 
 export default async function Page() {
