@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // ── 常量 ──────────────────────────────────────────────
-const ADMIN_API = "/admin/api";
+const ADMIN_API = "/admin-api";
 const T = {
   bg: "#0f1117",
   surface: "#1a1d27",
