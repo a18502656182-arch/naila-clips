@@ -120,6 +120,7 @@ export default async function AdminPage() {
       initialTaxonomies={taxonomies || []}
       initialRedeemCodes={redeemCodes || []}
       initialUsers={usersWithSub}
+      token={token}
       stats={{
         userCount,
         memberCount: memberCount || 0,
