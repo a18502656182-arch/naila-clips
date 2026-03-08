@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
@@ -500,11 +500,14 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
   );
 }
 
-export default function ClipsGridClient({ initialItems, initialHasMore, filters }) {
-  const [items, setItems] = useState(initialItems || []);
-  const [hasMore, setHasMore] = useState(!!initialHasMore);
+const PAGE_SIZE = 12;
+
+export default function ClipsGridClient({ allItems, filters }) {
+  // 当前显示条数（无限滚动通过增加这个数字实现）
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [err] = useState("");
 
   const [me, setMe] = useState(null);
   const [meLoaded, setMeLoaded] = useState(false);
@@ -523,30 +526,23 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         bData.clip_ids.forEach((id) => { map[id] = true; });
         setSavedMap(map);
       } else {
-        // 未登录或请求失败时清空收藏状态
         setSavedMap({});
       }
     });
   }
 
   useEffect(() => {
-    // 首次挂载：拉取 me + bookmarks
     fetchMeAndBookmarks();
-
-    // 监听 Supabase auth 状态变化（登录/退出都会触发）
     const supabase = createSupabaseBrowserClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
-        // 退出登录：立即清空状态，不需要发请求
         setMe({ logged_in: false });
         setMeLoaded(true);
         setSavedMap({});
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        // 登录成功：重新拉取最新状态
         fetchMeAndBookmarks();
       }
     });
-
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -558,45 +554,63 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
   const [showVipModal, setShowVipModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const inFlightRef = useRef(false);
-  const reqVersionRef = useRef(0);
-  const coolDownRef = useRef(false);
-  const userScrolledRef = useRef(false);
-  const autoFillOnceRef = useRef(false);
-  const isFirstRender = useRef(true);
+  // ✅ 本地筛选：纯内存操作，无网络请求
+  const filteredAll = useMemo(() => {
+    let result = allItems || [];
+    const f = filters || {};
 
+    // access 筛选
+    if (f.access?.length) {
+      const expanded = new Set();
+      f.access.forEach(a => {
+        if (a === "member") { expanded.add("member"); expanded.add("vip"); }
+        else expanded.add(a);
+      });
+      result = result.filter(r => expanded.has(r.access_tier));
+    }
+    // difficulty 筛选
+    if (f.difficulty?.length) {
+      result = result.filter(r => f.difficulty.includes(r.difficulty));
+    }
+    // topic 筛选（overlaps：视频的topics数组和筛选项有交集）
+    if (f.topic?.length) {
+      result = result.filter(r => (r.topics || []).some(t => f.topic.includes(t)));
+    }
+    // channel 筛选
+    if (f.channel?.length) {
+      result = result.filter(r => (r.channels || []).some(c => f.channel.includes(c)));
+    }
+    // sort
+    if (f.sort === "oldest") {
+      result = [...result].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    }
+    // newest 是默认顺序（SSR已按created_at desc排好）
+    return result;
+  }, [allItems, filters]);
+
+  // 筛选条件变化时重置显示条数
+  const prevFiltersRef = useRef(null);
+  const isFirstRender = useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
+      prevFiltersRef.current = JSON.stringify(filters);
       return;
     }
-    reqVersionRef.current += 1;
-    const myVersion = reqVersionRef.current;
+    const cur = JSON.stringify(filters);
+    if (cur !== prevFiltersRef.current) {
+      prevFiltersRef.current = cur;
+      setVisibleCount(PAGE_SIZE);
+    }
+  }, [filters]);
 
-    setLoading(true);
-    setErr("");
-    inFlightRef.current = false;
-    coolDownRef.current = false;
-    userScrolledRef.current = false;
-    autoFillOnceRef.current = false;
+  // 当前实际显示的条目
+  const items = filteredAll.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredAll.length;
 
-    const qs = buildQS(filters, 0);
-    fetch(remote(`/rsc-api/clips?${qs}`))
-      .then((r) => r.json())
-      .then((data) => {
-        if (myVersion !== reqVersionRef.current) return;
-        setItems(data.items || []);
-        setHasMore(!!data.has_more);
-      })
-      .catch((e) => {
-        if (myVersion !== reqVersionRef.current) return;
-        setErr(e?.message || "加载失败");
-      })
-      .finally(() => {
-        if (myVersion === reqVersionRef.current) setLoading(false);
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(filters)]);
+  const userScrolledRef = useRef(false);
+  const autoFillOnceRef = useRef(false);
+  const coolDownRef = useRef(false);
 
   useEffect(() => {
     const onScroll = () => {
@@ -607,47 +621,16 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     return () => window.removeEventListener("scroll", onScroll, { passive: true });
   }, []);
 
-  function buildQS(f, offset) {
-    const p = new URLSearchParams();
-    if (f?.sort) p.set("sort", f.sort);
-    if (f?.access?.length) f.access.forEach((v) => p.append("access", v));
-    if (f?.difficulty?.length) f.difficulty.forEach((v) => p.append("difficulty", v));
-    if (f?.topic?.length) f.topic.forEach((v) => p.append("topic", v));
-    if (f?.channel?.length) f.channel.forEach((v) => p.append("channel", v));
-    p.set("offset", String(offset));
-    return p.toString();
-  }
-
-  async function loadMore() {
-    if (!hasMore || loading || inFlightRef.current || coolDownRef.current) return;
-
-    inFlightRef.current = true;
+  function loadMore() {
+    if (!hasMore || loading || coolDownRef.current) return;
     setLoading(true);
-    setErr("");
-
-    const myVersion = ++reqVersionRef.current;
-
-    try {
-      const qs = buildQS(filters, items.length);
-      const r = await fetch(remote(`/rsc-api/clips?${qs}`));
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.error || "Load more failed");
-      if (myVersion !== reqVersionRef.current) return;
-
-      setItems((prev) => prev.concat(data.items || []));
-      setHasMore(!!data.has_more);
-
-      coolDownRef.current = true;
-      setTimeout(() => (coolDownRef.current = false), 450);
-    } catch (e) {
-      if (myVersion !== reqVersionRef.current) return;
-      setErr(e?.message || "加载失败");
-    } finally {
-      if (myVersion === reqVersionRef.current) {
-        setLoading(false);
-        inFlightRef.current = false;
-      }
-    }
+    coolDownRef.current = true;
+    // 本地切片，用 setTimeout 模拟异步避免卡顿
+    setTimeout(() => {
+      setVisibleCount(v => v + PAGE_SIZE);
+      setLoading(false);
+      setTimeout(() => { coolDownRef.current = false; }, 450);
+    }, 0);
   }
 
   // 自动补满一页
@@ -666,6 +649,11 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length, hasMore, loading]);
+
+  // 自动补满后重置 autoFillOnce（筛选变了需要重新检查）
+  useEffect(() => {
+    autoFillOnceRef.current = false;
+  }, [filters]);
 
   const setSentinel = (el) => {
     if (!el) return;
@@ -710,13 +698,13 @@ export default function ClipsGridClient({ initialItems, initialHasMore, filters 
         .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
-        .loadingOverlay { opacity: 0.5; pointer-events: none; transition: opacity 200ms ease; }
+        .loadingOverlay { opacity: 0.45; pointer-events: none; transition: opacity 150ms ease; }
       `}</style>
 
-      <div className={loading && items.length > 0 ? "loadingOverlay" : ""}>
-        {loading && items.length === 0 ? (
+      <div>
+        {items.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: THEME.colors.faint }}>
-            加载中...
+            没有符合条件的视频
           </div>
         ) : (
           <div className="grid">
