@@ -1,6 +1,5 @@
 // app/page.js
 import { createClient } from "@supabase/supabase-js";
-import { unstable_cache } from "next/cache";
 import { Suspense } from "react";
 
 import HomeClient from "./components/HomeClient";
@@ -37,8 +36,7 @@ function normRow(r) {
   };
 }
 
-const fetchAllClips = unstable_cache(
-  async () => {
+async function fetchAllClips() {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("clips_view")
@@ -47,13 +45,9 @@ const fetchAllClips = unstable_cache(
       .range(0, 999);
     if (error) throw error;
     return (data || []).map(normRow);
-  },
-  ["clips_view:all"],
-  { revalidate: false }
-);
+  }
 
-const fetchTaxonomies = unstable_cache(
-  async () => {
+async function fetchTaxonomies() {
     const supabase = getSupabaseAdmin();
     const { data: taxRows, error } = await supabase
       .from("taxonomies")
@@ -67,13 +61,9 @@ const fetchTaxonomies = unstable_cache(
       topics: rows.filter((t) => t.type === "topic").map((t) => ({ slug: t.slug, name: t.slug, count: 0 })),
       channels: rows.filter((t) => t.type === "channel").map((t) => ({ slug: t.slug, name: t.slug, count: 0 })),
     };
-  },
-  ["taxonomies:all"],
-  { revalidate: 300 }
-);
+  }
 
-const fetchFeatured = unstable_cache(
-  async () => {
+async function fetchFeatured() {
     const supabase = getSupabaseAdmin();
     const { data } = await supabase
       .from("clips_view")
@@ -83,10 +73,7 @@ const fetchFeatured = unstable_cache(
       .limit(1);
     if (Array.isArray(data) && data[0]) return normRow(data[0]);
     return null;
-  },
-  ["clips_view:featured"],
-  { revalidate: false }
-);
+  }
 
 export default async function Page() {
   let allItems = [];
