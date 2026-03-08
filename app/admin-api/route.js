@@ -337,25 +337,30 @@ async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel
     await db.from("taxonomies").upsert(toUpsert, { onConflict: "type,slug", ignoreDuplicates: true });
   }
 
-  // 2. 查出所有相关 taxonomy id
-  const allSlugs = toUpsert.map((t) => t.slug);
-  if (allSlugs.length === 0) {
-    // 没有标签，清空该视频的关联
+  // 2. 查出所有相关 taxonomy id（同时匹配 type+slug，避免跨类型误匹配）
+  if (toUpsert.length === 0) {
     await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
     return;
   }
-  const { data: taxRows } = await db
-    .from("taxonomies")
-    .select("id, slug")
-    .in("slug", allSlugs);
 
-  const taxIds = (taxRows || []).map((t) => t.id);
+  // 逐条精确查询，确保 type+slug 都匹配
+  const taxIds = [];
+  for (const item of toUpsert) {
+    const { data: row } = await db
+      .from("taxonomies")
+      .select("id")
+      .eq("type", item.type)
+      .eq("slug", item.slug)
+      .maybeSingle();
+    if (row?.id) taxIds.push(row.id);
+  }
 
-  // 3. 重建 clip_taxonomies（先删后插，保证和当前选择一致）
+  // 3. 重建 clip_taxonomies（先删后插）
   await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
   if (taxIds.length > 0) {
-    await db.from("clip_taxonomies").insert(
+    const { error: ctErr } = await db.from("clip_taxonomies").insert(
       taxIds.map((tid) => ({ clip_id, taxonomy_id: tid }))
     );
+    if (ctErr) console.error("clip_taxonomies insert error:", ctErr.message);
   }
 }
