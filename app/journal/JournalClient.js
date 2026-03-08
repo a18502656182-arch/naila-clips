@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { THEME } from "../components/home/theme";
 
@@ -18,42 +18,52 @@ function authFetch(url, options = {}) {
 
 function formatDate() {
   const now = new Date();
-  const days = ["日","一","二","三","四","五","六"];
-  return `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 · 周${days[now.getDay()]}`;
+  const days = ["日", "一", "二", "三", "四", "五", "六"];
+  return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · 周${days[now.getDay()]}`;
 }
 
-function playWord(term) {
-  const audio = new Audio(`https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(term)}&type=2`);
-  audio.onerror = () => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(term);
-    u.lang = "en-US"; u.rate = 0.9;
-    window.speechSynthesis.speak(u);
-  };
-  audio.play().catch(() => {});
+function useIsMobile(bp = 960) {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    function update() {
+      setIsMobile(window.innerWidth <= bp);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [bp]);
+  return isMobile;
 }
 
-function Card({ children, style = {}, tone = "default" }) {
+function Card({ children, style = {} }) {
   return (
-    <div style={{
-      position: "relative",
-      borderRadius: 22,
-      border: "1px solid rgba(15,23,42,0.10)",
-      background: "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.82) 100%)",
-      backdropFilter: "blur(10px)",
-      WebkitBackdropFilter: "blur(10px)",
-      padding: 18,
-      boxShadow: "0 18px 60px rgba(2,6,23,0.10), 0 2px 10px rgba(2,6,23,0.06)",
-      overflow: "hidden",
-      ...style,
-    }}>
-      <div aria-hidden style={{
-        position: "absolute", top: -120, right: -140,
-        width: 280, height: 280, borderRadius: 999,
-        background: "radial-gradient(circle at 30% 30%, rgba(99,102,241,0.22), rgba(236,72,153,0.12), rgba(14,165,233,0.10), transparent 70%)",
-        filter: "blur(2px)", pointerEvents: "none",
-      }} />
+    <div
+      style={{
+        position: "relative",
+        borderRadius: 24,
+        border: `1px solid ${THEME.colors.border}`,
+        background: "linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,255,255,0.86) 100%)",
+        boxShadow: "0 18px 60px rgba(15,23,42,0.08), 0 2px 10px rgba(15,23,42,0.04)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        overflow: "hidden",
+        ...style,
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          top: -100,
+          right: -110,
+          width: 250,
+          height: 250,
+          borderRadius: 999,
+          background:
+            "radial-gradient(circle at 30% 30%, rgba(99,102,241,0.18), rgba(236,72,153,0.10), rgba(6,182,212,0.08), transparent 72%)",
+          pointerEvents: "none",
+        }}
+      />
       {children}
     </div>
   );
@@ -61,486 +71,1175 @@ function Card({ children, style = {}, tone = "default" }) {
 
 function SectionTitle({ emoji, title, sub, right }) {
   return (
-    <div style={{ marginBottom: 14, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 12,
-            display: "grid", placeItems: "center",
-            background: "linear-gradient(135deg, rgba(99,102,241,0.20), rgba(236,72,153,0.14), rgba(14,165,233,0.10))",
-            border: "1px solid rgba(99,102,241,0.18)",
-            boxShadow: "0 10px 25px rgba(99,102,241,0.10)",
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 12,
+        marginBottom: 16,
+      }}
+    >
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 14,
+            display: "grid",
+            placeItems: "center",
+            background: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(236,72,153,0.10), rgba(6,182,212,0.08))",
+            border: "1px solid rgba(99,102,241,0.14)",
             flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 18 }}>{emoji}</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 950, color: THEME.colors.ink, letterSpacing: "-0.2px" }}>{title}</div>
-            {sub && <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 3 }}>{sub}</div>}
-          </div>
+          }}
+        >
+          <span style={{ fontSize: 18 }}>{emoji}</span>
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 1000, color: THEME.colors.ink }}>{title}</div>
+          {sub ? <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4 }}>{sub}</div> : null}
         </div>
       </div>
-      {right ? <div style={{ marginTop: 2 }}>{right}</div> : null}
+      {right ? <div>{right}</div> : null}
     </div>
   );
 }
 
-// ── 今日任务 ──────────────────────────────────────────────
-function TodayTasks({ tasks }) {
-  const [showConfetti, setShowConfetti] = useState(false);
-  const allDone = tasks.every(t => t.done);
-  const doneCount = tasks.filter(t => t.done).length;
-  const pct = Math.round((doneCount / tasks.length) * 100);
+function MiniStat({ label, value, hint, accent }) {
+  return (
+    <div
+      style={{
+        minHeight: 132,
+        padding: "18px 16px 16px",
+        borderRadius: 22,
+        border: `1px solid ${accent.border}`,
+        background: accent.bg,
+        boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontSize: 40, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 900,
+            color: accent.color,
+            padding: "6px 9px",
+            borderRadius: 999,
+            background: "rgba(255,255,255,0.75)",
+            border: `1px solid ${accent.border}`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: 14, fontWeight: 950, color: THEME.colors.ink, marginTop: 8 }}>{label}</div>
+        <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 800, marginTop: 6, lineHeight: 1.5 }}>{hint}</div>
+      </div>
+    </div>
+  );
+}
 
-  useEffect(() => { if (allDone) setShowConfetti(true); }, [allDone]);
+function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobile }) {
+  return (
+    <Card style={{ padding: 18, minHeight: isMobile ? "auto" : 462 }}>
+      <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <MiniStat
+          label="连续学习"
+          value={streakDays || 0}
+          hint="习惯形成中"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(251,146,60,0.16), rgba(251,146,60,0.05))",
+            border: "rgba(251,146,60,0.22)",
+            color: "#c2410c",
+          }}
+        />
+        <MiniStat
+          label="累计视频"
+          value={totalViews || 0}
+          hint="场景输入总量"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(99,102,241,0.16), rgba(99,102,241,0.05))",
+            border: "rgba(99,102,241,0.22)",
+            color: "#3730a3",
+          }}
+        />
+        <MiniStat
+          label="活跃天数"
+          value={activeDays || 0}
+          hint="打开一次也算赢"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(16,185,129,0.05))",
+            border: "rgba(16,185,129,0.22)",
+            color: "#065f46",
+          }}
+        />
+        <MiniStat
+          label="收藏词汇"
+          value={vocabCount || 0}
+          hint="你沉淀下来的表达"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(236,72,153,0.14), rgba(236,72,153,0.05))",
+            border: "rgba(236,72,153,0.20)",
+            color: "#be185d",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          marginTop: 14,
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(15,23,42,0.04), rgba(15,23,42,0.02))",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 900 }}>学习状态</div>
+          <div style={{ fontSize: 14, color: THEME.colors.ink, fontWeight: 950, marginTop: 8, lineHeight: 1.6 }}>
+            {streakDays >= 3 ? `已经连续学习 ${streakDays} 天，状态很稳。` : "刚起步也没关系，先把连续性拉起来。"}
+          </div>
+        </div>
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.06))",
+            border: "1px solid rgba(99,102,241,0.14)",
+          }}
+        >
+          <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 900 }}>当前重点</div>
+          <div style={{ fontSize: 14, color: THEME.colors.ink, fontWeight: 950, marginTop: 8, lineHeight: 1.6 }}>
+            {vocabCount > totalViews
+              ? "你最近更偏向收藏沉淀，适合补一点新视频输入。"
+              : "你最近更偏向输入积累，适合去词汇本沉淀表达。"}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TaskRow({ title, desc, done, buttonText, href, neutral }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "30px minmax(0,1fr) auto auto",
+        alignItems: "center",
+        gap: 12,
+        padding: "14px 14px",
+        borderRadius: 18,
+        border: `1px solid ${
+          neutral
+            ? "rgba(99,102,241,0.16)"
+            : done
+            ? "rgba(16,185,129,0.24)"
+            : "rgba(15,23,42,0.08)"
+        }`,
+        background: neutral
+          ? "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.06))"
+          : done
+          ? "rgba(16,185,129,0.08)"
+          : "rgba(15,23,42,0.03)",
+      }}
+    >
+      <div
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 10,
+          display: "grid",
+          placeItems: "center",
+          background: neutral
+            ? "linear-gradient(135deg, rgba(79,70,229,0.92), rgba(6,182,212,0.88))"
+            : done
+            ? "linear-gradient(135deg, rgba(16,185,129,1), rgba(5,150,105,1))"
+            : "rgba(255,255,255,0.9)",
+          color: neutral || done ? "#fff" : THEME.colors.faint,
+          border: `1px solid ${
+            neutral
+              ? "rgba(79,70,229,0.26)"
+              : done
+              ? "rgba(16,185,129,0.26)"
+              : "rgba(15,23,42,0.10)"
+          }`,
+          fontWeight: 1000,
+          flexShrink: 0,
+          boxShadow: neutral || done ? "0 12px 28px rgba(15,23,42,0.10)" : "none",
+        }}
+      >
+        {neutral ? "→" : done ? "✓" : "•"}
+      </div>
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 950, color: THEME.colors.ink }}>{title}</div>
+        <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4, lineHeight: 1.5 }}>{desc}</div>
+      </div>
+
+      {!neutral ? (
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 900,
+            color: done ? "#166534" : THEME.colors.accent,
+            padding: "6px 10px",
+            borderRadius: 999,
+            background: done ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.10)",
+            border: `1px solid ${done ? "rgba(16,185,129,0.18)" : "rgba(99,102,241,0.16)"}`,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {done ? "已完成" : "进行中"}
+        </span>
+      ) : (
+        <span />
+      )}
+
+      <a
+        href={href}
+        style={{
+          textDecoration: "none",
+          fontSize: 12,
+          fontWeight: 950,
+          color: neutral ? "#fff" : THEME.colors.ink,
+          padding: "10px 12px",
+          borderRadius: 999,
+          background: neutral
+            ? "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)"
+            : "rgba(255,255,255,0.86)",
+          border: neutral ? "none" : "1px solid rgba(15,23,42,0.10)",
+          whiteSpace: "nowrap",
+          boxShadow: neutral ? "0 14px 30px rgba(79,70,229,0.22)" : "none",
+        }}
+      >
+        {buttonText}
+      </a>
+    </div>
+  );
+}
+
+function TodayPlan({ d, isMobile }) {
+  const autoTasks = [
+    {
+      title: "今天看 1 个场景视频",
+      done: (d.today_views || 0) >= 1,
+      desc: (d.today_views || 0) >= 1 ? `今天已看 ${d.today_views || 0} 个视频` : "先看一个短片，让英语进入状态",
+      href: "/",
+      buttonText: "去看视频",
+    },
+    {
+      title: "今天收藏 3 个词/表达",
+      done: (d.today_vocab || 0) >= 3,
+      desc: (d.today_vocab || 0) >= 3 ? `今天已收藏 ${d.today_vocab || 0} 个词汇` : `当前进度 ${d.today_vocab || 0} / 3`,
+      href: "/bookmarks",
+      buttonText: "去词汇本",
+    },
+  ];
+  const doneCount = autoTasks.filter((x) => x.done).length;
+  const pct = Math.round((doneCount / autoTasks.length) * 100);
 
   return (
-    <Card>
-      <SectionTitle emoji="🎯" title="今日手帐任务"
-        sub={`自动打卡 · 已完成 ${doneCount} / ${tasks.length}（${pct}%）`}
+    <Card style={{ padding: 18, minHeight: isMobile ? "auto" : 462 }}>
+      <SectionTitle
+        emoji="🎯"
+        title="今天的学习计划"
+        sub="前两项自动统计，游戏练习先保留快捷入口，不做错误的假判定"
         right={
-          <div style={{ fontSize: 11, padding: "6px 10px", borderRadius: 999,
-            border: "1px solid rgba(99,102,241,0.18)",
-            background: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(236,72,153,0.08))",
-            color: THEME.colors.muted, fontWeight: 800, whiteSpace: "nowrap" }}>
-            ✅ 自动判定
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: THEME.colors.accent,
+              padding: "6px 10px",
+              borderRadius: 999,
+              background: "rgba(99,102,241,0.10)",
+              border: "1px solid rgba(99,102,241,0.16)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            已完成 {doneCount}/2
           </div>
         }
       />
       <div style={{ marginBottom: 14 }}>
-        <div style={{ height: 10, borderRadius: 999, background: "rgba(15,23,42,0.06)", overflow: "hidden", border: "1px solid rgba(15,23,42,0.06)" }}>
-          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 999,
-            background: "linear-gradient(90deg, rgba(34,197,94,0.95), rgba(99,102,241,0.95), rgba(236,72,153,0.90))",
-            boxShadow: "0 10px 20px rgba(99,102,241,0.18)",
-            transition: "width 600ms cubic-bezier(.2,.9,.2,1)" }} />
+        <div
+          style={{
+            height: 10,
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.06)",
+            overflow: "hidden",
+            border: "1px solid rgba(15,23,42,0.06)",
+          }}
+        >
+          <div
+            style={{
+              width: `${pct}%`,
+              height: "100%",
+              borderRadius: 999,
+              background: "linear-gradient(90deg, rgba(16,185,129,0.96), rgba(79,70,229,0.96), rgba(236,72,153,0.90))",
+              transition: "width 500ms ease",
+            }}
+          />
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {tasks.map((task, i) => (
-          <div key={i} style={{
-            position: "relative", display: "flex", alignItems: "center", gap: 12,
-            padding: "12px 14px", borderRadius: 18,
-            background: task.done ? "rgba(34,197,94,0.07)" : "rgba(15,23,42,0.03)",
-            border: `1px solid ${task.done ? "rgba(34,197,94,0.22)" : "rgba(15,23,42,0.08)"}`,
-            boxShadow: task.done ? "0 10px 24px rgba(34,197,94,0.10)" : "none",
-            transform: task.done ? "translateY(-1px)" : "none",
-            transition: "all 220ms ease", overflow: "hidden",
-          }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 10,
-              background: task.done ? "linear-gradient(135deg, rgba(34,197,94,1), rgba(22,163,74,1))" : "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7))",
-              border: `1px solid ${task.done ? "rgba(34,197,94,0.45)" : "rgba(15,23,42,0.10)"}`,
-              display: "grid", placeItems: "center",
-              boxShadow: task.done ? "0 14px 30px rgba(34,197,94,0.22)" : "0 10px 22px rgba(2,6,23,0.06)",
-              flexShrink: 0,
-            }}>
-              {task.done
-                ? <span style={{ color: "#fff", fontSize: 16, fontWeight: 900 }}>✓</span>
-                : <span style={{ width: 12, height: 12, borderRadius: 4, border: "2px dashed rgba(15,23,42,0.18)" }} />}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 900, color: task.done ? "#166534" : THEME.colors.ink }}>{task.label}</div>
-              <div style={{ fontSize: 12, color: task.done ? "rgba(22,101,52,0.78)" : THEME.colors.faint, marginTop: 3 }}>
-                {task.done ? task.doneText : task.pendingText}
-              </div>
-            </div>
-            <div style={{ fontSize: 12, fontWeight: 900, padding: "6px 10px", borderRadius: 999,
-              background: task.done ? "rgba(34,197,94,0.14)" : "rgba(99,102,241,0.10)",
-              border: `1px solid ${task.done ? "rgba(34,197,94,0.20)" : "rgba(99,102,241,0.18)"}`,
-              color: task.done ? "#166534" : THEME.colors.accent, whiteSpace: "nowrap" }}>
-              {task.done ? "已打卡 ⭐" : "进行中"}
-            </div>
-          </div>
+        {autoTasks.map((task, idx) => (
+          <TaskRow key={idx} {...task} />
         ))}
+        <TaskRow
+          title="去游戏大厅做一轮练习"
+          desc="这一项现在不做自动统计，避免沿用旧考试系统残留逻辑；点击直接进入练习大厅。"
+          done={false}
+          neutral
+          href="/practice"
+          buttonText="去练习"
+        />
       </div>
-      {allDone && showConfetti && (
-        <div style={{ marginTop: 14 }}>
-          <div style={{ borderRadius: 18, border: "1px solid rgba(245,158,11,0.25)",
-            background: "linear-gradient(135deg, rgba(254,249,195,0.90), rgba(220,252,231,0.85), rgba(219,234,254,0.85))",
-            padding: "14px 14px 12px", textAlign: "center", overflow: "hidden", position: "relative" }}>
-            <div className="confettiWrap" aria-hidden>
-              {Array.from({ length: 26 }).map((_, idx) => <i key={idx} className="confettiPiece" />)}
-            </div>
-            <div style={{ fontSize: 26 }}>🎉</div>
-            <div style={{ fontSize: 15, fontWeight: 950, color: "#854d0e", marginTop: 6 }}>今日目标全部完成！</div>
-            <div style={{ fontSize: 12, color: "#b45309", marginTop: 4, fontWeight: 700 }}>你不是在学英语，你是在变强 💪</div>
-          </div>
+      {!isMobile && (
+        <div
+          style={{
+            marginTop: 14,
+            padding: "12px 14px",
+            borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(255,251,235,0.95), rgba(254,242,242,0.70))",
+            border: "1px solid rgba(245,158,11,0.18)",
+            fontSize: 12,
+            fontWeight: 800,
+            color: "#9a3412",
+          }}
+        >
+          现在这版手帐只展示真实可拿到的数据：视频、收藏、活跃度和练习入口，不再继续沿用“已掌握/学习中”的旧考试判定。
         </div>
       )}
     </Card>
   );
 }
 
-// ── 热力图 ────────────────────────────────────────────────
-function Heatmap({ heatmapData, streakDays, totalVideos }) {
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const days = [];
-  for (let i = 111; i >= 0; i--) {
-    const d = new Date(today); d.setDate(today.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    days.push({ date: key, count: heatmapData[key] || 0, d });
+function MonthCalendar({ monthDate, heatmapData, isMobile }) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) {
+    const date = new Date(year, month, d);
+    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({
+      day: d,
+      key,
+      count: heatmapData[key] || 0,
+      isToday: key === todayKey,
+    });
   }
-  const pad = (days[0].d.getDay() + 6) % 7;
-  const padded = [...Array(pad).fill(null), ...days];
+  while (cells.length % 7 !== 0) cells.push(null);
+
   const weeks = [];
-  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
-  const monthLabels = [];
-  weeks.forEach((week, wi) => {
-    const first = week.find(d => d);
-    if (first && new Date(first.date).getDate() <= 7)
-      monthLabels.push({ wi, label: `${new Date(first.date).getMonth()+1}月` });
-  });
-  function getColor(count) {
-    if (count === 0) return "rgba(15,23,42,0.08)";
-    if (count === 1) return "rgba(34,197,94,0.25)";
-    if (count === 2) return "rgba(34,197,94,0.60)";
-    return "rgba(22,163,74,0.95)";
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const monthActiveDays = cells.filter((x) => x && x.count > 0).length;
+  const monthTotalViews = cells.filter((x) => x).reduce((sum, x) => sum + (x?.count || 0), 0);
+
+  function getLevelStyle(count) {
+    if (count <= 0) {
+      return {
+        bg: "rgba(15,23,42,0.04)",
+        border: "rgba(15,23,42,0.06)",
+        text: "#94a3b8",
+        badgeBg: "rgba(255,255,255,0.85)",
+        badgeText: "#94a3b8",
+      };
+    }
+    if (count === 1) {
+      return {
+        bg: "rgba(34,197,94,0.12)",
+        border: "rgba(34,197,94,0.16)",
+        text: "#166534",
+        badgeBg: "rgba(34,197,94,0.16)",
+        badgeText: "#166534",
+      };
+    }
+    if (count === 2) {
+      return {
+        bg: "rgba(34,197,94,0.22)",
+        border: "rgba(34,197,94,0.22)",
+        text: "#166534",
+        badgeBg: "rgba(34,197,94,0.22)",
+        badgeText: "#166534",
+      };
+    }
+    return {
+      bg: "rgba(22,163,74,0.92)",
+      border: "rgba(22,163,74,0.92)",
+      text: "#ffffff",
+      badgeBg: "rgba(255,255,255,0.22)",
+      badgeText: "#ffffff",
+    };
   }
-  const todayKey = today.toISOString().slice(0, 10);
-  const activeDays = Object.keys(heatmapData).length;
 
   return (
-    <Card>
-      <SectionTitle emoji="🔥" title="学习足迹" sub="每一个格子都在告诉你：你在前进" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
-        {[
-          { num: streakDays, label: "连续天数", hint: "别断，断了会难受", chip: "🔥", bg: "linear-gradient(135deg, rgba(251,146,60,0.20), rgba(251,146,60,0.06))", border: "rgba(251,146,60,0.22)", color: "#c2410c" },
-          { num: totalVideos, label: "累计视频", hint: "看得越多越不怕", chip: "🎬", bg: "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(99,102,241,0.06))", border: "rgba(99,102,241,0.18)", color: "#3730a3" },
-          { num: activeDays, label: "活跃天数", hint: "打开一次就赢一次", chip: "📅", bg: "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.06))", border: "rgba(16,185,129,0.18)", color: "#065f46" },
-        ].map((s, i) => (
-          <div key={i} style={{ borderRadius: 18, padding: "12px 10px", border: `1px solid ${s.border}`, background: s.bg, boxShadow: "0 10px 26px rgba(2,6,23,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ fontSize: 26, fontWeight: 950, color: s.color, letterSpacing: "-0.6px", lineHeight: 1 }}>{s.num}</div>
-              <div style={{ fontSize: 12, padding: "4px 8px", borderRadius: 999, background: "rgba(255,255,255,0.70)", border: "1px solid rgba(15,23,42,0.08)", fontWeight: 900 }}>{s.chip}</div>
-            </div>
-            <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>{s.hint}</div>
+    <div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0,1fr))",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthActiveDays}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月活跃天数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthTotalViews}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月学习次数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{totalDays}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月总天数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>
+            {monthActiveDays > 0 ? Math.round((monthActiveDays / totalDays) * 100) : 0}%
           </div>
-        ))}
-      </div>
-      <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-        <div style={{ display: "flex", gap: 3, marginBottom: 6 }}>
-          {weeks.map((week, wi) => {
-            const ml = monthLabels.find(m => m.wi === wi);
-            return <div key={wi} style={{ width: 14, fontSize: 9, color: THEME.colors.faint, textAlign: "center", flexShrink: 0 }}>{ml ? ml.label : ""}</div>;
-          })}
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月活跃率</div>
         </div>
-        <div style={{ display: "flex", gap: 3 }}>
-          {weeks.map((week, wi) => (
-            <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {week.map((day, di) => (
-                <div key={di}
-                  title={day ? `${day.date}：${day.count > 0 ? `${day.count} 个视频` : "未学习"}` : ""}
-                  style={{ width: 14, height: 14, borderRadius: 5,
-                    background: day ? getColor(day.count) : "transparent",
-                    border: day ? "1px solid rgba(15,23,42,0.06)" : "none",
-                    boxShadow: day && day.count > 0 ? "0 6px 14px rgba(34,197,94,0.12)" : "none",
-                    outline: day?.date === todayKey ? `2px solid ${THEME.colors.accent}` : "none",
-                    outlineOffset: 2, transition: "transform 120ms ease",
+      </div>
+
+      <div
+        style={{
+          borderRadius: 22,
+          border: "1px solid rgba(15,23,42,0.08)",
+          background: "rgba(255,255,255,0.82)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            borderBottom: "1px solid rgba(15,23,42,0.08)",
+            background: "rgba(15,23,42,0.03)",
+          }}
+        >
+          {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
+            <div
+              key={w}
+              style={{
+                padding: "10px 0",
+                textAlign: "center",
+                fontSize: 12,
+                fontWeight: 900,
+                color: THEME.colors.faint,
+              }}
+            >
+              {w}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {weeks.flat().map((cell, idx) => {
+            if (!cell) {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    minHeight: isMobile ? 62 : 78,
+                    borderRight: idx % 7 !== 6 ? "1px solid rgba(15,23,42,0.05)" : "none",
+                    borderBottom: idx < weeks.flat().length - 7 ? "1px solid rgba(15,23,42,0.05)" : "none",
+                    background: "rgba(15,23,42,0.015)",
                   }}
-                  onMouseEnter={e => e.currentTarget.style.transform = "scale(1.10)"}
-                  onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
                 />
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, justifyContent: "space-between" }}>
-        <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 800 }}>今日格子高亮 · 绿色越深表示学习越多</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: THEME.colors.faint }}>少</span>
-          {["rgba(15,23,42,0.08)","rgba(34,197,94,0.25)","rgba(34,197,94,0.60)","rgba(22,163,74,0.95)"].map((c,i) => (
-            <div key={i} style={{ width: 11, height: 11, borderRadius: 4, background: c, border: "1px solid rgba(15,23,42,0.06)" }} />
-          ))}
-          <span style={{ fontSize: 10, color: THEME.colors.faint }}>多</span>
-        </div>
-      </div>
-      {streakDays >= 3 && (
-        <div style={{ marginTop: 14, padding: "12px 14px", borderRadius: 18,
-          background: "linear-gradient(135deg, rgba(255,247,237,0.95), rgba(254,249,195,0.95))",
-          border: "1px solid rgba(251,146,60,0.25)", fontSize: 13, color: "#9a3412", fontWeight: 800 }}>
-          🔥 已连续学习 {streakDays} 天：你已经把"坚持"变成了习惯。
-        </div>
-      )}
-    </Card>
-  );
-}
+              );
+            }
+            const style = getLevelStyle(cell.count);
+            return (
+              <div
+                key={idx}
+                title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
+                style={{
+                  minHeight: isMobile ? 62 : 78,
+                  padding: isMobile ? "8px 6px" : "10px 8px",
+                  borderRight: idx % 7 !== 6 ? "1px solid rgba(15,23,42,0.05)" : "none",
+                  borderBottom: idx < weeks.flat().length - 7 ? "1px solid rgba(15,23,42,0.05)" : "none",
+                  background: cell.isToday
+                    ? "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(255,255,255,0.92))"
+                    : style.bg,
+                  boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.75)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 6,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 1000,
+                    color: cell.isToday ? "#4338ca" : style.text,
+                    lineHeight: 1,
+                  }}
+                >
+                  {cell.day}
+                </div>
 
-// ── 能力画像 ──────────────────────────────────────────────
-function AbilityProfile({ masteryStats, topicStats }) {
-  const total = masteryStats.new + masteryStats.learning + masteryStats.mastered;
-  const pct = (n) => total > 0 ? Math.round((n / total) * 100) : 0;
-  const pM = pct(masteryStats.mastered);
-  const pL = pct(masteryStats.learning);
-  const pN = Math.max(0, 100 - pM - pL);
-  const levelMessages = [
-    { min: 0, max: 0, msg: "还没开始，去收藏第一个词汇吧！", emoji: "🌱" },
-    { min: 1, max: 10, msg: "刚刚起步，继续积累～", emoji: "🌿" },
-    { min: 11, max: 30, msg: "小有积累，保持节奏！", emoji: "🌳" },
-    { min: 31, max: 99, msg: "词汇量不少了，继续冲！", emoji: "🚀" },
-    { min: 100, max: Infinity, msg: "词汇达人！你太厉害了！", emoji: "👑" },
-  ];
-  const lvl = levelMessages.find(l => total >= l.min && total <= l.max) || levelMessages[0];
-  const donutBg = total === 0
-    ? "conic-gradient(rgba(15,23,42,0.08) 0 360deg)"
-    : `conic-gradient(rgba(34,197,94,0.95) 0 ${pM}%, rgba(59,130,246,0.95) ${pM}% ${pM+pL}%, rgba(168,85,247,0.95) ${pM+pL}% 100%)`;
-
-  return (
-    <Card>
-      <SectionTitle emoji="🪐" title="我的能力画像" sub="看得见的积累，才会让人上瘾" />
-      {total === 0 ? (
-        <div style={{ textAlign: "center", padding: "20px 0 10px" }}>
-          <div style={{ fontSize: 46 }}>🌌</div>
-          <div style={{ fontSize: 14, color: THEME.colors.muted, marginTop: 8, fontWeight: 900 }}>你的宇宙还是空的</div>
-          <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 6 }}>去视频页收藏一些词汇，这里会自动生成你的成长轨迹～</div>
-        </div>
-      ) : (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 12, alignItems: "stretch", marginBottom: 12 }}>
-            <div style={{ borderRadius: 20, padding: "14px 14px",
-              border: "1px solid rgba(99,102,241,0.16)",
-              background: "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(236,72,153,0.08), rgba(14,165,233,0.06))",
-              boxShadow: "0 16px 40px rgba(99,102,241,0.10)",
-              display: "flex", gap: 12, alignItems: "center" }}>
-              <div style={{ fontSize: 34, lineHeight: 1 }}>{lvl.emoji}</div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 950, color: THEME.colors.ink }}>{lvl.msg}</div>
-                <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4, fontWeight: 800 }}>词汇库共 <span style={{ color: THEME.colors.ink }}>{total}</span> 个</div>
-                <div style={{ fontSize: 11, color: THEME.colors.faint, marginTop: 3 }}>已掌握 {masteryStats.mastered} · 学习中 {masteryStats.learning} · 新收藏 {masteryStats.new}</div>
-              </div>
-            </div>
-            <div style={{ borderRadius: 20, padding: 12,
-              border: "1px solid rgba(15,23,42,0.10)",
-              background: "linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.55))",
-              display: "grid", placeItems: "center" }}>
-              <div style={{ position: "relative", width: 128, height: 128 }}>
-                <div style={{ width: 128, height: 128, borderRadius: 999, background: donutBg, boxShadow: "0 18px 40px rgba(2,6,23,0.10)", border: "1px solid rgba(15,23,42,0.10)" }} />
-                <div style={{ position: "absolute", inset: 14, borderRadius: 999,
-                  background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72))",
-                  display: "grid", placeItems: "center", border: "1px solid rgba(15,23,42,0.06)" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 20, fontWeight: 950, color: THEME.colors.ink }}>{pct(masteryStats.mastered)}%</div>
-                    <div style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>已掌握</div>
-                  </div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  {cell.count > 0 ? (
+                    <span
+                      style={{
+                        minWidth: 24,
+                        height: 22,
+                        padding: "0 7px",
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: style.badgeBg,
+                        color: style.badgeText,
+                        fontSize: 11,
+                        fontWeight: 1000,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cell.count}
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: 999,
+                        background: "rgba(15,23,42,0.10)",
+                        display: "inline-block",
+                      }}
+                    />
+                  )}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                {[
-                  { c: "rgba(34,197,94,0.95)", t: `已掌握 ${pM}%` },
-                  { c: "rgba(59,130,246,0.95)", t: `学习中 ${pL}%` },
-                  { c: "rgba(168,85,247,0.95)", t: `新收藏 ${pN}%` },
-                ].map((x, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: THEME.colors.muted, fontWeight: 800 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: 3, background: x.c }} />{x.t}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {masteryStats.new > 0 && (
-            <div style={{ padding: "12px 14px", borderRadius: 18,
-              background: "linear-gradient(135deg, rgba(255,251,235,0.95), rgba(254,242,242,0.65))",
-              border: "1px solid rgba(245,158,11,0.22)", fontSize: 12, color: "#92400e", fontWeight: 800, marginBottom: 12 }}>
-              💡 还有 <strong>{masteryStats.new}</strong> 个词在等你练：去收藏页完成一次词汇考试，会自动升级掌握度。
-            </div>
-          )}
-          {topicStats.length > 0 && (
-            <div style={{ marginTop: 2 }}>
-              <div style={{ fontSize: 12, fontWeight: 950, color: THEME.colors.muted, marginBottom: 10 }}>🏷️ 你的话题偏好（自动统计）</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {topicStats.map((t, i) => (
-                  <span key={i} style={{ fontSize: 12, padding: "7px 12px", borderRadius: 999,
-                    background: i===0 ? "linear-gradient(135deg, rgba(99,102,241,0.20), rgba(99,102,241,0.08))" : i===1 ? "linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.06))" : "rgba(15,23,42,0.04)",
-                    color: i===0 ? THEME.colors.accent : i===1 ? "#166534" : THEME.colors.muted,
-                    border: `1px solid ${i===0 ? "rgba(99,102,241,0.18)" : i===1 ? "rgba(34,197,94,0.18)" : "rgba(15,23,42,0.08)"}`,
-                    fontWeight: i < 2 ? 950 : 800,
-                    boxShadow: i < 2 ? "0 14px 30px rgba(2,6,23,0.06)" : "none" }}>
-                    {i===0 ? "🥇 " : i===1 ? "🥈 " : ""}{t.label}
-                    <span style={{ fontSize: 10, marginLeft: 6, opacity: 0.75 }}>×{t.count}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+            );
+          })}
+        </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
+          数字表示当天学习次数，今天会有紫色描边
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#64748b",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.05)",
+              border: "1px solid rgba(15,23,42,0.08)",
+            }}
+          >
+            灰点=未学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#166534",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.16)",
+            }}
+          >
+            浅绿=少量学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#ffffff",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(22,163,74,0.92)",
+            }}
+          >
+            深绿=学习较多
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
+  const monthOptions = useMemo(() => {
+    const now = new Date();
+    const arr = [];
+    for (let i = 0; i < 4; i++) {
+      arr.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+    }
+    return arr;
+  }, []);
+
+  const [monthIdx, setMonthIdx] = useState(0);
+  const currentMonth = monthOptions[monthIdx];
+
+  return (
+    <Card style={{ padding: 18 }}>
+      <SectionTitle
+        emoji="🗓️"
+        title="学习日历"
+        sub="改成真正可读的月历形式；一次只看一个月，就不会因为 111 天太长而挤爆页面"
+      />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+          marginBottom: 14,
+        }}
+      >
+        {monthOptions.map((m, idx) => {
+          const active = idx === monthIdx;
+          return (
+            <button
+              key={idx}
+              onClick={() => setMonthIdx(idx)}
+              style={{
+                border: "none",
+                cursor: "pointer",
+                padding: "9px 12px",
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 1000,
+                color: active ? "#fff" : THEME.colors.ink,
+                background: active
+                  ? "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)"
+                  : "rgba(15,23,42,0.05)",
+                boxShadow: active ? "0 12px 30px rgba(79,70,229,0.18)" : "none",
+              }}
+            >
+              {m.getFullYear()}年{m.getMonth() + 1}月
+            </button>
+          );
+        })}
+      </div>
+
+      <MonthCalendar monthDate={currentMonth} heatmapData={heatmapData} isMobile={isMobile} />
+
+      {streakDays >= 3 ? (
+        <div
+          style={{
+            marginTop: 14,
+            padding: "12px 14px",
+            borderRadius: 18,
+            background: "linear-gradient(135deg, rgba(255,247,237,0.95), rgba(254,249,195,0.95))",
+            border: "1px solid rgba(251,146,60,0.24)",
+            fontSize: 12,
+            color: "#9a3412",
+            fontWeight: 900,
+          }}
+        >
+          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少，比原来的小格子更直观。
+        </div>
+      ) : null}
     </Card>
   );
 }
 
-// ── 打卡海报生成器（3种主题随机切换 + 弹窗展示）────────────
+function AnalysisCard({ title, lines, accent }) {
+  return (
+    <div
+      style={{
+        padding: "16px 16px 14px",
+        borderRadius: 20,
+        border: `1px solid ${accent.border}`,
+        background: accent.bg,
+      }}
+    >
+      <div style={{ fontSize: 14, fontWeight: 1000, color: accent.title }}>{title}</div>
+      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+        {lines.map((line, idx) => (
+          <div key={idx} style={{ fontSize: 12, color: THEME.colors.muted, lineHeight: 1.6 }}>
+            {line}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) {
+  const activeDays = Object.keys(d.heatmap || {}).length;
+  const topTopic = topicStats[0]?.label || "还没有明显偏好";
+  const secondTopic = topicStats[1]?.label || "继续学习后会出现";
+  const playedGameCount = gameSummary.playedGameCount || 0;
+  const totalGameScore = gameSummary.totalGameScore || 0;
+
+  return (
+    <Card style={{ padding: 18 }}>
+      <SectionTitle emoji="🧭" title="学习动态分析" sub="不再显示旧考试残留的掌握等级，改成更真实的行为记录" />
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr", gap: 10 }}>
+        <AnalysisCard
+          title="词汇积累"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(236,72,153,0.10), rgba(236,72,153,0.04))",
+            border: "rgba(236,72,153,0.16)",
+            title: "#be185d",
+          }}
+          lines={[
+            `累计收藏词汇：${vocabCount} 个`,
+            `今日新增收藏：${d.today_vocab || 0} 个`,
+            vocabCount > 0 ? "你已经不是单纯在看视频，而是在沉淀自己的表达库。" : "先收藏一些词汇，这里会逐渐长成你的学习记录。",
+          ]}
+        />
+        <AnalysisCard
+          title="练习大厅痕迹"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
+            border: "rgba(99,102,241,0.16)",
+            title: "#4338ca",
+          }}
+          lines={[
+            `已留下分数记录的游戏：${playedGameCount} 个`,
+            `当前本地总分：${totalGameScore}`,
+            playedGameCount > 0
+              ? "说明你已经开始把输入转成输出练习了。"
+              : "这里暂未检测到游戏分数记录，去练习大厅做一轮就会有痕迹。",
+          ]}
+        />
+        <AnalysisCard
+          title="学习偏好"
+          accent={{
+            bg: "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))",
+            border: "rgba(16,185,129,0.16)",
+            title: "#047857",
+          }}
+          lines={[
+            `最近最常见的话题：${topTopic}`,
+            `第二偏好方向：${secondTopic}`,
+            `目前累计活跃 ${activeDays} 天，偏好会随着你继续收藏而越来越清楚。`,
+          ]}
+        />
+      </div>
+    </Card>
+  );
+}
+
+function ActionCard({ emoji, title, desc, href, dark }) {
+  return (
+    <a
+      href={href}
+      style={{
+        textDecoration: "none",
+        display: "block",
+        padding: "18px 18px",
+        borderRadius: 22,
+        background: dark
+          ? "linear-gradient(135deg, #0f172a 0%, #312e81 48%, #ec4899 100%)"
+          : "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.80))",
+        border: dark ? "none" : "1px solid rgba(15,23,42,0.08)",
+        boxShadow: dark ? "0 24px 60px rgba(79,70,229,0.24)" : "0 14px 36px rgba(15,23,42,0.06)",
+        color: dark ? "#fff" : THEME.colors.ink,
+        minHeight: 138,
+      }}
+    >
+      <div style={{ fontSize: 26 }}>{emoji}</div>
+      <div style={{ fontSize: 15, fontWeight: 1000, marginTop: 12 }}>{title}</div>
+      <div
+        style={{
+          fontSize: 12,
+          lineHeight: 1.7,
+          marginTop: 8,
+          color: dark ? "rgba(255,255,255,0.82)" : THEME.colors.faint,
+        }}
+      >
+        {desc}
+      </div>
+      <div
+        style={{
+          marginTop: 14,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 12,
+          fontWeight: 950,
+          color: dark ? "#fff" : THEME.colors.accent,
+        }}
+      >
+        立即进入 <span>→</span>
+      </div>
+    </a>
+  );
+}
+
+function ContinueLearning({ isMobile }) {
+  return (
+    <Card style={{ padding: 18 }}>
+      <SectionTitle emoji="🚀" title="继续学习" sub="手帐页不是终点，看完就继续学" />
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
+        <ActionCard emoji="🎬" title="去看新视频" desc="继续从场景里输入真实表达，让学习进入状态。" href="/" dark />
+        <ActionCard emoji="📚" title="去复习词汇本" desc="看看最近收藏了什么，顺手再整理一下自己的表达库。" href="/bookmarks" />
+        <ActionCard emoji="🎮" title="去游戏大厅" desc="把输入转成输出练习，让今天的内容更容易留下来。" href="/practice" />
+      </div>
+    </Card>
+  );
+}
+
 const POSTER_THEMES = [
   {
     name: "深夜极光",
     bg: ["#0f172a", "#1e1b4b", "#0f172a"],
-    glow1: "rgba(99,102,241,0.38)", glow2: "rgba(236,72,153,0.28)",
-    accent: "#818cf8", barA: "#34d399", barB: "#818cf8",
-    cellActive: ["rgba(34,197,94,0.30)","rgba(34,197,94,0.65)","rgba(34,197,94,0.95)"],
+    glow1: "rgba(99,102,241,0.38)",
+    glow2: "rgba(236,72,153,0.28)",
+    accent: "#818cf8",
+    line: "#34d399",
+    line2: "#818cf8",
+    cellActive: ["rgba(34,197,94,0.30)", "rgba(34,197,94,0.65)", "rgba(34,197,94,0.95)"],
     todayOutline: "#818cf8",
   },
   {
     name: "日出橙金",
     bg: ["#1a0a00", "#3b1400", "#1a0800"],
-    glow1: "rgba(251,146,60,0.40)", glow2: "rgba(234,179,8,0.28)",
-    accent: "#fb923c", barA: "#fbbf24", barB: "#f97316",
-    cellActive: ["rgba(251,146,60,0.28)","rgba(251,146,60,0.62)","rgba(251,146,60,0.95)"],
+    glow1: "rgba(251,146,60,0.40)",
+    glow2: "rgba(234,179,8,0.28)",
+    accent: "#fb923c",
+    line: "#fbbf24",
+    line2: "#f97316",
+    cellActive: ["rgba(251,146,60,0.28)", "rgba(251,146,60,0.62)", "rgba(251,146,60,0.95)"],
     todayOutline: "#fbbf24",
   },
   {
     name: "深海青碧",
     bg: ["#001a1a", "#00282e", "#001518"],
-    glow1: "rgba(6,182,212,0.38)", glow2: "rgba(16,185,129,0.28)",
-    accent: "#22d3ee", barA: "#34d399", barB: "#06b6d4",
-    cellActive: ["rgba(6,182,212,0.28)","rgba(6,182,212,0.62)","rgba(6,182,212,0.95)"],
+    glow1: "rgba(6,182,212,0.38)",
+    glow2: "rgba(16,185,129,0.28)",
+    accent: "#22d3ee",
+    line: "#34d399",
+    line2: "#06b6d4",
+    cellActive: ["rgba(6,182,212,0.28)", "rgba(6,182,212,0.62)", "rgba(6,182,212,0.95)"],
     todayOutline: "#34d399",
   },
 ];
 
-function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks }) {
+function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks, activeDays, topTopic }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [posterUrl, setPosterUrl] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [themeIdx, setThemeIdx] = useState(0);
 
-  const doneCount = tasks.filter(t => t.done).length;
-
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
-    ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
-    ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
-    ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
-    ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
   }
 
   async function generate(forceTheme) {
     setGenerating(true);
-    // 让 React 先渲染 loading 状态再执行 canvas 操作
-    await new Promise(r => setTimeout(r, 80));
+    await new Promise((r) => setTimeout(r, 80));
 
     const nextTheme = forceTheme !== undefined ? forceTheme : (themeIdx + 1) % POSTER_THEMES.length;
     setThemeIdx(nextTheme);
     const T = POSTER_THEMES[nextTheme];
 
     const canvas = canvasRef.current;
-    const W = 750, H = 1200;
-    canvas.width = W; canvas.height = H;
+    const W = 750;
+    const H = 1200;
+    canvas.width = W;
+    canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // 背景
-    const bg = ctx.createLinearGradient(0,0,W,H);
-    bg.addColorStop(0, T.bg[0]); bg.addColorStop(0.45, T.bg[1]); bg.addColorStop(1, T.bg[2]);
-    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
-    const g1 = ctx.createRadialGradient(150,200,0,150,200,320);
-    g1.addColorStop(0,T.glow1); g1.addColorStop(1,"transparent");
-    ctx.fillStyle=g1; ctx.fillRect(0,0,W,H);
-    const g2 = ctx.createRadialGradient(620,400,0,620,400,280);
-    g2.addColorStop(0,T.glow2); g2.addColorStop(1,"transparent");
-    ctx.fillStyle=g2; ctx.fillRect(0,0,W,H);
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, T.bg[0]);
+    bg.addColorStop(0.45, T.bg[1]);
+    bg.addColorStop(1, T.bg[2]);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
 
-    // 顶部
-    ctx.font="bold 28px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.92)";
-    ctx.fillText("📒 我的英语手帐",48,70);
-    const now=new Date();
-    const dateStr=`${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,"0")}/${String(now.getDate()).padStart(2,"0")}`;
-    ctx.font="500 22px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.50)";
-    ctx.textAlign="right"; ctx.fillText(dateStr,W-48,70); ctx.textAlign="left";
-    ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(48,90); ctx.lineTo(W-48,90); ctx.stroke();
+    const g1 = ctx.createRadialGradient(140, 200, 0, 140, 200, 320);
+    g1.addColorStop(0, T.glow1);
+    g1.addColorStop(1, "transparent");
+    ctx.fillStyle = g1;
+    ctx.fillRect(0, 0, W, H);
 
-    ctx.font="500 18px sans-serif"; ctx.fillStyle=T.accent;
-    ctx.textAlign="right"; ctx.fillText(`✦ ${T.name}`,W-48,108); ctx.textAlign="left";
+    const g2 = ctx.createRadialGradient(620, 420, 0, 620, 420, 280);
+    g2.addColorStop(0, T.glow2);
+    g2.addColorStop(1, "transparent");
+    ctx.fillStyle = g2;
+    ctx.fillRect(0, 0, W, H);
 
-    // 用户名
-    const userName=me?.email?.split("@")[0]||"学习者";
-    ctx.font="bold 42px sans-serif"; ctx.fillStyle="#fff";
-    ctx.fillText(`👋 ${userName}`,48,170);
-    ctx.font="500 24px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.60)";
-    ctx.fillText("今日打卡成功！",48,208);
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("📒 我的英语手帐", 48, 70);
 
-    // 三卡
-    const statColors = [
-      { color:"#fb923c", bg:"rgba(251,146,60,0.18)", border:"rgba(251,146,60,0.35)" },
-      { color:T.accent,  bg:`rgba(99,102,241,0.18)`, border:`rgba(99,102,241,0.35)` },
-      { color:"#34d399", bg:"rgba(52,211,153,0.18)", border:"rgba(52,211,153,0.35)" },
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
+    ctx.font = "500 22px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.50)";
+    ctx.textAlign = "right";
+    ctx.fillText(dateStr, W - 48, 70);
+    ctx.textAlign = "left";
+
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(48, 92);
+    ctx.lineTo(W - 48, 92);
+    ctx.stroke();
+
+    ctx.font = "500 18px sans-serif";
+    ctx.fillStyle = T.accent;
+    ctx.textAlign = "right";
+    ctx.fillText(`✦ ${T.name}`, W - 48, 118);
+    ctx.textAlign = "left";
+
+    const userName = me?.email?.split("@")[0] || "学习者";
+    ctx.font = "bold 42px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`👋 ${userName}`, 48, 176);
+    ctx.font = "500 24px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.64)";
+    ctx.fillText("今日学习成果卡", 48, 214);
+
+    const stats = [
+      { num: streakDays || 0, label: "连续天数", color: "#fb923c" },
+      { num: totalVideos || 0, label: "累计视频", color: T.accent },
+      { num: vocabCount || 0, label: "收藏词汇", color: "#34d399" },
     ];
-    const statData=[
-      {num:streakDays,label:"连续天数"},
-      {num:totalVideos,label:"累计视频"},
-      {num:vocabCount,label:"收藏词汇"},
-    ];
-    const cW=196,cH=110,cG=21,cY=248;
-    statData.forEach((s,i)=>{
-      const cx=48+i*(cW+cG);
-      roundRect(ctx,cx,cY,cW,cH,18);
-      ctx.fillStyle=statColors[i].bg; ctx.fill();
-      ctx.strokeStyle=statColors[i].border; ctx.lineWidth=1.5; ctx.stroke();
-      ctx.font="bold 46px sans-serif"; ctx.fillStyle=statColors[i].color;
-      ctx.fillText(String(s.num),cx+18,cY+62);
-      ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.60)";
-      ctx.fillText(s.label,cx+18,cY+92);
+    const cW = 196;
+    const cH = 110;
+    const cGap = 21;
+    const cY = 252;
+    stats.forEach((item, i) => {
+      const x = 48 + i * (cW + cGap);
+      roundRect(ctx, x, cY, cW, cH, 18);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.font = "bold 46px sans-serif";
+      ctx.fillStyle = item.color;
+      ctx.fillText(String(item.num), x + 18, cY + 62);
+
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.62)";
+      ctx.fillText(item.label, x + 18, cY + 92);
     });
 
-    // 任务
-    const tY=408;
-    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
-    ctx.fillText(`🎯 今日任务 ${doneCount}/3 完成`,48,tY);
-    [{label:"沉浸 1 个场景视频",done:tasks[0]?.done},{label:"收藏 3 个地道表达",done:tasks[1]?.done},{label:"词汇通关 1 次",done:tasks[2]?.done}]
-    .forEach((t,i)=>{
-      const ty=tY+28+i*44;
-      roundRect(ctx,48,ty,W-96,36,10);
-      ctx.fillStyle=t.done?"rgba(34,197,94,0.12)":"rgba(255,255,255,0.05)"; ctx.fill();
-      ctx.strokeStyle=t.done?"rgba(34,197,94,0.30)":"rgba(255,255,255,0.08)"; ctx.lineWidth=1; ctx.stroke();
-      ctx.font="500 20px sans-serif";
-      ctx.fillStyle=t.done?"#4ade80":"rgba(255,255,255,0.40)"; ctx.fillText(t.done?"✓":"○",70,ty+24);
-      ctx.fillStyle=t.done?"rgba(255,255,255,0.90)":"rgba(255,255,255,0.40)"; ctx.fillText(t.label,104,ty+24);
+    const trackedDoneCount = tasks.filter((t) => t.done).length;
+
+    const taskY = 408;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText(`🎯 今日自动统计 ${trackedDoneCount}/2`, 48, taskY);
+
+    [
+      { label: "今天看 1 个场景视频", done: tasks[0]?.done },
+      { label: "今天收藏 3 个词/表达", done: tasks[1]?.done },
+      { label: "去游戏大厅做一轮练习", done: false, neutral: true },
+    ].forEach((item, idx) => {
+      const y = taskY + 28 + idx * 44;
+      roundRect(ctx, 48, y, W - 96, 36, 10);
+      ctx.fillStyle = item.neutral
+        ? "rgba(99,102,241,0.10)"
+        : item.done
+        ? "rgba(34,197,94,0.12)"
+        : "rgba(255,255,255,0.05)";
+      ctx.fill();
+      ctx.strokeStyle = item.neutral
+        ? "rgba(99,102,241,0.18)"
+        : item.done
+        ? "rgba(34,197,94,0.28)"
+        : "rgba(255,255,255,0.08)";
+      ctx.stroke();
+
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = item.neutral ? "#a5b4fc" : item.done ? "#4ade80" : "rgba(255,255,255,0.42)";
+      ctx.fillText(item.neutral ? "→" : item.done ? "✓" : "○", 70, y + 24);
+
+      ctx.fillStyle = item.neutral || item.done ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.42)";
+      ctx.fillText(item.label, 104, y + 24);
     });
 
-    // 热力图
-    const hmY=598;
-    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
-    ctx.fillText("🔥 学习足迹（近 16 周）",48,hmY);
-    const today=new Date(); today.setHours(0,0,0,0);
-    const hmDays=[];
-    for(let i=111;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);const k=d.toISOString().slice(0,10);hmDays.push({key:k,count:heatmapData[k]||0});}
-    const hmPad=(new Date(hmDays[0].key).getDay()+6)%7;
-    const hmPadded=[...Array(hmPad).fill(null),...hmDays];
-    const hmWeeks=[];
-    for(let i=0;i<hmPadded.length;i+=7)hmWeeks.push(hmPadded.slice(i,i+7));
-    const cs=28,cg=5,hx=48,hy=hmY+18,tk=today.toISOString().slice(0,10);
-    hmWeeks.forEach((wk,wi)=>{
-      wk.forEach((day,di)=>{
-        if(!day)return;
-        const x=hx+wi*(cs+cg),y=hy+di*(cs+cg);
-        roundRect(ctx,x,y,cs,cs,6);
-        ctx.fillStyle=day.count===0?"rgba(255,255,255,0.08)":T.cellActive[Math.min(day.count-1,2)];
+    const hmY = 598;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText("🗓️ 最近学习日历", 48, hmY);
+
+    const calendarMonth = new Date();
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startWeekday = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    const calendarCells = [];
+    for (let i = 0; i < startWeekday; i++) calendarCells.push(null);
+    for (let d = 1; d <= totalDays; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      calendarCells.push({ day: d, key, count: heatmapData[key] || 0 });
+    }
+    while (calendarCells.length % 7 !== 0) calendarCells.push(null);
+
+    const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
+    weekNames.forEach((w, i) => {
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillText(w, 48 + i * 92 + 34, hmY + 28);
+    });
+
+    const cellW = 86;
+    const cellH = 58;
+    const startX = 48;
+    const startY = hmY + 42;
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    calendarCells.forEach((cell, idx) => {
+      const row = Math.floor(idx / 7);
+      const col = idx % 7;
+      const x = startX + col * 92;
+      const y = startY + row * 66;
+
+      roundRect(ctx, x, y, cellW, cellH, 12);
+      if (!cell) {
+        ctx.fillStyle = "rgba(255,255,255,0.03)";
         ctx.fill();
-        if(day.key===tk){ctx.strokeStyle=T.todayOutline;ctx.lineWidth=2;ctx.stroke();}
-      });
+        return;
+      }
+
+      if (cell.count <= 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+      } else if (cell.count === 1) {
+        ctx.fillStyle = T.cellActive[0];
+      } else if (cell.count === 2) {
+        ctx.fillStyle = T.cellActive[1];
+      } else {
+        ctx.fillStyle = T.cellActive[2];
+      }
+      ctx.fill();
+
+      if (cell.key === todayKey) {
+        ctx.strokeStyle = T.todayOutline;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = cell.count >= 3 ? "#ffffff" : "rgba(255,255,255,0.92)";
+      ctx.fillText(String(cell.day), x + 10, y + 20);
+
+      if (cell.count > 0) {
+        roundRect(ctx, x + cellW - 34, y + cellH - 24, 24, 16, 8);
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.fill();
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.fillText(String(cell.count), x + cellW - 22, y + cellH - 12);
+        ctx.textAlign = "left";
+      }
     });
 
-    // 掌握进度
-    const mY=868;
-    ctx.font="bold 26px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.85)";
-    ctx.fillText(`✅ 已掌握词汇 ${masteredCount} 个`,48,mY);
-    const mPct=vocabCount>0?Math.round(masteredCount/vocabCount*100):0;
-    roundRect(ctx,48,mY+14,W-96,18,9); ctx.fillStyle="rgba(255,255,255,0.10)"; ctx.fill();
-    if(mPct>0){roundRect(ctx,48,mY+14,Math.max((W-96)*mPct/100,18),18,9);
-    const bg2=ctx.createLinearGradient(48,0,W-48,0);
-    bg2.addColorStop(0,T.barA);bg2.addColorStop(1,T.barB);ctx.fillStyle=bg2;ctx.fill();}
-    ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.55)";
-    ctx.fillText(`词汇总量 ${vocabCount} 个 · 掌握率 ${mPct}%`,48,mY+54);
+    const infoY = 1010;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText("🧭 最近学习状态", 48, infoY);
 
-    // 底部
-    ctx.strokeStyle="rgba(255,255,255,0.10)"; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(48,H-100); ctx.lineTo(W-48,H-100); ctx.stroke();
-    ctx.font="bold 28px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.90)";
-    ctx.textAlign="center"; ctx.fillText("🌐 nailaobao.top",W/2,H-60);
-    ctx.font="500 20px sans-serif"; ctx.fillStyle="rgba(255,255,255,0.40)";
-    ctx.fillText("油管英语场景库 · 精选场景短片 · 双语字幕",W/2,H-30);
-    ctx.textAlign="left";
+    ctx.font = "500 22px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.76)";
+    ctx.fillText(`累计活跃天数：${activeDays || 0} 天`, 48, infoY + 42);
+    ctx.fillText(`最近偏好方向：${topTopic || "继续学习后会出现"}`, 48, infoY + 76);
+    ctx.fillText(`收藏词汇总量：${vocabCount || 0} 个`, 48, infoY + 110);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(48, H - 100);
+    ctx.lineTo(W - 48, H - 100);
+    ctx.stroke();
+
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.textAlign = "center";
+    ctx.fillText("🌐 nailaobao.top", W / 2, H - 60);
+    ctx.font = "500 20px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText("油管英语场景库 · 场景输入 · 收藏沉淀 · 游戏练习", W / 2, H - 30);
+    ctx.textAlign = "left";
 
     const url = canvas.toDataURL("image/png");
     setPosterUrl(url);
@@ -550,7 +1249,6 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
 
   async function handleSwitchTheme() {
     const nextTheme = (themeIdx + 1) % POSTER_THEMES.length;
-    // 弹窗保持打开，直接在原地重新绘制
     await generate(nextTheme);
   }
 
@@ -558,7 +1256,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     if (!posterUrl) return;
     const a = document.createElement("a");
     a.href = posterUrl;
-    a.download = `英语手帐_${new Date().toISOString().slice(0,10)}.png`;
+    a.download = `英语手帐_${new Date().toISOString().slice(0, 10)}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -567,41 +1265,60 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
-
-      {/* 生成按钮 */}
-      <button onClick={() => generate()} disabled={generating} style={{
-        width: "100%", padding: "16px 0", borderRadius: 22, border: "none",
-        background: generating
-          ? "rgba(99,102,241,0.40)"
-          : "linear-gradient(135deg,#0f172a 0%,#4f46e5 50%,#ec4899 100%)",
-        color: "#fff", fontSize: 16, fontWeight: 950,
-        cursor: generating ? "not-allowed" : "pointer",
-        boxShadow: generating ? "none" : "0 24px 60px rgba(79,70,229,0.35)",
-        transition: "all 300ms ease", letterSpacing: "-0.2px",
-      }}>
-        {generating ? "⏳ 生成中..." : "📸 生成今日打卡海报"}
-      </button>
-      <div style={{ textAlign: "center", fontSize: 11, color: THEME.colors.faint, marginTop: 8, fontWeight: 700 }}>
-        每次生成随机切换配色主题 · 共 {POSTER_THEMES.length} 种风格
+      <div
+        style={{
+          padding: "18px 18px 16px",
+          borderRadius: 22,
+          background:
+            "radial-gradient(circle at 10% 15%, rgba(236,72,153,0.18), transparent 32%), radial-gradient(circle at 90% 20%, rgba(99,102,241,0.22), transparent 34%), linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(79,70,229,0.96) 46%, rgba(236,72,153,0.88) 100%)",
+          color: "#fff",
+          boxShadow: "0 24px 60px rgba(79,70,229,0.22)",
+        }}
+      >
+        <div style={{ fontSize: 15, fontWeight: 1000 }}>打开海报生成器</div>
+        <div style={{ fontSize: 12, lineHeight: 1.7, opacity: 0.88, marginTop: 8 }}>
+          把连续学习、累计视频、收藏词汇和学习日历缩略一起生成一张打卡海报。
+        </div>
+        <button
+          onClick={() => generate()}
+          disabled={generating}
+          style={{
+            marginTop: 14,
+            width: "100%",
+            padding: "14px 0",
+            borderRadius: 18,
+            border: "none",
+            background: generating ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.96)",
+            color: generating ? "rgba(255,255,255,0.85)" : "#111827",
+            fontSize: 14,
+            fontWeight: 1000,
+            cursor: generating ? "not-allowed" : "pointer",
+            boxShadow: generating ? "none" : "0 16px 34px rgba(2,6,23,0.18)",
+          }}
+        >
+          {generating ? "⏳ 生成中..." : "📸 打开海报生成器"}
+        </button>
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.82 }}>共 {POSTER_THEMES.length} 种风格，每次可切换主题</div>
       </div>
 
-      {/* ── 弹窗遮罩：用 Portal 渲染到 body，绕开父级 overflow:hidden ── */}
       {showModal && posterUrl && createPortal(
         <div
           onClick={() => setShowModal(false)}
           style={{
-            position: "fixed", inset: 0, zIndex: 9999,
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
             background: "rgba(2,6,23,0.82)",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             padding: 16,
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
-            animation: "posterFadeIn 180ms ease",
           }}
         >
-          {/* 弹窗主体，stopPropagation 防止点内容关掉弹窗 */}
           <div
-            onClick={e => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: "#ffffff",
               borderRadius: 28,
@@ -610,86 +1327,103 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               maxWidth: 460,
               maxHeight: "92vh",
               overflowY: "auto",
-              boxShadow: "0 40px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.08)",
+              boxShadow: "0 40px 120px rgba(0,0,0,0.55)",
               display: "flex",
               flexDirection: "column",
               gap: 14,
-              animation: "posterSlideUp 240ms cubic-bezier(.2,.9,.2,1)",
             }}
           >
-            {/* 顶栏 */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 950, color: "#0f172a" }}>📸 今日打卡海报</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3, fontWeight: 700 }}>
+                <div style={{ fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>📸 今日打卡海报</div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 800 }}>
                   当前主题：{POSTER_THEMES[themeIdx].name}
                 </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
                 style={{
-                  width: 34, height: 34, borderRadius: 999,
+                  width: 34,
+                  height: 34,
+                  borderRadius: 999,
                   border: "1px solid rgba(15,23,42,0.12)",
                   background: "rgba(15,23,42,0.06)",
-                  cursor: "pointer", fontSize: 16, color: "#64748b",
-                  display: "grid", placeItems: "center", flexShrink: 0,
+                  cursor: "pointer",
+                  fontSize: 16,
+                  color: "#64748b",
+                  display: "grid",
+                  placeItems: "center",
+                  flexShrink: 0,
                 }}
-              >✕</button>
+              >
+                ✕
+              </button>
             </div>
 
-            {/* 海报图 */}
             <img
               src={posterUrl}
               alt="打卡海报"
               style={{
-                width: "100%", borderRadius: 18, display: "block",
+                width: "100%",
+                borderRadius: 18,
+                display: "block",
                 border: "1px solid rgba(15,23,42,0.08)",
                 boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
               }}
             />
 
-            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 700 }}>
-              📱 手机长按图片保存 · 电脑点下方按钮下载
+            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
+              📱 手机长按保存 · 电脑点下方按钮下载
             </div>
 
-            {/* 操作按钮 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button
                 onClick={handleDownload}
                 style={{
-                  padding: "14px 0", borderRadius: 16, border: "none",
+                  padding: "14px 0",
+                  borderRadius: 16,
+                  border: "none",
                   background: "linear-gradient(135deg,#0f172a,#4f46e5)",
-                  color: "#fff", fontSize: 14, fontWeight: 950, cursor: "pointer",
-                  boxShadow: "0 18px 40px rgba(79,70,229,0.28)",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 1000,
+                  cursor: "pointer",
                 }}
-              >⬇️ 保存图片</button>
+              >
+                ⬇️ 保存图片
+              </button>
               <button
                 onClick={handleSwitchTheme}
                 style={{
-                  padding: "14px 0", borderRadius: 16,
+                  padding: "14px 0",
+                  borderRadius: 16,
                   border: "1.5px solid rgba(15,23,42,0.12)",
                   background: "rgba(15,23,42,0.04)",
-                  fontSize: 14, fontWeight: 950, color: "#475569", cursor: "pointer",
+                  color: "#475569",
+                  fontSize: 14,
+                  fontWeight: 1000,
+                  cursor: "pointer",
                 }}
-              >🎨 换个风格</button>
+              >
+                🎨 换个风格
+              </button>
             </div>
 
-            {/* 主题进度点 */}
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
               {POSTER_THEMES.map((_, i) => (
-                <div key={i} style={{
-                  width: i === themeIdx ? 22 : 8, height: 8, borderRadius: 999,
-                  background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.15)",
-                  transition: "all 300ms ease",
-                }} />
+                <div
+                  key={i}
+                  style={{
+                    width: i === themeIdx ? 22 : 8,
+                    height: 8,
+                    borderRadius: 999,
+                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.15)",
+                    transition: "all 300ms ease",
+                  }}
+                />
               ))}
             </div>
           </div>
-
-          <style>{`
-            @keyframes posterFadeIn { from{opacity:0} to{opacity:1} }
-            @keyframes posterSlideUp { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
-          `}</style>
         </div>,
         document.body
       )}
@@ -697,214 +1431,48 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   );
 }
 
-// ── 记忆碎片（翻卡，高度自适应修复版）────────────────────
-function MemoryCard({ item, onRefresh, totalVocab }) {
-  const [flipped, setFlipped] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const frontRef = useRef(null);
-  const backRef = useRef(null);
-  const [cardHeight, setCardHeight] = useState("auto");
-
-  useEffect(() => { setFlipped(false); }, [item?.id]);
-
-  // 每次内容变化或翻转后，取正反两面高度的最大值撑开容器
-  useEffect(() => {
-    const measure = () => {
-      const fh = frontRef.current?.scrollHeight || 0;
-      const bh = backRef.current?.scrollHeight || 0;
-      setCardHeight(Math.max(fh, bh, 180));
-    };
-    measure();
-    const t = setTimeout(measure, 50); // 等动画稳定后再量一次
-    return () => clearTimeout(t);
-  }, [item, flipped]);
-
-  function handlePlay() {
-    if (!item) return;
-    setPlaying(true);
-    playWord(item.term);
-    setTimeout(() => setPlaying(false), 1500);
-  }
-
-  const daysSince = item?.created_at
-    ? Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)
-    : 0;
-  const daysLabel = daysSince === 0 ? "今天收藏的" : daysSince === 1 ? "昨天收藏的" : `${daysSince} 天前收藏的`;
-
-  if (!item) return (
-    <Card>
-      <SectionTitle emoji="🎁" title="每日盲盒" sub="随机抽一个你收藏过的知识点，温柔复习一下" />
-      <div style={{ textAlign: "center", padding: "22px 0 10px" }}>
-        <div style={{ fontSize: 40 }}>📭</div>
-        <div style={{ fontSize: 13, color: THEME.colors.muted, marginTop: 8, fontWeight: 900 }}>还没有收藏词汇</div>
-        <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4 }}>去视频页收藏一些词汇，这里会每天给你一个"惊喜复习"～</div>
-      </div>
-    </Card>
-  );
-
-  const kindLabel = { words: "单词", phrases: "短语", idioms: "地道表达" }[item.kind] || "词汇";
-  const masteryLabel = ["⭐ 新收藏", "🔄 学习中", "✅ 已掌握"][item.mastery_level ?? 0];
-
-  const faceBase = {
-    position: "absolute", inset: 0, borderRadius: 22,
-    backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
-    overflow: "hidden", padding: 16,
-  };
-
-  return (
-    <Card>
-      <SectionTitle emoji="🎁" title="记忆回眸"
-        sub={`从你的 ${totalVocab} 个收藏中随机抽取 · 打开就复习`}
-        right={
-          <button onClick={onRefresh} style={{ padding: "8px 12px", borderRadius: 999,
-            border: "1px solid rgba(15,23,42,0.10)",
-            background: "linear-gradient(135deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65))",
-            cursor: "pointer", fontSize: 12, color: THEME.colors.muted, fontWeight: 950,
-            boxShadow: "0 12px 30px rgba(2,6,23,0.06)", whiteSpace: "nowrap" }}>
-            🎲 换一个
-          </button>
-        }
-      />
-
-      {/* 翻卡容器：高度由内容决定 */}
-      <div style={{ perspective: "1200px" }}>
-        <div style={{
-          position: "relative",
-          borderRadius: 22,
-          height: cardHeight,
-          transformStyle: "preserve-3d",
-          transition: "transform 550ms cubic-bezier(.2,.9,.2,1)",
-          transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-        }}>
-
-          {/* 正面 */}
-          <div ref={frontRef} style={{
-            ...faceBase,
-            background: "linear-gradient(145deg, rgba(254,249,195,0.96) 0%, rgba(253,230,138,0.92) 55%, rgba(251,191,36,0.20) 100%)",
-            border: "1px solid rgba(245,158,11,0.28)",
-            boxShadow: "0 22px 60px rgba(245,158,11,0.18), 0 2px 10px rgba(2,6,23,0.05)",
-          }}>
-            <div aria-hidden style={{ position: "absolute", top: 10, left: -40, width: 220, height: 28,
-              transform: "rotate(-10deg)",
-              background: "linear-gradient(90deg, rgba(99,102,241,0.30), rgba(236,72,153,0.22), rgba(14,165,233,0.18))",
-              borderRadius: 999, opacity: 0.65 }} />
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, padding: "5px 10px", borderRadius: 999,
-                background: "rgba(255,255,255,0.65)", border: "1px solid rgba(245,158,11,0.25)",
-                color: "#92400e", fontWeight: 950 }}>{kindLabel}</span>
-              <span style={{ fontSize: 11, color: "#b45309", fontWeight: 900 }}>{masteryLabel}</span>
-            </div>
-
-            <div style={{ textAlign: "center", marginTop: 16, paddingBottom: 4 }}>
-              <div style={{ fontSize: 38, fontWeight: 1000, color: THEME.colors.ink, letterSpacing: "-0.8px",
-                textShadow: "0 10px 30px rgba(2,6,23,0.10)" }}>{item.term}</div>
-              {item.data?.ipa && (
-                <div style={{ fontSize: 13, color: "#b45309", marginTop: 6, fontFamily: "monospace", fontWeight: 900 }}>
-                  {item.data.ipa}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 16 }}>
-              <button onClick={handlePlay} style={{ padding: "10px 16px", borderRadius: 999,
-                border: "1.5px solid rgba(245,158,11,0.60)",
-                background: playing ? "linear-gradient(135deg, rgba(245,158,11,1), rgba(251,191,36,1))" : "rgba(255,255,255,0.75)",
-                cursor: "pointer", fontSize: 13, color: playing ? "#fff" : "#92400e", fontWeight: 950,
-                boxShadow: playing ? "0 16px 36px rgba(245,158,11,0.22)" : "0 12px 28px rgba(2,6,23,0.06)",
-                transition: "all 180ms ease" }}>
-                {playing ? "🔊 播放中..." : "🔊 听发音"}
-              </button>
-              <button onClick={() => setFlipped(x => !x)} style={{ padding: "10px 16px", borderRadius: 999,
-                border: "1.5px solid rgba(245,158,11,0.60)", background: "rgba(255,255,255,0.75)",
-                cursor: "pointer", fontSize: 13, color: "#92400e", fontWeight: 950,
-                boxShadow: "0 12px 28px rgba(2,6,23,0.06)" }}>
-                查看释义 →
-              </button>
-            </div>
-
-            <div style={{ marginTop: 12, fontSize: 11, color: "#b45309", textAlign: "right", fontWeight: 900 }}>
-              📌 {daysLabel}
-            </div>
-          </div>
-
-          {/* 背面 */}
-          <div ref={backRef} style={{
-            ...faceBase,
-            transform: "rotateY(180deg)",
-            background: "linear-gradient(145deg, rgba(219,234,254,0.92) 0%, rgba(224,231,255,0.86) 45%, rgba(236,72,153,0.10) 100%)",
-            border: "1px solid rgba(99,102,241,0.22)",
-            boxShadow: "0 22px 60px rgba(99,102,241,0.16), 0 2px 10px rgba(2,6,23,0.05)",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 1000, color: THEME.colors.ink }}>✨ {item.term}</div>
-              <button onClick={() => setFlipped(false)} style={{ padding: "8px 12px", borderRadius: 999,
-                border: "1px solid rgba(15,23,42,0.10)", background: "rgba(255,255,255,0.75)",
-                cursor: "pointer", fontSize: 12, color: THEME.colors.muted, fontWeight: 950 }}>← 返回</button>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {item.data?.zh && (
-                <div style={{ padding: "12px 12px", borderRadius: 16,
-                  background: "rgba(255,255,255,0.72)", border: "1px solid rgba(99,102,241,0.18)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 1000, color: THEME.colors.accent, marginBottom: 6 }}>中文含义</div>
-                  <div style={{ fontSize: 15, fontWeight: 950, color: THEME.colors.ink, lineHeight: 1.4 }}>{item.data.zh}</div>
-                </div>
-              )}
-              {item.data?.example_en && (
-                <div style={{ padding: "12px 12px", borderRadius: 16,
-                  background: "rgba(255,255,255,0.72)", border: "1px solid rgba(99,102,241,0.18)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 1000, color: "#1d4ed8", marginBottom: 6 }}>例句</div>
-                  <div style={{ fontSize: 13, color: THEME.colors.ink, fontStyle: "italic", lineHeight: 1.6 }}>"{item.data.example_en}"</div>
-                  {item.data?.example_zh && (
-                    <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 6, fontWeight: 800 }}>{item.data.example_zh}</div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12 }}>
-              <button onClick={handlePlay} style={{ padding: "10px 16px", borderRadius: 999,
-                border: "1.5px solid rgba(59,130,246,0.35)",
-                background: playing ? "linear-gradient(135deg, rgba(59,130,246,1), rgba(99,102,241,1))" : "rgba(255,255,255,0.75)",
-                cursor: "pointer", fontSize: 13, color: playing ? "#fff" : "#1e3a8a", fontWeight: 950,
-                transition: "all 180ms ease" }}>
-                {playing ? "🔊 播放中..." : "🔊 再听一遍"}
-              </button>
-              <button onClick={onRefresh} style={{ padding: "10px 16px", borderRadius: 999,
-                border: "1.5px solid rgba(59,130,246,0.35)", background: "rgba(255,255,255,0.75)",
-                cursor: "pointer", fontSize: 13, color: "#1e3a8a", fontWeight: 950 }}>
-                🎲 再抽一个
-              </button>
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 11, color: THEME.colors.faint, textAlign: "right", fontWeight: 900 }}>
-              📌 {daysLabel}
-            </div>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-// ── 主页面 ────────────────────────────────────────────────
 export default function JournalClient({ accessToken }) {
+  const isMobile = useIsMobile(960);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
   const [journalData, setJournalData] = useState(null);
-  const [memoryItem, setMemoryItem] = useState(null);
+  const [gameSummary, setGameSummary] = useState({
+    totalGameScore: 0,
+    playedGameCount: 0,
+  });
 
   useEffect(() => {
     authFetch(remote("/api/me"), { cache: "no-store" })
-      .then(r => r.json()).then(d => setMe(d)).catch(() => setMe({ logged_in: false }));
+      .then((r) => r.json())
+      .then((d) => setMe(d))
+      .catch(() => setMe({ logged_in: false }));
   }, []);
 
   useEffect(() => {
     if (!me) return;
-    if (!me.logged_in) { setLoading(false); return; }
+    if (!me.logged_in) {
+      setLoading(false);
+      return;
+    }
     loadJournalData();
   }, [me]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("naila_game_scores");
+      if (!raw) {
+        setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      const values = Object.values(parsed || {}).map((x) => Number(x) || 0);
+      const totalGameScore = values.reduce((a, b) => a + b, 0);
+      const playedGameCount = values.filter((x) => x > 0).length;
+      setGameSummary({ totalGameScore, playedGameCount });
+    } catch {
+      setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
+    }
+  }, [loading]);
 
   async function loadJournalData() {
     setLoading(true);
@@ -916,32 +1484,47 @@ export default function JournalClient({ accessToken }) {
       const journal = await journalRes.json();
       const vocab = await vocabRes.json();
       const items = vocab?.items || [];
-      if (items.length > 0) setMemoryItem(items[Math.floor(Math.random() * items.length)]);
       setJournalData({ ...journal, vocabItems: items });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     setLoading(false);
-  }
-
-  function refreshMemory() {
-    const items = journalData?.vocabItems || [];
-    if (items.length === 0) return;
-    let next;
-    do { next = items[Math.floor(Math.random() * items.length)]; }
-    while (items.length > 1 && next?.id === memoryItem?.id);
-    setMemoryItem(next);
   }
 
   if (!loading && (!me || !me.logged_in)) {
     return (
-      <div style={{ minHeight: "100vh", background: THEME.colors.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div
+        style={{
+          minHeight: "100vh",
+          background: THEME.colors.bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 16,
+        }}
+      >
         <Card style={{ maxWidth: 420, textAlign: "center", padding: 28 }}>
           <div style={{ fontSize: 52, marginBottom: 10 }}>📒</div>
           <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 8 }}>我的英语手帐</div>
-          <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 18, lineHeight: 1.6 }}>登录后查看你的学习记录、任务打卡和每日盲盒复习</div>
-          <a href="/login" style={{ display: "inline-block", padding: "12px 34px",
-            background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(99,102,241,0.95))",
-            color: "#fff", borderRadius: 999, textDecoration: "none", fontSize: 14, fontWeight: 950,
-            boxShadow: "0 18px 40px rgba(2,6,23,0.18)" }}>去登录</a>
+          <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 18, lineHeight: 1.7 }}>
+            登录后查看你的学习总览、学习日历、收藏积累和海报生成器。
+          </div>
+          <a
+            href="/login"
+            style={{
+              display: "inline-block",
+              padding: "12px 34px",
+              background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(99,102,241,0.95))",
+              color: "#fff",
+              borderRadius: 999,
+              textDecoration: "none",
+              fontSize: 14,
+              fontWeight: 1000,
+              boxShadow: "0 18px 40px rgba(2,6,23,0.18)",
+            }}
+          >
+            去登录
+          </a>
         </Card>
       </div>
     );
@@ -951,12 +1534,28 @@ export default function JournalClient({ accessToken }) {
     return (
       <div style={{ minHeight: "100vh", background: THEME.colors.bg }}>
         <div style={{ height: 56, background: THEME.colors.surface, borderBottom: `1px solid ${THEME.colors.border}` }} />
-        <div style={{ maxWidth: 820, margin: "0 auto", padding: "22px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
-          {[180, 280, 240, 260].map((h, i) => (
-            <div key={i} style={{ height: h, borderRadius: 22, border: `1px solid ${THEME.colors.border}`,
-              background: "linear-gradient(90deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.90) 30%, rgba(255,255,255,0.65) 60%)",
-              backgroundSize: "200% 100%", animation: "shine 1.3s ease-in-out infinite",
-              boxShadow: "0 14px 46px rgba(2,6,23,0.08)" }} />
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: "0 auto",
+            padding: "22px 16px 60px",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            gap: 14,
+          }}
+        >
+          {[220, 260, 320, 260, 220, 220].map((h, i) => (
+            <div
+              key={i}
+              style={{
+                height: h,
+                borderRadius: 24,
+                border: `1px solid ${THEME.colors.border}`,
+                background: "linear-gradient(90deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.92) 30%, rgba(255,255,255,0.65) 60%)",
+                backgroundSize: "200% 100%",
+                animation: "shine 1.3s ease-in-out infinite",
+              }}
+            />
           ))}
         </div>
         <style>{`@keyframes shine { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
@@ -966,114 +1565,180 @@ export default function JournalClient({ accessToken }) {
 
   const d = journalData || {};
   const vocabItems = d.vocabItems || [];
-  const tasks = [
-    { label: "沉浸 1 个场景视频", done: (d.today_views||0)>=1,
-      doneText: `今天已看 ${d.today_views||0} 个视频 ✨`, pendingText: "打开任意视频即可完成" },
-    { label: "收藏 3 个地道表达", done: (d.today_vocab||0)>=3,
-      doneText: `今天收藏了 ${d.today_vocab||0} 个词汇 ✨`, pendingText: `进度 ${d.today_vocab||0} / 3 个` },
-    { label: "词汇通关 1 次", done: (d.mastered_total||0)>=1,
-      doneText: `已掌握 ${d.mastered_total||0} 个词汇 ✨`, pendingText: "去收藏页完成一次词汇练习" },
-  ];
-  const masteryStats = {
-    new: vocabItems.filter(v => (v.mastery_level??0)===0).length,
-    learning: vocabItems.filter(v => (v.mastery_level??0)===1).length,
-    mastered: vocabItems.filter(v => (v.mastery_level??0)===2).length,
-  };
-  const topicMap = {};
+  const activeDays = Object.keys(d.heatmap || {}).length;
+
   const topicLabelMap = {
-    "daily-life":"日常生活","self-improvement":"个人成长","food":"美食探店",
-    "travel":"旅行","business":"职场商务","culture":"文化","opinion":"观点表达","skills":"方法技能",
+    "daily-life": "日常生活",
+    "self-improvement": "个人成长",
+    "food": "美食探店",
+    "travel": "旅行",
+    "business": "职场商务",
+    "culture": "文化",
+    "opinion": "观点表达",
+    "skills": "方法技能",
   };
-  (d.bookmarked_topics||[]).forEach(slug => {
-    const label = topicLabelMap[slug]||slug;
-    topicMap[label] = (topicMap[label]||0)+1;
+
+  const topicMap = {};
+  (d.bookmarked_topics || []).forEach((slug) => {
+    const label = topicLabelMap[slug] || slug;
+    topicMap[label] = (topicMap[label] || 0) + 1;
   });
-  const topicStats = Object.entries(topicMap).map(([label,count])=>({label,count})).sort((a,b)=>b.count-a.count).slice(0,6);
-  const doneCount = tasks.filter(t=>t.done).length;
+  const topicStats = Object.entries(topicMap)
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const tasks = [
+    { label: "今天看 1 个场景视频", done: (d.today_views || 0) >= 1 },
+    { label: "今天收藏 3 个词/表达", done: (d.today_vocab || 0) >= 3 },
+  ];
+
+  const desktopHeroGrid = isMobile ? "1fr" : "1.2fr 0.8fr";
+  const desktopMiddleGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
+  const desktopBottomGrid = isMobile ? "1fr" : "1.1fr 0.9fr";
 
   return (
     <div style={{ minHeight: "100vh", background: THEME.colors.bg }}>
       <style>{`
         @keyframes floatIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes glow { 0%,100%{opacity:.65} 50%{opacity:1} }
-        .confettiWrap{position:absolute;inset:-10px;pointer-events:none;overflow:hidden;}
-        .confettiPiece{position:absolute;top:-20px;width:8px;height:14px;border-radius:4px;
-          background:linear-gradient(180deg,rgba(99,102,241,0.95),rgba(236,72,153,0.85));
-          animation:confettiFall 900ms linear infinite;opacity:0.9;}
-        .confettiPiece:nth-child(3n){background:linear-gradient(180deg,rgba(34,197,94,0.95),rgba(16,185,129,0.85));}
-        .confettiPiece:nth-child(4n){background:linear-gradient(180deg,rgba(245,158,11,0.95),rgba(251,191,36,0.85));}
-        @keyframes confettiFall{
-          0%{transform:translate3d(var(--x,0px),0,0) rotate(0deg);}
-          100%{transform:translate3d(var(--x,0px),260px,0) rotate(260deg);opacity:0.1;}
-        }
       `}</style>
 
-      {/* 顶栏 */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20,
-        background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
-        backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-        borderBottom: "1px solid rgba(15,23,42,0.08)",
-        padding: "0 16px", height: 56,
-        display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          background: "linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.82))",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(15,23,42,0.08)",
+          padding: "0 16px",
+          height: 56,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+        }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <a href="/" style={{ padding: "8px 12px", borderRadius: 999,
-            border: "1px solid rgba(15,23,42,0.10)", background: "rgba(15,23,42,0.04)",
-            textDecoration: "none", fontSize: 13, color: THEME.colors.ink, fontWeight: 900 }}>← 返回</a>
-          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink, letterSpacing: "-0.2px" }}>我的英语手帐</span>
+          <a
+            href="/"
+            style={{
+              padding: "8px 12px",
+              borderRadius: 999,
+              border: "1px solid rgba(15,23,42,0.10)",
+              background: "rgba(15,23,42,0.04)",
+              textDecoration: "none",
+              fontSize: 13,
+              color: THEME.colors.ink,
+              fontWeight: 900,
+            }}
+          >
+            ← 返回
+          </a>
+          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink }}>我的英语手帐</span>
         </div>
-        <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>📅 {formatDate()}</span>
+        {!isMobile ? (
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>📅 {formatDate()}</span>
+        ) : null}
       </div>
 
-      <div style={{ maxWidth: 820, margin: "0 auto", padding: "18px 16px 60px", display: "flex", flexDirection: "column", gap: 14 }}>
-
-        {/* 欢迎横幅 */}
-        <div style={{ borderRadius: 26, padding: "18px 18px", color: "#fff",
-          background: "radial-gradient(circle at 10% 10%, rgba(236,72,153,0.55), transparent 45%)," +
-            "radial-gradient(circle at 90% 20%, rgba(99,102,241,0.65), transparent 40%)," +
-            "radial-gradient(circle at 40% 120%, rgba(14,165,233,0.55), transparent 50%)," +
-            "linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(79,70,229,0.95) 40%, rgba(236,72,153,0.85) 100%)",
-          boxShadow: "0 24px 70px rgba(2,6,23,0.22)", position: "relative", overflow: "hidden", animation: "floatIn 420ms ease" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 1000, marginBottom: 6 }}>👋 {me?.email?.split("@")[0]||"同学"}，今天也要加油哦！</div>
-              <div style={{ fontSize: 12, opacity: 0.9, lineHeight: 1.65 }}>
-                累计观看 <b>{d.total_views||0}</b> 个视频 · 收藏 <b>{vocabItems.length}</b> 个词汇 · 今日已完成 <b>{doneCount}</b>/3 目标
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 60px" }}>
+        <div
+          style={{
+            borderRadius: 28,
+            padding: isMobile ? "18px 16px" : "22px 22px",
+            color: "#fff",
+            background:
+              "radial-gradient(circle at 10% 10%, rgba(236,72,153,0.55), transparent 45%), radial-gradient(circle at 90% 20%, rgba(99,102,241,0.65), transparent 40%), radial-gradient(circle at 40% 120%, rgba(14,165,233,0.55), transparent 50%), linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(79,70,229,0.95) 40%, rgba(236,72,153,0.85) 100%)",
+            boxShadow: "0 24px 70px rgba(2,6,23,0.18)",
+            position: "relative",
+            overflow: "hidden",
+            animation: "floatIn 420ms ease",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: isMobile ? "flex-start" : "center",
+              justifyContent: "space-between",
+              flexDirection: isMobile ? "column" : "row",
+              gap: 14,
+            }}
+          >
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 1000 }}>
+                👋 {me?.email?.split("@")[0] || "同学"}，今天也来留下一点学习痕迹
+              </div>
+              <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.8, marginTop: 8 }}>
+                现在这版手帐页只保留真实有效的学习数据：看视频、收藏词汇、活跃天数、学习偏好和游戏大厅入口，不再沿用旧考试系统的掌握判定。
               </div>
             </div>
-            <div style={{ padding: "10px 12px", borderRadius: 18,
-              background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)",
-              textAlign: "right", minWidth: 112 }}>
-              <div style={{ fontSize: 11, opacity: 0.85, fontWeight: 900 }}>今日进度</div>
-              <div style={{ fontSize: 22, fontWeight: 1000, marginTop: 4 }}>{Math.round(doneCount/3*100)}%</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <div style={{ height: 10, background: "rgba(255,255,255,0.18)", borderRadius: 999, overflow: "hidden", border: "1px solid rgba(255,255,255,0.16)" }}>
-              <div style={{ height: "100%", width: `${Math.round(doneCount/3*100)}%`, borderRadius: 999,
-                background: "linear-gradient(90deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72))",
-                transition: "width 650ms cubic-bezier(.2,.9,.2,1)" }} />
+            <div
+              style={{
+                minWidth: isMobile ? "100%" : 180,
+                padding: "14px 14px",
+                borderRadius: 20,
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                textAlign: isMobile ? "left" : "right",
+              }}
+            >
+              <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
+              <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
+              <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
             </div>
           </div>
         </div>
 
-        <TodayTasks tasks={tasks} />
-        <Heatmap heatmapData={d.heatmap||{}} streakDays={d.streak_days||0} totalVideos={d.total_views||0} />
-        <AbilityProfile masteryStats={masteryStats} topicStats={topicStats} />
-        <MemoryCard item={memoryItem} onRefresh={refreshMemory} totalVocab={vocabItems.length} />
-
-        {/* 打卡海报 */}
-        <Card>
-          <SectionTitle emoji="📸" title="生成打卡海报" sub="一键生成，分享到朋友圈 / 小红书，带上你的成就" />
-          <PosterGenerator
-            me={me}
-            streakDays={d.streak_days||0}
-            totalVideos={d.total_views||0}
+        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "stretch" }}>
+          <OverviewPanel
+            streakDays={d.streak_days || 0}
+            totalViews={d.total_views || 0}
+            activeDays={activeDays}
             vocabCount={vocabItems.length}
-            masteredCount={masteryStats.mastered}
-            heatmapData={d.heatmap||{}}
-            tasks={tasks}
+            isMobile={isMobile}
           />
-        </Card>
+          <TodayPlan d={d} isMobile={isMobile} />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+          <Heatmap
+            heatmapData={d.heatmap || {}}
+            streakDays={d.streak_days || 0}
+            totalViews={d.total_views || 0}
+            isMobile={isMobile}
+          />
+          <LearningAnalysis
+            d={d}
+            vocabCount={vocabItems.length}
+            topicStats={topicStats}
+            gameSummary={gameSummary}
+            isMobile={isMobile}
+          />
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 14, marginTop: 14 }}>
+          <ContinueLearning isMobile={isMobile} />
+          <Card style={{ padding: 18 }}>
+            <SectionTitle
+              emoji="📸"
+              title="海报生成器"
+              sub="作为模块6保留，并且固定成这个页面的成果展示出口"
+            />
+            <PosterGenerator
+              me={me}
+              streakDays={d.streak_days || 0}
+              totalVideos={d.total_views || 0}
+              vocabCount={vocabItems.length}
+              masteredCount={0}
+              heatmapData={d.heatmap || {}}
+              tasks={tasks}
+              activeDays={activeDays}
+              topTopic={topicStats[0]?.label || "继续学习后会出现"}
+            />
+          </Card>
+        </div>
       </div>
     </div>
   );
