@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 
 const ADMIN_EMAIL = "214895399@qq.com";
 
@@ -87,6 +88,8 @@ export async function POST(req) {
     // 3. 同步 taxonomies 表 + clip_taxonomies 关联
     await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
     await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    revalidateTag("clips_view:featured");
 
     return NextResponse.json({ ok: true, id: clip.id });
   }
@@ -125,6 +128,8 @@ export async function POST(req) {
     // 同步 taxonomies 表 + 重建 clip_taxonomies 关联
     await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
     await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    revalidateTag("clips_view:featured");
     return NextResponse.json({ ok: true });
   }
 
@@ -135,6 +140,8 @@ export async function POST(req) {
     const { error } = await db.from("clips").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    revalidateTag("clips_view:featured");
     return NextResponse.json({ ok: true });
   }
 
