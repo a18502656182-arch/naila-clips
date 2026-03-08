@@ -122,8 +122,8 @@ export async function POST(req) {
     }
 
     // 同步 taxonomies 表 + 重建 clip_taxonomies 关联
-    await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
-    return NextResponse.json({ ok: true });
+    const syncResult = await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
+    return NextResponse.json({ ok: true, debug: syncResult });
   }
 
   // ── 视频：删除 ──
@@ -356,11 +356,13 @@ async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel
   }
 
   // 3. 重建 clip_taxonomies（先删后插）
-  await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
+  const { error: delErr } = await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
+  let insertErr = null;
   if (taxIds.length > 0) {
     const { error: ctErr } = await db.from("clip_taxonomies").insert(
       taxIds.map((tid) => ({ clip_id, taxonomy_id: tid }))
     );
-    if (ctErr) console.error("clip_taxonomies insert error:", ctErr.message);
+    insertErr = ctErr?.message || null;
   }
+  return { clip_id, toUpsert, taxIds, delErr: delErr?.message || null, insertErr };
 }
