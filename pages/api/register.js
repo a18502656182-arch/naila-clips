@@ -53,13 +53,19 @@ export default async function handler(req, res) {
     const userId = created?.user?.id;
     if (!userId) return res.status(500).json({ error: "Create user failed (no user id)" });
 
-    // 2) 写 profiles
-    if (username) {
-      const { error: profErr } = await admin.from("profiles").insert({ user_id: userId, username });
-      if (profErr) {
+    // 2) 写 profiles（所有用户都写，记录 used_code）
+    const profileRow = { user_id: userId, used_code: String(code).trim() };
+    if (username) profileRow.username = username;
+
+    const { error: profErr } = await admin.from("profiles").insert(profileRow);
+    if (profErr) {
+      // 用户名重复时回滚
+      if (username) {
         await admin.auth.admin.deleteUser(userId);
         return res.status(400).json({ error: `Username already used: ${profErr.message}` });
       }
+      // 邮箱注册写 profiles 失败不阻断流程，只记录
+      console.error("profiles insert error:", profErr.message);
     }
 
     // 3) 兑换码
@@ -79,7 +85,6 @@ export default async function handler(req, res) {
     const { data: signed, error: signErr } = await anon.auth.signInWithPassword({ email, password });
 
     if (signErr || !signed?.session) {
-      // 登录失败时引导去登录页（注册本身已成功）
       return res.status(200).json({
         ok: true, needs_login: true, email_hint: email,
         plan: redeemed?.[0]?.plan ?? null,
@@ -87,7 +92,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ 返回 token 给前端存储，不再写 cookie
     return res.status(200).json({
       ok: true,
       needs_login: false,
