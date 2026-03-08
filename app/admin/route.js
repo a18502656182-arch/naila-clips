@@ -1,0 +1,332 @@
+// app/admin/api/route.js
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
+
+const ADMIN_EMAIL = "214895399@qq.com";
+
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false } }
+  );
+}
+
+function getTokenFromRequest(req) {
+  const auth = req.headers.get("authorization") || "";
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : null;
+}
+
+async function verifyAdmin(req) {
+  const token = getTokenFromRequest(req);
+  if (!token) return null;
+  const anon = createClient(
+    process.env.SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { auth: { persistSession: false } }
+  );
+  const { data } = await anon.auth.getUser(token);
+  const email = data?.user?.email;
+  return email === ADMIN_EMAIL ? data.user : null;
+}
+
+function nanoid(len = 10) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+
+export async function POST(req) {
+  const user = await verifyAdmin(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const { action } = body;
+  const db = getSupabaseAdmin();
+
+  // ── 视频：新增 ──
+  if (action === "clip_create") {
+    const {
+      title, description, video_url, cover_url, duration_sec,
+      access_tier, difficulty_slug, topic_slugs, channel_slugs,
+      details_json, upload_time,
+    } = body;
+
+    // 1. 插入 clips 表
+    const { data: clip, error: clipErr } = await db
+      .from("clips")
+      .insert({
+        title, description, video_url, cover_url,
+        duration_sec: duration_sec ? Number(duration_sec) : null,
+        access_tier: access_tier || "free",
+        difficulty_slug: difficulty_slug || null,
+        topic_slugs: topic_slugs || [],
+        channel_slugs: channel_slugs || [],
+        upload_time: upload_time || new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (clipErr) return NextResponse.json({ error: clipErr.message }, { status: 500 });
+
+    // 2. 插入 clip_details
+    if (details_json) {
+      let parsed = details_json;
+      if (typeof details_json === "string") {
+        try { parsed = JSON.parse(details_json); } catch {
+          return NextResponse.json({ error: "details_json 格式错误，请检查 JSON" }, { status: 400 });
+        }
+      }
+      const { error: detErr } = await db
+        .from("clip_details")
+        .insert({ clip_id: clip.id, details_json: parsed });
+      if (detErr) return NextResponse.json({ error: detErr.message }, { status: 500 });
+    }
+
+    // 3. 同步 taxonomies
+    await syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs);
+
+    return NextResponse.json({ ok: true, id: clip.id });
+  }
+
+  // ── 视频：编辑 ──
+  if (action === "clip_update") {
+    const {
+      id, title, description, video_url, cover_url, duration_sec,
+      access_tier, difficulty_slug, topic_slugs, channel_slugs,
+      details_json,
+    } = body;
+
+    const { error: clipErr } = await db
+      .from("clips")
+      .update({
+        title, description, video_url, cover_url,
+        duration_sec: duration_sec ? Number(duration_sec) : null,
+        access_tier: access_tier || "free",
+        difficulty_slug: difficulty_slug || null,
+        topic_slugs: topic_slugs || [],
+        channel_slugs: channel_slugs || [],
+      })
+      .eq("id", id);
+
+    if (clipErr) return NextResponse.json({ error: clipErr.message }, { status: 500 });
+
+    if (details_json !== undefined) {
+      let parsed = details_json;
+      if (typeof details_json === "string") {
+        try { parsed = JSON.parse(details_json); } catch {
+          return NextResponse.json({ error: "details_json 格式错误" }, { status: 400 });
+        }
+      }
+      await db
+        .from("clip_details")
+        .upsert({ clip_id: id, details_json: parsed }, { onConflict: "clip_id" });
+    }
+
+    await syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs);
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 视频：删除 ──
+  if (action === "clip_delete") {
+    const { id } = body;
+    await db.from("clip_details").delete().eq("clip_id", id);
+    const { error } = await db.from("clips").delete().eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 视频：获取 details_json ──
+  if (action === "clip_get_details") {
+    const { id } = body;
+    const { data, error } = await db
+      .from("clip_details")
+      .select("details_json")
+      .eq("clip_id", id)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, details_json: data?.details_json ?? null });
+  }
+
+  // ── 兑换码：批量生成 ──
+  if (action === "codes_generate") {
+    const { plan, days, count = 100 } = body;
+    const safeCount = Math.min(Math.max(Number(count) || 100, 1), 500);
+    const rows = [];
+    const existing = new Set();
+
+    // 防重碰撞
+    const { data: existingCodes } = await db
+      .from("redeem_codes")
+      .select("code");
+    (existingCodes || []).forEach((r) => existing.add(r.code));
+
+    for (let i = 0; i < safeCount; i++) {
+      let code;
+      do { code = nanoid(10); } while (existing.has(code));
+      existing.add(code);
+      rows.push({
+        code,
+        plan: plan || "month",
+        days: Number(days) || 30,
+        max_uses: 1,
+        used_count: 0,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    const { error } = await db.from("redeem_codes").insert(rows);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, count: rows.length, codes: rows.map((r) => r.code) });
+  }
+
+  // ── 兑换码：停用/启用 ──
+  if (action === "code_toggle") {
+    const { id, is_active } = body;
+    const { error } = await db
+      .from("redeem_codes")
+      .update({ is_active })
+      .eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 用户：搜索 ──
+  if (action === "users_search") {
+    const { query } = body;
+    const { data: authUsers } = await db.auth.admin.listUsers({ perPage: 1000 });
+    const allUsers = authUsers?.users || [];
+    const filtered = query
+      ? allUsers.filter(
+          (u) =>
+            u.email?.includes(query) ||
+            u.user_metadata?.username?.includes(query)
+        )
+      : allUsers.slice(0, 100);
+
+    const userIds = filtered.map((u) => u.id);
+    const [{ data: subs }, { data: profiles }] = await Promise.all([
+      db.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
+      db.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
+    ]);
+
+    const subMap = {};
+    (subs || []).forEach((s) => { subMap[s.user_id] = s; });
+    const profMap = {};
+    (profiles || []).forEach((p) => { profMap[p.user_id] = p; });
+
+    const result = filtered.map((u) => ({
+      id: u.id,
+      email: u.email,
+      username: profMap[u.id]?.username || u.user_metadata?.username || null,
+      used_code: profMap[u.id]?.used_code || null,
+      created_at: u.created_at,
+      subscription: subMap[u.id] || null,
+    }));
+
+    return NextResponse.json({ ok: true, users: result });
+  }
+
+  // ── 会员：手动调整 ──
+  if (action === "member_set") {
+    const { user_id, days } = body;
+    const d = Number(days);
+    if (!user_id || !d) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+
+    const { data: existing } = await db
+      .from("subscriptions")
+      .select("expires_at")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    const now = Date.now();
+    const base =
+      existing?.expires_at && new Date(existing.expires_at).getTime() > now
+        ? new Date(existing.expires_at).getTime()
+        : now;
+    const expires_at = new Date(base + d * 86400000).toISOString();
+
+    const { error } = await db
+      .from("subscriptions")
+      .upsert(
+        { user_id, status: "active", plan: d >= 365 ? "year" : d >= 90 ? "quarter" : "month", expires_at },
+        { onConflict: "user_id" }
+      );
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, expires_at });
+  }
+
+  return NextResponse.json({ error: "unknown_action" }, { status: 400 });
+}
+
+// ── GET：拉取更多数据 ──
+export async function GET(req) {
+  const user = await verifyAdmin(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const db = getSupabaseAdmin();
+  const { searchParams } = new URL(req.url);
+  const type = searchParams.get("type");
+
+  if (type === "clips") {
+    const offset = Number(searchParams.get("offset") || 0);
+    const { data } = await db
+      .from("clips_view")
+      .select("id,title,access_tier,created_at,difficulty_slug,topic_slugs,channel_slugs,cover_url")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + 49);
+    return NextResponse.json({ ok: true, clips: data || [] });
+  }
+
+  if (type === "stats") {
+    const [
+      { count: userCount },
+      { count: memberCount },
+      { count: clipCount },
+      { count: codeCount },
+      { data: recentActivity },
+    ] = await Promise.all([
+      db.from("profiles").select("*", { count: "exact", head: true }),
+      db
+        .from("subscriptions")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active")
+        .gt("expires_at", new Date().toISOString()),
+      db.from("clips").select("*", { count: "exact", head: true }),
+      db
+        .from("redeem_codes")
+        .select("*", { count: "exact", head: true })
+        .eq("is_active", true),
+      db
+        .from("subscriptions")
+        .select("user_id,plan,expires_at,created_at")
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
+    return NextResponse.json({
+      ok: true,
+      stats: { userCount, memberCount, clipCount, codeCount },
+      recentActivity: recentActivity || [],
+    });
+  }
+
+  return NextResponse.json({ error: "unknown_type" }, { status: 400 });
+}
+
+// ── 工具函数：同步 taxonomies ──
+async function syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs) {
+  const toInsert = [];
+  if (difficulty_slug) toInsert.push({ type: "difficulty", slug: difficulty_slug });
+  (topic_slugs || []).forEach((s) => toInsert.push({ type: "topic", slug: s }));
+  (channel_slugs || []).forEach((s) => toInsert.push({ type: "channel", slug: s }));
+  if (toInsert.length > 0) {
+    await db
+      .from("taxonomies")
+      .upsert(toInsert, { onConflict: "type,slug", ignoreDuplicates: true });
+  }
+}
