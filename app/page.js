@@ -9,6 +9,7 @@ import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
+import MySpaceSection from "./components/home/MySpaceSection";
 import { THEME } from "./components/home/theme";
 
 export const revalidate = 60;
@@ -37,20 +38,18 @@ function normRow(r) {
   };
 }
 
-const fetchInitialClips = unstable_cache(
+const fetchAllClips = unstable_cache(
   async () => {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("clips_view")
       .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
       .order("created_at", { ascending: false })
-      .range(0, 12);
+      .range(0, 999);
     if (error) throw error;
-    const rows = data || [];
-    const has_more = rows.length > 12;
-    return { items: (has_more ? rows.slice(0, 12) : rows).map(normRow), has_more };
+    return (data || []).map(normRow);
   },
-  ["clips_view:initial"],
+  ["clips_view:all"],
   { revalidate: 60 }
 );
 
@@ -91,12 +90,9 @@ const fetchFeatured = unstable_cache(
 );
 
 export default async function Page() {
-  let items = [];
-  let has_more = false;
+  let allItems = [];
   try {
-    const r = await fetchInitialClips();
-    items = r.items;
-    has_more = r.has_more;
+    allItems = await fetchAllClips();
   } catch (e) {
     return (
       <div style={{ padding: 16 }}>
@@ -109,7 +105,7 @@ export default async function Page() {
   try {
     featured = await fetchFeatured();
   } catch {}
-  if (!featured) featured = items[0] || null;
+  if (!featured) featured = allItems[0] || null;
 
   let taxonomies = { difficulties: [], topics: [], channels: [] };
   try {
@@ -202,6 +198,8 @@ export default async function Page() {
           <HowItWorks />
         </div>
 
+        <MySpaceSection />
+
         <div style={{ marginTop: 30 }}>
           <SectionTitle title="内容库" />
 
@@ -229,7 +227,7 @@ export default async function Page() {
                 </div>
               }
             >
-              <HomeClient initialItems={items} initialHasMore={has_more} initialTaxonomies={taxonomies} />
+              <HomeClient allItems={allItems} initialTaxonomies={taxonomies} />
             </Suspense>
           </div>
         </div>
