@@ -288,7 +288,7 @@ export async function GET(req) {
     const offset = Number(searchParams.get("offset") || 0);
     const { data } = await db
       .from("clips_view")
-      .select("id,title,access_tier,created_at,difficulty_slug,topic_slugs,channel_slugs,cover_url")
+      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,cover_url,video_url,duration_sec,description")
       .order("created_at", { ascending: false })
       .range(offset, offset + 49);
     return NextResponse.json({ ok: true, clips: data || [] });
