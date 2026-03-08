@@ -23,9 +23,9 @@ const T = {
 };
 
 // ── 小工具 ────────────────────────────────────────────
-function getToken() {
-  try { return localStorage.getItem("sb_access_token") || ""; } catch { return ""; }
-}
+let _adminToken = "";
+function setAdminToken(t) { _adminToken = t; }
+function getToken() { return _adminToken; }
 async function api(action, extra = {}) {
   const r = await fetch(ADMIN_API, {
     method: "POST",
@@ -913,9 +913,28 @@ function UsersPanel({ initialUsers, onToast }) {
 // ══════════════════════════════════════════════════════
 export default function AdminClient({
   adminEmail, initialClips, initialTaxonomies,
-  initialRedeemCodes, initialUsers, stats,
+  initialRedeemCodes, initialUsers, stats, token,
 }) {
-  const [tab, setTab] = useState("overview");
+  // 把服务端传来的 token 注入到模块级变量，供 api() 使用
+  useEffect(() => { if (token) setAdminToken(token); }, [token]);
+
+  // 用 URL hash 保存 tab，刷新不丢失
+  const [tab, setTab] = useState(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash.replace("#", "");
+      if (["overview","clips","codes","users"].includes(hash)) return hash;
+    }
+    return "overview";
+  });
+  useEffect(() => {
+    const onHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (["overview","clips","codes","users"].includes(hash)) setTab(hash);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   function onToast(msg, type = "success") {
@@ -954,7 +973,7 @@ export default function AdminClient({
         {/* Tab 导航 */}
         <div style={{ display: "flex", gap: 4, flex: 1 }}>
           {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
+            <button key={t.id} onClick={() => { setTab(t.id); window.location.hash = t.id; }} style={{
               padding: "6px 16px", borderRadius: T.radius.pill, fontSize: 13, fontWeight: 700,
               cursor: "pointer", border: "none",
               background: tab === t.id ? `${T.accent}22` : "transparent",
