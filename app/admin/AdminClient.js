@@ -587,9 +587,9 @@ function CodesPanel({ initialCodes, onToast }) {
   }
 
   async function handleToggle(c) {
-    const res = await api("code_toggle", { id: c.id, is_active: !c.is_active });
+    const res = await api("code_toggle", { id: c.code, is_active: !c.is_active });
     if (!res.ok) { onToast(res.error || "操作失败", "error"); return; }
-    setCodes((prev) => prev.map((x) => x.id === c.id ? { ...x, is_active: !x.is_active } : x));
+    setCodes((prev) => prev.map((x) => x.code === c.code ? { ...x, is_active: !x.is_active } : x));
     onToast(c.is_active ? "已停用" : "已启用");
   }
 
@@ -658,7 +658,7 @@ function CodesPanel({ initialCodes, onToast }) {
               }
               <span style={{ fontSize: 11, color: T.faint }}>{fmt(c.created_at)}</span>
               <Btn size="sm" variant="ghost" onClick={() => { copyText(c.code); onToast("已复制 ✓"); }}>复制</Btn>
-              {c.id && !used && (
+              {c.code && !used && (
                 <Btn size="sm" variant={c.is_active ? "danger" : "success"} onClick={() => handleToggle(c)}>
                   {c.is_active ? "停用" : "启用"}
                 </Btn>
