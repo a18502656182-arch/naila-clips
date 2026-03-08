@@ -750,6 +750,21 @@ function UsersPanel({ initialUsers, onToast }) {
     setMemberModal(null);
   }
 
+  async function handleMemberStop() {
+    if (!confirm(`确认立即停用「${memberModal.username || memberModal.email}」的会员？`)) return;
+    setSaving(true);
+    const res = await api("member_stop", { user_id: memberModal.id });
+    setSaving(false);
+    if (!res.ok) { onToast(res.error || "操作失败", "error"); return; }
+    onToast("会员已停用 ✓");
+    setUsers((prev) => prev.map((u) =>
+      u.id === memberModal.id
+        ? { ...u, subscription: { ...u.subscription, status: "inactive", expires_at: new Date().toISOString() } }
+        : u
+    ));
+    setMemberModal(null);
+  }
+
   const filtered = users.filter((u) => {
     if (filter === "member" && !isMemberActive(u.subscription)) return false;
     if (filter === "expired" && isMemberActive(u.subscription)) return false;
@@ -875,11 +890,16 @@ function UsersPanel({ initialUsers, onToast }) {
                 type="number" placeholder="或手动输入天数"
               />
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <Btn variant="ghost" onClick={() => setMemberModal(null)}>取消</Btn>
-              <Btn variant="success" onClick={handleMemberSave} disabled={saving}>
-                {saving ? "保存中…" : `✓ 延长 ${memberDays} 天`}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <Btn variant="danger" onClick={handleMemberStop} disabled={saving}>
+                🚫 立即停用会员
               </Btn>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Btn variant="ghost" onClick={() => setMemberModal(null)}>取消</Btn>
+                <Btn variant="success" onClick={handleMemberSave} disabled={saving}>
+                  {saving ? "保存中…" : `✓ 延长 ${memberDays} 天`}
+                </Btn>
+              </div>
             </div>
           </div>
         )}
