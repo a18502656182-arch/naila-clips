@@ -86,6 +86,7 @@ export async function POST(req) {
 
     // 3. 同步 taxonomies 表 + clip_taxonomies 关联
     await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
+    await db.rpc("refresh_clips_view");
 
     return NextResponse.json({ ok: true, id: clip.id });
   }
@@ -122,8 +123,9 @@ export async function POST(req) {
     }
 
     // 同步 taxonomies 表 + 重建 clip_taxonomies 关联
-    const syncResult = await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
-    return NextResponse.json({ ok: true, debug: syncResult });
+    await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
+    await db.rpc("refresh_clips_view");
+    return NextResponse.json({ ok: true });
   }
 
   // ── 视频：删除 ──
@@ -132,6 +134,7 @@ export async function POST(req) {
     await db.from("clip_details").delete().eq("clip_id", id);
     const { error } = await db.from("clips").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    await db.rpc("refresh_clips_view");
     return NextResponse.json({ ok: true });
   }
 
