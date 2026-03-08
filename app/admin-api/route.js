@@ -191,7 +191,7 @@ export async function POST(req) {
     const { error } = await db
       .from("redeem_codes")
       .update({ is_active })
-      .eq("id", id);
+      .eq("code", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
