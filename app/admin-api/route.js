@@ -188,6 +188,7 @@ export async function POST(req) {
   // ── 兑换码：停用/启用 ──
   if (action === "code_toggle") {
     const { id, is_active } = body;
+    // redeem_codes 表主键是 code 字段，没有 id 字段
     const { error } = await db
       .from("redeem_codes")
       .update({ is_active })
@@ -259,6 +260,18 @@ export async function POST(req) {
       );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, expires_at });
+  }
+
+  // ── 会员：立即停用 ──
+  if (action === "member_stop") {
+    const { user_id } = body;
+    if (!user_id) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    const { error } = await db
+      .from("subscriptions")
+      .update({ status: "inactive", expires_at: new Date().toISOString() })
+      .eq("user_id", user_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: "unknown_action" }, { status: 400 });
