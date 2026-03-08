@@ -25,7 +25,20 @@ const T = {
 // ── 小工具 ────────────────────────────────────────────
 let _adminToken = "";
 function setAdminToken(t) { _adminToken = t; }
-function getToken() { return _adminToken; }
+function getToken() {
+  if (_adminToken) return _adminToken;
+  // 从 cookie 直接读（客户端 fallback）
+  try {
+    const match = document.cookie.split(";").map(c => c.trim()).find(c => c.includes("-auth-token="));
+    if (!match) return "";
+    let val = match.split("=").slice(1).join("=");
+    if (val.startsWith("base64-")) val = val.slice(7);
+    const decoded = atob(val);
+    const parsed = JSON.parse(decoded);
+    const session = Array.isArray(parsed) ? parsed[0] : parsed;
+    return session?.access_token || "";
+  } catch { return ""; }
+}
 async function api(action, extra = {}) {
   const r = await fetch(ADMIN_API, {
     method: "POST",
