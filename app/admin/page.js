@@ -67,7 +67,7 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase
       .from("clips_view")
-      .select("id,title,access_tier,created_at,difficulty_slug,topic_slugs,channel_slugs")
+      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,cover_url,video_url,duration_sec,description")
       .order("created_at", { ascending: false })
       .limit(50),
     supabase.from("taxonomies").select("type,slug").order("type").order("slug"),
