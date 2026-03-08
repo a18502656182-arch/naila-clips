@@ -55,14 +55,13 @@ export async function POST(req) {
       details_json, upload_time,
     } = body;
 
-    // 1. 插入 clips 表（不含标签数组，标签存 clip_taxonomies）
+    // 1. 插入 clips 表（标签全部走 clip_taxonomies，clips 表不存标签）
     const { data: clip, error: clipErr } = await db
       .from("clips")
       .insert({
         title, description, video_url, cover_url,
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
-        difficulty_slug: difficulty_slug || null,
         upload_time: upload_time || new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
@@ -105,7 +104,6 @@ export async function POST(req) {
         title, description, video_url, cover_url,
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
-        difficulty_slug: difficulty_slug || null,
       })
       .eq("id", id);
 
