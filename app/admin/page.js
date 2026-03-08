@@ -36,7 +36,6 @@ function getAccessTokenFromCookies() {
 }
 
 export default async function AdminPage() {
-  // 1. 鉴权
   const token = getAccessTokenFromCookies();
   if (!token) redirect("/login?next=/admin");
 
@@ -54,20 +53,17 @@ export default async function AdminPage() {
       <div style={{ padding: 40, textAlign: "center", fontFamily: "system-ui" }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🚫</div>
         <div style={{ fontSize: 18, fontWeight: 700 }}>无权限访问</div>
-        <div style={{ marginTop: 8, color: "#666" }}>该页面仅限管理员访问</div>
-        <a href="/" style={{ display: "inline-block", marginTop: 20, color: "#4f46e5" }}>← 返回首页</a>
+        <a href="/" style={{ display: "inline-block", marginTop: 20, color: "#4f46e5" }}>返回首页</a>
       </div>
     );
   }
 
-  // 2. 预加载初始数据
   const [
     { data: clips },
     { data: taxonomies },
     { data: redeemCodes },
-    { count: userCount },
-    { data: recentUsers },
     { count: memberCount },
+    { data: authUsersData },
   ] = await Promise.all([
     supabase
       .from("clips_view")
@@ -80,41 +76,42 @@ export default async function AdminPage() {
       .select("id,code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase.from("profiles").select("*", { count: "exact", head: true }),
-    supabase
-      .from("profiles")
-      .select("user_id,username,created_at,used_code")
-      .order("created_at", { ascending: false })
-      .limit(100),
     supabase
       .from("subscriptions")
       .select("*", { count: "exact", head: true })
       .eq("status", "active")
       .gt("expires_at", new Date().toISOString()),
+    supabase.auth.admin.listUsers({ perPage: 1000 }),
   ]);
 
-  // 3. 拼接会员信息到用户列表
-  let usersWithSub = recentUsers || [];
-  if (usersWithSub.length > 0) {
-    const userIds = usersWithSub.map((u) => u.user_id);
-    const { data: subs } = await supabase
-      .from("subscriptions")
-      .select("user_id,plan,expires_at,status")
-      .in("user_id", userIds);
-    const subMap = {};
-    (subs || []).forEach((s) => { subMap[s.user_id] = s; });
+  const allAuthUsers = authUsersData?.users || [];
+  const userCount = allAuthUsers.length;
 
-    // 拼邮箱（从 auth.users 拿，需要 service role）
-    const { data: authUsers } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const emailMap = {};
-    (authUsers?.users || []).forEach((u) => { emailMap[u.id] = u.email; });
+  const recentAuthUsers = [...allAuthUsers]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 100);
 
-    usersWithSub = usersWithSub.map((u) => ({
-      ...u,
-      email: emailMap[u.user_id] || null,
-      subscription: subMap[u.user_id] || null,
-    }));
-  }
+  const userIds = recentAuthUsers.map((u) => u.id);
+
+  const [{ data: subs }, { data: profiles }] = await Promise.all([
+    supabase.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
+    // 现在直接从 profiles 拿 used_code
+    supabase.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
+  ]);
+
+  const subMap = {};
+  (subs || []).forEach((s) => { subMap[s.user_id] = s; });
+  const profileMap = {};
+  (profiles || []).forEach((p) => { profileMap[p.user_id] = p; });
+
+  const usersWithSub = recentAuthUsers.map((u) => ({
+    id: u.id,
+    email: u.email,
+    username: profileMap[u.id]?.username || u.user_metadata?.username || null,
+    created_at: u.created_at,
+    used_code: profileMap[u.id]?.used_code || null,
+    subscription: subMap[u.id] || null,
+  }));
 
   return (
     <AdminClient
@@ -124,7 +121,7 @@ export default async function AdminPage() {
       initialRedeemCodes={redeemCodes || []}
       initialUsers={usersWithSub}
       stats={{
-        userCount: userCount || 0,
+        userCount,
         memberCount: memberCount || 0,
         clipCount: (clips || []).length,
         codeCount: (redeemCodes || []).filter((c) => c.is_active).length,
