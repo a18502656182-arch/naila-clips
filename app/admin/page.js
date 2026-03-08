@@ -73,7 +73,7 @@ export default async function AdminPage() {
     supabase.from("taxonomies").select("type,slug").order("type").order("slug"),
     supabase
       .from("redeem_codes")
-      .select("id,code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
+      .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
