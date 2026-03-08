@@ -9,7 +9,6 @@ import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
-import MySpaceSection from "./components/home/MySpaceSection";
 import { THEME } from "./components/home/theme";
 
 export const revalidate = 60;
@@ -197,8 +196,6 @@ export default async function Page() {
         <div style={{ marginTop: 22 }}>
           <HowItWorks />
         </div>
-
-        <MySpaceSection />
 
         <div style={{ marginTop: 30 }}>
           <SectionTitle title="内容库" />
