@@ -127,8 +127,22 @@ export default function RegisterPage() {
         expires_at: j.expires_at,
       });
 
+      // 如果后端返回了 token，直接写入 localStorage 实现自动登录
+      if (j.access_token) {
+        try {
+          localStorage.setItem("sb_access_token", j.access_token);
+          if (j.refresh_token) localStorage.setItem("sb_refresh_token", j.refresh_token);
+        } catch (e) {}
+      }
+
       setTimeout(() => {
-        router.push(`/login?email=${encodeURIComponent(j.email || "")}&redirectTo=${encodeURIComponent(next)}`);
+        if (j.access_token) {
+          // 已自动登录，直接跳目标页（首页或来源页）
+          router.push(next || "/");
+        } else {
+          // 极少数情况自动登录失败，跳登录页并预填邮箱
+          router.push(`/login?email=${encodeURIComponent(j.email || "")}&redirectTo=${encodeURIComponent(next)}`);
+        }
       }, 1800);
     } catch (err) {
       setMsg(err.message || "网络错误，请重试");
@@ -190,7 +204,7 @@ export default function RegisterPage() {
               )}
             </div>
             <div style={{ marginTop: 14, fontSize: 13, color: THEME.colors.faint }}>
-              正在跳转登录页...
+              正在跳转首页...
             </div>
           </div>
         ) : (
