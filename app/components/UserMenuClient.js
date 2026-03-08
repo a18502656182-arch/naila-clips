@@ -75,8 +75,12 @@ export default function UserMenuClient() {
       if (!mounted) return;
       setEmail(session?.user?.email ?? null);
       setLoading(false);
-      if (session?.access_token) fetchMe(session.access_token);
-      else {
+      if (session?.access_token) {
+        // 同步最新 token 到 localStorage，供其他页面的 authFetch 使用
+        try { localStorage.setItem("sb_access_token", session.access_token); } catch {}
+        fetchMe(session.access_token);
+      } else {
+        try { localStorage.removeItem("sb_access_token"); } catch {}
         setIsMember(false);
         setMeData(null);
       }
