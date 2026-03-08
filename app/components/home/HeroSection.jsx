@@ -116,8 +116,8 @@ export default function HeroSection({ children }) {
         .heroActions {
           margin-top: 24px;
           display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
+          gap: 10px;
+          flex-wrap: nowrap;
           align-items: center;
         }
         .heroBtnPrimary {
@@ -125,7 +125,7 @@ export default function HeroSection({ children }) {
           align-items: center;
           justify-content: center;
           min-height: 50px;
-          padding: 0 20px;
+          padding: 0 22px;
           border-radius: 999px;
           text-decoration: none;
           background: linear-gradient(135deg, ${THEME.colors.ink}, #182235);
@@ -133,21 +133,47 @@ export default function HeroSection({ children }) {
           font-size: 14px;
           font-weight: 900;
           box-shadow: 0 16px 32px rgba(15,23,42,0.18);
+          white-space: nowrap;
         }
-        .heroBtnSecondary {
+        .heroBtnJournal {
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          gap: 6px;
           min-height: 50px;
           padding: 0 18px;
           border-radius: 999px;
           text-decoration: none;
-          background: rgba(255,255,255,0.76);
-          border: 1px solid ${THEME.colors.border};
-          color: ${THEME.colors.ink};
+          background: rgba(79,70,229,0.08);
+          border: 1px solid rgba(79,70,229,0.22);
+          color: ${THEME.colors.accent};
           font-size: 14px;
-          font-weight: 800;
-          box-shadow: 0 10px 24px rgba(15,23,42,0.05);
+          font-weight: 900;
+          white-space: nowrap;
+          transition: background 0.18s;
+        }
+        .heroBtnJournal:hover {
+          background: rgba(79,70,229,0.14);
+        }
+        .heroBtnGame {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          min-height: 50px;
+          padding: 0 18px;
+          border-radius: 999px;
+          text-decoration: none;
+          background: rgba(124,58,237,0.08);
+          border: 1px solid rgba(124,58,237,0.22);
+          color: ${THEME.colors.vip};
+          font-size: 14px;
+          font-weight: 900;
+          white-space: nowrap;
+          transition: background 0.18s;
+        }
+        .heroBtnGame:hover {
+          background: rgba(124,58,237,0.14);
         }
         .heroNote {
           margin-top: 16px;
@@ -200,12 +226,14 @@ export default function HeroSection({ children }) {
           }
           .heroActions {
             margin-top: 16px;
-            gap: 10px;
+            gap: 8px;
           }
           .heroBtnPrimary,
-          .heroBtnSecondary {
-            min-height: 46px;
-            padding: 0 18px;
+          .heroBtnJournal,
+          .heroBtnGame {
+            min-height: 44px;
+            padding: 0 14px;
+            font-size: 13px;
           }
           .heroNote {
             margin-top: 12px;
@@ -232,10 +260,18 @@ export default function HeroSection({ children }) {
           }
           .heroActions {
             margin-top: 14px;
+            gap: 7px;
           }
           .heroEyebrow {
             font-size: 11px;
             padding: 7px 11px;
+          }
+          .heroBtnPrimary,
+          .heroBtnJournal,
+          .heroBtnGame {
+            min-height: 42px;
+            padding: 0 13px;
+            font-size: 12px;
           }
         }
 
@@ -254,10 +290,11 @@ export default function HeroSection({ children }) {
             display: none;
           }
           .heroBtnPrimary,
-          .heroBtnSecondary {
-            min-height: 44px;
-            font-size: 13px;
-            padding: 0 16px;
+          .heroBtnJournal,
+          .heroBtnGame {
+            min-height: 40px;
+            font-size: 12px;
+            padding: 0 11px;
           }
         }
       `}</style>
@@ -300,13 +337,13 @@ export default function HeroSection({ children }) {
 
             <div className="heroActions">
               <a href="#all" className="heroBtnPrimary">
-                开始浏览内容库
+                浏览内容库
               </a>
-              <a
-                href={featured?.props?.featured?.id ? `/clips/${featured.props.featured.id}` : "#all"}
-                className="heroBtnSecondary"
-              >
-                先看示例视频
+              <a href="/journal" className="heroBtnJournal">
+                📒 记学习手帐
+              </a>
+              <a href="/practice" className="heroBtnGame">
+                🎮 词汇闯关
               </a>
             </div>
 
