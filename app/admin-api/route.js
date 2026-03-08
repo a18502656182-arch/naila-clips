@@ -55,7 +55,7 @@ export async function POST(req) {
       details_json, upload_time,
     } = body;
 
-    // 1. 插入 clips 表
+    // 1. 插入 clips 表（不含标签数组，标签存 clip_taxonomies）
     const { data: clip, error: clipErr } = await db
       .from("clips")
       .insert({
@@ -63,8 +63,6 @@ export async function POST(req) {
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
         difficulty_slug: difficulty_slug || null,
-        topic_slugs: topic_slugs || [],
-        channel_slugs: channel_slugs || [],
         upload_time: upload_time || new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
@@ -87,8 +85,8 @@ export async function POST(req) {
       if (detErr) return NextResponse.json({ error: detErr.message }, { status: 500 });
     }
 
-    // 3. 同步 taxonomies
-    await syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs);
+    // 3. 同步 taxonomies 表 + clip_taxonomies 关联
+    await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
 
     return NextResponse.json({ ok: true, id: clip.id });
   }
@@ -108,8 +106,6 @@ export async function POST(req) {
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
         difficulty_slug: difficulty_slug || null,
-        topic_slugs: topic_slugs || [],
-        channel_slugs: channel_slugs || [],
       })
       .eq("id", id);
 
@@ -127,7 +123,8 @@ export async function POST(req) {
         .upsert({ clip_id: id, details_json: parsed }, { onConflict: "clip_id" });
     }
 
-    await syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs);
+    // 同步 taxonomies 表 + 重建 clip_taxonomies 关联
+    await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
     return NextResponse.json({ ok: true });
   }
 
@@ -332,14 +329,35 @@ export async function GET(req) {
 }
 
 // ── 工具函数：同步 taxonomies ──
-async function syncTaxonomies(db, difficulty_slug, topic_slugs, channel_slugs) {
-  const toInsert = [];
-  if (difficulty_slug) toInsert.push({ type: "difficulty", slug: difficulty_slug });
-  (topic_slugs || []).forEach((s) => toInsert.push({ type: "topic", slug: s }));
-  (channel_slugs || []).forEach((s) => toInsert.push({ type: "channel", slug: s }));
-  if (toInsert.length > 0) {
-    await db
-      .from("taxonomies")
-      .upsert(toInsert, { onConflict: "type,slug", ignoreDuplicates: true });
+async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs) {
+  // 1. 确保 taxonomies 表里有这些 slug
+  const toUpsert = [];
+  if (difficulty_slug) toUpsert.push({ type: "difficulty", slug: difficulty_slug });
+  (topic_slugs || []).forEach((s) => toUpsert.push({ type: "topic", slug: s }));
+  (channel_slugs || []).forEach((s) => toUpsert.push({ type: "channel", slug: s }));
+  if (toUpsert.length > 0) {
+    await db.from("taxonomies").upsert(toUpsert, { onConflict: "type,slug", ignoreDuplicates: true });
+  }
+
+  // 2. 查出所有相关 taxonomy id
+  const allSlugs = toUpsert.map((t) => t.slug);
+  if (allSlugs.length === 0) {
+    // 没有标签，清空该视频的关联
+    await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
+    return;
+  }
+  const { data: taxRows } = await db
+    .from("taxonomies")
+    .select("id, slug")
+    .in("slug", allSlugs);
+
+  const taxIds = (taxRows || []).map((t) => t.id);
+
+  // 3. 重建 clip_taxonomies（先删后插，保证和当前选择一致）
+  await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
+  if (taxIds.length > 0) {
+    await db.from("clip_taxonomies").insert(
+      taxIds.map((tid) => ({ clip_id, taxonomy_id: tid }))
+    );
   }
 }
