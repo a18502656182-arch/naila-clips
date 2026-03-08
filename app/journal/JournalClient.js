@@ -109,8 +109,8 @@ function MiniStat({ label, value, hint, accent }) {
   return (
     <div
       style={{
-        minHeight: 132,
-        padding: "18px 16px 16px",
+        minHeight: 118,
+        padding: "16px 16px 14px",
         borderRadius: 22,
         border: `1px solid ${accent.border}`,
         background: accent.bg,
@@ -121,7 +121,7 @@ function MiniStat({ label, value, hint, accent }) {
       }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontSize: 40, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: 42, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
         <div
           style={{
             fontSize: 11,
@@ -129,7 +129,7 @@ function MiniStat({ label, value, hint, accent }) {
             color: accent.color,
             padding: "6px 9px",
             borderRadius: 999,
-            background: "rgba(255,255,255,0.75)",
+            background: "rgba(255,255,255,0.78)",
             border: `1px solid ${accent.border}`,
             whiteSpace: "nowrap",
           }}
@@ -137,9 +137,8 @@ function MiniStat({ label, value, hint, accent }) {
           {label}
         </div>
       </div>
-      <div>
-        <div style={{ fontSize: 14, fontWeight: 950, color: THEME.colors.ink, marginTop: 8 }}>{label}</div>
-        <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 800, marginTop: 6, lineHeight: 1.5 }}>{hint}</div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 900, lineHeight: 1.5 }}>{hint}</div>
       </div>
     </div>
   );
@@ -147,7 +146,7 @@ function MiniStat({ label, value, hint, accent }) {
 
 function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobile }) {
   return (
-    <Card style={{ padding: 18, minHeight: isMobile ? "auto" : 462 }}>
+    <Card style={{ padding: 18 }}>
       <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <MiniStat
@@ -191,54 +190,16 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
           }}
         />
       </div>
-
-      <div
-        style={{
-          marginTop: 14,
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-          gap: 12,
-        }}
-      >
-        <div
-          style={{
-            padding: "14px 16px",
-            borderRadius: 18,
-            background: "linear-gradient(135deg, rgba(15,23,42,0.04), rgba(15,23,42,0.02))",
-            border: "1px solid rgba(15,23,42,0.08)",
-          }}
-        >
-          <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 900 }}>学习状态</div>
-          <div style={{ fontSize: 14, color: THEME.colors.ink, fontWeight: 950, marginTop: 8, lineHeight: 1.6 }}>
-            {streakDays >= 3 ? `已经连续学习 ${streakDays} 天，状态很稳。` : "刚起步也没关系，先把连续性拉起来。"}
-          </div>
-        </div>
-        <div
-          style={{
-            padding: "14px 16px",
-            borderRadius: 18,
-            background: "linear-gradient(135deg, rgba(99,102,241,0.08), rgba(6,182,212,0.06))",
-            border: "1px solid rgba(99,102,241,0.14)",
-          }}
-        >
-          <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 900 }}>当前重点</div>
-          <div style={{ fontSize: 14, color: THEME.colors.ink, fontWeight: 950, marginTop: 8, lineHeight: 1.6 }}>
-            {vocabCount > totalViews
-              ? "你最近更偏向收藏沉淀，适合补一点新视频输入。"
-              : "你最近更偏向输入积累，适合去词汇本沉淀表达。"}
-          </div>
-        </div>
-      </div>
     </Card>
   );
 }
 
-function TaskRow({ title, desc, done, buttonText, href, neutral }) {
+function TaskRow({ title, desc, done, buttonText, href, neutral, isMobile }) {
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "30px minmax(0,1fr) auto auto",
+        gridTemplateColumns: isMobile ? "30px minmax(0,1fr) auto" : "30px minmax(0,1fr) auto auto",
         alignItems: "center",
         gap: 12,
         padding: "14px 14px",
@@ -290,7 +251,7 @@ function TaskRow({ title, desc, done, buttonText, href, neutral }) {
         <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4, lineHeight: 1.5 }}>{desc}</div>
       </div>
 
-      {!neutral ? (
+      {!isMobile && !neutral ? (
         <span
           style={{
             fontSize: 11,
@@ -305,9 +266,7 @@ function TaskRow({ title, desc, done, buttonText, href, neutral }) {
         >
           {done ? "已完成" : "进行中"}
         </span>
-      ) : (
-        <span />
-      )}
+      ) : null}
 
       <a
         href={href}
@@ -353,7 +312,7 @@ function TodayPlan({ d, isMobile }) {
   const pct = Math.round((doneCount / autoTasks.length) * 100);
 
   return (
-    <Card style={{ padding: 18, minHeight: isMobile ? "auto" : 462 }}>
+    <Card style={{ padding: 18 }}>
       <SectionTitle
         emoji="🎯"
         title="今天的学习计划"
@@ -398,7 +357,7 @@ function TodayPlan({ d, isMobile }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {autoTasks.map((task, idx) => (
-          <TaskRow key={idx} {...task} />
+          <TaskRow key={idx} {...task} isMobile={isMobile} />
         ))}
         <TaskRow
           title="去游戏大厅做一轮练习"
@@ -407,6 +366,7 @@ function TodayPlan({ d, isMobile }) {
           neutral
           href="/practice"
           buttonText="去练习"
+          isMobile={isMobile}
         />
       </div>
       {!isMobile && (
@@ -441,7 +401,6 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
   const cells = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
   for (let d = 1; d <= totalDays; d++) {
-    const date = new Date(year, month, d);
     const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     cells.push({
       day: d,
@@ -452,43 +411,37 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
   }
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const weeks = [];
-  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
-
-  const monthActiveDays = cells.filter((x) => x && x.count > 0).length;
-  const monthTotalViews = cells.filter((x) => x).reduce((sum, x) => sum + (x?.count || 0), 0);
+  const flatCells = cells;
+  const monthActiveDays = flatCells.filter((x) => x && x.count > 0).length;
+  const monthTotalViews = flatCells.filter((x) => x).reduce((sum, x) => sum + (x?.count || 0), 0);
 
   function getLevelStyle(count) {
     if (count <= 0) {
       return {
-        bg: "rgba(15,23,42,0.04)",
-        border: "rgba(15,23,42,0.06)",
+        bg: "rgba(248,250,252,0.9)",
         text: "#94a3b8",
-        badgeBg: "rgba(255,255,255,0.85)",
+        badgeBg: "rgba(226,232,240,0.9)",
         badgeText: "#94a3b8",
       };
     }
     if (count === 1) {
       return {
-        bg: "rgba(34,197,94,0.12)",
-        border: "rgba(34,197,94,0.16)",
+        bg: "rgba(220,252,231,0.95)",
         text: "#166534",
-        badgeBg: "rgba(34,197,94,0.16)",
+        badgeBg: "rgba(34,197,94,0.14)",
         badgeText: "#166534",
       };
     }
     if (count === 2) {
       return {
-        bg: "rgba(34,197,94,0.22)",
-        border: "rgba(34,197,94,0.22)",
+        bg: "rgba(187,247,208,0.98)",
         text: "#166534",
         badgeBg: "rgba(34,197,94,0.22)",
         badgeText: "#166534",
       };
     }
     return {
-      bg: "rgba(22,163,74,0.92)",
-      border: "rgba(22,163,74,0.92)",
+      bg: "rgba(34,197,94,0.95)",
       text: "#ffffff",
       badgeBg: "rgba(255,255,255,0.22)",
       badgeText: "#ffffff",
@@ -557,7 +510,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         style={{
           borderRadius: 22,
           border: "1px solid rgba(15,23,42,0.08)",
-          background: "rgba(255,255,255,0.82)",
+          background: "rgba(255,255,255,0.88)",
           overflow: "hidden",
         }}
       >
@@ -566,18 +519,19 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
             display: "grid",
             gridTemplateColumns: "repeat(7, 1fr)",
             borderBottom: "1px solid rgba(15,23,42,0.08)",
-            background: "rgba(15,23,42,0.03)",
+            background: "linear-gradient(180deg, rgba(248,250,252,1), rgba(241,245,249,0.92))",
           }}
         >
           {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
             <div
               key={w}
               style={{
-                padding: "10px 0",
+                padding: isMobile ? "9px 0" : "11px 0",
                 textAlign: "center",
                 fontSize: 12,
-                fontWeight: 900,
+                fontWeight: 1000,
                 color: THEME.colors.faint,
+                letterSpacing: "0.5px",
               }}
             >
               {w}
@@ -586,34 +540,39 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
-          {weeks.flat().map((cell, idx) => {
+          {flatCells.map((cell, idx) => {
+            const isLastCol = idx % 7 === 6;
+            const isLastRow = idx >= flatCells.length - 7;
+
             if (!cell) {
               return (
                 <div
                   key={idx}
                   style={{
-                    minHeight: isMobile ? 62 : 78,
-                    borderRight: idx % 7 !== 6 ? "1px solid rgba(15,23,42,0.05)" : "none",
-                    borderBottom: idx < weeks.flat().length - 7 ? "1px solid rgba(15,23,42,0.05)" : "none",
-                    background: "rgba(15,23,42,0.015)",
+                    minHeight: isMobile ? 54 : 76,
+                    borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
+                    borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
+                    background: "rgba(248,250,252,0.55)",
                   }}
                 />
               );
             }
+
             const style = getLevelStyle(cell.count);
+
             return (
               <div
                 key={idx}
                 title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  minHeight: isMobile ? 62 : 78,
-                  padding: isMobile ? "8px 6px" : "10px 8px",
-                  borderRight: idx % 7 !== 6 ? "1px solid rgba(15,23,42,0.05)" : "none",
-                  borderBottom: idx < weeks.flat().length - 7 ? "1px solid rgba(15,23,42,0.05)" : "none",
+                  minHeight: isMobile ? 54 : 76,
+                  padding: isMobile ? "6px 5px" : "9px 8px",
+                  borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
+                  borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                   background: cell.isToday
-                    ? "linear-gradient(135deg, rgba(99,102,241,0.12), rgba(255,255,255,0.92))"
+                    ? "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(255,255,255,0.96))"
                     : style.bg,
-                  boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.75)" : "none",
+                  boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.78)" : "none",
                   display: "flex",
                   flexDirection: "column",
                   justifyContent: "space-between",
@@ -622,7 +581,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
               >
                 <div
                   style={{
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     fontWeight: 1000,
                     color: cell.isToday ? "#4338ca" : style.text,
                     lineHeight: 1,
@@ -631,20 +590,20 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                   {cell.day}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
                   {cell.count > 0 ? (
                     <span
                       style={{
-                        minWidth: 24,
-                        height: 22,
-                        padding: "0 7px",
+                        minWidth: isMobile ? 20 : 24,
+                        height: isMobile ? 18 : 22,
+                        padding: isMobile ? "0 5px" : "0 7px",
                         borderRadius: 999,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
                         background: style.badgeBg,
                         color: style.badgeText,
-                        fontSize: 11,
+                        fontSize: isMobile ? 10 : 11,
                         fontWeight: 1000,
                         whiteSpace: "nowrap",
                       }}
@@ -654,10 +613,10 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                   ) : (
                     <span
                       style={{
-                        width: 7,
-                        height: 7,
+                        width: 6,
+                        height: 6,
                         borderRadius: 999,
-                        background: "rgba(15,23,42,0.10)",
+                        background: "rgba(148,163,184,0.55)",
                         display: "inline-block",
                       }}
                     />
@@ -741,47 +700,95 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
   const [monthIdx, setMonthIdx] = useState(0);
   const currentMonth = monthOptions[monthIdx];
 
+  function prevMonth() {
+    setMonthIdx((v) => Math.min(v + 1, monthOptions.length - 1));
+  }
+
+  function nextMonth() {
+    setMonthIdx((v) => Math.max(v - 1, 0));
+  }
+
   return (
     <Card style={{ padding: 18 }}>
       <SectionTitle
         emoji="🗓️"
         title="学习日历"
-        sub="改成真正可读的月历形式；一次只看一个月，就不会因为 111 天太长而挤爆页面"
+        sub="按月份查看，比一大堆看不懂的小格子更直观"
       />
 
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 8,
-          flexWrap: "wrap",
+          justifyContent: "space-between",
+          gap: 10,
           marginBottom: 14,
+          flexWrap: "wrap",
         }}
       >
-        {monthOptions.map((m, idx) => {
-          const active = idx === monthIdx;
-          return (
-            <button
-              key={idx}
-              onClick={() => setMonthIdx(idx)}
-              style={{
-                border: "none",
-                cursor: "pointer",
-                padding: "9px 12px",
-                borderRadius: 999,
-                fontSize: 12,
-                fontWeight: 1000,
-                color: active ? "#fff" : THEME.colors.ink,
-                background: active
-                  ? "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)"
-                  : "rgba(15,23,42,0.05)",
-                boxShadow: active ? "0 12px 30px rgba(79,70,229,0.18)" : "none",
-              }}
-            >
-              {m.getFullYear()}年{m.getMonth() + 1}月
-            </button>
-          );
-        })}
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "6px",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.04)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <button
+            onClick={prevMonth}
+            disabled={monthIdx >= monthOptions.length - 1}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "none",
+              cursor: monthIdx >= monthOptions.length - 1 ? "not-allowed" : "pointer",
+              background: monthIdx >= monthOptions.length - 1 ? "rgba(148,163,184,0.20)" : "rgba(255,255,255,0.95)",
+              color: THEME.colors.ink,
+              fontSize: 16,
+              fontWeight: 1000,
+            }}
+          >
+            ‹
+          </button>
+
+          <div
+            style={{
+              minWidth: isMobile ? 120 : 160,
+              textAlign: "center",
+              fontSize: 14,
+              fontWeight: 1000,
+              color: THEME.colors.ink,
+            }}
+          >
+            {currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月
+          </div>
+
+          <button
+            onClick={nextMonth}
+            disabled={monthIdx <= 0}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "none",
+              cursor: monthIdx <= 0 ? "not-allowed" : "pointer",
+              background: monthIdx <= 0 ? "rgba(148,163,184,0.20)" : "rgba(255,255,255,0.95)",
+              color: THEME.colors.ink,
+              fontSize: 16,
+              fontWeight: 1000,
+            }}
+          >
+            ›
+          </button>
+        </div>
+
+        <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
+          可查看最近 {monthOptions.length} 个月
+        </div>
       </div>
 
       <MonthCalendar monthDate={currentMonth} heatmapData={heatmapData} isMobile={isMobile} />
@@ -799,7 +806,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
             fontWeight: 900,
           }}
         >
-          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少，比原来的小格子更直观。
+          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少。
         </div>
       ) : null}
     </Card>
@@ -1593,7 +1600,7 @@ export default function JournalClient({ accessToken }) {
     { label: "今天收藏 3 个词/表达", done: (d.today_vocab || 0) >= 3 },
   ];
 
-  const desktopHeroGrid = isMobile ? "1fr" : "1.2fr 0.8fr";
+  const desktopHeroGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
   const desktopMiddleGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
   const desktopBottomGrid = isMobile ? "1fr" : "1.1fr 0.9fr";
 
@@ -1691,7 +1698,7 @@ export default function JournalClient({ accessToken }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
           <OverviewPanel
             streakDays={d.streak_days || 0}
             totalViews={d.total_views || 0}
