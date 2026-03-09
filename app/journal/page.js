@@ -551,7 +551,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 <div
                   key={idx}
                   style={{
-                    minHeight: isMobile ? 54 : 76,
+                    minHeight: isMobile ? 54 : 52,
                     borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                     borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                     background: "rgba(248,250,252,0.55)",
@@ -567,8 +567,8 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 key={idx}
                 title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  minHeight: isMobile ? 54 : 76,
-                  padding: isMobile ? "6px 5px" : "9px 8px",
+                  minHeight: isMobile ? 54 : 52,
+                  padding: isMobile ? "6px 5px" : "6px 8px",
                   borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                   borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                   background: cell.isToday
