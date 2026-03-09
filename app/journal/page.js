@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { THEME } from "../components/home/theme";
 import { remote, authFetch, formatDate, useIsMobile } from "./journalUtils";
 import { Card, SectionTitle } from "./JournalUI";
-import { OverviewPanel, TodayPlan, MonthCalendar, Heatmap, LearningAnalysis, ContinueLearning } from "./JournalPanels";
+import { OverviewPanel, TodayPlan, Heatmap, LearningAnalysis, ContinueLearning } from "./JournalPanels";
 import PosterGenerator from "./PosterGenerator";
 
 export default function Page({ accessToken }) {
