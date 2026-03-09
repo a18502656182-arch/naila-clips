@@ -44,13 +44,14 @@ const POSTER_THEMES = [
 
 const FONT_FAMILY = `system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
 
-// ─── 判断是否手机端 ────────────────────────────────────────────────────────────
-function isMobileDevice() {
-  if (typeof navigator === "undefined") return false;
-  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-}
+const FEATURES = [
+  { icon: "🌟", title: "视觉锤设计", desc: "连续天数以超大字号呈现，自带分享冲动" },
+  { icon: "🎨", title: "2 种高级质感", desc: "暗夜极光流 + 晨雾玻璃光，一键切换" },
+  { icon: "🗓️", title: "打卡日历", desc: "本月足迹一目了然，学习日发光显示" },
+  { icon: "📊", title: "数据看板", desc: "视频、词汇、活跃天数三维量化积累" },
+];
 
-function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData, activeDays }) {
+function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData, activeDays, isMobile }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [posterUrl, setPosterUrl] = useState(null);
@@ -105,7 +106,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     const ctx = canvas.getContext("2d");
     const PAD = 80;
 
-    // === 背景 ===
+    // 背景
     const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
     bgGrad.addColorStop(0, T.bg[0]);
     bgGrad.addColorStop(0.6, T.bg[1]);
@@ -126,7 +127,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
 
     let currentY = 140;
 
-    // === 顶部 ===
+    // 顶部
     ctx.font = `800 24px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textFaint;
     ctx.fillText("ENGLISH IMMERSION", PAD, currentY);
@@ -140,25 +141,24 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     const userName = me?.email?.split("@")[0] || "Learner";
     ctx.font = `900 64px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textMain;
-    ctx.fillText(`Hello, ${userName} 👋`, PAD, currentY);
+    ctx.fillText(`Hello, ${userName}`, PAD, currentY);
 
     currentY += 60;
     ctx.font = `600 32px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textSub;
-    ctx.fillText("「把零散的输入，变成长在脑子里的语境」", PAD, currentY);
+    ctx.fillText("把零散的输入，变成长在脑子里的语境", PAD, currentY);
 
-    // === 视觉锤 ===
+    // 视觉锤
     currentY += 90;
-    let badgeText = "🚀 场景探索者";
-    if (streakDays >= 21) badgeText = "👑 语境重塑大师";
-    else if (streakDays >= 7) badgeText = "🌟 深度沉浸者";
-    else if (vocabCount >= 30) badgeText = "📚 语料收集达人";
+    let badgeText = "场景探索者";
+    if (streakDays >= 21) badgeText = "语境重塑大师";
+    else if (streakDays >= 7) badgeText = "深度沉浸者";
+    else if (vocabCount >= 30) badgeText = "语料收集达人";
 
     ctx.font = `800 24px ${FONT_FAMILY}`;
     const bw = ctx.measureText(badgeText).width + 48;
     const bh = 50;
-    const bx = W / 2 - bw / 2;
-    roundRectPath(ctx, bx, currentY, bw, bh, 25);
+    roundRectPath(ctx, W / 2 - bw / 2, currentY, bw, bh, 25);
     ctx.fillStyle = T.pillBg;
     ctx.fill();
     ctx.fillStyle = T.textMain;
@@ -187,7 +187,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.fillStyle = T.textSub;
     ctx.fillText(heroLabel, PAD, currentY + 60);
 
-    // === 数据卡片 ===
+    // 数据卡片
     currentY += 150;
     const cardH = 220;
     drawGlassCard(ctx, PAD, currentY, W - PAD * 2, cardH, 40, T.glassBg, T.glassBorder, T.glassShadow);
@@ -217,7 +217,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     });
     ctx.textAlign = "left";
 
-    // === 日历 ===
+    // 日历
     currentY += cardH + 110;
     const year = now.getFullYear();
     const month = now.getMonth();
@@ -289,7 +289,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     });
     ctx.textAlign = "left";
 
-    // === 底部 ===
+    // 底部
     ctx.textAlign = "center";
     ctx.font = `900 32px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textMain;
@@ -299,48 +299,35 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.fillText("语境输入 · 词汇沉淀 · 习惯养成", W / 2, H - 65);
     ctx.textAlign = "left";
 
-    // 同时生成 dataURL（预览用）和 Blob（下载/分享用）
     const url = canvas.toDataURL("image/png");
     setPosterUrl(url);
-
-    // toBlob 用于 navigator.share 和真正的 Blob 下载
-    canvas.toBlob((blob) => {
-      setPosterBlob(blob);
-    }, "image/png");
-
+    canvas.toBlob((blob) => setPosterBlob(blob), "image/png");
     setGenerating(false);
     setSaveMsg("");
     setTimeout(() => setShowModal(true), 0);
   }
 
   async function handleSwitchTheme() {
-    const nextTheme = (themeIdx + 1) % POSTER_THEMES.length;
-    await generate(nextTheme);
+    await generate((themeIdx + 1) % POSTER_THEMES.length);
   }
 
-  // ─── 统一保存函数，自动判断最优方式 ─────────────────────────────────────────
   async function handleSave() {
     if (!posterBlob && !posterUrl) return;
     setSaving(true);
     setSaveMsg("");
-
     const filename = `语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`;
 
-    // 1. 优先：Web Share API（iOS Safari 14+ / Android Chrome 可直接分享到相册）
+    // 1. Web Share API（iOS / Android 原生分享到相册）
     if (navigator.canShare && posterBlob) {
       const file = new File([posterBlob], filename, { type: "image/png" });
       if (navigator.canShare({ files: [file] })) {
         try {
-          await navigator.share({
-            files: [file],
-            title: "我的英语打卡海报",
-            text: "用 nailaobao.top 生成的学习记录",
-          });
-          setSaveMsg("已发送到系统分享，选择'存储到照片'即可保存");
+          await navigator.share({ files: [file], title: "我的英语打卡海报" });
+          setSaveMsg("已打开系统分享，选择存储到相册即可保存");
           setSaving(false);
           return;
         } catch (e) {
-          // 用户取消或失败，继续走下面的方案
+          // 用户取消，继续走下一步
         }
       }
     }
@@ -356,13 +343,13 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
         a.click();
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-        setSaveMsg("✅ 图片已下载，请在下载文件夹中查找");
+        setSaveMsg("图片已下载，请在下载文件夹中查找");
         setSaving(false);
         return;
       } catch (e) {}
     }
 
-    // 3. 最终兜底：dataURL 下载
+    // 3. 兜底 dataURL
     if (posterUrl) {
       const a = document.createElement("a");
       a.href = posterUrl;
@@ -370,20 +357,25 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setSaveMsg("✅ 图片已下载，请在下载文件夹中查找");
+      setSaveMsg("图片已下载，请在下载文件夹中查找");
     }
-
     setSaving(false);
   }
 
-  // ─── 触发区：只保留按钮，去掉重复标题（page.js 已有 SectionTitle） ──────────
+  // ─── UI：全宽横向布局（左：功能说明，右：按钮操控区）─────────────────────────
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {/* 内容区：增加一些说明文字，填充右侧卡片高度，与左侧"继续学习"对齐 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* 功能亮点说明 */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 320px",
+          gap: 16,
+          alignItems: "stretch",
+        }}
+      >
+        {/* 左：4 个功能亮点，2×2 网格 */}
         <div
           style={{
             display: "grid",
@@ -391,89 +383,103 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
             gap: 10,
           }}
         >
-          {[
-            { icon: "🌟", title: "视觉锤设计", desc: "连续天数以超大字号呈现，自带分享冲动" },
-            { icon: "🎨", title: "2 种高级质感", desc: "暗夜极光流 + 晨雾玻璃光，随时一键切换" },
-            { icon: "🗓️", title: "打卡日历", desc: "本月学习足迹一目了然，有学习的日子发光" },
-            { icon: "📊", title: "数据看板", desc: "视频、词汇、活跃天数，三维量化你的积累" },
-          ].map((item) => (
+          {FEATURES.map((item) => (
             <div
               key={item.title}
               style={{
-                padding: "12px 14px",
-                borderRadius: 16,
-                background: "rgba(99,102,241,0.06)",
+                padding: "16px 16px 14px",
+                borderRadius: 18,
+                background: "linear-gradient(135deg, rgba(99,102,241,0.07), rgba(6,182,212,0.04))",
                 border: "1px solid rgba(99,102,241,0.12)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
               }}
             >
-              <div style={{ fontSize: 20, marginBottom: 6 }}>{item.icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 4 }}>
+              <div style={{ fontSize: 22 }}>{item.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 1000, color: THEME.colors.ink }}>
                 {item.title}
               </div>
-              <div style={{ fontSize: 11, color: THEME.colors.faint, lineHeight: 1.6 }}>
+              <div style={{ fontSize: 12, color: THEME.colors.faint, lineHeight: 1.6 }}>
                 {item.desc}
               </div>
             </div>
           ))}
         </div>
 
-        {/* 当前主题指示 */}
+        {/* 右：主题切换 + 生成按钮 */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
+            gap: 12,
             justifyContent: "space-between",
-            padding: "10px 14px",
-            borderRadius: 14,
-            background: "rgba(15,23,42,0.03)",
-            border: "1px solid rgba(15,23,42,0.07)",
           }}
         >
-          <span style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 800 }}>
-            当前风格：{POSTER_THEMES[themeIdx].name}
-          </span>
-          <div style={{ display: "flex", gap: 6 }}>
-            {POSTER_THEMES.map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  width: i === themeIdx ? 20 : 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.14)",
-                  transition: "all 0.3s ease",
-                }}
-              />
-            ))}
+          {/* 主题预览卡 */}
+          <div
+            style={{
+              flex: 1,
+              padding: "16px",
+              borderRadius: 18,
+              background: "linear-gradient(135deg, #0f172a 0%, #312e81 50%, #6d28d9 100%)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              minHeight: 100,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.50)", fontWeight: 800, letterSpacing: "0.8px" }}>
+                CURRENT THEME
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 1000, color: "#fff", marginTop: 6 }}>
+                {POSTER_THEMES[themeIdx].name}
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.60)", marginTop: 4 }}>
+                1080×1920 · 适合朋友圈全屏
+              </div>
+            </div>
+            {/* 主题指示点 */}
+            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+              {POSTER_THEMES.map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: i === themeIdx ? 20 : 8,
+                    height: 8,
+                    borderRadius: 999,
+                    background: i === themeIdx ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.28)",
+                    transition: "all 0.3s ease",
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* 生成按钮 */}
-        <button
-          onClick={() => generate()}
-          disabled={generating}
-          style={{
-            width: "100%",
-            padding: "16px 0",
-            borderRadius: 16,
-            border: "none",
-            background: generating
-              ? "rgba(79,70,229,0.5)"
-              : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
-            color: "#ffffff",
-            fontSize: 15,
-            fontWeight: 1000,
-            cursor: generating ? "not-allowed" : "pointer",
-            boxShadow: generating ? "none" : "0 12px 24px rgba(15,23,42,0.2)",
-            transition: "all 0.2s ease",
-            letterSpacing: "0.5px",
-          }}
-        >
-          {generating ? "⏳ 潜心绘制中..." : "生成高清成就海报 ✦"}
-        </button>
-
-        <div style={{ fontSize: 11, color: THEME.colors.faint, textAlign: "center" }}>
-          1080×1920 高清画质 · 适合朋友圈 / 小红书分享
+          {/* 生成按钮 */}
+          <button
+            onClick={() => generate()}
+            disabled={generating}
+            style={{
+              width: "100%",
+              padding: "15px 0",
+              borderRadius: 16,
+              border: "none",
+              background: generating
+                ? "rgba(79,70,229,0.45)"
+                : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 1000,
+              cursor: generating ? "not-allowed" : "pointer",
+              boxShadow: generating ? "none" : "0 10px 22px rgba(15,23,42,0.20)",
+              transition: "all 0.2s ease",
+              letterSpacing: "0.3px",
+            }}
+          >
+            {generating ? "⏳ 生成中..." : "生成高清海报 ✦"}
+          </button>
         </div>
       </div>
 
@@ -510,10 +516,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
               gap: 14,
             }}
           >
-            {/* Header */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 1000, color: "#0f172a" }}>🎉 海报已生成</div>
+                <div style={{ fontSize: 18, fontWeight: 1000, color: "#0f172a" }}>海报已生成</div>
                 <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, fontWeight: 800 }}>
                   风格：<span style={{ color: "#4f46e5" }}>{POSTER_THEMES[themeIdx].name}</span>
                 </div>
@@ -534,82 +539,48 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
               >✕</button>
             </div>
 
-            {/* 海报预览图 */}
-            <div
-              style={{
-                borderRadius: 18,
-                overflow: "hidden",
-                background: "#f8fafc",
-                border: "1px solid rgba(15,23,42,0.06)",
-              }}
-            >
+            <div style={{ borderRadius: 18, overflow: "hidden", background: "#f8fafc", border: "1px solid rgba(15,23,42,0.06)" }}>
               <img
                 src={posterUrl}
                 alt="打卡海报"
-                style={{ width: "100%", maxHeight: "48vh", objectFit: "contain", display: "block" }}
+                style={{ width: "100%", maxHeight: "50vh", objectFit: "contain", display: "block" }}
               />
             </div>
 
-            {/* 保存反馈提示 */}
             {saveMsg ? (
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: "rgba(16,185,129,0.09)",
-                  border: "1px solid rgba(16,185,129,0.20)",
-                  fontSize: 13,
-                  color: "#065f46",
-                  fontWeight: 800,
-                }}
-              >
+              <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.09)", border: "1px solid rgba(16,185,129,0.20)", fontSize: 13, color: "#065f46", fontWeight: 800 }}>
                 {saveMsg}
               </div>
             ) : (
-              <div
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: "rgba(99,102,241,0.07)",
-                  border: "1px solid rgba(99,102,241,0.14)",
-                  fontSize: 12,
-                  color: "#3730a3",
-                  lineHeight: 1.7,
-                  fontWeight: 700,
-                }}
-              >
-                📱 手机端：点击下方按钮，弹出分享菜单后选择存储到相册即可。<br />
-                💻 电脑端：点击下方按钮，图片会自动下载到本地。
+              <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.14)", fontSize: 12, color: "#3730a3", lineHeight: 1.7, fontWeight: 700 }}>
+                手机端：点击保存按钮，弹出系统分享后选择存储到相册。<br />
+                电脑端：点击保存按钮，图片自动下载到本地。
               </div>
             )}
 
-            {/* 操作按钮 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <button
                 onClick={handleSave}
                 disabled={saving}
                 style={{
-                  padding: "15px 0",
+                  padding: "14px 0",
                   borderRadius: 18,
                   border: "none",
-                  background: saving
-                    ? "rgba(79,70,229,0.5)"
-                    : "linear-gradient(135deg, #0f172a, #4f46e5)",
-                  color: "#ffffff",
+                  background: saving ? "rgba(79,70,229,0.5)" : "linear-gradient(135deg, #0f172a, #4f46e5)",
+                  color: "#fff",
                   fontSize: 14,
                   fontWeight: 1000,
                   cursor: saving ? "not-allowed" : "pointer",
                   boxShadow: saving ? "none" : "0 10px 20px rgba(79,70,229,0.22)",
-                  transition: "all 0.2s ease",
                 }}
               >
-                {saving ? "⏳ 处理中..." : "⬇️ 保存图片"}
+                {saving ? "处理中..." : "保存图片"}
               </button>
               <button
                 onClick={handleSwitchTheme}
                 disabled={generating}
                 style={{
-                  padding: "15px 0",
+                  padding: "14px 0",
                   borderRadius: 18,
                   border: "1.5px solid rgba(15,23,42,0.10)",
                   background: "rgba(248,250,252,0.9)",
@@ -619,11 +590,10 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
                   cursor: generating ? "not-allowed" : "pointer",
                 }}
               >
-                {generating ? "⏳ 切换中..." : "🎨 切换风格"}
+                {generating ? "切换中..." : "切换风格"}
               </button>
             </div>
 
-            {/* 主题点 */}
             <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
               {POSTER_THEMES.map((_, i) => (
                 <div
