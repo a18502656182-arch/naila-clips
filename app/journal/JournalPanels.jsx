@@ -857,41 +857,4 @@ function ContinueLearning({ isMobile }) {
   );
 }
 
-const POSTER_THEMES = [
-  {
-    name: "深夜极光",
-    bg: ["#0f172a", "#1e1b4b", "#0f172a"],
-    glow1: "rgba(99,102,241,0.38)",
-    glow2: "rgba(236,72,153,0.28)",
-    accent: "#818cf8",
-    line: "#34d399",
-    line2: "#818cf8",
-    cellActive: ["rgba(34,197,94,0.30)", "rgba(34,197,94,0.65)", "rgba(34,197,94,0.95)"],
-    todayOutline: "#818cf8",
-  },
-  {
-    name: "日出橙金",
-    bg: ["#1a0a00", "#3b1400", "#1a0800"],
-    glow1: "rgba(251,146,60,0.40)",
-    glow2: "rgba(234,179,8,0.28)",
-    accent: "#fb923c",
-    line: "#fbbf24",
-    line2: "#f97316",
-    cellActive: ["rgba(251,146,60,0.28)", "rgba(251,146,60,0.62)", "rgba(251,146,60,0.95)"],
-    todayOutline: "#fbbf24",
-  },
-  {
-    name: "深海青碧",
-    bg: ["#001a1a", "#00282e", "#001518"],
-    glow1: "rgba(6,182,212,0.38)",
-    glow2: "rgba(16,185,129,0.28)",
-    accent: "#22d3ee",
-    line: "#34d399",
-    line2: "#06b6d4",
-    cellActive: ["rgba(6,182,212,0.28)", "rgba(6,182,212,0.62)", "rgba(6,182,212,0.95)"],
-    todayOutline: "#34d399",
-  },
-];
-
-
 export { OverviewPanel, TodayPlan, MonthCalendar, Heatmap, LearningAnalysis, ContinueLearning };
