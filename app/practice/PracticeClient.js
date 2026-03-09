@@ -171,7 +171,7 @@ function saveScore(gameId, score) {
 }
 
 
-function NotEnoughView({ onBack, onSwitchBuiltin }) {
+function NotEnoughView({ onBack, onSwitchBuiltin, isMember }) {
   return (
     <div style={{ minHeight: "100vh", background: THEME.colors.bg, padding: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ maxWidth: 400, width: "100%", background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, padding: 28, textAlign: "center" }}>
@@ -179,13 +179,15 @@ function NotEnoughView({ onBack, onSwitchBuiltin }) {
         <div style={{ fontSize: 18, fontWeight: 1000, marginBottom: 8 }}>收藏词太少了</div>
         <div style={{ opacity: 0.7, fontWeight: 900, fontSize: 14, marginBottom: 24, lineHeight: 1.6 }}>
           至少需要收藏 10 个词汇才能开始游戏。<br />
-          去视频页收藏更多词，或者先用内置词库练习。
+          {isMember ? "去视频页收藏更多词，或者先用内置词库练习。" : "去视频页收藏更多词，或开通会员使用内置词库练习。"}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button onClick={onSwitchBuiltin}
-            style={{ padding: "12px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer", fontSize: 15 }}>
-            用内置词库练习 →
-          </button>
+          {isMember && (
+            <button onClick={onSwitchBuiltin}
+              style={{ padding: "12px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer", fontSize: 15 }}>
+              用内置词库练习 →
+            </button>
+          )}
           <button onClick={onBack}
             style={{ padding: "10px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: "transparent", cursor: "pointer", fontWeight: 900 }}>
             返回大厅
@@ -691,9 +693,15 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
   function loadNextBatch() {
     const deck = deckRef.current;
     const start = offsetRef.current;
-    if (start >= deck.length) { endGame(); return; }
-    const next = deck.slice(start, start + BATCH_SIZE);
-    offsetRef.current = start + next.length;
+    // 词打完了就重新洗牌循环，不提前结束
+    if (start >= deck.length) {
+      deckRef.current = shuffle([...cards]);
+      offsetRef.current = 0;
+    }
+    const newDeck = deckRef.current;
+    const newStart = offsetRef.current;
+    const next = newDeck.slice(newStart, newStart + BATCH_SIZE);
+    offsetRef.current = newStart + next.length;
     setBatch(next);
     setMatched(new Set());
     setLeftSel(null);
@@ -1630,11 +1638,14 @@ export default function PracticeClient({ accessToken: ssrToken }) {
   }, [liveToken]);
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const isMember = !!(me?.is_member);
   const activeVocab = vocabSource === "builtin" ? BUILTIN_VOCAB : vocabItems;
   const sourceLabel = vocabSource === "builtin" ? "内置词库" : "我的收藏";
   const myWordCount = useMemo(() => (vocabItems || []).filter(x => !x?.kind || x?.kind === "words").length, [vocabItems]);
 
+  function builtinLocked() { return vocabSource === "builtin" && !isMember; }
   function notEnough() { return vocabSource === "my" && myWordCount < 10; }
+  function isLocked() { return notEnough() || builtinLocked(); }
   function handleSwitchBuiltin() { setVocabSource("builtin"); setActiveGame(null); }
 
   // ✅ 核心修改：handleGameEnd 在写 localStorage 后同步到后端
@@ -1692,27 +1703,27 @@ export default function PracticeClient({ accessToken: ssrToken }) {
   }, [me, scores]);
 
   if (activeGame === "bubble") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <BubbleSpellingGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("bubble", s)} />;
   }
   if (activeGame === "match") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <MatchMadnessGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("match", s)} />;
   }
   if (activeGame === "swipe") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <SwipeGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("swipe", s)} />;
   }
   if (activeGame === "rebuild") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <RebuildGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("rebuild", s)} />;
   }
   if (activeGame === "balloon") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <BalloonGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("balloon", s)} />;
   }
   if (activeGame === "speed") {
-    if (notEnough()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} />;
+    if (isLocked()) return <NotEnoughView onBack={() => setActiveGame(null)} onSwitchBuiltin={handleSwitchBuiltin} isMember={isMember} />;
     return <SpeedGame vocabItems={activeVocab} sourceLabel={sourceLabel} maxQuestions={maxQuestions} onExit={() => setActiveGame(null)} onGameEnd={(s) => handleGameEnd("speed", s)} />;
   }
 
@@ -1783,7 +1794,10 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       <div style={{ maxWidth: 980, margin: "0 auto 10px", padding: "0 6px" }}>
         <div style={{ display: "inline-flex", border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, overflow: "hidden", background: THEME.colors.surface }}>
           {[{ key: "my", label: `我的收藏 (${myWordCount}词)` }, { key: "builtin", label: "内置词库 (50词)" }].map(opt => (
-            <button key={opt.key} onClick={() => setVocabSource(opt.key)} style={{ padding: "8px 16px", border: "none", cursor: "pointer", fontWeight: 1000, fontSize: 13, background: vocabSource === opt.key ? THEME.colors.accent : "transparent", color: vocabSource === opt.key ? "#fff" : THEME.colors.ink, transition: "all 0.15s" }}>{opt.label}</button>
+            <button key={opt.key} onClick={() => setVocabSource(opt.key)} disabled={opt.key === "builtin" && !isMember}
+              style={{ padding: "8px 16px", border: "none", cursor: opt.key === "builtin" && !isMember ? "not-allowed" : "pointer", fontWeight: 1000, fontSize: 13, background: vocabSource === opt.key ? THEME.colors.accent : "transparent", color: vocabSource === opt.key ? "#fff" : opt.key === "builtin" && !isMember ? THEME.colors.muted : THEME.colors.ink, transition: "all 0.15s" }}>
+              {opt.label}{opt.key === "builtin" && !isMember ? " 🔒" : ""}
+            </button>
           ))}
         </div>
         {vocabSource === "my" && myWordCount < 10 && (
@@ -1849,16 +1863,16 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       </div>
 
       <div className="practice-games-grid">
-        <GameCard emoji="🫧" title="气泡拼写" subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写" tag="拼写训练" color="#7c3aed" disabled={notEnough()} onClick={() => setActiveGame("bubble")} />
-        <GameCard emoji="🔗" title="极速连连看" subtitle="30秒内快速配对英文与中文，连击越多分越高" tag="速记模式" color="#d97706" disabled={notEnough()} onClick={() => setActiveGame("match")} />
-        <GameCard emoji="🃏" title="单词探探" subtitle="左滑❌ 右滑✅ 判断释义是否正确" tag="休闲模式" color="#ec4899" disabled={notEnough()} onClick={() => setActiveGame("swipe")} />
-        <GameCard emoji="🧩" title="台词磁力贴" subtitle="点击方块，把打散的例句拼回去" tag="语感训练" color="#059669" disabled={notEnough()} onClick={() => setActiveGame("rebuild")} />
-        <GameCard emoji="🎧" title="盲听气球" subtitle="听发音，点击正确释义的气球" tag="听力专精" color="#0891b2" disabled={notEnough()} onClick={() => setActiveGame("balloon")} />
-        <GameCard emoji="⚡" title="极速二选一" subtitle="3秒内点击正确释义，连击拿高分" tag="挑战模式" color="#d97706" disabled={notEnough()} onClick={() => setActiveGame("speed")} />
+        <GameCard emoji="🫧" title="气泡拼写" subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写" tag="拼写训练" color="#7c3aed" disabled={isLocked()} onClick={() => setActiveGame("bubble")} />
+        <GameCard emoji="🔗" title="极速连连看" subtitle="30秒内快速配对英文与中文，连击越多分越高" tag="速记模式" color="#d97706" disabled={isLocked()} onClick={() => setActiveGame("match")} />
+        <GameCard emoji="🃏" title="单词探探" subtitle="左滑❌ 右滑✅ 判断释义是否正确" tag="休闲模式" color="#ec4899" disabled={isLocked()} onClick={() => setActiveGame("swipe")} />
+        <GameCard emoji="🧩" title="台词磁力贴" subtitle="点击方块，把打散的例句拼回去" tag="语感训练" color="#059669" disabled={isLocked()} onClick={() => setActiveGame("rebuild")} />
+        <GameCard emoji="🎧" title="盲听气球" subtitle="听发音，点击正确释义的气球" tag="听力专精" color="#0891b2" disabled={isLocked()} onClick={() => setActiveGame("balloon")} />
+        <GameCard emoji="⚡" title="极速二选一" subtitle="3秒内点击正确释义，连击拿高分" tag="挑战模式" color="#d97706" disabled={isLocked()} onClick={() => setActiveGame("speed")} />
       </div>
 
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 6px", opacity: 0.65, fontWeight: 900 }}>
-        {notEnough() ? "提示：去「我的收藏 → 词汇本」多收藏一些词汇，解锁全部游戏。" : "选一个游戏开始练习吧！"}
+        {builtinLocked() ? "内置词库需要会员才能使用，开通会员后即可解锁。" : notEnough() ? "提示：去「我的收藏 → 词汇本」多收藏一些词汇，解锁全部游戏。" : "选一个游戏开始练习吧！"}
       </div>
     </div>
   );
