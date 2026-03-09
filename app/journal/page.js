@@ -47,6 +47,8 @@ function Card({ children, style = {} }) {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         overflow: "hidden",
+        boxSizing: "border-box",
+        height: "100%",
         ...style,
       }}
     >
@@ -549,7 +551,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 <div
                   key={idx}
                   style={{
-                    minHeight: isMobile ? 54 : 76,
+                    minHeight: isMobile ? 54 : 52,
                     borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                     borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                     background: "rgba(248,250,252,0.55)",
@@ -565,8 +567,8 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 key={idx}
                 title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  minHeight: isMobile ? 54 : 76,
-                  padding: isMobile ? "6px 5px" : "9px 8px",
+                  minHeight: isMobile ? 54 : 52,
+                  padding: isMobile ? "6px 5px" : "6px 8px",
                   borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                   borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                   background: cell.isToday
@@ -641,46 +643,10 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
           数字表示当天学习次数，今天会有紫色描边
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#64748b",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(15,23,42,0.05)",
-              border: "1px solid rgba(15,23,42,0.08)",
-            }}
-          >
-            灰点=未学习
-          </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#166534",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(34,197,94,0.12)",
-              border: "1px solid rgba(34,197,94,0.16)",
-            }}
-          >
-            浅绿=少量学习
-          </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#ffffff",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(22,163,74,0.92)",
-            }}
-          >
-            深绿=学习较多
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
         </div>
       </div>
     </div>
@@ -709,7 +675,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
   }
 
   return (
-    <Card style={{ padding: 18, height: "100%" }}>
+    <Card style={{ padding: 18 }}>
       <SectionTitle
         emoji="🗓️"
         title="学习日历"
@@ -817,20 +783,48 @@ function AnalysisCard({ title, lines, accent }) {
   return (
     <div
       style={{
-        padding: "16px 16px 14px",
-        borderRadius: 20,
+        padding: "18px 18px 16px",
+        borderRadius: 22,
         border: `1px solid ${accent.border}`,
         background: accent.bg,
         height: "100%",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "flex-start",
+        justifyContent: "space-between",
+        transition: "all 180ms ease",
       }}
     >
-      <div style={{ fontSize: 14, fontWeight: 1000, color: accent.title }}>{title}</div>
-      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 1000,
+          color: accent.title,
+          letterSpacing: "0.3px",
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          flex: 1,
+          justifyContent: "center",
+        }}
+      >
         {lines.map((line, idx) => (
-          <div key={idx} style={{ fontSize: 12, color: THEME.colors.muted, lineHeight: 1.6 }}>
+          <div
+            key={idx}
+            style={{
+              fontSize: 12,
+              color: THEME.colors.muted,
+              lineHeight: 1.7,
+            }}
+          >
             {line}
           </div>
         ))}
@@ -840,57 +834,107 @@ function AnalysisCard({ title, lines, accent }) {
 }
 
 function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) {
+
   const activeDays = Object.keys(d.heatmap || {}).length;
+
   const topTopic = topicStats[0]?.label || "还没有明显偏好";
   const secondTopic = topicStats[1]?.label || "继续学习后会出现";
+
   const playedGameCount = gameSummary.playedGameCount || 0;
   const totalGameScore = gameSummary.totalGameScore || 0;
 
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+
+  const monthActiveDays =
+    Object.keys(d.heatmap || {})
+      .filter(k => k.startsWith(ym)).length;
+
+  const summaryText =
+    `本月活跃 ${monthActiveDays} 天，累计收藏 ${vocabCount} 个词汇，持续学习中。`;
+
+  const cards = [
+    {
+      title: "词汇积累",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(236,72,153,0.10), rgba(236,72,153,0.04))",
+        border: "rgba(236,72,153,0.16)",
+        title: "#be185d",
+      },
+      lines: [
+        `累计收藏词汇：${vocabCount} 个`,
+        `今日新增收藏：${d.today_vocab || 0} 个`,
+        vocabCount > 0
+          ? "你已经不是单纯在看视频，而是在沉淀自己的表达库。"
+          : "先收藏一些词汇，这里会逐渐长成你的学习记录。",
+      ],
+    },
+    {
+      title: "练习大厅痕迹",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
+        border: "rgba(99,102,241,0.16)",
+        title: "#4338ca",
+      },
+      lines: [
+        `已留下分数记录的游戏：${playedGameCount} 个`,
+        `当前本地总分：${totalGameScore}`,
+        playedGameCount > 0
+          ? "说明你已经开始把输入转成输出练习了。"
+          : "这里暂未检测到游戏分数记录，去练习大厅做一轮就会有痕迹。",
+      ],
+    },
+    {
+      title: "学习偏好",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))",
+        border: "rgba(16,185,129,0.16)",
+        title: "#047857",
+      },
+      lines: [
+        `最近最常见的话题：${topTopic}`,
+        `第二偏好方向：${secondTopic}`,
+        `目前累计活跃 ${activeDays} 天，偏好会随着继续学习逐渐清晰。`,
+      ],
+    },
+    {
+      title: "本月小结",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(251,146,60,0.12), rgba(251,146,60,0.04))",
+        border: "rgba(251,146,60,0.18)",
+        title: "#c2410c",
+      },
+      lines: [
+        summaryText,
+        "保持节奏，你的表达库正在逐渐成型。",
+      ],
+    }
+  ];
+
   return (
-    <Card style={{ padding: 18, display: "flex", flexDirection: "column", height: "100%" }}>
-      <SectionTitle emoji="🧭" title="学习动态分析" sub="不再显示旧考试残留的掌握等级，改成更真实的行为记录" />
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr", gap: 10, flex: 1 }}>
-        <AnalysisCard
-          title="词汇积累"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(236,72,153,0.10), rgba(236,72,153,0.04))",
-            border: "rgba(236,72,153,0.16)",
-            title: "#be185d",
-          }}
-          lines={[
-            `累计收藏词汇：${vocabCount} 个`,
-            `今日新增收藏：${d.today_vocab || 0} 个`,
-            vocabCount > 0 ? "你已经不是单纯在看视频，而是在沉淀自己的表达库。" : "先收藏一些词汇，这里会逐渐长成你的学习记录。",
-          ]}
-        />
-        <AnalysisCard
-          title="练习大厅痕迹"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
-            border: "rgba(99,102,241,0.16)",
-            title: "#4338ca",
-          }}
-          lines={[
-            `已留下分数记录的游戏：${playedGameCount} 个`,
-            `当前本地总分：${totalGameScore}`,
-            playedGameCount > 0
-              ? "说明你已经开始把输入转成输出练习了。"
-              : "这里暂未检测到游戏分数记录，去练习大厅做一轮就会有痕迹。",
-          ]}
-        />
-        <AnalysisCard
-          title="学习偏好"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))",
-            border: "rgba(16,185,129,0.16)",
-            title: "#047857",
-          }}
-          lines={[
-            `最近最常见的话题：${topTopic}`,
-            `第二偏好方向：${secondTopic}`,
-            `目前累计活跃 ${activeDays} 天，偏好会随着你继续收藏而越来越清楚。`,
-          ]}
-        />
+    <Card style={{ padding: 18 }}>
+      <SectionTitle
+        emoji="🧭"
+        title="学习动态分析"
+        sub="从行为数据里看到学习轨迹，而不是抽象的掌握等级"
+      />
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(240px,1fr))",
+          gap: 12,
+          alignItems: "stretch",
+        }}
+      >
+        {cards.map((c, i) => (
+          <AnalysisCard
+            key={i}
+            title={c.title}
+            lines={c.lines}
+            accent={c.accent}
+          />
+        ))}
       </div>
     </Card>
   );
@@ -1442,7 +1486,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   );
 }
 
-export default function JournalClient({ accessToken }) {
+export default function Page({ accessToken }) {
   const isMobile = useIsMobile(960);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -1713,7 +1757,7 @@ export default function JournalClient({ accessToken }) {
           <TodayPlan d={d} isMobile={isMobile} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
           <Heatmap
             heatmapData={d.heatmap || {}}
             streakDays={d.streak_days || 0}
