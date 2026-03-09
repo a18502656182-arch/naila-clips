@@ -47,6 +47,8 @@ function Card({ children, style = {} }) {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         overflow: "hidden",
+        boxSizing: "border-box",
+        height: "100%",
         ...style,
       }}
     >
@@ -75,7 +77,7 @@ function SectionTitle({ emoji, title, sub, right }) {
       style={{
         display: "flex",
         alignItems: "flex-start",
-        justifyContent: "space-between",
+        flexDirection: "column", alignItems: "center",
         gap: 12,
         marginBottom: 16,
       }}
@@ -117,10 +119,10 @@ function MiniStat({ label, value, hint, accent }) {
         boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        flexDirection: "column", alignItems: "center",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", alignItems: "center", gap: 10 }}>
         <div style={{ fontSize: 42, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
         <div
           style={{
@@ -147,12 +149,12 @@ function MiniStat({ label, value, hint, accent }) {
 function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobile }) {
   return (
     <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="📊" title="学习总览" sub="记录你的学习轨迹，看看自己的进步，离目标还有多远" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <MiniStat
           label="连续学习"
           value={streakDays || 0}
-          hint="坚持每天至少"
+          hint="习惯形成中"
           accent={{
             bg: "linear-gradient(135deg, rgba(251,146,60,0.16), rgba(251,146,60,0.05))",
             border: "rgba(251,146,60,0.22)",
@@ -160,9 +162,9 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
           }}
         />
         <MiniStat
-          label="观看视频"
+          label="累计视频"
           value={totalViews || 0}
-          hint="累计观看学习视频"
+          hint="场景输入总量"
           accent={{
             bg: "linear-gradient(135deg, rgba(99,102,241,0.16), rgba(99,102,241,0.05))",
             border: "rgba(99,102,241,0.22)",
@@ -170,9 +172,9 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
           }}
         />
         <MiniStat
-          label="本月活跃"
+          label="活跃天数"
           value={activeDays || 0}
-          hint="记录一个月内活跃"
+          hint="打开一次也算赢"
           accent={{
             bg: "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(16,185,129,0.05))",
             border: "rgba(16,185,129,0.22)",
@@ -182,7 +184,7 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
         <MiniStat
           label="收藏词汇"
           value={vocabCount || 0}
-          hint="你亲手收藏下来的词汇"
+          hint="你沉淀下来的表达"
           accent={{
             bg: "linear-gradient(135deg, rgba(236,72,153,0.14), rgba(236,72,153,0.05))",
             border: "rgba(236,72,153,0.20)",
@@ -243,7 +245,7 @@ function TaskRow({ title, desc, done, buttonText, href, neutral, isMobile }) {
           boxShadow: neutral || done ? "0 12px 28px rgba(15,23,42,0.10)" : "none",
         }}
       >
-        {neutral ? "➔" : done ? "✓" : "•"}
+        {neutral ? "→" : done ? "✓" : "•"}
       </div>
 
       <div style={{ minWidth: 0 }}>
@@ -294,18 +296,18 @@ function TaskRow({ title, desc, done, buttonText, href, neutral, isMobile }) {
 function TodayPlan({ d, isMobile }) {
   const autoTasks = [
     {
-      title: "今天看了 1 支以上视频",
+      title: "今天看 1 个场景视频",
       done: (d.today_views || 0) >= 1,
-      desc: (d.today_views || 0) >= 1 ? `今天已看了 ${d.today_views || 0} 个视频` : "每天至少一支，培养每天开口的好习惯",
+      desc: (d.today_views || 0) >= 1 ? `今天已看 ${d.today_views || 0} 个视频` : "先看一个短片，让英语进入状态",
       href: "/",
       buttonText: "去看视频",
     },
     {
-      title: "今天收藏 3 个以上词/句子",
+      title: "今天收藏 3 个词/表达",
       done: (d.today_vocab || 0) >= 3,
-      desc: (d.today_vocab || 0) >= 3 ? `今天已收藏 ${d.today_vocab || 0} 个词汇` : `还差 ${d.today_vocab || 0} / 3`,
+      desc: (d.today_vocab || 0) >= 3 ? `今天已收藏 ${d.today_vocab || 0} 个词汇` : `当前进度 ${d.today_vocab || 0} / 3`,
       href: "/bookmarks",
-      buttonText: "去词汇库",
+      buttonText: "去词汇本",
     },
   ];
   const doneCount = autoTasks.filter((x) => x.done).length;
@@ -314,9 +316,9 @@ function TodayPlan({ d, isMobile }) {
   return (
     <Card style={{ padding: 18 }}>
       <SectionTitle
-        emoji="🏆"
-        title="今天的学习任务"
-        sub="每天六项目标任务，持续完成它不仅能监督你的学习，而且还不会给自己强加不可能的要求"
+        emoji="🎯"
+        title="今天的学习计划"
+        sub="前两项自动统计，游戏练习先保留快捷入口，不做错误的假判定"
         right={
           <div
             style={{
@@ -360,8 +362,8 @@ function TodayPlan({ d, isMobile }) {
           <TaskRow key={idx} {...task} isMobile={isMobile} />
         ))}
         <TaskRow
-          title="去练习大厅完成至少一道题"
-          desc="现在还没有一条记录，快去看看哦，说不定已经有了新的挑战！不断学习，培养自己的练习习惯。"
+          title="去游戏大厅做一轮练习"
+          desc="这一项现在不做自动统计，避免沿用旧考试系统残留逻辑；点击直接进入练习大厅。"
           done={false}
           neutral
           href="/practice"
@@ -382,7 +384,7 @@ function TodayPlan({ d, isMobile }) {
             color: "#9a3412",
           }}
         >
-          现在还没有在视频库、词汇库和练习大厅中有自己的记录，快去看看有哪些内容，不断学习找到自己"学习中"的体会！
+          现在这版手帐只展示真实可拿到的数据：视频、收藏、活跃度和练习入口，不再继续沿用“已掌握/学习中”的旧考试判定。
         </div>
       )}
     </Card>
@@ -458,19 +460,47 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
           marginBottom: 14,
         }}
       >
-        <div style={{ padding: "12px 12px", borderRadius: 18, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.08)" }}>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
           <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthActiveDays}</div>
           <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月活跃天数</div>
         </div>
-        <div style={{ padding: "12px 12px", borderRadius: 18, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.08)" }}>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
           <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthTotalViews}</div>
           <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月学习次数</div>
         </div>
-        <div style={{ padding: "12px 12px", borderRadius: 18, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.08)" }}>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
           <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{totalDays}</div>
           <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月总天数</div>
         </div>
-        <div style={{ padding: "12px 12px", borderRadius: 18, background: "rgba(15,23,42,0.03)", border: "1px solid rgba(15,23,42,0.08)" }}>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
           <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>
             {monthActiveDays > 0 ? Math.round((monthActiveDays / totalDays) * 100) : 0}%
           </div>
@@ -521,7 +551,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 <div
                   key={idx}
                   style={{
-                    minHeight: isMobile ? 54 : 76,
+                    minHeight: isMobile ? 54 : 52,
                     borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                     borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                     background: "rgba(248,250,252,0.55)",
@@ -537,8 +567,8 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 key={idx}
                 title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  minHeight: isMobile ? 54 : 76,
-                  padding: isMobile ? "6px 5px" : "9px 8px",
+                  minHeight: isMobile ? 54 : 52,
+                  padding: isMobile ? "6px 5px" : "6px 8px",
                   borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                   borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                   background: cell.isToday
@@ -547,7 +577,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                   boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.78)" : "none",
                   display: "flex",
                   flexDirection: "column",
-                  justifyContent: "space-between",
+                  flexDirection: "column", alignItems: "center",
                   gap: 6,
                 }}
               >
@@ -605,19 +635,18 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
           marginTop: 12,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
           flexWrap: "wrap",
         }}
       >
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
-          颜色深浅表示当天学习次数，今天会有特殊标记
+          数字表示当天学习次数，今天会有紫色描边
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#647480", padding: "5px 8px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)" }}>空=未学习</span>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#166534", padding: "5px 8px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)" }}>浅绿=少量学习</span>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#ffffff", padding: "5px 8px", borderRadius: 999, background: "rgba(22,163,74,0.92)" }}>深绿=活跃学习</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
         </div>
       </div>
     </div>
@@ -649,15 +678,15 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
     <Card style={{ padding: 18 }}>
       <SectionTitle
         emoji="🗓️"
-        title="学习热力图"
-        sub="每月每天记录，一格不漏，每天学习不断的足迹和记忆"
+        title="学习日历"
+        sub="按月份查看，比一大堆看不懂的小格子更直观"
       />
 
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
           marginBottom: 14,
           flexWrap: "wrap",
@@ -724,7 +753,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
         </div>
 
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
-          可以查阅最近 {monthOptions.length} 个月
+          可查看最近 {monthOptions.length} 个月
         </div>
       </div>
 
@@ -743,7 +772,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
             fontWeight: 900,
           }}
         >
-          你已经连续学习 {streakDays} 天！在每日坚持学习中逐渐找到了感觉，继续坚持！
+          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少。
         </div>
       ) : null}
     </Card>
@@ -754,16 +783,48 @@ function AnalysisCard({ title, lines, accent }) {
   return (
     <div
       style={{
-        padding: "16px 16px 14px",
-        borderRadius: 20,
+        padding: "18px 18px 16px",
+        borderRadius: 22,
         border: `1px solid ${accent.border}`,
         background: accent.bg,
+        height: "100%",
+        boxSizing: "border-box",
+        display: "flex",
+        flexDirection: "column",
+        flexDirection: "column", alignItems: "center",
+        transition: "all 180ms ease",
       }}
     >
-      <div style={{ fontSize: 14, fontWeight: 1000, color: accent.title }}>{title}</div>
-      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div
+        style={{
+          fontSize: 14,
+          fontWeight: 1000,
+          color: accent.title,
+          letterSpacing: "0.3px",
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          flex: 1,
+          justifyContent: "center",
+        }}
+      >
         {lines.map((line, idx) => (
-          <div key={idx} style={{ fontSize: 12, color: THEME.colors.muted, lineHeight: 1.6 }}>
+          <div
+            key={idx}
+            style={{
+              fontSize: 12,
+              color: THEME.colors.muted,
+              lineHeight: 1.7,
+            }}
+          >
             {line}
           </div>
         ))}
@@ -772,62 +833,108 @@ function AnalysisCard({ title, lines, accent }) {
   );
 }
 
-// ============================================================
-// 修复2：LearningAnalysis 直接从 localStorage 读取 gameSummary
-// 不依赖 props 传入，防止数据结构问题导致显示 0
-// ============================================================
 function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) {
+
   const activeDays = Object.keys(d.heatmap || {}).length;
-  const topTopic = topicStats[0]?.label || "还没有任何收藏记录";
-  const secondTopic = topicStats[1]?.label || "继续学习，话题会自动统计";
+
+  const topTopic = topicStats[0]?.label || "还没有明显偏好";
+  const secondTopic = topicStats[1]?.label || "继续学习后会出现";
+
   const playedGameCount = gameSummary.playedGameCount || 0;
   const totalGameScore = gameSummary.totalGameScore || 0;
 
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+
+  const monthActiveDays =
+    Object.keys(d.heatmap || {})
+      .filter(k => k.startsWith(ym)).length;
+
+  const summaryText =
+    `本月活跃 ${monthActiveDays} 天，累计收藏 ${vocabCount} 个词汇，持续学习中。`;
+
+  const cards = [
+    {
+      title: "词汇积累",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(236,72,153,0.10), rgba(236,72,153,0.04))",
+        border: "rgba(236,72,153,0.16)",
+        title: "#be185d",
+      },
+      lines: [
+        `累计收藏词汇：${vocabCount} 个`,
+        `今日新增收藏：${d.today_vocab || 0} 个`,
+        vocabCount > 0
+          ? "你已经不是单纯在看视频，而是在沉淀自己的表达库。"
+          : "先收藏一些词汇，这里会逐渐长成你的学习记录。",
+      ],
+    },
+    {
+      title: "练习大厅痕迹",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
+        border: "rgba(99,102,241,0.16)",
+        title: "#4338ca",
+      },
+      lines: [
+        `已留下分数记录的游戏：${playedGameCount} 个`,
+        `当前本地总分：${totalGameScore}`,
+        playedGameCount > 0
+          ? "说明你已经开始把输入转成输出练习了。"
+          : "这里暂未检测到游戏分数记录，去练习大厅做一轮就会有痕迹。",
+      ],
+    },
+    {
+      title: "学习偏好",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))",
+        border: "rgba(16,185,129,0.16)",
+        title: "#047857",
+      },
+      lines: [
+        `最近最常见的话题：${topTopic}`,
+        `第二偏好方向：${secondTopic}`,
+        `目前累计活跃 ${activeDays} 天，偏好会随着继续学习逐渐清晰。`,
+      ],
+    },
+    {
+      title: "本月小结",
+      accent: {
+        bg: "linear-gradient(135deg, rgba(251,146,60,0.12), rgba(251,146,60,0.04))",
+        border: "rgba(251,146,60,0.18)",
+        title: "#c2410c",
+      },
+      lines: [
+        summaryText,
+        "保持节奏，你的表达库正在逐渐成型。",
+      ],
+    }
+  ];
+
   return (
     <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="🧭" title="学习偏好分析" sub="不单纯追求数据，而是记录你真正探索过的领域，发现你的兴趣所在" />
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr", gap: 10 }}>
-        <AnalysisCard
-          title="词汇收藏"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(236,72,153,0.10), rgba(236,72,153,0.04))",
-            border: "rgba(236,72,153,0.16)",
-            title: "#be185d",
-          }}
-          lines={[
-            `累计收藏词汇：${vocabCount} 个`,
-            `今天新增词汇：${d.today_vocab || 0} 个`,
-            vocabCount > 0 ? "你已经在亲手收藏词汇了，这是最好的主动学习方式。" : "开始收藏词汇吧，下次看到重要词汇记得及时收藏！",
-          ]}
-        />
-        <AnalysisCard
-          title="练习大厅痕迹"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
-            border: "rgba(99,102,241,0.16)",
-            title: "#4338ca",
-          }}
-          lines={[
-            `已留下分数记录的游戏：${playedGameCount} 个`,
-            `当前本地总分：${totalGameScore}`,
-            playedGameCount > 0
-              ? "很好！你已经在练习游戏中留下了记录，继续挑战更高分吧。"
-              : "还没有开始过任何练习游戏，去练习大厅完成至少一道题开始记录吧！",
-          ]}
-        />
-        <AnalysisCard
-          title="学习偏好"
-          accent={{
-            bg: "linear-gradient(135deg, rgba(16,185,129,0.10), rgba(16,185,129,0.04))",
-            border: "rgba(16,185,129,0.16)",
-            title: "#047857",
-          }}
-          lines={[
-            `最爱主题第一名：${topTopic}`,
-            `紧追其后第二名：${secondTopic}`,
-            `活跃学习 ${activeDays} 天，偏好会继续帮你找到最适合你自己词汇的话题！`,
-          ]}
-        />
+      <SectionTitle
+        emoji="🧭"
+        title="学习动态分析"
+        sub="从行为数据里看到学习轨迹，而不是抽象的掌握等级"
+      />
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: 12,
+          alignItems: "stretch",
+        }}
+      >
+        {cards.map((c, i) => (
+          <AnalysisCard
+            key={i}
+            title={c.title}
+            lines={c.lines}
+            accent={c.accent}
+          />
+        ))}
       </div>
     </Card>
   );
@@ -874,7 +981,7 @@ function ActionCard({ emoji, title, desc, href, dark }) {
           color: dark ? "#fff" : THEME.colors.accent,
         }}
       >
-        前往学习 <span>→</span>
+        立即进入 <span>→</span>
       </div>
     </a>
   );
@@ -883,19 +990,16 @@ function ActionCard({ emoji, title, desc, href, dark }) {
 function ContinueLearning({ isMobile }) {
   return (
     <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="🚀" title="继续学习" sub="学习路上不是一条，找到最好的，坚持学习" />
+      <SectionTitle emoji="🚀" title="继续学习" sub="手帐页不是终点，看完就继续学" />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
-        <ActionCard emoji="🎬" title="去看新视频" desc="继续观看最新最好的沉浸式收藏词汇，跟着学习最贴近日常生活的表达。" href="/" dark />
-        <ActionCard emoji="📚" title="去收藏词汇库" desc="找找最近收藏了什么词汇，下次看到重要词汇及时收藏一下，建立自己当前最好的词汇宝库。" href="/bookmarks" />
-        <ActionCard emoji="🎮" title="去练习大厅" desc="趣味游戏帮你巩固最近学到的词汇，跟着你的语料库和词汇不断丰富！" href="/practice" />
+        <ActionCard emoji="🎬" title="去看新视频" desc="继续从场景里输入真实表达，让学习进入状态。" href="/" dark />
+        <ActionCard emoji="📚" title="去复习词汇本" desc="看看最近收藏了什么，顺手再整理一下自己的表达库。" href="/bookmarks" />
+        <ActionCard emoji="🎮" title="去游戏大厅" desc="把输入转成输出练习，让今天的内容更容易留下来。" href="/practice" />
       </div>
     </Card>
   );
 }
 
-// ============================================================
-// 海报主题配置
-// ============================================================
 const POSTER_THEMES = [
   {
     name: "深夜极光",
@@ -903,13 +1007,10 @@ const POSTER_THEMES = [
     glow1: "rgba(99,102,241,0.38)",
     glow2: "rgba(236,72,153,0.28)",
     accent: "#818cf8",
-    accentSub: "rgba(129,140,248,0.22)",
     line: "#34d399",
+    line2: "#818cf8",
     cellActive: ["rgba(34,197,94,0.30)", "rgba(34,197,94,0.65)", "rgba(34,197,94,0.95)"],
     todayOutline: "#818cf8",
-    tagBg: "rgba(129,140,248,0.18)",
-    tagText: "#c7d2fe",
-    streakColor: "#fb923c",
   },
   {
     name: "日出橙金",
@@ -917,13 +1018,10 @@ const POSTER_THEMES = [
     glow1: "rgba(251,146,60,0.40)",
     glow2: "rgba(234,179,8,0.28)",
     accent: "#fb923c",
-    accentSub: "rgba(251,146,60,0.22)",
     line: "#fbbf24",
+    line2: "#f97316",
     cellActive: ["rgba(251,146,60,0.28)", "rgba(251,146,60,0.62)", "rgba(251,146,60,0.95)"],
     todayOutline: "#fbbf24",
-    tagBg: "rgba(251,146,60,0.18)",
-    tagText: "#fed7aa",
-    streakColor: "#fbbf24",
   },
   {
     name: "深海青碧",
@@ -931,20 +1029,13 @@ const POSTER_THEMES = [
     glow1: "rgba(6,182,212,0.38)",
     glow2: "rgba(16,185,129,0.28)",
     accent: "#22d3ee",
-    accentSub: "rgba(34,211,238,0.22)",
     line: "#34d399",
+    line2: "#06b6d4",
     cellActive: ["rgba(6,182,212,0.28)", "rgba(6,182,212,0.62)", "rgba(6,182,212,0.95)"],
     todayOutline: "#34d399",
-    tagBg: "rgba(6,182,212,0.18)",
-    tagText: "#a5f3fc",
-    streakColor: "#34d399",
   },
 ];
 
-// ============================================================
-// 修复3：重新设计海报内容（Canvas 部分）
-// 只修改弹窗里 Canvas 画的那张海报模板
-// ============================================================
 function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks, activeDays, topTopic }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
@@ -952,8 +1043,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   const [showModal, setShowModal] = useState(false);
   const [themeIdx, setThemeIdx] = useState(0);
 
-  // 圆角矩形辅助函数
-  function rr(ctx, x, y, w, h, r) {
+  function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
@@ -977,252 +1067,233 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
 
     const canvas = canvasRef.current;
     const W = 750;
-    const H = 1280;
+    const H = 1200;
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // ── 背景渐变 ──
-    const bg = ctx.createLinearGradient(0, 0, W * 0.6, H);
+    const bg = ctx.createLinearGradient(0, 0, W, H);
     bg.addColorStop(0, T.bg[0]);
     bg.addColorStop(0.45, T.bg[1]);
     bg.addColorStop(1, T.bg[2]);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // ── 光晕装饰 ──
-    const g1 = ctx.createRadialGradient(120, 180, 0, 120, 180, 340);
+    const g1 = ctx.createRadialGradient(140, 200, 0, 140, 200, 320);
     g1.addColorStop(0, T.glow1);
     g1.addColorStop(1, "transparent");
     ctx.fillStyle = g1;
     ctx.fillRect(0, 0, W, H);
 
-    const g2 = ctx.createRadialGradient(640, 500, 0, 640, 500, 260);
+    const g2 = ctx.createRadialGradient(620, 420, 0, 620, 420, 280);
     g2.addColorStop(0, T.glow2);
     g2.addColorStop(1, "transparent");
     ctx.fillStyle = g2;
     ctx.fillRect(0, 0, W, H);
 
-    const g3 = ctx.createRadialGradient(400, 1100, 0, 400, 1100, 220);
-    g3.addColorStop(0, T.glow1.replace("0.38", "0.20"));
-    g3.addColorStop(1, "transparent");
-    ctx.fillStyle = g3;
-    ctx.fillRect(0, 0, W, H);
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("📒 我的英语手帐", 48, 70);
 
-    // ── 顶部品牌栏 ──
-    rr(ctx, 36, 28, 200, 36, 18);
-    ctx.fillStyle = "rgba(255,255,255,0.10)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,0.14)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = "700 15px sans-serif";
-    ctx.fillStyle = T.accent;
-    ctx.fillText("🌐 nailaobao.top", 52, 52);
-
-    // 右上角日期
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
-    ctx.font = "500 14px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.font = "500 22px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.50)";
     ctx.textAlign = "right";
-    ctx.fillText(dateStr, W - 36, 52);
+    ctx.fillText(dateStr, W - 48, 70);
     ctx.textAlign = "left";
 
-    // ── 主标题 ──
-    ctx.font = "bold 38px sans-serif";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillText("我的学习手帐", 36, 118);
-    ctx.font = "500 16px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillText(`${me?.email?.split("@")[0] || "学习者"} 的专属记录`, 36, 148);
-
-    // 分割线
     ctx.strokeStyle = "rgba(255,255,255,0.10)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(36, 164);
-    ctx.lineTo(W - 36, 164);
+    ctx.moveTo(48, 92);
+    ctx.lineTo(W - 48, 92);
     ctx.stroke();
 
-    // ── 连续学习大卡片 ──
-    rr(ctx, 36, 178, W - 72, 110, 20);
-    const streakGrad = ctx.createLinearGradient(36, 178, W - 36, 288);
-    streakGrad.addColorStop(0, "rgba(255,255,255,0.10)");
-    streakGrad.addColorStop(1, "rgba(255,255,255,0.05)");
-    ctx.fillStyle = streakGrad;
-    ctx.fill();
-    ctx.strokeStyle = T.accentSub;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.font = "500 18px sans-serif";
+    ctx.fillStyle = T.accent;
+    ctx.textAlign = "right";
+    ctx.fillText(`✦ ${T.name}`, W - 48, 118);
+    ctx.textAlign = "left";
 
-    ctx.font = "bold 64px sans-serif";
-    ctx.fillStyle = T.streakColor;
-    ctx.fillText(String(streakDays || 0), 56, 260);
-    const streakNumWidth = ctx.measureText(String(streakDays || 0)).width;
-    ctx.font = "600 20px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.75)";
-    ctx.fillText("天", 56 + streakNumWidth + 6, 256);
-    ctx.font = "500 15px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.fillText("连续学习中 🔥", 56 + streakNumWidth + 34, 256);
+    const userName = me?.email?.split("@")[0] || "学习者";
+    ctx.font = "bold 42px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`👋 ${userName}`, 48, 176);
+    ctx.font = "500 24px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.64)";
+    ctx.fillText("今日学习成果卡", 48, 214);
 
-    ctx.font = "500 14px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.40)";
-    ctx.fillText("坚持每天打卡，习惯正在养成", 56, 278);
-
-    // ── 四格统计 ──
     const stats = [
-      { num: totalVideos || 0, label: "累计视频", icon: "🎬", color: T.accent },
-      { num: activeDays || 0, label: "本月活跃", icon: "📅", color: "#34d399" },
-      { num: vocabCount || 0, label: "收藏词汇", icon: "📝", color: "#f472b6" },
-      { num: masteredCount || 0, label: "游戏积分", icon: "🎮", color: T.streakColor },
+      { num: streakDays || 0, label: "连续天数", color: "#fb923c" },
+      { num: totalVideos || 0, label: "累计视频", color: T.accent },
+      { num: vocabCount || 0, label: "收藏词汇", color: "#34d399" },
     ];
-    const cW = (W - 72 - 30) / 4;
-    const cH = 92;
-    const cGap = 10;
-    const cY = 304;
+    const cW = 196;
+    const cH = 110;
+    const cGap = 21;
+    const cY = 252;
     stats.forEach((item, i) => {
-      const x = 36 + i * (cW + cGap);
-      rr(ctx, x, cY, cW, cH, 14);
-      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      const x = 48 + i * (cW + cGap);
+      roundRect(ctx, x, cY, cW, cH, 18);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.10)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      ctx.font = "500 18px sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.60)";
-      ctx.textAlign = "center";
-      ctx.fillText(item.icon, x + cW / 2, cY + 26);
-
-      ctx.font = "bold 28px sans-serif";
+      ctx.font = "bold 46px sans-serif";
       ctx.fillStyle = item.color;
-      ctx.fillText(String(item.num), x + cW / 2, cY + 58);
+      ctx.fillText(String(item.num), x + 18, cY + 62);
 
-      ctx.font = "500 12px sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.45)";
-      ctx.fillText(item.label, x + cW / 2, cY + 76);
-      ctx.textAlign = "left";
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.62)";
+      ctx.fillText(item.label, x + 18, cY + 92);
     });
 
-    // ── 今日任务 ──
-    ctx.font = "bold 18px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText("🏆 今日任务", 36, 426);
+    const trackedDoneCount = tasks.filter((t) => t.done).length;
 
-    const taskItems = [
-      { label: "今天看了 1 支以上视频", done: tasks[0]?.done },
-      { label: "今天收藏 3 个以上词汇", done: tasks[1]?.done },
-    ];
-    taskItems.forEach((item, idx) => {
-      const y = 440 + idx * 46;
-      rr(ctx, 36, y, W - 72, 38, 10);
-      ctx.fillStyle = item.done ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.05)";
+    const taskY = 408;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText(`🎯 今日自动统计 ${trackedDoneCount}/2`, 48, taskY);
+
+    [
+      { label: "今天看 1 个场景视频", done: tasks[0]?.done },
+      { label: "今天收藏 3 个词/表达", done: tasks[1]?.done },
+      { label: "去游戏大厅做一轮练习", done: false, neutral: true },
+    ].forEach((item, idx) => {
+      const y = taskY + 28 + idx * 44;
+      roundRect(ctx, 48, y, W - 96, 36, 10);
+      ctx.fillStyle = item.neutral
+        ? "rgba(99,102,241,0.10)"
+        : item.done
+        ? "rgba(34,197,94,0.12)"
+        : "rgba(255,255,255,0.05)";
       ctx.fill();
-      ctx.strokeStyle = item.done ? "rgba(34,197,94,0.30)" : "rgba(255,255,255,0.08)";
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = item.neutral
+        ? "rgba(99,102,241,0.18)"
+        : item.done
+        ? "rgba(34,197,94,0.28)"
+        : "rgba(255,255,255,0.08)";
       ctx.stroke();
 
-      ctx.font = "500 18px sans-serif";
-      ctx.fillStyle = item.done ? "#4ade80" : "rgba(255,255,255,0.30)";
-      ctx.fillText(item.done ? "✓" : "○", 54, y + 25);
+      ctx.font = "500 20px sans-serif";
+      ctx.fillStyle = item.neutral ? "#a5b4fc" : item.done ? "#4ade80" : "rgba(255,255,255,0.42)";
+      ctx.fillText(item.neutral ? "→" : item.done ? "✓" : "○", 70, y + 24);
 
-      ctx.font = "500 14px sans-serif";
-      ctx.fillStyle = item.done ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.40)";
-      ctx.fillText(item.label, 82, y + 25);
+      ctx.fillStyle = item.neutral || item.done ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.42)";
+      ctx.fillText(item.label, 104, y + 24);
     });
 
-    // ── 最爱话题 tag ──
-    const tagText = topTopic || "继续学习中";
-    ctx.font = "500 13px sans-serif";
-    const tagW = ctx.measureText(tagText).width + 40;
-    rr(ctx, 36, 540, tagW, 32, 16);
-    ctx.fillStyle = T.tagBg;
-    ctx.fill();
-    ctx.strokeStyle = T.accentSub;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = "600 13px sans-serif";
-    ctx.fillStyle = T.tagText;
-    ctx.fillText(`❤ 最爱话题：${tagText}`, 54, 562);
+    const hmY = 598;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText("🗓️ 最近学习日历", 48, hmY);
 
-    // ── 近30天热力图 ──
-    ctx.font = "bold 18px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText("🗓 近30天学习热力图", 36, 600);
+    const calendarMonth = new Date();
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startWeekday = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    const calendarCells = [];
+    for (let i = 0; i < startWeekday; i++) calendarCells.push(null);
+    for (let d = 1; d <= totalDays; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      calendarCells.push({ day: d, key, count: heatmapData[key] || 0 });
+    }
+    while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
-    const hmStartX = 36;
-    const hmStartY = 614;
-    const cellSize = 20;
-    const cellGap = 3;
-    const cols = 15;
-    const today = new Date();
+    const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
+    weekNames.forEach((w, i) => {
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillText(w, 48 + i * 92 + 34, hmY + 28);
+    });
 
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const count = heatmapData?.[key] || 0;
-      const col = (29 - i) % cols;
-      const row = Math.floor((29 - i) / cols);
-      const x = hmStartX + col * (cellSize + cellGap);
-      const y = hmStartY + row * (cellSize + cellGap);
+    const cellW = 86;
+    const cellH = 58;
+    const startX = 48;
+    const startY = hmY + 42;
+    const todayKey = new Date().toISOString().slice(0, 10);
 
-      rr(ctx, x, y, cellSize, cellSize, 5);
-      if (count <= 0) {
-        ctx.fillStyle = "rgba(255,255,255,0.06)";
-      } else if (count === 1) {
+    calendarCells.forEach((cell, idx) => {
+      const row = Math.floor(idx / 7);
+      const col = idx % 7;
+      const x = startX + col * 92;
+      const y = startY + row * 66;
+
+      roundRect(ctx, x, y, cellW, cellH, 12);
+      if (!cell) {
+        ctx.fillStyle = "rgba(255,255,255,0.03)";
+        ctx.fill();
+        return;
+      }
+
+      if (cell.count <= 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+      } else if (cell.count === 1) {
         ctx.fillStyle = T.cellActive[0];
-      } else if (count === 2) {
+      } else if (cell.count === 2) {
         ctx.fillStyle = T.cellActive[1];
       } else {
         ctx.fillStyle = T.cellActive[2];
       }
       ctx.fill();
-    }
 
-    // 热力图图例
-    ctx.font = "500 11px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.fillText("空", hmStartX, hmStartY + 70);
-    rr(ctx, hmStartX + 20, hmStartY + 58, 14, 14, 4);
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
-    ctx.fill();
+      if (cell.key === todayKey) {
+        ctx.strokeStyle = T.todayOutline;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
 
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.fillText("少", hmStartX + 46, hmStartY + 70);
-    rr(ctx, hmStartX + 66, hmStartY + 58, 14, 14, 4);
-    ctx.fillStyle = T.cellActive[0];
-    ctx.fill();
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = cell.count >= 3 ? "#ffffff" : "rgba(255,255,255,0.92)";
+      ctx.fillText(String(cell.day), x + 10, y + 20);
 
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.fillText("中", hmStartX + 92, hmStartY + 70);
-    rr(ctx, hmStartX + 112, hmStartY + 58, 14, 14, 4);
-    ctx.fillStyle = T.cellActive[1];
-    ctx.fill();
+      if (cell.count > 0) {
+        roundRect(ctx, x + cellW - 34, y + cellH - 24, 24, 16, 8);
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.fill();
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.fillText(String(cell.count), x + cellW - 22, y + cellH - 12);
+        ctx.textAlign = "left";
+      }
+    });
 
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    ctx.fillText("多", hmStartX + 138, hmStartY + 70);
-    rr(ctx, hmStartX + 158, hmStartY + 58, 14, 14, 4);
-    ctx.fillStyle = T.cellActive[2];
-    ctx.fill();
+    const infoY = 1010;
+    ctx.font = "bold 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.fillText("🧭 最近学习状态", 48, infoY);
 
-    // ── 分割线 + 底部签名 ──
+    ctx.font = "500 22px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.76)";
+    ctx.fillText(`累计活跃天数：${activeDays || 0} 天`, 48, infoY + 42);
+    ctx.fillText(`最近偏好方向：${topTopic || "继续学习后会出现"}`, 48, infoY + 76);
+    ctx.fillText(`收藏词汇总量：${vocabCount || 0} 个`, 48, infoY + 110);
+
     ctx.strokeStyle = "rgba(255,255,255,0.10)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(36, H - 96);
-    ctx.lineTo(W - 36, H - 96);
+    ctx.moveTo(48, H - 100);
+    ctx.lineTo(W - 48, H - 100);
     ctx.stroke();
 
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.90)";
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
     ctx.textAlign = "center";
-    ctx.fillText("🌏 nailaobao.top", W / 2, H - 60);
-    ctx.font = "500 13px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.38)";
-    ctx.fillText("沉浸式学习 · 视频收藏 · 词汇积累 · 练习大厅", W / 2, H - 34);
+    ctx.fillText("🌐 nailaobao.top", W / 2, H - 60);
+    ctx.font = "500 20px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText("油管英语场景库 · 场景输入 · 收藏沉淀 · 游戏练习", W / 2, H - 30);
     ctx.textAlign = "left";
 
     const url = canvas.toDataURL("image/png");
@@ -1240,7 +1311,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     if (!posterUrl) return;
     const a = document.createElement("a");
     a.href = posterUrl;
-    a.download = `学习手帐_${new Date().toISOString().slice(0, 10)}.png`;
+    a.download = `英语手帐_${new Date().toISOString().slice(0, 10)}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1259,9 +1330,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
           boxShadow: "0 24px 60px rgba(79,70,229,0.22)",
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 1000 }}>生成专属学习海报</div>
+        <div style={{ fontSize: 15, fontWeight: 1000 }}>打开海报生成器</div>
         <div style={{ fontSize: 12, lineHeight: 1.7, opacity: 0.88, marginTop: 8 }}>
-          汇集连续学习、视频收藏、词汇积累和学习热力图，一张海报记录你的成长轨迹。
+          把连续学习、累计视频、收藏词汇和学习日历缩略一起生成一张打卡海报。
         </div>
         <button
           onClick={() => generate()}
@@ -1269,7 +1340,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
           style={{
             marginTop: 14,
             width: "100%",
-            padding: "14px 0",
+            padding: "11px 0",
             borderRadius: 18,
             border: "none",
             background: generating ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.96)",
@@ -1280,9 +1351,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             boxShadow: generating ? "none" : "0 16px 34px rgba(2,6,23,0.18)",
           }}
         >
-          {generating ? "⏳ 生成中..." : "📸 生成专属海报"}
+          {generating ? "⏳ 生成中..." : "📸 打开海报生成器"}
         </button>
-        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.82 }}>共 {POSTER_THEMES.length} 套配色，点击下方切换主题</div>
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.82 }}>共 {POSTER_THEMES.length} 种风格，每次可切换主题</div>
       </div>
 
       {showModal && posterUrl && createPortal(
@@ -1296,7 +1367,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 16,
+            padding: 8,
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
           }}
@@ -1308,18 +1379,18 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               borderRadius: 28,
               padding: 20,
               width: "100%",
-              maxWidth: 460,
-              maxHeight: "92vh",
+              maxWidth: 520,
+              maxHeight: "96vh",
               overflowY: "auto",
               boxShadow: "0 40px 120px rgba(0,0,0,0.55)",
               display: "flex",
               flexDirection: "column",
-              gap: 14,
+              gap: 10,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>📸 我的学习海报</div>
+                <div style={{ fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>📸 今日打卡海报</div>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 800 }}>
                   当前主题：{POSTER_THEMES[themeIdx].name}
                 </div>
@@ -1346,25 +1417,27 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
 
             <img
               src={posterUrl}
-              alt="学习海报"
+              alt="打卡海报"
               style={{
                 width: "100%",
                 borderRadius: 18,
                 display: "block",
                 border: "1px solid rgba(15,23,42,0.08)",
                 boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+              maxHeight: "60vh",
+              objectFit: "contain",
               }}
             />
 
             <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
-              📱 长按图片保存 · 点击右上角关闭返回
+              📱 手机长按保存 · 电脑点下方按钮下载
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <button
                 onClick={handleDownload}
                 style={{
-                  padding: "14px 0",
+                  padding: "11px 0",
                   borderRadius: 16,
                   border: "none",
                   background: "linear-gradient(135deg,#0f172a,#4f46e5)",
@@ -1374,12 +1447,12 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
                   cursor: "pointer",
                 }}
               >
-                ⬇ 保存图片
+                ⬇️ 保存图片
               </button>
               <button
                 onClick={handleSwitchTheme}
                 style={{
-                  padding: "14px 0",
+                  padding: "11px 0",
                   borderRadius: 16,
                   border: "1.5px solid rgba(15,23,42,0.12)",
                   background: "rgba(15,23,42,0.04)",
@@ -1389,7 +1462,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
                   cursor: "pointer",
                 }}
               >
-                🎨 换个主题
+                🎨 换个风格
               </button>
             </div>
 
@@ -1415,10 +1488,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   );
 }
 
-// ============================================================
-// 主组件 JournalClient
-// ============================================================
-export default function JournalClient({ accessToken }) {
+export default function Page({ accessToken }) {
   const isMobile = useIsMobile(960);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -1444,11 +1514,6 @@ export default function JournalClient({ accessToken }) {
     loadJournalData();
   }, [me]);
 
-  // ============================================================
-  // 修复2：修正 naila_game_scores 的读取逻辑
-  // 原始 bug：用 Number(x) 转换 entry，但实际结构是 { best: number }
-  // 修复：兼容两种格式（对象 {best:N} 和裸数字）
-  // ============================================================
   useEffect(() => {
     try {
       const raw = localStorage.getItem("naila_game_scores");
@@ -1457,24 +1522,14 @@ export default function JournalClient({ accessToken }) {
         return;
       }
       const parsed = JSON.parse(raw);
-      let totalGameScore = 0;
-      let playedGameCount = 0;
-      Object.values(parsed || {}).forEach((entry) => {
-        // 兼容 { best: number } 对象格式和裸数字格式
-        const score =
-          entry !== null && typeof entry === "object"
-            ? Number(entry.best) || 0
-            : Number(entry) || 0;
-        if (score > 0) {
-          totalGameScore += score;
-          playedGameCount++;
-        }
-      });
+      const values = Object.values(parsed || {}).map((x) => Number(x) || 0);
+      const totalGameScore = values.reduce((a, b) => a + b, 0);
+      const playedGameCount = values.filter((x) => x > 0).length;
       setGameSummary({ totalGameScore, playedGameCount });
     } catch {
       setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
     }
-  }, [loading]);
+  }, []);
 
   async function loadJournalData() {
     setLoading(true);
@@ -1502,14 +1557,14 @@ export default function JournalClient({ accessToken }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 16,
+          padding: 8,
         }}
       >
         <Card style={{ maxWidth: 420, textAlign: "center", padding: 28 }}>
           <div style={{ fontSize: 52, marginBottom: 10 }}>📒</div>
-          <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 8 }}>我的学习手帐</div>
+          <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 8 }}>我的英语手帐</div>
           <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 18, lineHeight: 1.7 }}>
-            登录后可以查看你的学习记录、学习热力图、词汇积累和专属海报。
+            登录后查看你的学习总览、学习日历、收藏积累和海报生成器。
           </div>
           <a
             href="/login"
@@ -1525,7 +1580,7 @@ export default function JournalClient({ accessToken }) {
               boxShadow: "0 18px 40px rgba(2,6,23,0.18)",
             }}
           >
-            立即登录
+            去登录
           </a>
         </Card>
       </div>
@@ -1543,7 +1598,7 @@ export default function JournalClient({ accessToken }) {
             padding: "22px 16px 60px",
             display: "grid",
             gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-            gap: 14,
+            gap: 10,
           }}
         >
           {[220, 260, 320, 260, 220, 220].map((h, i) => (
@@ -1571,13 +1626,13 @@ export default function JournalClient({ accessToken }) {
 
   const topicLabelMap = {
     "daily-life": "日常生活",
-    "self-improvement": "自我提升",
-    "food": "美食料理",
+    "self-improvement": "个人成长",
+    "food": "美食探店",
     "travel": "旅行",
-    "business": "商业职场",
+    "business": "职场商务",
     "culture": "文化",
-    "opinion": "观点看法",
-    "skills": "技能才艺",
+    "opinion": "观点表达",
+    "skills": "方法技能",
   };
 
   const topicMap = {};
@@ -1591,8 +1646,8 @@ export default function JournalClient({ accessToken }) {
     .slice(0, 6);
 
   const tasks = [
-    { label: "今天看了 1 支以上视频", done: (d.today_views || 0) >= 1 },
-    { label: "今天收藏 3 个以上词/句子", done: (d.today_vocab || 0) >= 3 },
+    { label: "今天看 1 个场景视频", done: (d.today_views || 0) >= 1 },
+    { label: "今天收藏 3 个词/表达", done: (d.today_vocab || 0) >= 3 },
   ];
 
   const desktopHeroGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
@@ -1605,7 +1660,6 @@ export default function JournalClient({ accessToken }) {
         @keyframes floatIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
 
-      {/* 顶部导航 */}
       <div
         style={{
           position: "sticky",
@@ -1619,7 +1673,7 @@ export default function JournalClient({ accessToken }) {
           height: 56,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
         }}
       >
@@ -1639,7 +1693,7 @@ export default function JournalClient({ accessToken }) {
           >
             ← 返回
           </a>
-          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink }}>我的学习手帐</span>
+          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink }}>我的英语手帐</span>
         </div>
         {!isMobile ? (
           <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>📅 {formatDate()}</span>
@@ -1647,7 +1701,6 @@ export default function JournalClient({ accessToken }) {
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 60px" }}>
-        {/* 顶部 Hero 横幅 */}
         <div
           style={{
             borderRadius: 28,
@@ -1665,41 +1718,37 @@ export default function JournalClient({ accessToken }) {
             style={{
               display: "flex",
               alignItems: isMobile ? "flex-start" : "center",
-              justifyContent: "space-between",
+              flexDirection: "column", alignItems: "center",
               flexDirection: isMobile ? "column" : "row",
-              gap: 14,
+              gap: 10,
             }}
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 1000 }}>
-                👋 {me?.email?.split("@")[0] || "同学"}，今天也要记录属于自己的一页学习历程
+                👋 {me?.email?.split("@")[0] || "同学"}，今天也来留下一点学习痕迹
               </div>
               <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.8, marginTop: 8 }}>
-                现在还没有在视频库、词汇库和练习大厅中有自己的记录，快去看看有哪些内容，不断学习找到自己"学习中"的体会！
+                现在这版手帐页只保留真实有效的学习数据：看视频、收藏词汇、活跃天数、学习偏好和游戏大厅入口，不再沿用旧考试系统的掌握判定。
               </div>
             </div>
-            {/* 修复1：手机版删除嵌套连续学习卡片，电脑版保留 */}
-            {!isMobile && (
-              <div
-                style={{
-                  minWidth: 180,
-                  padding: "14px 14px",
-                  borderRadius: 20,
-                  background: "rgba(255,255,255,0.12)",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  textAlign: "right",
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
-                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
-                <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
-              </div>
-            )}
+            <div
+              style={{
+                minWidth: isMobile ? "100%" : 180,
+                padding: "14px 14px",
+                borderRadius: 20,
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
+              <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
+              <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
+            </div>
           </div>
         </div>
 
-        {/* 第一行：总览 + 今日任务 */}
-        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 10, marginTop: 14, alignItems: "start" }}>
           <OverviewPanel
             streakDays={d.streak_days || 0}
             totalViews={d.total_views || 0}
@@ -1710,8 +1759,7 @@ export default function JournalClient({ accessToken }) {
           <TodayPlan d={d} isMobile={isMobile} />
         </div>
 
-        {/* 第二行：热力图 + 学习分析 */}
-        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 10, marginTop: 14, alignItems: "start" }}>
           <Heatmap
             heatmapData={d.heatmap || {}}
             streakDays={d.streak_days || 0}
@@ -1727,14 +1775,13 @@ export default function JournalClient({ accessToken }) {
           />
         </div>
 
-        {/* 第三行：继续学习 + 海报生成 */}
-        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 14, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 10, marginTop: 14 }}>
           <ContinueLearning isMobile={isMobile} />
           <Card style={{ padding: 18 }}>
             <SectionTitle
               emoji="📸"
               title="海报生成器"
-              sub="记录下你6个月的成长，分享一下你当前学习的状态"
+              sub="作为模块6保留，并且固定成这个页面的成果展示出口"
             />
             <PosterGenerator
               me={me}
@@ -1745,7 +1792,7 @@ export default function JournalClient({ accessToken }) {
               heatmapData={d.heatmap || {}}
               tasks={tasks}
               activeDays={activeDays}
-              topTopic={topicStats[0]?.label || "继续学习中"}
+              topTopic={topicStats[0]?.label || "继续学习后会出现"}
             />
           </Card>
         </div>
