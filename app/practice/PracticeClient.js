@@ -676,6 +676,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
   const [bestCombo, setBestCombo] = useState(0);
   const [done, setDone] = useState(false);
   const endCalledRef = useRef(false);
+  const scoreRef = useRef(0);
   const deckRef = useRef([...cards].sort(() => Math.random() - 0.5));
   const offsetRef = useRef(0);
   const timerRef = useRef(null);
@@ -686,7 +687,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
     setDone(true);
     if (!endCalledRef.current) {
       endCalledRef.current = true;
-      try { onGameEnd?.(score); } catch {}
+      try { onGameEnd?.(scoreRef.current); } catch {}
     }
   }
 
@@ -718,7 +719,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
           setDone(true);
           if (!endCalledRef.current) {
             endCalledRef.current = true;
-            try { onGameEnd?.(score); } catch {}
+            try { onGameEnd?.(scoreRef.current); } catch {}
           }
           return 0;
         }
@@ -744,7 +745,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
       const newCombo = combo + 1;
       setCombo(newCombo);
       setBestCombo((b) => Math.max(b, newCombo));
-      setScore((s) => s + 10 + newCombo * 2);
+      setScore((s) => { const ns = s + 10 + newCombo * 2; scoreRef.current = ns; return ns; });
       setFlash({ id: lId, ok: true });
       setTimeout(() => setFlash(null), 400);
     } else {
@@ -787,12 +788,12 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
                 endCalledRef.current = false;
                 deckRef.current = [...cards].sort(() => Math.random() - 0.5);
                 offsetRef.current = 0;
-                setTimeLeft(MATCH_TIME); setScore(0); setCombo(0); setBestCombo(0); setDone(false);
+                setTimeLeft(MATCH_TIME); setScore(0); scoreRef.current = 0; setCombo(0); setBestCombo(0); setDone(false);
                 loadNextBatch();
                 clearInterval(timerRef.current);
                 timerRef.current = setInterval(() => {
                   setTimeLeft((t) => {
-                    if (t <= 1) { clearInterval(timerRef.current); setDone(true); if (!endCalledRef.current) { endCalledRef.current = true; try { onGameEnd?.(score); } catch {} } return 0; }
+                    if (t <= 1) { clearInterval(timerRef.current); setDone(true); if (!endCalledRef.current) { endCalledRef.current = true; try { onGameEnd?.(scoreRef.current); } catch {} } return 0; }
                     return t - 1;
                   });
                 }, 1000);
@@ -1267,6 +1268,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
   const [maxCombo, setMaxCombo] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const endCalledRef = useRef(false);
+  const scoreRef = useRef(0);
   const gameOverRef = useRef(false);
   const [currentWord, setCurrentWord] = useState(null);
   const [balloons, setBalloons] = useState([]);
@@ -1285,7 +1287,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     setGameOver(true);
     if (!endCalledRef.current) {
       endCalledRef.current = true;
-      try { onGameEnd?.(score); } catch {}
+      try { onGameEnd?.(scoreRef.current); } catch {}
     }
   });
 
@@ -1318,7 +1320,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     setBalloons(prev => prev.map(x => x.id === b.id ? { ...x, popped: true } : x));
     const rid = roundIdRef.current;
     if (b.correct) {
-      setScore(s => s + 10);
+      setScore(s => { const ns = s + 10; scoreRef.current = ns; return ns; });
       setCombo(c => { const n = c + 1; setMaxCombo(m => Math.max(m, n)); return n; });
       try { if (navigator.vibrate) navigator.vibrate(20); } catch {}
     } else { setCombo(0); }
@@ -1348,7 +1350,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
           <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
           <ScoreResult score={score} gameId="balloon" />
           <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 16 }}>
-            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; gameOverRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
+            <button onClick={() => { setScore(0); scoreRef.current = 0; setCombo(0); setMaxCombo(0); setGameOver(false); endCalledRef.current = false; gameOverRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
               style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: "#f59e0b", color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
             <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
@@ -1408,6 +1410,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   const [gameOver, setGameOver] = useState(false);
   const [cracked, setCracked] = useState(false);
   const endCalledRef = useRef(false);
+  const scoreRef = useRef(0);
   const limitMs = useMemo(() => clamp(3000 - combo * 120, 1500, 3000), [combo]);
   const startTsRef = useRef(0);
   const rafRef = useRef(null);
@@ -1420,7 +1423,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
     if (!endCalledRef.current) {
       endCalledRef.current = true;
       setCombo(c => { setMaxCombo(m => Math.max(m, c)); return c; });
-      try { onGameEnd?.(score); } catch {}
+      try { onGameEnd?.(scoreRef.current); } catch {}
     }
   });
 
@@ -1460,7 +1463,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
     if (ok) {
       const nextCombo = combo + 1;
       setCombo(nextCombo); setMaxCombo((m) => Math.max(m, nextCombo));
-      setScore((s) => s + 10 * nextCombo);
+      setScore((s) => { const ns = s + 10 * nextCombo; scoreRef.current = ns; return ns; });
       try { if (navigator.vibrate) navigator.vibrate(30); } catch {}
     } else { setCracked(true); setCombo(0); }
     setTimeout(() => setRound(r => r + 1), ok ? 0 : 300);
@@ -1490,7 +1493,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
           <div style={{ fontSize: 14, color: THEME.colors.faint, marginBottom: 24 }}>最高连击 {maxCombo} 次</div>
           <ScoreResult score={score} gameId="speed" />
           <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 16 }}>
-            <button onClick={() => { setScore(0); setCombo(0); setMaxCombo(0); setGameOver(false); setRound(0); endCalledRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
+            <button onClick={() => { setScore(0); scoreRef.current = 0; setCombo(0); setMaxCombo(0); setGameOver(false); setRound(0); endCalledRef.current = false; setStarted(false); setTimeout(() => setStarted(true), 50); }}
               style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", border: "none", fontWeight: 1000, cursor: "pointer" }}>再来一轮</button>
             <button onClick={onExit} style={{ padding: "10px 24px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, fontWeight: 900, cursor: "pointer" }}>返回大厅</button>
           </div>
@@ -1643,8 +1646,8 @@ export default function PracticeClient({ accessToken: ssrToken }) {
   const sourceLabel = vocabSource === "builtin" ? "内置词库" : "我的收藏";
   const myWordCount = useMemo(() => (vocabItems || []).filter(x => !x?.kind || x?.kind === "words").length, [vocabItems]);
 
-  function builtinLocked() { return vocabSource === "builtin" && !isMember; }
-  function notEnough() { return vocabSource === "my" && myWordCount < 10; }
+  function builtinLocked() { return !loading && vocabSource === "builtin" && !isMember; }
+  function notEnough() { return !loading && vocabSource === "my" && myWordCount < 10; }
   function isLocked() { return notEnough() || builtinLocked(); }
   function handleSwitchBuiltin() { setVocabSource("builtin"); setActiveGame(null); }
 
@@ -1794,8 +1797,8 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       <div style={{ maxWidth: 980, margin: "0 auto 10px", padding: "0 6px" }}>
         <div style={{ display: "inline-flex", border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, overflow: "hidden", background: THEME.colors.surface }}>
           {[{ key: "my", label: `我的收藏 (${myWordCount}词)` }, { key: "builtin", label: "内置词库 (50词)" }].map(opt => (
-            <button key={opt.key} onClick={() => setVocabSource(opt.key)} disabled={opt.key === "builtin" && !isMember}
-              style={{ padding: "8px 16px", border: "none", cursor: opt.key === "builtin" && !isMember ? "not-allowed" : "pointer", fontWeight: 1000, fontSize: 13, background: vocabSource === opt.key ? THEME.colors.accent : "transparent", color: vocabSource === opt.key ? "#fff" : opt.key === "builtin" && !isMember ? THEME.colors.muted : THEME.colors.ink, transition: "all 0.15s" }}>
+            <button key={opt.key} onClick={() => setVocabSource(opt.key)} disabled={opt.key === "builtin" && !loading && !isMember}
+              style={{ padding: "8px 16px", border: "none", cursor: opt.key === "builtin" && !loading && !isMember ? "not-allowed" : "pointer", fontWeight: 1000, fontSize: 13, background: vocabSource === opt.key ? THEME.colors.accent : "transparent", color: vocabSource === opt.key ? "#fff" : opt.key === "builtin" && !loading && !isMember ? THEME.colors.muted : THEME.colors.ink, transition: "all 0.15s" }}>
               {opt.label}{opt.key === "builtin" && !isMember ? " 🔒" : ""}
             </button>
           ))}
