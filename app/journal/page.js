@@ -1424,10 +1424,12 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
                 display: "block",
                 border: "1px solid rgba(15,23,42,0.08)",
                 boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+              maxHeight: "60vh",
+              objectFit: "contain",
               }}
-            / style={{maxHeight:"60vh",objectFit:"contain"}}>
+            
 
-            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
+            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }} />
               📱 手机长按保存 · 电脑点下方按钮下载
             </div>
 
