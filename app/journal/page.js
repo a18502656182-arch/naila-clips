@@ -292,13 +292,18 @@ export default function Page({ accessToken }) {
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 10, marginTop: 14 }}>
+        {/* 继续学习：全宽独占一行 */}
+        <div style={{ marginTop: 14 }}>
           <ContinueLearning isMobile={isMobile} />
+        </div>
+
+        {/* 海报生成器：全宽独占一行，内部横向布局 */}
+        <div style={{ marginTop: 10 }}>
           <Card style={{ padding: 18 }}>
             <SectionTitle
               emoji="📸"
               title="海报生成器"
-              sub="作为模块6保留，并且固定成这个页面的成果展示出口"
+              sub="把学习数据合成一张高颜值打卡海报，适合朋友圈 / 小红书分享"
             />
             <PosterGenerator
               me={me}
@@ -310,6 +315,7 @@ export default function Page({ accessToken }) {
               tasks={tasks}
               activeDays={activeDays}
               topTopic={topicStats[0]?.label || "继续学习后会出现"}
+              isMobile={isMobile}
             />
           </Card>
         </div>
