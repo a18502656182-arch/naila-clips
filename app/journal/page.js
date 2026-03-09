@@ -644,48 +644,9 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
           数字表示当天学习次数，今天会有紫色描边
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
-  <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
-  <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
-  <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
-</div>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#64748b",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(15,23,42,0.05)",
-              border: "1px solid rgba(15,23,42,0.08)",
-            }}
-          >
-            灰点=未学习
-          </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#166534",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(34,197,94,0.12)",
-              border: "1px solid rgba(34,197,94,0.16)",
-            }}
-          >
-            浅绿=少量学习
-          </span>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: "#ffffff",
-              padding: "5px 8px",
-              borderRadius: 999,
-              background: "rgba(22,163,74,0.92)",
-            }}
-          >
-            深绿=学习较多
-          </span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
         </div>
       </div>
     </div>
