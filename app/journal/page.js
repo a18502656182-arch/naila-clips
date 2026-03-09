@@ -77,7 +77,7 @@ function SectionTitle({ emoji, title, sub, right }) {
       style={{
         display: "flex",
         alignItems: "flex-start",
-        justifyContent: "space-between",
+        flexDirection: "column", alignItems: "center",
         gap: 12,
         marginBottom: 16,
       }}
@@ -119,10 +119,10 @@ function MiniStat({ label, value, hint, accent }) {
         boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        flexDirection: "column", alignItems: "center",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", alignItems: "center", gap: 10 }}>
         <div style={{ fontSize: 42, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
         <div
           style={{
@@ -150,7 +150,7 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
   return (
     <Card style={{ padding: 18 }}>
       <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <MiniStat
           label="连续学习"
           value={streakDays || 0}
@@ -577,7 +577,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                   boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.78)" : "none",
                   display: "flex",
                   flexDirection: "column",
-                  justifyContent: "space-between",
+                  flexDirection: "column", alignItems: "center",
                   gap: 6,
                 }}
               >
@@ -635,7 +635,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
           marginTop: 12,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
           flexWrap: "wrap",
         }}
@@ -686,7 +686,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
           marginBottom: 14,
           flexWrap: "wrap",
@@ -791,7 +791,7 @@ function AnalysisCard({ title, lines, accent }) {
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
+        flexDirection: "column", alignItems: "center",
         transition: "all 180ms ease",
       }}
     >
@@ -1340,7 +1340,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
           style={{
             marginTop: 14,
             width: "100%",
-            padding: "14px 0",
+            padding: "11px 0",
             borderRadius: 18,
             border: "none",
             background: generating ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.96)",
@@ -1367,7 +1367,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 16,
+            padding: 8,
             backdropFilter: "blur(8px)",
             WebkitBackdropFilter: "blur(8px)",
           }}
@@ -1379,16 +1379,16 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               borderRadius: 28,
               padding: 20,
               width: "100%",
-              maxWidth: 460,
-              maxHeight: "92vh",
+              maxWidth: 520,
+              maxHeight: "96vh",
               overflowY: "auto",
               boxShadow: "0 40px 120px rgba(0,0,0,0.55)",
               display: "flex",
               flexDirection: "column",
-              gap: 14,
+              gap: 10,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>📸 今日打卡海报</div>
                 <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 800 }}>
@@ -1425,7 +1425,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
                 border: "1px solid rgba(15,23,42,0.08)",
                 boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
               }}
-            />
+            / style={{maxHeight:"60vh",objectFit:"contain"}}>
 
             <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
               📱 手机长按保存 · 电脑点下方按钮下载
@@ -1435,7 +1435,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               <button
                 onClick={handleDownload}
                 style={{
-                  padding: "14px 0",
+                  padding: "11px 0",
                   borderRadius: 16,
                   border: "none",
                   background: "linear-gradient(135deg,#0f172a,#4f46e5)",
@@ -1450,7 +1450,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               <button
                 onClick={handleSwitchTheme}
                 style={{
-                  padding: "14px 0",
+                  padding: "11px 0",
                   borderRadius: 16,
                   border: "1.5px solid rgba(15,23,42,0.12)",
                   background: "rgba(15,23,42,0.04)",
@@ -1527,7 +1527,7 @@ export default function Page({ accessToken }) {
     } catch {
       setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
     }
-  }, [loading]);
+  }, []);
 
   async function loadJournalData() {
     setLoading(true);
@@ -1555,7 +1555,7 @@ export default function Page({ accessToken }) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: 16,
+          padding: 8,
         }}
       >
         <Card style={{ maxWidth: 420, textAlign: "center", padding: 28 }}>
@@ -1596,7 +1596,7 @@ export default function Page({ accessToken }) {
             padding: "22px 16px 60px",
             display: "grid",
             gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-            gap: 14,
+            gap: 10,
           }}
         >
           {[220, 260, 320, 260, 220, 220].map((h, i) => (
@@ -1671,7 +1671,7 @@ export default function Page({ accessToken }) {
           height: 56,
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: "column", alignItems: "center",
           gap: 10,
         }}
       >
@@ -1716,9 +1716,9 @@ export default function Page({ accessToken }) {
             style={{
               display: "flex",
               alignItems: isMobile ? "flex-start" : "center",
-              justifyContent: "space-between",
+              flexDirection: "column", alignItems: "center",
               flexDirection: isMobile ? "column" : "row",
-              gap: 14,
+              gap: 10,
             }}
           >
             <div style={{ flex: 1 }}>
@@ -1736,7 +1736,7 @@ export default function Page({ accessToken }) {
                 borderRadius: 20,
                 background: "rgba(255,255,255,0.12)",
                 border: "1px solid rgba(255,255,255,0.18)",
-                textAlign: isMobile ? "left" : "right",
+                textAlign: "center",
               }}
             >
               <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
@@ -1746,7 +1746,7 @@ export default function Page({ accessToken }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 10, marginTop: 14, alignItems: "start" }}>
           <OverviewPanel
             streakDays={d.streak_days || 0}
             totalViews={d.total_views || 0}
@@ -1757,7 +1757,7 @@ export default function Page({ accessToken }) {
           <TodayPlan d={d} isMobile={isMobile} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 10, marginTop: 14, alignItems: "start" }}>
           <Heatmap
             heatmapData={d.heatmap || {}}
             streakDays={d.streak_days || 0}
@@ -1773,7 +1773,7 @@ export default function Page({ accessToken }) {
           />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 14, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopBottomGrid, gap: 10, marginTop: 14 }}>
           <ContinueLearning isMobile={isMobile} />
           <Card style={{ padding: 18 }}>
             <SectionTitle
