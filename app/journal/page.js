@@ -1522,9 +1522,9 @@ export default function Page({ accessToken }) {
         return;
       }
       const parsed = JSON.parse(raw);
-      const values = Object.values(parsed || {}).map((x) => Number(x) || 0);
-      const totalGameScore = values.reduce((a, b) => a + b, 0);
-      const playedGameCount = values.filter((x) => x > 0).length;
+      const entries = Object.values(parsed || {});
+const totalGameScore = entries.reduce((sum, x) => sum + (x?.best || 0), 0);
+const playedGameCount = entries.filter((x) => (x?.playCount || 0) > 0).length;
       setGameSummary({ totalGameScore, playedGameCount });
     } catch {
       setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
