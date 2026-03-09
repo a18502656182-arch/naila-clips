@@ -82,117 +82,171 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    const g1 = ctx.createRadialGradient(140, 200, 0, 140, 200, 320);
+    const g1 = ctx.createRadialGradient(130, 150, 0, 130, 150, 330);
     g1.addColorStop(0, T.glow1);
     g1.addColorStop(1, "transparent");
     ctx.fillStyle = g1;
     ctx.fillRect(0, 0, W, H);
 
-    const g2 = ctx.createRadialGradient(620, 420, 0, 620, 420, 280);
+    const g2 = ctx.createRadialGradient(620, 280, 0, 620, 280, 300);
     g2.addColorStop(0, T.glow2);
     g2.addColorStop(1, "transparent");
     ctx.fillStyle = g2;
     ctx.fillRect(0, 0, W, H);
 
-    ctx.font = "bold 28px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.fillText("📒 我的英语手帐", 48, 70);
+    const g3 = ctx.createRadialGradient(420, 1080, 0, 420, 1080, 360);
+    g3.addColorStop(0, "rgba(255,255,255,0.05)");
+    g3.addColorStop(1, "transparent");
+    ctx.fillStyle = g3;
+    ctx.fillRect(0, 0, W, H);
+
+    roundRect(ctx, 22, 22, W - 44, H - 44, 34);
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    roundRect(ctx, 34, 34, W - 68, 176, 28);
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     const now = new Date();
     const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
-    ctx.font = "500 22px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.50)";
-    ctx.textAlign = "right";
-    ctx.fillText(dateStr, W - 48, 70);
+
+    ctx.font = "900 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.94)";
+    ctx.fillText("英语手帐学习海报", 62, 82);
+
+    ctx.font = "600 18px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.64)";
+    ctx.fillText("Nailaobao Journal Poster", 62, 110);
+
+    roundRect(ctx, W - 186, 56, 96, 34, 17);
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fill();
+    ctx.font = "800 15px sans-serif";
+    ctx.fillStyle = T.accent;
+    ctx.textAlign = "center";
+    ctx.fillText(T.name, W - 138, 78);
     ctx.textAlign = "left";
 
-    ctx.strokeStyle = "rgba(255,255,255,0.10)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(48, 92);
-    ctx.lineTo(W - 48, 92);
-    ctx.stroke();
-
     ctx.font = "500 18px sans-serif";
-    ctx.fillStyle = T.accent;
+    ctx.fillStyle = "rgba(255,255,255,0.58)";
     ctx.textAlign = "right";
-    ctx.fillText(`✦ ${T.name}`, W - 48, 118);
+    ctx.fillText(dateStr, W - 62, 120);
     ctx.textAlign = "left";
 
     const userName = me?.email?.split("@")[0] || "学习者";
-    ctx.font = "bold 42px sans-serif";
-    ctx.fillStyle = "#fff";
-    ctx.fillText(`👋 ${userName}`, 48, 176);
-    ctx.font = "500 24px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.64)";
-    ctx.fillText("今日学习成果卡", 48, 214);
+    ctx.font = "900 44px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(userName, 62, 164);
+
+    ctx.font = "500 21px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.74)";
+    ctx.fillText("把今天的坚持，整理成一张会发光的学习记录。", 62, 194);
 
     const stats = [
       { num: streakDays || 0, label: "连续天数", color: "#fb923c" },
       { num: totalVideos || 0, label: "累计视频", color: T.accent },
       { num: vocabCount || 0, label: "收藏词汇", color: "#34d399" },
     ];
-    const cW = 196;
-    const cH = 110;
-    const cGap = 21;
-    const cY = 252;
+
+    const statsY = 238;
+    const cardW = 204;
+    const cardH = 118;
+    const cardGap = 19;
+
     stats.forEach((item, i) => {
-      const x = 48 + i * (cW + cGap);
-      roundRect(ctx, x, cY, cW, cH, 18);
+      const x = 54 + i * (cardW + cardGap);
+      roundRect(ctx, x, statsY, cardW, cardH, 24);
       ctx.fillStyle = "rgba(255,255,255,0.08)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.12)";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
-      ctx.font = "bold 46px sans-serif";
-      ctx.fillStyle = item.color;
-      ctx.fillText(String(item.num), x + 18, cY + 62);
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      roundRect(ctx, x + 16, statsY + 14, 74, 28, 14);
+      ctx.fill();
 
-      ctx.font = "500 20px sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.62)";
-      ctx.fillText(item.label, x + 18, cY + 92);
+      ctx.font = "800 14px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.70)";
+      ctx.fillText(item.label, x + 28, statsY + 33);
+
+      ctx.font = "900 50px sans-serif";
+      ctx.fillStyle = item.color;
+      ctx.fillText(String(item.num), x + 18, statsY + 91);
     });
 
     const trackedDoneCount = tasks.filter((t) => t.done).length;
 
-    const taskY = 408;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.fillText(`🎯 今日自动统计 ${trackedDoneCount}/2`, 48, taskY);
+    const section1Y = 392;
+    roundRect(ctx, 40, section1Y, W - 80, 182, 28);
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = "800 24px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("今日任务进度", 60, section1Y + 40);
+
+    roundRect(ctx, W - 184, section1Y + 18, 124, 36, 18);
+    ctx.fillStyle = "rgba(255,255,255,0.10)";
+    ctx.fill();
+    ctx.font = "800 17px sans-serif";
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.fillText(`${trackedDoneCount}/2 已完成`, W - 122, section1Y + 42);
+    ctx.textAlign = "left";
 
     [
       { label: "今天看 1 个场景视频", done: tasks[0]?.done },
       { label: "今天收藏 3 个词/表达", done: tasks[1]?.done },
       { label: "去游戏大厅做一轮练习", done: false, neutral: true },
     ].forEach((item, idx) => {
-      const y = taskY + 28 + idx * 44;
-      roundRect(ctx, 48, y, W - 96, 36, 10);
+      const y = section1Y + 66 + idx * 36;
+      roundRect(ctx, 58, y, W - 116, 26, 13);
       ctx.fillStyle = item.neutral
         ? "rgba(99,102,241,0.10)"
         : item.done
-        ? "rgba(34,197,94,0.12)"
+        ? "rgba(34,197,94,0.14)"
         : "rgba(255,255,255,0.05)";
       ctx.fill();
       ctx.strokeStyle = item.neutral
-        ? "rgba(99,102,241,0.18)"
+        ? "rgba(99,102,241,0.20)"
         : item.done
-        ? "rgba(34,197,94,0.28)"
+        ? "rgba(34,197,94,0.32)"
         : "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1;
       ctx.stroke();
 
-      ctx.font = "500 20px sans-serif";
-      ctx.fillStyle = item.neutral ? "#a5b4fc" : item.done ? "#4ade80" : "rgba(255,255,255,0.42)";
-      ctx.fillText(item.neutral ? "→" : item.done ? "✓" : "○", 70, y + 24);
+      ctx.font = "700 16px sans-serif";
+      ctx.fillStyle = item.neutral ? "#a5b4fc" : item.done ? "#4ade80" : "rgba(255,255,255,0.50)";
+      ctx.fillText(item.neutral ? "→" : item.done ? "✓" : "○", 74, y + 18);
 
-      ctx.fillStyle = item.neutral || item.done ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.42)";
-      ctx.fillText(item.label, 104, y + 24);
+      ctx.fillStyle = item.neutral || item.done ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.52)";
+      ctx.fillText(item.label, 106, y + 18);
     });
 
-    const hmY = 598;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.fillText("🗓️ 最近学习日历", 48, hmY);
+    const hmY = 600;
+    roundRect(ctx, 40, hmY, W - 80, 368, 28);
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.10)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.font = "800 24px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("最近学习日历", 60, hmY + 40);
+
+    ctx.font = "600 16px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.56)";
+    ctx.fillText("亮度越高，表示当天学习越活跃。", 60, hmY + 66);
 
     const calendarMonth = new Date();
     const year = calendarMonth.getFullYear();
@@ -211,24 +265,26 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
 
     const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
     weekNames.forEach((w, i) => {
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.fillText(w, 48 + i * 92 + 34, hmY + 28);
+      ctx.font = "800 15px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.50)";
+      ctx.textAlign = "center";
+      ctx.fillText(w, 82 + i * 90, hmY + 104);
     });
+    ctx.textAlign = "left";
 
-    const cellW = 86;
-    const cellH = 58;
-    const startX = 48;
-    const startY = hmY + 42;
+    const cellW = 80;
+    const cellH = 48;
+    const startX = 50;
+    const startY = hmY + 120;
     const todayKey = new Date().toISOString().slice(0, 10);
 
     calendarCells.forEach((cell, idx) => {
       const row = Math.floor(idx / 7);
       const col = idx % 7;
       const x = startX + col * 92;
-      const y = startY + row * 66;
+      const y = startY + row * 56;
 
-      roundRect(ctx, x, y, cellW, cellH, 12);
+      roundRect(ctx, x, y, cellW, cellH, 14);
       if (!cell) {
         ctx.fillStyle = "rgba(255,255,255,0.03)";
         ctx.fill();
@@ -256,46 +312,58 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
         ctx.stroke();
       }
 
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillStyle = cell.count >= 3 ? "#ffffff" : "rgba(255,255,255,0.92)";
-      ctx.fillText(String(cell.day), x + 10, y + 20);
+      ctx.font = "800 15px sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(String(cell.day), x + 10, y + 18);
 
       if (cell.count > 0) {
-        roundRect(ctx, x + cellW - 34, y + cellH - 24, 24, 16, 8);
+        roundRect(ctx, x + cellW - 28, y + cellH - 20, 18, 12, 6);
         ctx.fillStyle = "rgba(255,255,255,0.22)";
         ctx.fill();
-        ctx.font = "bold 11px sans-serif";
+        ctx.font = "800 10px sans-serif";
         ctx.fillStyle = "#ffffff";
         ctx.textAlign = "center";
-        ctx.fillText(String(cell.count), x + cellW - 22, y + cellH - 12);
+        ctx.fillText(String(cell.count), x + cellW - 19, y + cellH - 11);
         ctx.textAlign = "left";
       }
     });
 
-    const infoY = 1010;
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.fillText("🧭 最近学习状态", 48, infoY);
-
-    ctx.font = "500 22px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.76)";
-    ctx.fillText(`累计活跃天数：${activeDays || 0} 天`, 48, infoY + 42);
-    ctx.fillText(`最近偏好方向：${topTopic || "继续学习后会出现"}`, 48, infoY + 76);
-    ctx.fillText(`收藏词汇总量：${vocabCount || 0} 个`, 48, infoY + 110);
-
+    const infoY = 992;
+    roundRect(ctx, 40, infoY, W - 80, 128, 28);
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.10)";
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(48, H - 100);
-    ctx.lineTo(W - 48, H - 100);
     ctx.stroke();
 
-    ctx.font = "bold 28px sans-serif";
+    ctx.font = "800 24px sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("最近学习状态", 60, infoY + 40);
+
+    ctx.font = "600 19px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.fillText(`累计活跃天数：${activeDays || 0} 天`, 60, infoY + 76);
+    ctx.fillText(`最近偏好方向：${topTopic || "继续学习后会出现"}`, 60, infoY + 104);
+
+    ctx.textAlign = "right";
+    ctx.fillText(`收藏词汇总量：${vocabCount || 0} 个`, W - 60, infoY + 76);
+    ctx.fillText(`已掌握词汇：${masteredCount || 0} 个`, W - 60, infoY + 104);
+    ctx.textAlign = "left";
+
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(60, H - 94);
+    ctx.lineTo(W - 60, H - 94);
+    ctx.stroke();
+
+    ctx.font = "900 26px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.94)";
     ctx.textAlign = "center";
-    ctx.fillText("🌐 nailaobao.top", W / 2, H - 60);
-    ctx.font = "500 20px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.42)";
+    ctx.fillText("nailaobao.top", W / 2, H - 58);
+
+    ctx.font = "600 18px sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.48)";
     ctx.fillText("油管英语场景库 · 场景输入 · 收藏沉淀 · 游戏练习", W / 2, H - 30);
     ctx.textAlign = "left";
 
@@ -323,40 +391,210 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
+
       <div
         style={{
-          padding: "18px 18px 16px",
-          borderRadius: 22,
+          position: "relative",
+          overflow: "hidden",
+          padding: "18px",
+          borderRadius: 26,
+          border: "1px solid rgba(99,102,241,0.14)",
           background:
-            "radial-gradient(circle at 10% 15%, rgba(236,72,153,0.18), transparent 32%), radial-gradient(circle at 90% 20%, rgba(99,102,241,0.22), transparent 34%), linear-gradient(135deg, rgba(15,23,42,1) 0%, rgba(79,70,229,0.96) 46%, rgba(236,72,153,0.88) 100%)",
-          color: "#fff",
-          boxShadow: "0 24px 60px rgba(79,70,229,0.22)",
+            "radial-gradient(circle at 12% 18%, rgba(236,72,153,0.18), transparent 32%), radial-gradient(circle at 88% 18%, rgba(99,102,241,0.22), transparent 34%), radial-gradient(circle at 50% 120%, rgba(6,182,212,0.16), transparent 46%), linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.94) 100%)",
+          boxShadow: "0 18px 60px rgba(15,23,42,0.08), 0 2px 10px rgba(15,23,42,0.04)",
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
         }}
       >
-        <div style={{ fontSize: 15, fontWeight: 1000 }}>打开海报生成器</div>
-        <div style={{ fontSize: 12, lineHeight: 1.7, opacity: 0.88, marginTop: 8 }}>
-          把连续学习、累计视频、收藏词汇和学习日历缩略一起生成一张打卡海报。
-        </div>
-        <button
-          onClick={() => generate()}
-          disabled={generating}
+        <div
+          aria-hidden
           style={{
-            marginTop: 14,
-            width: "100%",
-            padding: "11px 0",
-            borderRadius: 18,
-            border: "none",
-            background: generating ? "rgba(255,255,255,0.24)" : "rgba(255,255,255,0.96)",
-            color: generating ? "rgba(255,255,255,0.85)" : "#111827",
-            fontSize: 14,
-            fontWeight: 1000,
-            cursor: generating ? "not-allowed" : "pointer",
-            boxShadow: generating ? "none" : "0 16px 34px rgba(2,6,23,0.18)",
+            position: "absolute",
+            top: -88,
+            right: -92,
+            width: 220,
+            height: 220,
+            borderRadius: 999,
+            background:
+              "radial-gradient(circle at 30% 30%, rgba(99,102,241,0.18), rgba(236,72,153,0.10), rgba(6,182,212,0.08), transparent 72%)",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
           }}
         >
-          {generating ? "⏳ 生成中..." : "📸 打开海报生成器"}
-        </button>
-        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.82 }}>共 {POSTER_THEMES.length} 种风格，每次可切换主题</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: "rgba(99,102,241,0.10)",
+                  border: "1px solid rgba(99,102,241,0.12)",
+                  color: "#4f46e5",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                📸 海报生成器
+              </div>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: 18,
+                  fontWeight: 1000,
+                  color: THEME.colors.ink,
+                  lineHeight: 1.35,
+                }}
+              >
+                把你的英语手帐，整理成一张更适合分享的打卡海报
+              </div>
+
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  lineHeight: 1.8,
+                  color: THEME.colors.muted,
+                  maxWidth: 520,
+                }}
+              >
+                自动整合连续学习、累计视频、收藏词汇、任务进度和学习日历，生成和手账页视觉一致的分享海报。
+              </div>
+            </div>
+
+            <div
+              style={{
+                flexShrink: 0,
+                display: "grid",
+                gridTemplateColumns: "repeat(3, minmax(70px, 1fr))",
+                gap: 8,
+                width: "100%",
+                maxWidth: 270,
+              }}
+            >
+              {[
+                { label: "连续天数", value: streakDays || 0 },
+                { label: "累计视频", value: totalVideos || 0 },
+                { label: "词汇收藏", value: vocabCount || 0 },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "10px 8px",
+                    borderRadius: 16,
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    background: "rgba(255,255,255,0.76)",
+                    textAlign: "center",
+                    boxShadow: "0 10px 28px rgba(15,23,42,0.05)",
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, lineHeight: 1.1 }}>
+                    {item.value}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 10, fontWeight: 900, color: THEME.colors.faint }}>
+                    {item.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr",
+              gap: 10,
+            }}
+          >
+            <button
+              onClick={() => generate()}
+              disabled={generating}
+              style={{
+                width: "100%",
+                padding: "14px 16px",
+                borderRadius: 18,
+                border: "none",
+                background: generating
+                  ? "linear-gradient(135deg, rgba(99,102,241,0.55), rgba(236,72,153,0.45))"
+                  : "linear-gradient(135deg, rgba(15,23,42,1), rgba(79,70,229,0.96) 58%, rgba(236,72,153,0.88) 100%)",
+                color: "#ffffff",
+                fontSize: 14,
+                fontWeight: 1000,
+                cursor: generating ? "not-allowed" : "pointer",
+                boxShadow: generating ? "none" : "0 18px 40px rgba(79,70,229,0.22)",
+              }}
+            >
+              {generating ? "⏳ 生成中..." : "✨ 生成今日海报"}
+            </button>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  color: THEME.colors.faint,
+                }}
+              >
+                共 {POSTER_THEMES.length} 种风格，可在预览弹窗中继续切换
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                {POSTER_THEMES.map((item, i) => (
+                  <div
+                    key={item.name}
+                    style={{
+                      padding: "5px 8px",
+                      borderRadius: 999,
+                      border: i === themeIdx ? "1px solid rgba(99,102,241,0.22)" : "1px solid rgba(15,23,42,0.08)",
+                      background: i === themeIdx ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.76)",
+                      color: i === themeIdx ? "#4f46e5" : THEME.colors.muted,
+                      fontSize: 10,
+                      fontWeight: 900,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {showModal && posterUrl && createPortal(
@@ -366,46 +604,57 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             position: "fixed",
             inset: 0,
             zIndex: 9999,
-            background: "rgba(2,6,23,0.82)",
+            background: "rgba(2,6,23,0.76)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: 8,
-            backdropFilter: "blur(8px)",
-            WebkitBackdropFilter: "blur(8px)",
+            padding: 12,
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#ffffff",
-              borderRadius: 28,
-              padding: 20,
               width: "100%",
-              maxWidth: 520,
+              maxWidth: 960,
               maxHeight: "96vh",
-              overflowY: "auto",
-              boxShadow: "0 40px 120px rgba(0,0,0,0.55)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
+              overflow: "hidden",
+              borderRadius: 28,
+              border: "1px solid rgba(255,255,255,0.14)",
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.96) 100%)",
+              boxShadow: "0 40px 120px rgba(0,0,0,0.42)",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", flexDirection: "column", alignItems: "center", gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 1000, color: "#0f172a" }}>📸 今日打卡海报</div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, fontWeight: 800 }}>
+            <div
+              style={{
+                padding: 16,
+                borderBottom: "1px solid rgba(15,23,42,0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 18, fontWeight: 1000, color: "#0f172a" }}>📸 今日打卡海报</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, fontWeight: 800 }}>
                   当前主题：{POSTER_THEMES[themeIdx].name}
                 </div>
               </div>
+
               <button
                 onClick={() => setShowModal(false)}
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   borderRadius: 999,
-                  border: "1px solid rgba(15,23,42,0.12)",
-                  background: "rgba(15,23,42,0.06)",
+                  border: "1px solid rgba(15,23,42,0.10)",
+                  background: "rgba(15,23,42,0.05)",
                   cursor: "pointer",
                   fontSize: 16,
                   color: "#64748b",
@@ -418,70 +667,120 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               </button>
             </div>
 
-            <img
-              src={posterUrl}
-              alt="打卡海报"
+            <div
               style={{
-                width: "100%",
-                borderRadius: 18,
-                display: "block",
-                border: "1px solid rgba(15,23,42,0.08)",
-                boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-                maxHeight: "60vh",
-                objectFit: "contain",
+                padding: 16,
+                overflowY: "auto",
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr)",
+                gap: 14,
               }}
-            />
-
-            <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
-              📱 手机长按保存 · 电脑点下方按钮下载
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <button
-                onClick={handleDownload}
+            >
+              <div
                 style={{
-                  padding: "11px 0",
-                  borderRadius: 16,
-                  border: "none",
-                  background: "linear-gradient(135deg,#0f172a,#4f46e5)",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 1000,
-                  cursor: "pointer",
+                  borderRadius: 24,
+                  padding: 12,
+                  background:
+                    "radial-gradient(circle at 12% 18%, rgba(236,72,153,0.10), transparent 32%), radial-gradient(circle at 88% 18%, rgba(99,102,241,0.12), transparent 34%), linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(241,245,249,0.92) 100%)",
+                  border: "1px solid rgba(15,23,42,0.08)",
+                  boxShadow: "0 18px 60px rgba(15,23,42,0.06)",
                 }}
               >
-                ⬇️ 保存图片
-              </button>
-              <button
-                onClick={handleSwitchTheme}
-                style={{
-                  padding: "11px 0",
-                  borderRadius: 16,
-                  border: "1.5px solid rgba(15,23,42,0.12)",
-                  background: "rgba(15,23,42,0.04)",
-                  color: "#475569",
-                  fontSize: 14,
-                  fontWeight: 1000,
-                  cursor: "pointer",
-                }}
-              >
-                🎨 换个风格
-              </button>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
-              {POSTER_THEMES.map((_, i) => (
-                <div
-                  key={i}
+                <img
+                  src={posterUrl}
+                  alt="打卡海报"
                   style={{
-                    width: i === themeIdx ? 22 : 8,
-                    height: 8,
-                    borderRadius: 999,
-                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.15)",
-                    transition: "all 300ms ease",
+                    width: "100%",
+                    display: "block",
+                    borderRadius: 18,
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    boxShadow: "0 10px 30px rgba(15,23,42,0.12)",
+                    maxHeight: "68vh",
+                    objectFit: "contain",
+                    background: "#ffffff",
                   }}
                 />
-              ))}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: 10,
+                }}
+              >
+                <button
+                  onClick={handleDownload}
+                  style={{
+                    padding: "13px 14px",
+                    borderRadius: 16,
+                    border: "none",
+                    background: "linear-gradient(135deg, #0f172a, #4f46e5 70%, #ec4899)",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 1000,
+                    cursor: "pointer",
+                    boxShadow: "0 16px 34px rgba(79,70,229,0.18)",
+                  }}
+                >
+                  ⬇️ 保存图片
+                </button>
+
+                <button
+                  onClick={handleSwitchTheme}
+                  style={{
+                    padding: "13px 14px",
+                    borderRadius: 16,
+                    border: "1px solid rgba(15,23,42,0.10)",
+                    background: "rgba(255,255,255,0.90)",
+                    color: "#475569",
+                    fontSize: 14,
+                    fontWeight: 1000,
+                    cursor: "pointer",
+                  }}
+                >
+                  🎨 换个风格
+                </button>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  textAlign: "center",
+                  fontWeight: 800,
+                  lineHeight: 1.7,
+                }}
+              >
+                📱 手机长按保存 · 电脑点击按钮下载
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                {POSTER_THEMES.map((item, i) => (
+                  <div
+                    key={item.name}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 999,
+                      border: i === themeIdx ? "1px solid rgba(99,102,241,0.20)" : "1px solid rgba(15,23,42,0.08)",
+                      background: i === themeIdx ? "rgba(99,102,241,0.10)" : "rgba(255,255,255,0.88)",
+                      color: i === themeIdx ? "#4f46e5" : "#64748b",
+                      fontSize: 11,
+                      fontWeight: 900,
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>,
