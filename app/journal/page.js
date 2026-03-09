@@ -47,8 +47,6 @@ function Card({ children, style = {} }) {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         overflow: "hidden",
-        boxSizing: "border-box",
-        height: "100%",
         ...style,
       }}
     >
@@ -551,7 +549,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 <div
                   key={idx}
                   style={{
-                    minHeight: isMobile ? 54 : 52,
+                    minHeight: isMobile ? 54 : 76,
                     borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                     borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                     background: "rgba(248,250,252,0.55)",
@@ -567,8 +565,8 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
                 key={idx}
                 title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  minHeight: isMobile ? 54 : 52,
-                  padding: isMobile ? "6px 5px" : "6px 8px",
+                  minHeight: isMobile ? 54 : 76,
+                  padding: isMobile ? "6px 5px" : "9px 8px",
                   borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
                   borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
                   background: cell.isToday
@@ -643,10 +641,46 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
           数字表示当天学习次数，今天会有紫色描边
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
-          <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
-          <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
-          <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#64748b",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.05)",
+              border: "1px solid rgba(15,23,42,0.08)",
+            }}
+          >
+            灰点=未学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#166534",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.16)",
+            }}
+          >
+            浅绿=少量学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#ffffff",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(22,163,74,0.92)",
+            }}
+          >
+            深绿=学习较多
+          </span>
         </div>
       </div>
     </div>
@@ -675,7 +709,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
   }
 
   return (
-    <Card style={{ padding: 18 }}>
+    <Card style={{ padding: 18, height: "100%" }}>
       <SectionTitle
         emoji="🗓️"
         title="学习日历"
@@ -787,6 +821,10 @@ function AnalysisCard({ title, lines, accent }) {
         borderRadius: 20,
         border: `1px solid ${accent.border}`,
         background: accent.bg,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-start",
       }}
     >
       <div style={{ fontSize: 14, fontWeight: 1000, color: accent.title }}>{title}</div>
@@ -809,9 +847,9 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
   const totalGameScore = gameSummary.totalGameScore || 0;
 
   return (
-    <Card style={{ padding: 18 }}>
+    <Card style={{ padding: 18, display: "flex", flexDirection: "column", height: "100%" }}>
       <SectionTitle emoji="🧭" title="学习动态分析" sub="不再显示旧考试残留的掌握等级，改成更真实的行为记录" />
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr", gap: 10, flex: 1 }}>
         <AnalysisCard
           title="词汇积累"
           accent={{
@@ -1404,7 +1442,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   );
 }
 
-export default function Page({ accessToken }) {
+export default function JournalClient({ accessToken }) {
   const isMobile = useIsMobile(960);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -1675,7 +1713,7 @@ export default function Page({ accessToken }) {
           <TodayPlan d={d} isMobile={isMobile} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "stretch" }}>
           <Heatmap
             heatmapData={d.heatmap || {}}
             streakDays={d.streak_days || 0}
