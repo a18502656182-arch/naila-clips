@@ -1,4 +1,3 @@
-// v2
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -110,23 +109,27 @@ function MiniStat({ label, value, hint, accent }) {
   return (
     <div
       style={{
+        minHeight: 118,
         padding: "16px 16px 14px",
-        borderRadius: 20,
+        borderRadius: 22,
         border: `1px solid ${accent.border}`,
         background: accent.bg,
         boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
       }}
     >
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ fontSize: 30, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ fontSize: 42, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
         <div
           style={{
             fontSize: 11,
             fontWeight: 900,
             color: accent.color,
-            padding: "5px 8px",
+            padding: "6px 9px",
             borderRadius: 999,
-            background: "rgba(255,255,255,0.7)",
+            background: "rgba(255,255,255,0.78)",
             border: `1px solid ${accent.border}`,
             whiteSpace: "nowrap",
           }}
@@ -134,17 +137,18 @@ function MiniStat({ label, value, hint, accent }) {
           {label}
         </div>
       </div>
-      <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 8 }}>{hint}</div>
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 900, lineHeight: 1.5 }}>{hint}</div>
+      </div>
     </div>
   );
 }
 
 function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobile }) {
-  const gridTemplateColumns = isMobile ? "1fr 1fr" : "1fr 1fr";
   return (
     <Card style={{ padding: 18 }}>
       <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
-      <div style={{ display: "grid", gridTemplateColumns, gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
         <MiniStat
           label="连续学习"
           value={streakDays || 0}
@@ -190,11 +194,12 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
   );
 }
 
-function TaskRow({ title, desc, done, buttonText, href, neutral }) {
+function TaskRow({ title, desc, done, buttonText, href, neutral, isMobile }) {
   return (
     <div
       style={{
-        display: "flex",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "30px minmax(0,1fr) auto" : "30px minmax(0,1fr) auto auto",
         alignItems: "center",
         gap: 12,
         padding: "14px 14px",
@@ -241,48 +246,47 @@ function TaskRow({ title, desc, done, buttonText, href, neutral }) {
         {neutral ? "→" : done ? "✓" : "•"}
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 950, color: THEME.colors.ink }}>{title}</div>
         <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4, lineHeight: 1.5 }}>{desc}</div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-        {!neutral ? (
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 900,
-              color: done ? "#166534" : THEME.colors.accent,
-              padding: "6px 10px",
-              borderRadius: 999,
-              background: done ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.10)",
-              border: `1px solid ${done ? "rgba(16,185,129,0.18)" : "rgba(99,102,241,0.16)"}`,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {done ? "已完成" : "进行中"}
-          </span>
-        ) : null}
-        <a
-          href={href}
+      {!isMobile && !neutral ? (
+        <span
           style={{
-            textDecoration: "none",
-            fontSize: 12,
-            fontWeight: 950,
-            color: neutral ? "#fff" : THEME.colors.ink,
-            padding: "10px 12px",
+            fontSize: 11,
+            fontWeight: 900,
+            color: done ? "#166534" : THEME.colors.accent,
+            padding: "6px 10px",
             borderRadius: 999,
-            background: neutral
-              ? "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)"
-              : "rgba(255,255,255,0.86)",
-            border: neutral ? "none" : "1px solid rgba(15,23,42,0.10)",
+            background: done ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.10)",
+            border: `1px solid ${done ? "rgba(16,185,129,0.18)" : "rgba(99,102,241,0.16)"}`,
             whiteSpace: "nowrap",
-            boxShadow: neutral ? "0 14px 30px rgba(79,70,229,0.22)" : "none",
           }}
         >
-          {buttonText}
-        </a>
-      </div>
+          {done ? "已完成" : "进行中"}
+        </span>
+      ) : null}
+
+      <a
+        href={href}
+        style={{
+          textDecoration: "none",
+          fontSize: 12,
+          fontWeight: 950,
+          color: neutral ? "#fff" : THEME.colors.ink,
+          padding: "10px 12px",
+          borderRadius: 999,
+          background: neutral
+            ? "linear-gradient(135deg, #0f172a 0%, #4f46e5 100%)"
+            : "rgba(255,255,255,0.86)",
+          border: neutral ? "none" : "1px solid rgba(15,23,42,0.10)",
+          whiteSpace: "nowrap",
+          boxShadow: neutral ? "0 14px 30px rgba(79,70,229,0.22)" : "none",
+        }}
+      >
+        {buttonText}
+      </a>
     </div>
   );
 }
@@ -353,7 +357,7 @@ function TodayPlan({ d, isMobile }) {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {autoTasks.map((task, idx) => (
-          <TaskRow key={idx} {...task} />
+          <TaskRow key={idx} {...task} isMobile={isMobile} />
         ))}
         <TaskRow
           title="去游戏大厅做一轮练习"
@@ -362,6 +366,7 @@ function TodayPlan({ d, isMobile }) {
           neutral
           href="/practice"
           buttonText="去练习"
+          isMobile={isMobile}
         />
       </div>
       {!isMobile && (
@@ -384,109 +389,242 @@ function TodayPlan({ d, isMobile }) {
   );
 }
 
-function Heatmap({ heatmapData, streakDays, totalViews }) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+function MonthCalendar({ monthDate, heatmapData, isMobile }) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const totalDays = lastDay.getDate();
+  const todayKey = new Date().toISOString().slice(0, 10);
 
-  const days = [];
-  for (let i = 111; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    days.push({ date: key, count: heatmapData[key] || 0, d });
+  const cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    cells.push({
+      day: d,
+      key,
+      count: heatmapData[key] || 0,
+      isToday: key === todayKey,
+    });
   }
+  while (cells.length % 7 !== 0) cells.push(null);
 
-  const pad = (days[0].d.getDay() + 6) % 7;
-  const padded = [...Array(pad).fill(null), ...days];
-  const weeks = [];
-  for (let i = 0; i < padded.length; i += 7) weeks.push(padded.slice(i, i + 7));
+  const flatCells = cells;
+  const monthActiveDays = flatCells.filter((x) => x && x.count > 0).length;
+  const monthTotalViews = flatCells.filter((x) => x).reduce((sum, x) => sum + (x?.count || 0), 0);
 
-  const monthLabels = [];
-  weeks.forEach((week, wi) => {
-    const first = week.find((x) => x);
-    if (first && new Date(first.date).getDate() <= 7) {
-      monthLabels.push({ wi, label: `${new Date(first.date).getMonth() + 1}月` });
+  function getLevelStyle(count) {
+    if (count <= 0) {
+      return {
+        bg: "rgba(248,250,252,0.9)",
+        text: "#94a3b8",
+        badgeBg: "rgba(226,232,240,0.9)",
+        badgeText: "#94a3b8",
+      };
     }
-  });
-
-  const todayKey = today.toISOString().slice(0, 10);
-  const activeDays = Object.keys(heatmapData || {}).length;
-
-  function getColor(count) {
-    if (count === 0) return "rgba(15,23,42,0.08)";
-    if (count === 1) return "rgba(34,197,94,0.24)";
-    if (count === 2) return "rgba(34,197,94,0.58)";
-    return "rgba(22,163,74,0.94)";
+    if (count === 1) {
+      return {
+        bg: "rgba(220,252,231,0.95)",
+        text: "#166534",
+        badgeBg: "rgba(34,197,94,0.14)",
+        badgeText: "#166534",
+      };
+    }
+    if (count === 2) {
+      return {
+        bg: "rgba(187,247,208,0.98)",
+        text: "#166534",
+        badgeBg: "rgba(34,197,94,0.22)",
+        badgeText: "#166534",
+      };
+    }
+    return {
+      bg: "rgba(34,197,94,0.95)",
+      text: "#ffffff",
+      badgeBg: "rgba(255,255,255,0.22)",
+      badgeText: "#ffffff",
+    };
   }
 
   return (
-    <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="🔥" title="学习连续性" sub="热力图不是装饰，它是在提醒你：这段时间没有白学" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-        {[
-          { label: "连续学习", value: streakDays || 0, chip: "天" },
-          { label: "累计视频", value: totalViews || 0, chip: "个" },
-          { label: "活跃天数", value: activeDays || 0, chip: "天" },
-        ].map((item, idx) => (
-          <div
-            key={idx}
-            style={{
-              padding: "12px 12px",
-              borderRadius: 18,
-              background: "rgba(15,23,42,0.03)",
-              border: "1px solid rgba(15,23,42,0.08)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-              <div style={{ fontSize: 26, fontWeight: 1000, color: THEME.colors.ink }}>{item.value}</div>
-              <div style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 900 }}>{item.chip}</div>
-            </div>
-            <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>{item.label}</div>
+    <div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(0,1fr))",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthActiveDays}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月活跃天数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{monthTotalViews}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月学习次数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>{totalDays}</div>
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月总天数</div>
+        </div>
+        <div
+          style={{
+            padding: "12px 12px",
+            borderRadius: 18,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <div style={{ fontSize: 22, fontWeight: 1000, color: THEME.colors.ink }}>
+            {monthActiveDays > 0 ? Math.round((monthActiveDays / totalDays) * 100) : 0}%
           </div>
-        ))}
+          <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 900, marginTop: 6 }}>本月活跃率</div>
+        </div>
       </div>
 
-      <div style={{ overflowX: "auto", paddingBottom: 2 }}>
-        <div style={{ display: "flex", gap: 3, marginBottom: 6 }}>
-          {weeks.map((week, wi) => {
-            const ml = monthLabels.find((x) => x.wi === wi);
+      <div
+        style={{
+          borderRadius: 22,
+          border: "1px solid rgba(15,23,42,0.08)",
+          background: "rgba(255,255,255,0.88)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            borderBottom: "1px solid rgba(15,23,42,0.08)",
+            background: "linear-gradient(180deg, rgba(248,250,252,1), rgba(241,245,249,0.92))",
+          }}
+        >
+          {["日", "一", "二", "三", "四", "五", "六"].map((w) => (
+            <div
+              key={w}
+              style={{
+                padding: isMobile ? "9px 0" : "11px 0",
+                textAlign: "center",
+                fontSize: 12,
+                fontWeight: 1000,
+                color: THEME.colors.faint,
+                letterSpacing: "0.5px",
+              }}
+            >
+              {w}
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {flatCells.map((cell, idx) => {
+            const isLastCol = idx % 7 === 6;
+            const isLastRow = idx >= flatCells.length - 7;
+
+            if (!cell) {
+              return (
+                <div
+                  key={idx}
+                  style={{
+                    minHeight: isMobile ? 54 : 76,
+                    borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
+                    borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
+                    background: "rgba(248,250,252,0.55)",
+                  }}
+                />
+              );
+            }
+
+            const style = getLevelStyle(cell.count);
+
             return (
               <div
-                key={wi}
+                key={idx}
+                title={`${cell.key}：${cell.count > 0 ? `学习 ${cell.count} 次` : "未学习"}`}
                 style={{
-                  width: 14,
-                  fontSize: 9,
-                  color: THEME.colors.faint,
-                  textAlign: "center",
-                  flexShrink: 0,
+                  minHeight: isMobile ? 54 : 76,
+                  padding: isMobile ? "6px 5px" : "9px 8px",
+                  borderRight: isLastCol ? "none" : "1px solid rgba(15,23,42,0.05)",
+                  borderBottom: isLastRow ? "none" : "1px solid rgba(15,23,42,0.05)",
+                  background: cell.isToday
+                    ? "linear-gradient(135deg, rgba(99,102,241,0.18), rgba(255,255,255,0.96))"
+                    : style.bg,
+                  boxShadow: cell.isToday ? "inset 0 0 0 2px rgba(79,70,229,0.78)" : "none",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 6,
                 }}
               >
-                {ml ? ml.label : ""}
+                <div
+                  style={{
+                    fontSize: isMobile ? 12 : 13,
+                    fontWeight: 1000,
+                    color: cell.isToday ? "#4338ca" : style.text,
+                    lineHeight: 1,
+                  }}
+                >
+                  {cell.day}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+                  {cell.count > 0 ? (
+                    <span
+                      style={{
+                        minWidth: isMobile ? 20 : 24,
+                        height: isMobile ? 18 : 22,
+                        padding: isMobile ? "0 5px" : "0 7px",
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: style.badgeBg,
+                        color: style.badgeText,
+                        fontSize: isMobile ? 10 : 11,
+                        fontWeight: 1000,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cell.count}
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 999,
+                        background: "rgba(148,163,184,0.55)",
+                        display: "inline-block",
+                      }}
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
-        </div>
-        <div style={{ display: "flex", gap: 3 }}>
-          {weeks.map((week, wi) => (
-            <div key={wi} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {week.map((day, di) => (
-                <div
-                  key={di}
-                  title={day ? `${day.date}：${day.count > 0 ? `${day.count} 个视频` : "未学习"}` : ""}
-                  style={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: 5,
-                    background: day ? getColor(day.count) : "transparent",
-                    border: day ? "1px solid rgba(15,23,42,0.06)" : "none",
-                    outline: day?.date === todayKey ? `2px solid ${THEME.colors.accent}` : "none",
-                    outlineOffset: 2,
-                    boxShadow: day && day.count > 0 ? "0 8px 16px rgba(22,163,74,0.12)" : "none",
-                  }}
-                />
-              ))}
-            </div>
-          ))}
         </div>
       </div>
 
@@ -501,25 +639,159 @@ function Heatmap({ heatmapData, streakDays, totalViews }) {
         }}
       >
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
-          今日格子会高亮，绿色越深代表学习越多
+          数字表示当天学习次数，今天会有紫色描边
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontSize: 10, color: THEME.colors.faint }}>少</span>
-          {["rgba(15,23,42,0.08)", "rgba(34,197,94,0.24)", "rgba(34,197,94,0.58)", "rgba(22,163,74,0.94)"].map((c, i) => (
-            <span
-              key={i}
-              style={{
-                width: 11,
-                height: 11,
-                borderRadius: 4,
-                background: c,
-                border: "1px solid rgba(15,23,42,0.06)",
-              }}
-            />
-          ))}
-          <span style={{ fontSize: 10, color: THEME.colors.faint }}>多</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#64748b",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(15,23,42,0.05)",
+              border: "1px solid rgba(15,23,42,0.08)",
+            }}
+          >
+            灰点=未学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#166534",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(34,197,94,0.12)",
+              border: "1px solid rgba(34,197,94,0.16)",
+            }}
+          >
+            浅绿=少量学习
+          </span>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              color: "#ffffff",
+              padding: "5px 8px",
+              borderRadius: 999,
+              background: "rgba(22,163,74,0.92)",
+            }}
+          >
+            深绿=学习较多
+          </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
+  const monthOptions = useMemo(() => {
+    const now = new Date();
+    const arr = [];
+    for (let i = 0; i < 4; i++) {
+      arr.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+    }
+    return arr;
+  }, []);
+
+  const [monthIdx, setMonthIdx] = useState(0);
+  const currentMonth = monthOptions[monthIdx];
+
+  function prevMonth() {
+    setMonthIdx((v) => Math.min(v + 1, monthOptions.length - 1));
+  }
+
+  function nextMonth() {
+    setMonthIdx((v) => Math.max(v - 1, 0));
+  }
+
+  return (
+    <Card style={{ padding: 18 }}>
+      <SectionTitle
+        emoji="🗓️"
+        title="学习日历"
+        sub="按月份查看，比一大堆看不懂的小格子更直观"
+      />
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          marginBottom: 14,
+          flexWrap: "wrap",
+        }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "6px",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.04)",
+            border: "1px solid rgba(15,23,42,0.08)",
+          }}
+        >
+          <button
+            onClick={prevMonth}
+            disabled={monthIdx >= monthOptions.length - 1}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "none",
+              cursor: monthIdx >= monthOptions.length - 1 ? "not-allowed" : "pointer",
+              background: monthIdx >= monthOptions.length - 1 ? "rgba(148,163,184,0.20)" : "rgba(255,255,255,0.95)",
+              color: THEME.colors.ink,
+              fontSize: 16,
+              fontWeight: 1000,
+            }}
+          >
+            ‹
+          </button>
+
+          <div
+            style={{
+              minWidth: isMobile ? 120 : 160,
+              textAlign: "center",
+              fontSize: 14,
+              fontWeight: 1000,
+              color: THEME.colors.ink,
+            }}
+          >
+            {currentMonth.getFullYear()}年 {currentMonth.getMonth() + 1}月
+          </div>
+
+          <button
+            onClick={nextMonth}
+            disabled={monthIdx <= 0}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 999,
+              border: "none",
+              cursor: monthIdx <= 0 ? "not-allowed" : "pointer",
+              background: monthIdx <= 0 ? "rgba(148,163,184,0.20)" : "rgba(255,255,255,0.95)",
+              color: THEME.colors.ink,
+              fontSize: 16,
+              fontWeight: 1000,
+            }}
+          >
+            ›
+          </button>
+        </div>
+
+        <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
+          可查看最近 {monthOptions.length} 个月
+        </div>
+      </div>
+
+      <MonthCalendar monthDate={currentMonth} heatmapData={heatmapData} isMobile={isMobile} />
 
       {streakDays >= 3 ? (
         <div
@@ -534,7 +806,7 @@ function Heatmap({ heatmapData, streakDays, totalViews }) {
             fontWeight: 900,
           }}
         >
-          你已经连续学习 {streakDays} 天了。现在最重要的不是更花哨，而是别断。
+          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少。
         </div>
       ) : null}
     </Card>
@@ -869,41 +1141,84 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     const hmY = 598;
     ctx.font = "bold 26px sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.88)";
-    ctx.fillText("🔥 学习足迹（近 16 周）", 48, hmY);
+    ctx.fillText("🗓️ 最近学习日历", 48, hmY);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const hmDays = [];
-    for (let i = 111; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const k = d.toISOString().slice(0, 10);
-      hmDays.push({ key: k, count: heatmapData[k] || 0 });
+    const calendarMonth = new Date();
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startWeekday = firstDay.getDay();
+    const totalDays = lastDay.getDate();
+    const calendarCells = [];
+    for (let i = 0; i < startWeekday; i++) calendarCells.push(null);
+    for (let d = 1; d <= totalDays; d++) {
+      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      calendarCells.push({ day: d, key, count: heatmapData[key] || 0 });
     }
-    const hmPad = (new Date(hmDays[0].key).getDay() + 6) % 7;
-    const hmPadded = [...Array(hmPad).fill(null), ...hmDays];
-    const hmWeeks = [];
-    for (let i = 0; i < hmPadded.length; i += 7) hmWeeks.push(hmPadded.slice(i, i + 7));
-    const cellSize = 28;
-    const cellGap = 5;
-    const startX = 48;
-    const startY = hmY + 18;
-    const todayKey = today.toISOString().slice(0, 10);
+    while (calendarCells.length % 7 !== 0) calendarCells.push(null);
 
-    hmWeeks.forEach((week, wi) => {
-      week.forEach((day, di) => {
-        if (!day) return;
-        const x = startX + wi * (cellSize + cellGap);
-        const y = startY + di * (cellSize + cellGap);
-        roundRect(ctx, x, y, cellSize, cellSize, 6);
-        ctx.fillStyle = day.count === 0 ? "rgba(255,255,255,0.08)" : T.cellActive[Math.min(day.count - 1, 2)];
+    const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
+    weekNames.forEach((w, i) => {
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillText(w, 48 + i * 92 + 34, hmY + 28);
+    });
+
+    const cellW = 86;
+    const cellH = 58;
+    const startX = 48;
+    const startY = hmY + 42;
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    calendarCells.forEach((cell, idx) => {
+      const row = Math.floor(idx / 7);
+      const col = idx % 7;
+      const x = startX + col * 92;
+      const y = startY + row * 66;
+
+      roundRect(ctx, x, y, cellW, cellH, 12);
+      if (!cell) {
+        ctx.fillStyle = "rgba(255,255,255,0.03)";
         ctx.fill();
-        if (day.key === todayKey) {
-          ctx.strokeStyle = T.todayOutline;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      });
+        return;
+      }
+
+      if (cell.count <= 0) {
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+      } else if (cell.count === 1) {
+        ctx.fillStyle = T.cellActive[0];
+      } else if (cell.count === 2) {
+        ctx.fillStyle = T.cellActive[1];
+      } else {
+        ctx.fillStyle = T.cellActive[2];
+      }
+      ctx.fill();
+
+      if (cell.key === todayKey) {
+        ctx.strokeStyle = T.todayOutline;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillStyle = cell.count >= 3 ? "#ffffff" : "rgba(255,255,255,0.92)";
+      ctx.fillText(String(cell.day), x + 10, y + 20);
+
+      if (cell.count > 0) {
+        roundRect(ctx, x + cellW - 34, y + cellH - 24, 24, 16, 8);
+        ctx.fillStyle = "rgba(255,255,255,0.22)";
+        ctx.fill();
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.fillText(String(cell.count), x + cellW - 22, y + cellH - 12);
+        ctx.textAlign = "left";
+      }
     });
 
     const infoY = 1010;
@@ -969,7 +1284,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
       >
         <div style={{ fontSize: 15, fontWeight: 1000 }}>打开海报生成器</div>
         <div style={{ fontSize: 12, lineHeight: 1.7, opacity: 0.88, marginTop: 8 }}>
-          把连续学习、累计视频、收藏词汇和热力图缩略一起生成一张打卡海报。
+          把连续学习、累计视频、收藏词汇和学习日历缩略一起生成一张打卡海报。
         </div>
         <button
           onClick={() => generate()}
@@ -1123,7 +1438,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
   );
 }
 
-export default function JournalClient({ accessToken }) {
+export default function Page({ accessToken }) {
   const isMobile = useIsMobile(960);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState(null);
@@ -1199,7 +1514,7 @@ export default function JournalClient({ accessToken }) {
           <div style={{ fontSize: 52, marginBottom: 10 }}>📒</div>
           <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 8 }}>我的英语手帐</div>
           <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 18, lineHeight: 1.7 }}>
-            登录后查看你的学习总览、连续学习、收藏积累和海报生成器。
+            登录后查看你的学习总览、学习日历、收藏积累和海报生成器。
           </div>
           <a
             href="/login"
@@ -1285,8 +1600,8 @@ export default function JournalClient({ accessToken }) {
     { label: "今天收藏 3 个词/表达", done: (d.today_vocab || 0) >= 3 },
   ];
 
-  const desktopHeroGrid = isMobile ? "1fr" : "1.2fr 0.8fr";
-  const desktopMiddleGrid = isMobile ? "1fr" : "1.1fr 0.9fr";
+  const desktopHeroGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
+  const desktopMiddleGrid = isMobile ? "1fr" : "1.08fr 0.92fr";
   const desktopBottomGrid = isMobile ? "1fr" : "1.1fr 0.9fr";
 
   return (
@@ -1383,7 +1698,7 @@ export default function JournalClient({ accessToken }) {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: desktopHeroGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
           <OverviewPanel
             streakDays={d.streak_days || 0}
             totalViews={d.total_views || 0}
@@ -1394,8 +1709,13 @@ export default function JournalClient({ accessToken }) {
           <TodayPlan d={d} isMobile={isMobile} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14 }}>
-          <Heatmap heatmapData={d.heatmap || {}} streakDays={d.streak_days || 0} totalViews={d.total_views || 0} />
+        <div style={{ display: "grid", gridTemplateColumns: desktopMiddleGrid, gap: 14, marginTop: 14, alignItems: "start" }}>
+          <Heatmap
+            heatmapData={d.heatmap || {}}
+            streakDays={d.streak_days || 0}
+            totalViews={d.total_views || 0}
+            isMobile={isMobile}
+          />
           <LearningAnalysis
             d={d}
             vocabCount={vocabItems.length}
