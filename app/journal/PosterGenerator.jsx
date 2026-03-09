@@ -392,7 +392,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
           }}
         >
           {[
-            { icon: "🌟", title: "视觉锤设计", desc: "连续天数以超大字号呈现，自带"晒"的冲动" },
+            { icon: "🌟", title: "视觉锤设计", desc: "连续天数以超大字号呈现，自带分享冲动" },
             { icon: "🎨", title: "2 种高级质感", desc: "暗夜极光流 + 晨雾玻璃光，随时一键切换" },
             { icon: "🗓️", title: "打卡日历", desc: "本月学习足迹一目了然，有学习的日子发光" },
             { icon: "📊", title: "数据看板", desc: "视频、词汇、活跃天数，三维量化你的积累" },
