@@ -1424,10 +1424,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
                 display: "block",
                 border: "1px solid rgba(15,23,42,0.08)",
                 boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
-              maxHeight: "60vh",
-              objectFit: "contain",
               }}
-            />
+            / style={{maxHeight:"60vh",objectFit:"contain"}}>
 
             <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
               📱 手机长按保存 · 电脑点下方按钮下载
@@ -1515,20 +1513,19 @@ export default function Page({ accessToken }) {
   }, [me]);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("naila_game_scores");
-      if (!raw) {
-        setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
-        return;
-      }
-      const parsed = JSON.parse(raw);
-      const entries = Object.values(parsed || {});
-const totalGameScore = entries.reduce((sum, x) => sum + (x?.best || 0), 0);
-const playedGameCount = entries.filter((x) => (x?.playCount || 0) > 0).length;
-      setGameSummary({ totalGameScore, playedGameCount });
-    } catch {
-      setGameSummary({ totalGameScore: 0, playedGameCount: 0 });
-    }
+    const token = localStorage.getItem("sb_access_token");
+    if (!token) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_BASE || ""}/api/game_scores`, {
+      headers: { "Authorization": `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setGameSummary({
+          totalGameScore: data.totalGameScore || 0,
+          playedGameCount: data.playedGameCount || 0,
+        });
+      })
+      .catch(() => {});
   }, []);
 
   async function loadJournalData() {
