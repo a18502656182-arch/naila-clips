@@ -1427,7 +1427,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
               maxHeight: "60vh",
               objectFit: "contain",
               }}
-            
+            />
 
             <div style={{ fontSize: 12, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
               📱 手机长按保存 · 电脑点下方按钮下载
