@@ -922,7 +922,7 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit,minmax(240px,1fr))",
+          gridTemplateColumns: "1fr",
           gap: 12,
           alignItems: "stretch",
         }}
