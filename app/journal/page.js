@@ -47,6 +47,8 @@ function Card({ children, style = {} }) {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         overflow: "hidden",
+        boxSizing: "border-box",
+        height: "100%",
         ...style,
       }}
     >
@@ -641,8 +643,11 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
           数字表示当天学习次数，今天会有紫色描边
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>图例</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
+  <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
+  <span style={{ fontSize: 10, fontWeight: 900, color: "#166534", padding: "4px 7px", borderRadius: 999, background: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.16)", whiteSpace: "nowrap" }}>浅绿=少量</span>
+  <span style={{ fontSize: 10, fontWeight: 900, color: "#ffffff", padding: "4px 7px", borderRadius: 999, background: "rgba(22,163,74,0.92)", whiteSpace: "nowrap" }}>深绿=较多</span>
+</div>
           <span
             style={{
               fontSize: 11,
