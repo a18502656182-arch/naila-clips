@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { THEME } from "../components/home/theme";
 
-// 高级感主题配置：专为朋友圈/小红书分享打造的流光质感
 const POSTER_THEMES = [
   {
     name: "暗夜极光流",
@@ -45,12 +44,21 @@ const POSTER_THEMES = [
 
 const FONT_FAMILY = `system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
 
+// ─── 判断是否手机端 ────────────────────────────────────────────────────────────
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData, activeDays }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [posterUrl, setPosterUrl] = useState(null);
+  const [posterBlob, setPosterBlob] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [themeIdx, setThemeIdx] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
 
   function roundRectPath(ctx, x, y, w, h, r) {
     ctx.beginPath();
@@ -81,24 +89,6 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.restore();
   }
 
-  function drawPill(ctx, text, cx, y, bg, color) {
-    ctx.font = `800 24px ${FONT_FAMILY}`;
-    const tw = ctx.measureText(text).width;
-    const w = tw + 48;
-    const h = 50;
-    const x = cx - w / 2;
-    roundRectPath(ctx, x, y, w, h, 25);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(text, cx, y + h / 2 + 2);
-    ctx.textBaseline = "alphabetic";
-    ctx.textAlign = "left";
-    return { w, h };
-  }
-
   async function generate(forceTheme) {
     setGenerating(true);
     await new Promise((r) => setTimeout(r, 80));
@@ -113,10 +103,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
-
     const PAD = 80;
 
-    // === 1. 背景与光晕 ===
+    // === 背景 ===
     const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
     bgGrad.addColorStop(0, T.bg[0]);
     bgGrad.addColorStop(0.6, T.bg[1]);
@@ -137,11 +126,10 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
 
     let currentY = 140;
 
-    // === 2. 顶部身份区 ===
+    // === 顶部 ===
     ctx.font = `800 24px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textFaint;
     ctx.fillText("ENGLISH IMMERSION", PAD, currentY);
-
     const now = new Date();
     const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
     ctx.textAlign = "right";
@@ -159,16 +147,26 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.fillStyle = T.textSub;
     ctx.fillText("「把零散的输入，变成长在脑子里的语境」", PAD, currentY);
 
-    // === 3. 视觉锤：巨大成就 ===
+    // === 视觉锤 ===
     currentY += 90;
-
     let badgeText = "🚀 场景探索者";
     if (streakDays >= 21) badgeText = "👑 语境重塑大师";
     else if (streakDays >= 7) badgeText = "🌟 深度沉浸者";
     else if (vocabCount >= 30) badgeText = "📚 语料收集达人";
 
-    // 居中绘制 pill
-    drawPill(ctx, badgeText, W / 2, currentY, T.pillBg, T.textMain);
+    ctx.font = `800 24px ${FONT_FAMILY}`;
+    const bw = ctx.measureText(badgeText).width + 48;
+    const bh = 50;
+    const bx = W / 2 - bw / 2;
+    roundRectPath(ctx, bx, currentY, bw, bh, 25);
+    ctx.fillStyle = T.pillBg;
+    ctx.fill();
+    ctx.fillStyle = T.textMain;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(badgeText, W / 2, currentY + bh / 2 + 2);
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "left";
 
     currentY += 250;
     const isVocabHero = vocabCount > 0 && streakDays < 3;
@@ -178,7 +176,6 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.font = `900 260px ${FONT_FAMILY}`;
     const numStr = String(heroNum);
     const numWidth = ctx.measureText(numStr).width;
-
     const textGrad = ctx.createLinearGradient(PAD, currentY - 260, PAD + numWidth, currentY);
     textGrad.addColorStop(0, T.textHero[0]);
     textGrad.addColorStop(0.5, T.textHero[1]);
@@ -190,27 +187,25 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.fillStyle = T.textSub;
     ctx.fillText(heroLabel, PAD, currentY + 60);
 
-    // === 4. 毛玻璃数据卡片 ===
+    // === 数据卡片 ===
     currentY += 150;
     const cardH = 220;
     drawGlassCard(ctx, PAD, currentY, W - PAD * 2, cardH, 40, T.glassBg, T.glassBorder, T.glassShadow);
-
     const statCols = [
       { label: "真实场景输入", val: totalVideos || 0 },
       { label: "累计沉淀语料", val: vocabCount || 0 },
       { label: "总计活跃天数", val: activeDays || 0 },
     ];
-
     const colW = (W - PAD * 2) / 3;
     statCols.forEach((stat, i) => {
-      const centerX = PAD + colW * i + colW / 2;
+      const cx = PAD + colW * i + colW / 2;
       ctx.textAlign = "center";
       ctx.font = `900 64px ${FONT_FAMILY}`;
       ctx.fillStyle = T.textMain;
-      ctx.fillText(String(stat.val), centerX, currentY + 110);
+      ctx.fillText(String(stat.val), cx, currentY + 110);
       ctx.font = `600 22px ${FONT_FAMILY}`;
       ctx.fillStyle = T.textSub;
-      ctx.fillText(stat.label, centerX, currentY + 160);
+      ctx.fillText(stat.label, cx, currentY + 160);
       if (i < 2) {
         ctx.beginPath();
         ctx.moveTo(PAD + colW * (i + 1), currentY + 50);
@@ -222,31 +217,25 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     });
     ctx.textAlign = "left";
 
-    // === 5. 打卡日历（修复：用 cells 数组正确铺位） ===
+    // === 日历 ===
     currentY += cardH + 110;
-
     const year = now.getFullYear();
     const month = now.getMonth();
-    const MONTH_NAMES = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
-      "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+    const MONTH_NAMES = ["JANUARY","FEBRUARY","MARCH","APRIL","MAY","JUNE","JULY","AUGUST","SEPTEMBER","OCTOBER","NOVEMBER","DECEMBER"];
 
     ctx.font = `900 40px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textMain;
     ctx.fillText(`${MONTH_NAMES[month]} ${year}`, PAD, currentY);
-
     ctx.font = `600 24px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textSub;
     ctx.textAlign = "right";
     ctx.fillText("本月打卡足迹", W - PAD, currentY);
     ctx.textAlign = "left";
-
     currentY += 70;
 
-    // 星期表头
-    const weekNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const weekNames = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
     const calColW = (W - PAD * 2) / 7;
     const rowH = 90;
-
     ctx.font = `800 20px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textFaint;
     weekNames.forEach((w, i) => {
@@ -255,14 +244,12 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     });
     currentY += 50;
 
-    // ─── 关键修复：先构建 cells 数组，再按 idx 定位，保证每格对齐 ───
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startWeekday = firstDay.getDay();   // 0=周日
+    const startWeekday = firstDay.getDay();
     const totalDaysNum = lastDay.getDate();
     const todayStr = now.toISOString().slice(0, 10);
 
-    // 用 null 填充月初空位，再放每天
     const cells = [];
     for (let i = 0; i < startWeekday; i++) cells.push(null);
     for (let d = 1; d <= totalDaysNum; d++) {
@@ -275,12 +262,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
       const row = Math.floor(idx / 7);
       const cx = PAD + col * calColW + calColW / 2;
       const cy = currentY + row * rowH + rowH / 2;
-
-      if (!cell) return; // 空白占位格不绘制
-
+      if (!cell) return;
       const { d, key, count } = cell;
-      const isToday = key === todayStr;
-
       if (count > 0) {
         ctx.beginPath();
         ctx.arc(cx, cy - 8, 36, 0, Math.PI * 2);
@@ -292,15 +275,13 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
         ctx.shadowBlur = 0;
         ctx.shadowColor = "transparent";
       }
-
-      if (isToday) {
+      if (key === todayStr) {
         ctx.beginPath();
         ctx.arc(cx, cy - 8, 38, 0, Math.PI * 2);
         ctx.strokeStyle = T.glassBorder;
         ctx.lineWidth = 2.5;
         ctx.stroke();
       }
-
       ctx.font = `800 28px ${FONT_FAMILY}`;
       ctx.fillStyle = count > 0 ? "#ffffff" : T.calendarEmpty;
       ctx.textAlign = "center";
@@ -308,24 +289,27 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     });
     ctx.textAlign = "left";
 
-    // 已绘制的行数
-    const calRows = Math.ceil(cells.length / 7);
-    currentY += calRows * rowH + 60;
-
-    // === 6. 底部品牌区 ===
+    // === 底部 ===
     ctx.textAlign = "center";
     ctx.font = `900 32px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textMain;
     ctx.fillText("nailaobao.top", W / 2, H - 110);
-
     ctx.font = `600 22px ${FONT_FAMILY}`;
     ctx.fillStyle = T.textFaint;
     ctx.fillText("语境输入 · 词汇沉淀 · 习惯养成", W / 2, H - 65);
     ctx.textAlign = "left";
 
+    // 同时生成 dataURL（预览用）和 Blob（下载/分享用）
     const url = canvas.toDataURL("image/png");
     setPosterUrl(url);
+
+    // toBlob 用于 navigator.share 和真正的 Blob 下载
+    canvas.toBlob((blob) => {
+      setPosterBlob(blob);
+    }, "image/png");
+
     setGenerating(false);
+    setSaveMsg("");
     setTimeout(() => setShowModal(true), 0);
   }
 
@@ -334,48 +318,163 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     await generate(nextTheme);
   }
 
-  function handleDownload() {
-    if (!posterUrl) return;
-    const a = document.createElement("a");
-    a.href = posterUrl;
-    a.download = `语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  // ─── 统一保存函数，自动判断最优方式 ─────────────────────────────────────────
+  async function handleSave() {
+    if (!posterBlob && !posterUrl) return;
+    setSaving(true);
+    setSaveMsg("");
+
+    const filename = `语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`;
+
+    // 1. 优先：Web Share API（iOS Safari 14+ / Android Chrome 可直接分享到相册）
+    if (navigator.canShare && posterBlob) {
+      const file = new File([posterBlob], filename, { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "我的英语打卡海报",
+            text: "用 nailaobao.top 生成的学习记录",
+          });
+          setSaveMsg("✅ 已发送到系统分享，选择"存储到照片"即可");
+          setSaving(false);
+          return;
+        } catch (e) {
+          // 用户取消或失败，继续走下面的方案
+        }
+      }
+    }
+
+    // 2. Blob URL 下载（Android / 桌面端）
+    if (posterBlob) {
+      try {
+        const blobUrl = URL.createObjectURL(posterBlob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+        setSaveMsg("✅ 图片已下载，请在下载文件夹中查找");
+        setSaving(false);
+        return;
+      } catch (e) {}
+    }
+
+    // 3. 最终兜底：dataURL 下载
+    if (posterUrl) {
+      const a = document.createElement("a");
+      a.href = posterUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setSaveMsg("✅ 图片已下载，请在下载文件夹中查找");
+    }
+
+    setSaving(false);
   }
 
-  // ─── 触发按钮：去掉原来自带的外层白卡包装 ─────────────────────────────────
-  // page.js 里已有 <Card> + <SectionTitle> 作为外壳，所以这里只保留按钮本体
+  // ─── 触发区：只保留按钮，去掉重复标题（page.js 已有 SectionTitle） ──────────
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {/* 触发按钮区 —— 不再自带标题/描述，避免与 page.js 的 SectionTitle 重复 */}
-      <button
-        onClick={() => generate()}
-        disabled={generating}
-        style={{
-          width: "100%",
-          padding: "16px 0",
-          borderRadius: 16,
-          border: "none",
-          background: generating
-            ? "rgba(79,70,229,0.5)"
-            : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
-          color: "#ffffff",
-          fontSize: 15,
-          fontWeight: 1000,
-          cursor: generating ? "not-allowed" : "pointer",
-          boxShadow: generating ? "none" : "0 12px 24px rgba(15,23,42,0.2)",
-          transition: "all 0.2s ease",
-          letterSpacing: "0.5px",
-        }}
-      >
-        {generating ? "⏳ 潜心绘制中..." : "生成高清成就海报 ✦"}
-      </button>
+      {/* 内容区：增加一些说明文字，填充右侧卡片高度，与左侧"继续学习"对齐 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* 功能亮点说明 */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          {[
+            { icon: "🌟", title: "视觉锤设计", desc: "连续天数以超大字号呈现，自带"晒"的冲动" },
+            { icon: "🎨", title: "2 种高级质感", desc: "暗夜极光流 + 晨雾玻璃光，随时一键切换" },
+            { icon: "🗓️", title: "打卡日历", desc: "本月学习足迹一目了然，有学习的日子发光" },
+            { icon: "📊", title: "数据看板", desc: "视频、词汇、活跃天数，三维量化你的积累" },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                padding: "12px 14px",
+                borderRadius: 16,
+                background: "rgba(99,102,241,0.06)",
+                border: "1px solid rgba(99,102,241,0.12)",
+              }}
+            >
+              <div style={{ fontSize: 20, marginBottom: 6 }}>{item.icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 4 }}>
+                {item.title}
+              </div>
+              <div style={{ fontSize: 11, color: THEME.colors.faint, lineHeight: 1.6 }}>
+                {item.desc}
+              </div>
+            </div>
+          ))}
+        </div>
 
-      <div style={{ marginTop: 10, fontSize: 11, color: THEME.colors.faint, textAlign: "center" }}>
-        共 {POSTER_THEMES.length} 种风格 · 每次点击可切换主题
+        {/* 当前主题指示 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 14px",
+            borderRadius: 14,
+            background: "rgba(15,23,42,0.03)",
+            border: "1px solid rgba(15,23,42,0.07)",
+          }}
+        >
+          <span style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 800 }}>
+            当前风格：{POSTER_THEMES[themeIdx].name}
+          </span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {POSTER_THEMES.map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: i === themeIdx ? 20 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.14)",
+                  transition: "all 0.3s ease",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* 生成按钮 */}
+        <button
+          onClick={() => generate()}
+          disabled={generating}
+          style={{
+            width: "100%",
+            padding: "16px 0",
+            borderRadius: 16,
+            border: "none",
+            background: generating
+              ? "rgba(79,70,229,0.5)"
+              : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+            color: "#ffffff",
+            fontSize: 15,
+            fontWeight: 1000,
+            cursor: generating ? "not-allowed" : "pointer",
+            boxShadow: generating ? "none" : "0 12px 24px rgba(15,23,42,0.2)",
+            transition: "all 0.2s ease",
+            letterSpacing: "0.5px",
+          }}
+        >
+          {generating ? "⏳ 潜心绘制中..." : "生成高清成就海报 ✦"}
+        </button>
+
+        <div style={{ fontSize: 11, color: THEME.colors.faint, textAlign: "center" }}>
+          1080×1920 高清画质 · 适合朋友圈 / 小红书分享
+        </div>
       </div>
 
       {/* ─── 预览弹窗 ─────────────────────────────────────────────────────── */}
@@ -386,11 +485,11 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
             position: "fixed",
             inset: 0,
             zIndex: 9999,
-            background: "rgba(15,23,42,0.8)",
+            background: "rgba(15,23,42,0.82)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "20px",
+            padding: "16px",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
           }}
@@ -400,132 +499,132 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
             style={{
               background: "#ffffff",
               borderRadius: 32,
-              padding: "24px",
+              padding: "22px 20px",
               width: "100%",
-              maxWidth: 420,
+              maxWidth: 400,
               maxHeight: "92vh",
               overflowY: "auto",
               boxShadow: "0 40px 100px rgba(0,0,0,0.5)",
               display: "flex",
               flexDirection: "column",
-              gap: 16,
+              gap: 14,
             }}
           >
             {/* Header */}
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontSize: 20, fontWeight: 1000, color: "#0f172a" }}>🎉 生成完毕</div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 6, fontWeight: 800 }}>
-                  当前质感：<span style={{ color: "#4f46e5" }}>{POSTER_THEMES[themeIdx].name}</span>
+                <div style={{ fontSize: 18, fontWeight: 1000, color: "#0f172a" }}>🎉 海报已生成</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, fontWeight: 800 }}>
+                  风格：<span style={{ color: "#4f46e5" }}>{POSTER_THEMES[themeIdx].name}</span>
                 </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
                 style={{
-                  width: 38, height: 38,
+                  width: 36, height: 36,
                   borderRadius: 12,
                   border: "none",
                   background: "rgba(241,245,249,1)",
                   cursor: "pointer",
-                  fontSize: 18,
+                  fontSize: 17,
                   color: "#64748b",
                   fontWeight: 900,
+                  flexShrink: 0,
                 }}
               >✕</button>
             </div>
 
-            {/*
-              ─── 手机保存方案 ───────────────────────────────────────────────
-              原生 Web 无法直接调用系统相册 API。
-              最佳实践：
-              · 把图片以足够大的尺寸展示
-              · iOS Safari：长按图片 → "添加到照片"
-              · Android Chrome：长按图片 → "下载图片"（自动进图库）
-              · 电脑端：点"下载图片"按钮，走 <a download> 流程
-            */}
-
-            {/* 图片区：撑满弹窗宽度，便于长按 */}
+            {/* 海报预览图 */}
             <div
               style={{
-                borderRadius: 20,
+                borderRadius: 18,
                 overflow: "hidden",
-                background: "rgba(248,250,252,1)",
+                background: "#f8fafc",
                 border: "1px solid rgba(15,23,42,0.06)",
               }}
             >
               <img
                 src={posterUrl}
-                alt="打卡成就卡"
-                style={{
-                  width: "100%",
-                  maxHeight: "52vh",
-                  objectFit: "contain",
-                  display: "block",
-                }}
+                alt="打卡海报"
+                style={{ width: "100%", maxHeight: "48vh", objectFit: "contain", display: "block" }}
               />
             </div>
 
-            {/* 分平台保存提示 */}
-            <div
-              style={{
-                padding: "12px 14px",
-                borderRadius: 14,
-                background: "rgba(99,102,241,0.07)",
-                border: "1px solid rgba(99,102,241,0.14)",
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 900, color: "#3730a3", marginBottom: 4 }}>
-                📱 如何保存到相册？
-              </div>
-              <div style={{ fontSize: 12, color: "#4338ca", lineHeight: 1.7 }}>
-                · <b>手机（iOS / Android）</b>：长按上方图片，选择"存储图片"或"下载图片"，即可进相册。<br />
-                · <b>电脑端</b>：点击下方"下载图片"按钮，图片会保存到下载文件夹。
-              </div>
-            </div>
-
-            {/* 操作按钮 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              {/* 电脑端下载 / 手机端兜底（a 标签 download） */}
-              <a
-                href={posterUrl}
-                download={`语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`}
+            {/* 保存反馈提示 */}
+            {saveMsg ? (
+              <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "15px 0",
-                  borderRadius: 18,
-                  textDecoration: "none",
-                  background: "linear-gradient(135deg, #0f172a, #4f46e5)",
-                  color: "#ffffff",
-                  fontSize: 15,
-                  fontWeight: 1000,
-                  boxShadow: "0 10px 20px rgba(79,70,229,0.2)",
-                  cursor: "pointer",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "rgba(16,185,129,0.09)",
+                  border: "1px solid rgba(16,185,129,0.20)",
+                  fontSize: 13,
+                  color: "#065f46",
+                  fontWeight: 800,
                 }}
               >
-                ⬇️ 下载图片
-              </a>
+                {saveMsg}
+              </div>
+            ) : (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "rgba(99,102,241,0.07)",
+                  border: "1px solid rgba(99,102,241,0.14)",
+                  fontSize: 12,
+                  color: "#3730a3",
+                  lineHeight: 1.7,
+                  fontWeight: 700,
+                }}
+              >
+                📱 <b>手机端</b>：点击"保存图片"按钮，系统会弹出分享菜单，选"存储到照片/相册"即可。<br />
+                💻 <b>电脑端</b>：点击"保存图片"按钮，图片会下载到本地。
+              </div>
+            )}
+
+            {/* 操作按钮 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  padding: "15px 0",
+                  borderRadius: 18,
+                  border: "none",
+                  background: saving
+                    ? "rgba(79,70,229,0.5)"
+                    : "linear-gradient(135deg, #0f172a, #4f46e5)",
+                  color: "#ffffff",
+                  fontSize: 14,
+                  fontWeight: 1000,
+                  cursor: saving ? "not-allowed" : "pointer",
+                  boxShadow: saving ? "none" : "0 10px 20px rgba(79,70,229,0.22)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {saving ? "⏳ 处理中..." : "⬇️ 保存图片"}
+              </button>
               <button
                 onClick={handleSwitchTheme}
                 disabled={generating}
                 style={{
                   padding: "15px 0",
                   borderRadius: 18,
-                  border: "1.5px solid rgba(15,23,42,0.1)",
-                  background: "rgba(248,250,252,0.8)",
+                  border: "1.5px solid rgba(15,23,42,0.10)",
+                  background: "rgba(248,250,252,0.9)",
                   color: "#334155",
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: 1000,
                   cursor: generating ? "not-allowed" : "pointer",
                 }}
               >
-                {generating ? "⏳ 切换中..." : "🎨 切换质感"}
+                {generating ? "⏳ 切换中..." : "🎨 切换风格"}
               </button>
             </div>
 
-            {/* 主题指示点 */}
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+            {/* 主题点 */}
+            <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
               {POSTER_THEMES.map((_, i) => (
                 <div
                   key={i}
@@ -533,8 +632,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
                     width: i === themeIdx ? 24 : 8,
                     height: 8,
                     borderRadius: 999,
-                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.1)",
-                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.10)",
+                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
                   }}
                 />
               ))}
