@@ -3,118 +3,56 @@ import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { THEME } from "../components/home/theme";
 
-// ─── 三套海报主题，改为与手账页一致的明亮清透风格 ─────────────────────────────
-const POSTER_THEMES = [
+// 高级感主题配置：两套为社交分享打造的流光配色
+const POSTER_THEMES =[
   {
-    name: "晴日手账",
-    // 海报背景：米白 → 淡蓝渐变，与页面 bg:#f4f6fb 呼应
-    bg: ["#f8faff", "#eef2ff", "#f4f6fb"],
-    glow1: "rgba(99,102,241,0.13)",
-    glow2: "rgba(236,72,153,0.09)",
-    // 卡片/分隔线颜色
-    cardBg: "rgba(255,255,255,0.92)",
-    cardBorder: "rgba(15,23,42,0.08)",
-    headerBg: "rgba(255,255,255,0.96)",
-    // 文字
-    inkPrimary: "#0b1220",
-    inkMuted: "rgba(11,18,32,0.56)",
-    inkFaint: "rgba(11,18,32,0.38)",
-    // 强调色（连续/视频/词汇）
-    accent1: "#c2410c",   // 橙红 — 连续天数
-    accent2: "#3730a3",   // 靛蓝 — 累计视频
-    accent3: "#be185d",   // 玫红 — 收藏词汇
-    accentBg1: "rgba(251,146,60,0.14)",
-    accentBg2: "rgba(99,102,241,0.12)",
-    accentBg3: "rgba(236,72,153,0.12)",
-    accentBorder1: "rgba(251,146,60,0.22)",
-    accentBorder2: "rgba(99,102,241,0.20)",
-    accentBorder3: "rgba(236,72,153,0.18)",
-    // 打卡格颜色（空/浅/中/深）
-    cellEmpty: "rgba(248,250,252,0.95)",
-    cellL1: "rgba(220,252,231,0.95)",
-    cellL2: "rgba(187,247,208,0.98)",
-    cellL3: "rgba(34,197,94,0.92)",
-    cellTextL3: "#ffffff",
-    cellBorder: "rgba(15,23,42,0.07)",
-    todayRing: "#4f46e5",
-    // 底部品牌条
-    footerBg: "linear-gradient(135deg,#0f172a 0%,#312e81 48%,#ec4899 100%)",
-    footerText: "#ffffff",
-    footerSub: "rgba(255,255,255,0.75)",
+    name: "暗夜极光流",
+    bg: ["#0B101E", "#111827", "#09090b"],
+    orb1: "rgba(99, 102, 241, 0.35)", // Indigo
+    orb2: "rgba(236, 72, 153, 0.25)", // Pink
+    orb3: "rgba(6, 182, 212, 0.20)",  // Cyan
+    textHero:["#818cf8", "#c084fc", "#f472b6"], // 大数字渐变
+    textMain: "#ffffff",
+    textSub: "rgba(255, 255, 255, 0.8)",
+    textFaint: "rgba(255, 255, 255, 0.4)",
+    glassBg: "rgba(30, 41, 59, 0.5)",
+    glassBorder: "rgba(255, 255, 255, 0.12)",
+    glassShadow: "rgba(0, 0, 0, 0.3)",
+    heatmapEmpty: "rgba(255, 255, 255, 0.04)",
+    heatmapActive:["rgba(52, 211, 153, 0.3)", "rgba(52, 211, 153, 0.6)", "rgba(52, 211, 153, 1)"],
+    heatmapGlow: "rgba(52, 211, 153, 0.8)",
   },
   {
-    name: "暖橙笔记",
-    bg: ["#fffbf5", "#fff7ed", "#fef9f0"],
-    glow1: "rgba(251,146,60,0.16)",
-    glow2: "rgba(234,179,8,0.10)",
-    cardBg: "rgba(255,255,255,0.94)",
-    cardBorder: "rgba(180,83,9,0.10)",
-    headerBg: "rgba(255,255,255,0.97)",
-    inkPrimary: "#1c0a00",
-    inkMuted: "rgba(28,10,0,0.55)",
-    inkFaint: "rgba(28,10,0,0.38)",
-    accent1: "#b45309",
-    accent2: "#c2410c",
-    accent3: "#7c3aed",
-    accentBg1: "rgba(251,146,60,0.16)",
-    accentBg2: "rgba(249,115,22,0.12)",
-    accentBg3: "rgba(124,58,237,0.10)",
-    accentBorder1: "rgba(251,146,60,0.26)",
-    accentBorder2: "rgba(249,115,22,0.20)",
-    accentBorder3: "rgba(124,58,237,0.16)",
-    cellEmpty: "rgba(255,253,248,0.95)",
-    cellL1: "rgba(254,243,199,0.95)",
-    cellL2: "rgba(253,230,138,0.98)",
-    cellL3: "rgba(245,158,11,0.92)",
-    cellTextL3: "#ffffff",
-    cellBorder: "rgba(180,83,9,0.08)",
-    todayRing: "#f97316",
-    footerBg: "linear-gradient(135deg,#1c0a00 0%,#92400e 48%,#f97316 100%)",
-    footerText: "#ffffff",
-    footerSub: "rgba(255,255,255,0.75)",
-  },
-  {
-    name: "青碧雨后",
-    bg: ["#f0fdfb", "#ecfdf5", "#f0fdfa"],
-    glow1: "rgba(6,182,212,0.14)",
-    glow2: "rgba(16,185,129,0.10)",
-    cardBg: "rgba(255,255,255,0.93)",
-    cardBorder: "rgba(6,182,212,0.12)",
-    headerBg: "rgba(255,255,255,0.97)",
-    inkPrimary: "#022c22",
-    inkMuted: "rgba(2,44,34,0.56)",
-    inkFaint: "rgba(2,44,34,0.38)",
-    accent1: "#0e7490",
-    accent2: "#047857",
-    accent3: "#6d28d9",
-    accentBg1: "rgba(6,182,212,0.13)",
-    accentBg2: "rgba(16,185,129,0.13)",
-    accentBg3: "rgba(109,40,217,0.10)",
-    accentBorder1: "rgba(6,182,212,0.22)",
-    accentBorder2: "rgba(16,185,129,0.22)",
-    accentBorder3: "rgba(109,40,217,0.16)",
-    cellEmpty: "rgba(240,253,250,0.95)",
-    cellL1: "rgba(204,251,241,0.95)",
-    cellL2: "rgba(153,246,228,0.98)",
-    cellL3: "rgba(20,184,166,0.92)",
-    cellTextL3: "#ffffff",
-    cellBorder: "rgba(6,182,212,0.09)",
-    todayRing: "#0891b2",
-    footerBg: "linear-gradient(135deg,#022c22 0%,#0e7490 48%,#34d399 100%)",
-    footerText: "#ffffff",
-    footerSub: "rgba(255,255,255,0.75)",
-  },
+    name: "晨雾玻璃光",
+    bg: ["#ffffff", "#f8fafc", "#f1f5f9"],
+    orb1: "rgba(99, 102, 241, 0.15)",
+    orb2: "rgba(236, 72, 153, 0.12)",
+    orb3: "rgba(6, 182, 212, 0.10)",
+    textHero:["#4f46e5", "#9333ea", "#db2777"],
+    textMain: "#0f172a",
+    textSub: "rgba(15, 23, 42, 0.7)",
+    textFaint: "rgba(15, 23, 42, 0.35)",
+    glassBg: "rgba(255, 255, 255, 0.65)",
+    glassBorder: "rgba(255, 255, 255, 0.9)",
+    glassShadow: "rgba(15, 23, 42, 0.06)",
+    heatmapEmpty: "rgba(15, 23, 42, 0.04)",
+    heatmapActive:["rgba(16, 185, 129, 0.4)", "rgba(16, 185, 129, 0.7)", "rgba(16, 185, 129, 1)"],
+    heatmapGlow: "rgba(16, 185, 129, 0.6)",
+  }
 ];
 
-// ─── 辅助：圆角矩形路径 ────────────────────────────────────────────────────────
-function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCount, heatmapData, tasks, activeDays, topTopic }) {
+// 全局字体栈，确保高级感
+const FONT_FAMILY = `system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+
+function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData, activeDays }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
   const [posterUrl, setPosterUrl] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const[showModal, setShowModal] = useState(false);
   const [themeIdx, setThemeIdx] = useState(0);
 
-  function roundRect(ctx, x, y, w, h, r) {
+  // 基础圆角矩形路径
+  function roundRectPath(ctx, x, y, w, h, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y);
     ctx.lineTo(x + w - r, y);
@@ -128,472 +66,232 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     ctx.closePath();
   }
 
+  // 核心：毛玻璃质感卡片绘制
+  function drawGlassCard(ctx, x, y, w, h, radius, bgColor, borderColor, shadowColor) {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, radius);
+    
+    // 发光与深度阴影
+    ctx.shadowColor = shadowColor;
+    ctx.shadowBlur = 40;
+    ctx.shadowOffsetY = 20;
+    ctx.fillStyle = bgColor;
+    ctx.fill();
+
+    // 细微的高光描边
+    ctx.shadowColor = "transparent";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = borderColor;
+    ctx.stroke();
+    
+    ctx.restore();
+  }
+
   async function generate(forceTheme) {
     setGenerating(true);
+    // 制造微小延迟，让 Loading UI 有机会渲染
     await new Promise((r) => setTimeout(r, 80));
 
-    const nextTheme = forceTheme !== undefined ? forceTheme : (themeIdx + 1) % POSTER_THEMES.length;
+    const nextTheme = forceTheme !== undefined ? forceTheme : themeIdx;
     setThemeIdx(nextTheme);
     const T = POSTER_THEMES[nextTheme];
 
     const canvas = canvasRef.current;
-    const W = 750;
-    const H = 1200;
+    const W = 1080;
+    const H = 1920; // 黄金分享比例 9:16
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
 
-    // ── 背景 ─────────────────────────────────────────────────────────────────
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, T.bg[0]);
-    bg.addColorStop(0.5, T.bg[1]);
-    bg.addColorStop(1, T.bg[2]);
-    ctx.fillStyle = bg;
+    const PAD = 90; // 极其宽裕的留白呼吸感
+
+    // --- 1. 沉浸式动态背景 ---
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, T.bg[0]);
+    bgGrad.addColorStop(0.6, T.bg[1]);
+    bgGrad.addColorStop(1, T.bg[2]);
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // 柔和光晕（与手账页 radial-gradient 风格一致）
-    const g1 = ctx.createRadialGradient(100, 160, 0, 100, 160, 340);
-    g1.addColorStop(0, T.glow1);
-    g1.addColorStop(1, "transparent");
-    ctx.fillStyle = g1;
-    ctx.fillRect(0, 0, W, H);
+    // 绘制超级模糊的巨大光晕
+    const drawOrb = (x, y, r, color) => {
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+      grad.addColorStop(0, color);
+      grad.addColorStop(1, "transparent");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+    };
+    drawOrb(200, 300, 800, T.orb1);
+    drawOrb(W - 100, 800, 700, T.orb2);
+    drawOrb(400, H - 200, 900, T.orb3);
 
-    const g2 = ctx.createRadialGradient(660, 460, 0, 660, 460, 260);
-    g2.addColorStop(0, T.glow2);
-    g2.addColorStop(1, "transparent");
-    ctx.fillStyle = g2;
-    ctx.fillRect(0, 0, W, H);
+    // --- 2. 优雅的顶部身份区 ---
+    let currentY = PAD + 40;
+    
+    ctx.font = `800 26px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textSub;
+    ctx.letterSpacing = "2px";
+    ctx.fillText("ENGLISH JOURNAL", PAD, currentY);
 
-    // ── Header 区域（白色卡片风格） ───────────────────────────────────────────
-    roundRect(ctx, 32, 28, W - 64, 90, 22);
-    ctx.fillStyle = T.headerBg;
-    ctx.fill();
-    ctx.strokeStyle = T.cardBorder;
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, "0")}.${String(now.getDate()).padStart(2, "0")}`;
+    ctx.textAlign = "right";
+    ctx.fillText(dateStr, W - PAD, currentY);
+    ctx.textAlign = "left";
+
+    currentY += 80;
+    const userName = me?.email?.split("@")[0] || "Learner";
+    ctx.font = `900 64px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textMain;
+    ctx.fillText(`Hello, ${userName}`, PAD, currentY);
+
+    currentY += 60;
+    ctx.font = `500 32px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textSub;
+    // 动态走心文案
+    let insightQuote = "「每一句真实的表达，都在成为我的语境」";
+    if (streakDays >= 7) insightQuote = "「正在重塑属于我的英语肌肉记忆」";
+    if (vocabCount >= 100) insightQuote = "「我的专属表达库正在逐渐长成」";
+    ctx.fillText(insightQuote, PAD, currentY);
+
+    // --- 3. 视觉锤（绝对焦点的巨大成就） ---
+    currentY += 240;
+    const isVocabHero = vocabCount > 0 && streakDays < 3; 
+    const heroNum = isVocabHero ? vocabCount : (streakDays || 0);
+    const heroLabel = isVocabHero ? "沉淀表达 / Words" : "连续沉浸 / Days";
+
+    // 绘制发光渐变大数字
+    ctx.font = `900 280px ${FONT_FAMILY}`;
+    const numStr = String(heroNum);
+    const numWidth = ctx.measureText(numStr).width;
+    
+    const textGrad = ctx.createLinearGradient(PAD, currentY - 280, PAD + numWidth, currentY);
+    textGrad.addColorStop(0, T.textHero[0]);
+    textGrad.addColorStop(0.5, T.textHero[1]);
+    textGrad.addColorStop(1, T.textHero[2]);
+    
+    ctx.fillStyle = textGrad;
+    ctx.fillText(numStr, PAD - 15, currentY); // 微调左侧视觉对齐
+
+    // 标签
+    ctx.font = `800 36px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textSub;
+    ctx.fillText(heroLabel, PAD, currentY + 60);
+
+    // --- 4. 悬浮玻璃卡片：核心数据切片 ---
+    currentY += 180;
+    const cardH = 280;
+    drawGlassCard(ctx, PAD, currentY, W - PAD * 2, cardH, 48, T.glassBg, T.glassBorder, T.glassShadow);
+
+    // 卡片内部分割线与数据
+    const statCols =[
+      { label: "累计场景输入", val: totalVideos || 0, unit: "次" },
+      { label: "专属语料库", val: vocabCount || 0, unit: "词" },
+      { label: "总活跃跨度", val: activeDays || 0, unit: "天" },
+    ];
+    
+    const colW = (W - PAD * 2) / 3;
+    statCols.forEach((stat, i) => {
+      const centerX = PAD + colW * i + colW / 2;
+      
+      // 数据
+      ctx.textAlign = "center";
+      ctx.font = `900 72px ${FONT_FAMILY}`;
+      ctx.fillStyle = T.textMain;
+      ctx.fillText(String(stat.val), centerX, currentY + 140);
+      
+      // 标签
+      ctx.font = `600 24px ${FONT_FAMILY}`;
+      ctx.fillStyle = T.textSub;
+      ctx.fillText(stat.label, centerX, currentY + 200);
+
+      // 竖向细微分割线 (前两个画线)
+      if (i < 2) {
+        ctx.beginPath();
+        ctx.moveTo(PAD + colW * (i + 1), currentY + 60);
+        ctx.lineTo(PAD + colW * (i + 1), currentY + cardH - 60);
+        ctx.strokeStyle = T.glassBorder;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    });
+    ctx.textAlign = "left";
+
+    // --- 5. 艺术点阵足迹 (Artistic Heatmap) ---
+    currentY += cardH + 120;
+    
+    ctx.font = `800 32px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textMain;
+    ctx.fillText("近 35 天学习图谱", PAD, currentY);
+
+    currentY += 80;
+    
+    // 获取最近 35 天的数据 (5 行 7 列的完美阵列)
+    const dotDays = 35;
+    const dotsData =[];
+    const today = new Date();
+    for (let i = dotDays - 1; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      dotsData.push({ count: heatmapData?.[key] || 0 });
+    }
+
+    const dotRadius = 24; // 大圆点
+    const dotGap = 56;
+    // 计算居中起始 X
+    const matrixW = 7 * (dotRadius * 2) + 6 * dotGap;
+    const startX = (W - matrixW) / 2;
+
+    dotsData.forEach((dot, idx) => {
+      const col = idx % 7;
+      const row = Math.floor(idx / 7);
+      const x = startX + col * (dotRadius * 2 + dotGap) + dotRadius;
+      const y = currentY + row * (dotRadius * 2 + dotGap) + dotRadius;
+
+      ctx.beginPath();
+      ctx.arc(x, y, dotRadius, 0, Math.PI * 2);
+
+      if (dot.count === 0) {
+        ctx.fillStyle = T.heatmapEmpty;
+        ctx.shadowBlur = 0;
+        ctx.fill();
+      } else {
+        // 活跃点颜色与发光
+        const colorIdx = Math.min(dot.count - 1, 2);
+        ctx.fillStyle = T.heatmapActive[colorIdx];
+        
+        ctx.shadowColor = T.heatmapGlow;
+        ctx.shadowBlur = dot.count >= 2 ? 30 : 15;
+        ctx.fill();
+        
+        // 重置阴影避免污染其他渲染
+        ctx.shadowBlur = 0;
+        ctx.shadowColor = "transparent";
+      }
+    });
+
+    // --- 6. 底部品牌区 ---
+    currentY += 5 * (dotRadius * 2 + dotGap) + 120;
+
+    ctx.beginPath();
+    ctx.moveTo(PAD, currentY);
+    ctx.lineTo(W - PAD, currentY);
+    ctx.strokeStyle = T.textFaint;
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // LOGO 区块：左侧图标 + 文字
-    roundRect(ctx, 50, 46, 38, 38, 12);
-    ctx.fillStyle = "linear-gradient(135deg,rgba(99,102,241,0.18),rgba(236,72,153,0.10))";
-    // Canvas 不支持直接用 CSS 渐变填充，改用近似纯色
-    ctx.fillStyle = "rgba(99,102,241,0.14)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(99,102,241,0.18)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
+    currentY += 60;
     ctx.textAlign = "center";
-    ctx.fillText("📒", 69, 71);
+    ctx.font = `900 36px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textMain;
+    ctx.fillText("nailaobao.top", W / 2, currentY);
 
-    ctx.textAlign = "left";
-    ctx.font = "bold 22px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
-    ctx.fillText("我的英语手帐", 98, 62);
-    ctx.font = "500 14px sans-serif";
-    ctx.fillStyle = T.inkMuted;
-    ctx.fillText("nailaobao.top · 油管场景库", 98, 82);
-
-    // 右上角：日期 + 主题名
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, "0")}/${String(now.getDate()).padStart(2, "0")}`;
-    ctx.textAlign = "right";
-    ctx.font = "bold 15px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
-    ctx.fillText(dateStr, W - 50, 58);
-    ctx.font = "500 13px sans-serif";
-    ctx.fillStyle = T.inkFaint;
-    ctx.fillText(`✦ ${T.name}`, W - 50, 78);
+    ctx.font = `600 24px ${FONT_FAMILY}`;
+    ctx.fillStyle = T.textSub;
+    ctx.fillText("语境输入 · 词汇沉淀 · 习惯养成", W / 2, currentY + 45);
     ctx.textAlign = "left";
 
-    // ── 用户名 + 副标题 ──────────────────────────────────────────────────────
-    const userName = me?.email?.split("@")[0] || "学习者";
-    ctx.font = "bold 40px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
-    ctx.fillText(`👋 ${userName}`, 32, 172);
-    ctx.font = "500 19px sans-serif";
-    ctx.fillStyle = T.inkMuted;
-    ctx.fillText("今日学习打卡 · 持续积累中", 32, 200);
-
-    // ── 三块统计卡片（对应 MiniStat 风格） ───────────────────────────────────
-    const stats = [
-      { num: streakDays || 0, label: "连续学习天", hint: "习惯形成中", color: T.accent1, bg: T.accentBg1, border: T.accentBorder1 },
-      { num: totalVideos || 0, label: "累计场景视频", hint: "场景输入总量", color: T.accent2, bg: T.accentBg2, border: T.accentBorder2 },
-      { num: vocabCount || 0, label: "收藏词汇", hint: "你的表达库", color: T.accent3, bg: T.accentBg3, border: T.accentBorder3 },
-    ];
-    const cW = 208;
-    const cH = 118;
-    const cGap = 17;
-    const cY = 220;
-
-    stats.forEach((item, i) => {
-      const x = 32 + i * (cW + cGap);
-      // 卡片背景
-      roundRect(ctx, x, cY, cW, cH, 20);
-      ctx.fillStyle = item.bg;
-      ctx.fill();
-      ctx.strokeStyle = item.border;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
-      // 大数字
-      ctx.font = "bold 48px sans-serif";
-      ctx.fillStyle = item.color;
-      ctx.fillText(String(item.num), x + 18, cY + 60);
-
-      // 小标签 Chip
-      const chipText = item.label;
-      ctx.font = "bold 12px sans-serif";
-      const chipW = ctx.measureText(chipText).width + 20;
-      roundRect(ctx, x + 16, cY + 72, chipW, 24, 999);
-      ctx.fillStyle = "rgba(255,255,255,0.82)";
-      ctx.fill();
-      ctx.strokeStyle = item.border;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = item.color;
-      ctx.textAlign = "left";
-      ctx.fillText(chipText, x + 26, cY + 89);
-
-      // hint 文字
-      ctx.font = "500 13px sans-serif";
-      ctx.fillStyle = T.inkMuted;
-      ctx.fillText(item.hint, x + 18, cY + 108);
-    });
-
-    // ── 分隔线 ───────────────────────────────────────────────────────────────
-    ctx.strokeStyle = T.cardBorder;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(32, 368);
-    ctx.lineTo(W - 32, 368);
-    ctx.stroke();
-
-    // ── 今日计划区（对应 TodayPlan 风格） ────────────────────────────────────
-    const trackedDoneCount = tasks.filter((t) => t.done).length;
-    const pct = Math.round((trackedDoneCount / 2) * 100);
-
-    // 区块标题行（带 Chip）
-    roundRect(ctx, 32, 384, 38, 38, 13);
-    ctx.fillStyle = "rgba(99,102,241,0.14)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(99,102,241,0.18)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = "bold 18px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("🎯", 51, 409);
-    ctx.textAlign = "left";
-
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
-    ctx.fillText("今天的学习计划", 82, 398);
-    ctx.font = "500 13px sans-serif";
-    ctx.fillStyle = T.inkFaint;
-    ctx.fillText("前两项自动统计进度", 82, 416);
-
-    // 已完成 chip
-    const chipLabel = `已完成 ${trackedDoneCount}/2`;
-    ctx.font = "bold 12px sans-serif";
-    const chipLW = ctx.measureText(chipLabel).width + 22;
-    roundRect(ctx, W - 32 - chipLW, 388, chipLW, 26, 999);
-    ctx.fillStyle = "rgba(99,102,241,0.12)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(99,102,241,0.20)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = "#3730a3";
-    ctx.textAlign = "right";
-    ctx.fillText(chipLabel, W - 32 - 11, 405);
-    ctx.textAlign = "left";
-
-    // 进度条
-    const pbX = 32, pbY = 432, pbW = W - 64, pbH = 10;
-    roundRect(ctx, pbX, pbY, pbW, pbH, 999);
-    ctx.fillStyle = "rgba(15,23,42,0.07)";
-    ctx.fill();
-    if (pct > 0) {
-      roundRect(ctx, pbX, pbY, (pbW * pct) / 100, pbH, 999);
-      // 渐变进度条
-      const progGrad = ctx.createLinearGradient(pbX, 0, pbX + pbW, 0);
-      progGrad.addColorStop(0, "rgba(16,185,129,0.96)");
-      progGrad.addColorStop(0.5, "rgba(79,70,229,0.96)");
-      progGrad.addColorStop(1, "rgba(236,72,153,0.90)");
-      ctx.fillStyle = progGrad;
-      ctx.fill();
-    }
-
-    // 三条任务行（与 TaskRow 风格一致）
-    const taskItems = [
-      { label: "今天看 1 个场景视频", done: tasks[0]?.done, neutral: false },
-      { label: "今天收藏 3 个词/表达", done: tasks[1]?.done, neutral: false },
-      { label: "去游戏大厅做一轮练习", done: false, neutral: true },
-    ];
-
-    taskItems.forEach((item, idx) => {
-      const ty = 458 + idx * 52;
-      const rowH = 44;
-
-      // 行背景
-      roundRect(ctx, 32, ty, W - 64, rowH, 14);
-      if (item.neutral) {
-        ctx.fillStyle = "rgba(99,102,241,0.08)";
-      } else if (item.done) {
-        ctx.fillStyle = "rgba(16,185,129,0.08)";
-      } else {
-        ctx.fillStyle = "rgba(15,23,42,0.03)";
-      }
-      ctx.fill();
-      ctx.strokeStyle = item.neutral
-        ? "rgba(99,102,241,0.16)"
-        : item.done
-        ? "rgba(16,185,129,0.24)"
-        : T.cardBorder;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // 状态图标圆块
-      const iconSize = 28;
-      const iconX = 50;
-      const iconY = ty + (rowH - iconSize) / 2;
-      roundRect(ctx, iconX, iconY, iconSize, iconSize, 9);
-      if (item.neutral) {
-        ctx.fillStyle = "rgba(79,70,229,0.88)";
-      } else if (item.done) {
-        ctx.fillStyle = "rgba(16,185,129,1)";
-      } else {
-        ctx.fillStyle = "rgba(255,255,255,0.92)";
-      }
-      ctx.fill();
-      ctx.strokeStyle = item.neutral
-        ? "rgba(79,70,229,0.26)"
-        : item.done
-        ? "rgba(16,185,129,0.26)"
-        : "rgba(15,23,42,0.10)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.font = "bold 14px sans-serif";
-      ctx.fillStyle = item.neutral || item.done ? "#fff" : T.inkFaint;
-      ctx.textAlign = "center";
-      ctx.fillText(item.neutral ? "→" : item.done ? "✓" : "•", iconX + iconSize / 2, iconY + iconSize / 2 + 5);
-      ctx.textAlign = "left";
-
-      // 任务文字
-      ctx.font = "bold 16px sans-serif";
-      ctx.fillStyle = T.inkPrimary;
-      ctx.fillText(item.label, iconX + iconSize + 12, ty + 27);
-
-      // 右侧状态 chip（非 neutral）
-      if (!item.neutral) {
-        const stateLabel = item.done ? "已完成" : "进行中";
-        ctx.font = "bold 11px sans-serif";
-        const sw = ctx.measureText(stateLabel).width + 18;
-        roundRect(ctx, W - 32 - sw - 8, ty + 11, sw, 22, 999);
-        ctx.fillStyle = item.done ? "rgba(16,185,129,0.14)" : "rgba(99,102,241,0.10)";
-        ctx.fill();
-        ctx.strokeStyle = item.done ? "rgba(16,185,129,0.22)" : "rgba(99,102,241,0.18)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.fillStyle = item.done ? "#166534" : "#3730a3";
-        ctx.textAlign = "right";
-        ctx.fillText(stateLabel, W - 32 - 8 - 9, ty + 27);
-        ctx.textAlign = "left";
-      }
-    });
-
-    // ── 分隔线 ───────────────────────────────────────────────────────────────
-    ctx.strokeStyle = T.cardBorder;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(32, 624);
-    ctx.lineTo(W - 32, 624);
-    ctx.stroke();
-
-    // ── 月历区（对应 MonthCalendar 风格） ────────────────────────────────────
-    // 区块标题
-    roundRect(ctx, 32, 638, 38, 38, 13);
-    ctx.fillStyle = "rgba(16,185,129,0.14)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(16,185,129,0.18)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.font = "bold 18px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("🗓️", 51, 663);
-    ctx.textAlign = "left";
-
-    ctx.font = "bold 20px sans-serif";
-    ctx.fillStyle = T.inkPrimary;
-    ctx.fillText("最近学习日历", 82, 652);
-    ctx.font = "500 13px sans-serif";
-    ctx.fillStyle = T.inkFaint;
-    const calendarMonth = new Date();
-    ctx.fillText(`${calendarMonth.getFullYear()}年 ${calendarMonth.getMonth() + 1}月`, 82, 670);
-
-    // 日历表格
-    const year = calendarMonth.getFullYear();
-    const month = calendarMonth.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startWeekday = firstDay.getDay();
-    const totalDays = lastDay.getDate();
-
-    const calendarCells = [];
-    for (let i = 0; i < startWeekday; i++) calendarCells.push(null);
-    for (let d = 1; d <= totalDays; d++) {
-      const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-      calendarCells.push({ day: d, key, count: heatmapData[key] || 0 });
-    }
-    while (calendarCells.length % 7 !== 0) calendarCells.push(null);
-
-    // 星期表头（白色背景条）
-    const calStartY = 686;
-    const weekNames = ["日", "一", "二", "三", "四", "五", "六"];
-    roundRect(ctx, 32, calStartY, W - 64, 30, 12);
-    ctx.fillStyle = "rgba(248,250,252,0.96)";
-    ctx.fill();
-    ctx.strokeStyle = T.cardBorder;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    const colW = (W - 64) / 7;
-    weekNames.forEach((w, i) => {
-      ctx.font = "bold 13px sans-serif";
-      ctx.fillStyle = T.inkFaint;
-      ctx.textAlign = "center";
-      ctx.fillText(w, 32 + i * colW + colW / 2, calStartY + 20);
-    });
-    ctx.textAlign = "left";
-
-    // 日历格
-    const cellH = 48;
-    const cellPad = 3;
-    const todayKey = new Date().toISOString().slice(0, 10);
-
-    calendarCells.forEach((cell, idx) => {
-      const row = Math.floor(idx / 7);
-      const col = idx % 7;
-      const cx = 32 + col * colW + cellPad;
-      const cy = calStartY + 32 + row * (cellH + cellPad);
-      const cw = colW - cellPad * 2;
-      const ch = cellH;
-
-      roundRect(ctx, cx, cy, cw, ch, 10);
-
-      if (!cell) {
-        ctx.fillStyle = "rgba(248,250,252,0.5)";
-        ctx.fill();
-        return;
-      }
-
-      // 活跃程度颜色（与 getLevelStyle 一致）
-      let cellFill, textColor;
-      if (cell.count <= 0) {
-        cellFill = T.cellEmpty;
-        textColor = T.inkFaint;
-      } else if (cell.count === 1) {
-        cellFill = T.cellL1;
-        textColor = "#166534";
-      } else if (cell.count === 2) {
-        cellFill = T.cellL2;
-        textColor = "#166534";
-      } else {
-        cellFill = T.cellL3;
-        textColor = T.cellTextL3;
-      }
-
-      ctx.fillStyle = cellFill;
-      ctx.fill();
-      ctx.strokeStyle = T.cellBorder;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // 今日高亮轮廓
-      if (cell.key === todayKey) {
-        roundRect(ctx, cx, cy, cw, ch, 10);
-        ctx.strokeStyle = T.todayRing;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-      }
-
-      // 日期数字
-      ctx.font = "bold 14px sans-serif";
-      ctx.fillStyle = textColor;
-      ctx.textAlign = "left";
-      ctx.fillText(String(cell.day), cx + 8, cy + 18);
-
-      // 次数小 badge
-      if (cell.count > 0) {
-        const badgeW = 22, badgeH = 15;
-        roundRect(ctx, cx + cw - badgeW - 4, cy + ch - badgeH - 4, badgeW, badgeH, 8);
-        ctx.fillStyle = cell.count >= 3 ? "rgba(255,255,255,0.28)" : "rgba(22,101,52,0.12)";
-        ctx.fill();
-        ctx.font = "bold 10px sans-serif";
-        ctx.fillStyle = textColor;
-        ctx.textAlign = "center";
-        ctx.fillText(String(cell.count), cx + cw - badgeW / 2 - 4, cy + ch - 5);
-        ctx.textAlign = "left";
-      }
-    });
-
-    // ── 学习状态简析区 ────────────────────────────────────────────────────────
-    const infoY = 1020;
-    ctx.strokeStyle = T.cardBorder;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(32, infoY - 14);
-    ctx.lineTo(W - 32, infoY - 14);
-    ctx.stroke();
-
-    // 四格小统计卡（对应分析区的 AnalysisCard）
-    const miniCards = [
-      { label: "活跃天数", value: `${activeDays || 0} 天`, bg: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.18)", color: "#047857" },
-      { label: "收藏词汇", value: `${vocabCount || 0} 个`, bg: "rgba(236,72,153,0.10)", border: "rgba(236,72,153,0.16)", color: "#be185d" },
-      { label: "偏好方向", value: topTopic ? (topTopic.length > 5 ? topTopic.slice(0, 5) + "…" : topTopic) : "继续学习", bg: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.16)", color: "#3730a3" },
-      { label: "连续天数", value: `${streakDays || 0} 天`, bg: "rgba(251,146,60,0.12)", border: "rgba(251,146,60,0.20)", color: "#c2410c" },
-    ];
-
-    const miniW = (W - 64 - 30) / 4;
-    miniCards.forEach((mc, i) => {
-      const mx = 32 + i * (miniW + 10);
-      const my = infoY;
-      roundRect(ctx, mx, my, miniW, 72, 16);
-      ctx.fillStyle = mc.bg;
-      ctx.fill();
-      ctx.strokeStyle = mc.border;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.font = "bold 20px sans-serif";
-      ctx.fillStyle = mc.color;
-      ctx.textAlign = "center";
-      ctx.fillText(mc.value, mx + miniW / 2, my + 30);
-
-      ctx.font = "bold 11px sans-serif";
-      ctx.fillStyle = T.inkMuted;
-      ctx.fillText(mc.label, mx + miniW / 2, my + 56);
-      ctx.textAlign = "left";
-    });
-
-    // ── 底部品牌条（渐变暗色，与 ActionCard dark 风格一致） ──────────────────
-    roundRect(ctx, 32, H - 78, W - 64, 56, 18);
-    const footerGrad = ctx.createLinearGradient(32, 0, W - 32, 0);
-    footerGrad.addColorStop(0, "#0f172a");
-    footerGrad.addColorStop(0.48, "#312e81");
-    footerGrad.addColorStop(1, "#ec4899");
-    ctx.fillStyle = footerGrad;
-    ctx.fill();
-
-    ctx.font = "bold 22px sans-serif";
-    ctx.fillStyle = T.footerText;
-    ctx.textAlign = "center";
-    ctx.fillText("🌐 nailaobao.top", W / 2, H - 52);
-    ctx.font = "500 14px sans-serif";
-    ctx.fillStyle = T.footerSub;
-    ctx.fillText("油管英语场景库 · 场景输入 · 收藏沉淀 · 游戏练习", W / 2, H - 32);
-    ctx.textAlign = "left";
-
+    // 导出并打开弹窗
     const url = canvas.toDataURL("image/png");
     setPosterUrl(url);
     setGenerating(false);
@@ -609,72 +307,54 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
     if (!posterUrl) return;
     const a = document.createElement("a");
     a.href = posterUrl;
-    a.download = `英语手帐_${new Date().toISOString().slice(0, 10)}.png`;
+    a.download = `语感重塑日记_${new Date().toISOString().slice(0, 10)}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   }
 
-  // ─── 入口卡片（与 ActionCard dark 风格一致） ─────────────────────────────────
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
-
-      {/* 触发卡片 —— 深色渐变，与页面中 dark ActionCard 保持一致 */}
+      
+      {/* 入口按钮区域 */}
       <div
         style={{
-          padding: "20px 20px 18px",
-          borderRadius: 22,
-          background: "linear-gradient(135deg,#0f172a 0%,#312e81 48%,#ec4899 100%)",
-          color: "#fff",
-          boxShadow: "0 24px 60px rgba(79,70,229,0.24)",
+          padding: "22px",
+          borderRadius: 24,
+          background: "linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.85))",
+          border: "1px solid rgba(15,23,42,0.08)",
+          boxShadow: "0 18px 40px rgba(15,23,42,0.04)",
         }}
       >
-        <div style={{ fontSize: 26 }}>📸</div>
-        <div style={{ fontSize: 15, fontWeight: 1000, marginTop: 10 }}>生成学习打卡海报</div>
-        <div
-          style={{
-            fontSize: 12,
-            lineHeight: 1.7,
-            marginTop: 6,
-            color: "rgba(255,255,255,0.82)",
-          }}
-        >
-          把连续天数、场景视频、收藏词汇和本月日历合成一张明亮手账风格的打卡图，随手分享。
+        <div style={{ fontSize: 16, fontWeight: 1000, color: THEME.colors.ink }}>📸 生成专属成就卡</div>
+        <div style={{ fontSize: 13, lineHeight: 1.6, color: THEME.colors.faint, marginTop: 8 }}>
+          将你的学习轨迹转化为一张拥有高级光泽质感的数据海报，极其适合分享到朋友圈记录改变。
         </div>
         <button
           onClick={() => generate()}
           disabled={generating}
           style={{
-            marginTop: 14,
+            marginTop: 18,
             width: "100%",
-            padding: "11px 0",
-            borderRadius: 999,
+            padding: "16px 0",
+            borderRadius: 16,
             border: "none",
-            background: generating ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.96)",
-            color: generating ? "rgba(255,255,255,0.80)" : "#111827",
-            fontSize: 14,
+            background: generating ? "rgba(79,70,229,0.5)" : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+            color: "#ffffff",
+            fontSize: 15,
             fontWeight: 1000,
             cursor: generating ? "not-allowed" : "pointer",
-            boxShadow: generating ? "none" : "0 14px 30px rgba(2,6,23,0.18)",
-            transition: "all 200ms ease",
+            boxShadow: generating ? "none" : "0 12px 24px rgba(15,23,42,0.2)",
+            transition: "all 0.2s ease",
+            letterSpacing: "0.5px"
           }}
         >
-          {generating ? "⏳ 生成中..." : "立即生成 →"}
+          {generating ? "⏳ 潜心绘制中..." : "生成高清成就海报 ✦"}
         </button>
-        <div
-          style={{
-            marginTop: 10,
-            fontSize: 11,
-            color: "rgba(255,255,255,0.60)",
-            textAlign: "center",
-          }}
-        >
-          共 {POSTER_THEMES.length} 种手账风格，每次可切换主题
-        </div>
       </div>
 
-      {/* 弹窗 Modal */}
+      {/* 预览弹窗 */}
       {showModal && posterUrl && createPortal(
         <div
           onClick={() => setShowModal(false)}
@@ -682,143 +362,132 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, masteredCoun
             position: "fixed",
             inset: 0,
             zIndex: 9999,
-            background: "rgba(11,18,32,0.72)",
+            background: "rgba(15,23,42,0.8)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "12px",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
+            padding: "20px",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              // 手账页 Card 风格：白色圆角大卡
-              background: "linear-gradient(180deg,rgba(255,255,255,0.98) 0%,rgba(255,255,255,0.94) 100%)",
-              borderRadius: 28,
-              border: "1px solid rgba(15,23,42,0.08)",
-              boxShadow: "0 40px 120px rgba(15,23,42,0.18), 0 8px 30px rgba(15,23,42,0.08)",
-              padding: "20px 18px",
+              background: "#ffffff",
+              borderRadius: 32,
+              padding: "24px",
               width: "100%",
-              maxWidth: 500,
-              maxHeight: "94vh",
+              maxWidth: 460,
+              maxHeight: "92vh",
               overflowY: "auto",
+              boxShadow: "0 40px 100px rgba(0,0,0,0.5)",
               display: "flex",
               flexDirection: "column",
-              gap: 12,
-              boxSizing: "border-box",
+              gap: 20,
             }}
           >
-            {/* Modal Header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 10,
-              }}
-            >
+            {/* 弹窗 Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 1000, color: "#0b1220" }}>📸 今日打卡海报</div>
-                <div style={{ fontSize: 12, color: "rgba(11,18,32,0.45)", marginTop: 4, fontWeight: 800 }}>
-                  当前主题：{POSTER_THEMES[themeIdx].name}
+                <div style={{ fontSize: 20, fontWeight: 1000, color: "#0f172a" }}>🎉 你的专属记录</div>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 6, fontWeight: 800 }}>
+                  当前质感：<span style={{ color: "#4f46e5" }}>{POSTER_THEMES[themeIdx].name}</span>
                 </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 999,
-                  border: "1px solid rgba(15,23,42,0.12)",
-                  background: "rgba(15,23,42,0.05)",
+                  width: 38,
+                  height: 38,
+                  borderRadius: 12,
+                  border: "none",
+                  background: "rgba(241,245,249,1)",
                   cursor: "pointer",
-                  fontSize: 15,
+                  fontSize: 18,
                   color: "#64748b",
-                  display: "grid",
-                  placeItems: "center",
-                  flexShrink: 0,
+                  fontWeight: 900,
                 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* 海报预览图 */}
-            <img
-              src={posterUrl}
-              alt="打卡海报"
-              style={{
-                width: "100%",
-                borderRadius: 18,
-                display: "block",
-                border: "1px solid rgba(15,23,42,0.08)",
-                boxShadow: "0 8px 30px rgba(15,23,42,0.10)",
-                maxHeight: "58vh",
-                objectFit: "contain",
-              }}
-            />
-
-            {/* 提示文字 */}
+            {/* 海报缩略图 */}
             <div
               style={{
-                fontSize: 12,
-                color: "rgba(11,18,32,0.45)",
-                textAlign: "center",
-                fontWeight: 800,
-                padding: "6px 0",
+                borderRadius: 24,
+                padding: 8,
+                background: "rgba(248,250,252,1)",
+                border: "1px solid rgba(15,23,42,0.06)",
+                display: "flex",
+                justifyContent: "center",
               }}
             >
-              📱 手机长按保存 · 电脑点下方按钮下载
+              <img
+                src={posterUrl}
+                alt="打卡成就卡"
+                style={{
+                  width: "100%",
+                  maxHeight: "54vh",
+                  objectFit: "contain",
+                  borderRadius: 16,
+                  boxShadow: "0 12px 34px rgba(15,23,42,0.12)",
+                  display: "block",
+                }}
+              />
             </div>
 
-            {/* 操作按钮 */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", fontWeight: 800 }}>
+              📱 手机长按图片可直存相册，电脑端点击保存
+            </div>
+
+            {/* 操作按钮组 */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <button
                 onClick={handleDownload}
                 style={{
-                  padding: "12px 0",
-                  borderRadius: 999,
+                  padding: "16px 0",
+                  borderRadius: 18,
                   border: "none",
-                  background: "linear-gradient(135deg,#0f172a,#4f46e5)",
-                  color: "#fff",
-                  fontSize: 14,
+                  background: "linear-gradient(135deg, #0f172a, #4f46e5)",
+                  color: "#ffffff",
+                  fontSize: 15,
                   fontWeight: 1000,
                   cursor: "pointer",
-                  boxShadow: "0 14px 30px rgba(79,70,229,0.22)",
+                  boxShadow: "0 10px 20px rgba(79,70,229,0.2)"
                 }}
               >
-                ⬇️ 保存图片
+                ⬇️ 存入相册
               </button>
               <button
                 onClick={handleSwitchTheme}
                 style={{
-                  padding: "12px 0",
-                  borderRadius: 999,
-                  border: "1.5px solid rgba(15,23,42,0.12)",
-                  background: "rgba(255,255,255,0.90)",
-                  color: "#475569",
-                  fontSize: 14,
+                  padding: "16px 0",
+                  borderRadius: 18,
+                  border: "1.5px solid rgba(15,23,42,0.1)",
+                  background: "rgba(248,250,252,0.8)",
+                  color: "#334155",
+                  fontSize: 15,
                   fontWeight: 1000,
                   cursor: "pointer",
                 }}
               >
-                🎨 换个风格
+                🎨 切换质感
               </button>
             </div>
-
-            {/* 主题指示点 */}
+            
+            {/* 轮播指示器 */}
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
               {POSTER_THEMES.map((_, i) => (
                 <div
                   key={i}
                   style={{
-                    width: i === themeIdx ? 22 : 8,
+                    width: i === themeIdx ? 24 : 8,
                     height: 8,
                     borderRadius: 999,
-                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.14)",
-                    transition: "all 300ms ease",
+                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.1)",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   }}
                 />
               ))}
