@@ -336,7 +336,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
             title: "我的英语打卡海报",
             text: "用 nailaobao.top 生成的学习记录",
           });
-          setSaveMsg("✅ 已发送到系统分享，选择"存储到照片"即可");
+          setSaveMsg("已发送到系统分享，选择'存储到照片'即可保存");
           setSaving(false);
           return;
         } catch (e) {
@@ -578,8 +578,8 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
                   fontWeight: 700,
                 }}
               >
-                📱 <b>手机端</b>：点击"保存图片"按钮，系统会弹出分享菜单，选"存储到照片/相册"即可。<br />
-                💻 <b>电脑端</b>：点击"保存图片"按钮，图片会下载到本地。
+                📱 手机端：点击下方按钮，弹出分享菜单后选择存储到相册即可。<br />
+                💻 电脑端：点击下方按钮，图片会自动下载到本地。
               </div>
             )}
 
