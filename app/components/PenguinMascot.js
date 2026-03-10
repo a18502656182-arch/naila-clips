@@ -144,9 +144,11 @@ export default function PenguinMascot() {
     const dx = clientX - dragRef.current.startX;
     const dy = clientY - dragRef.current.startY;
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) isDragMove.current = true;
+    const size = minimized ? 28 : 72;
+    const sizeY = minimized ? 28 : 80;
     const newPos = {
-      left: Math.max(0, Math.min(dragRef.current.origLeft + dx, window.innerWidth - 72)),
-      top: Math.max(0, Math.min(dragRef.current.origTop + dy, window.innerHeight - 80)),
+      left: Math.max(0, Math.min(dragRef.current.origLeft + dx, window.innerWidth - size)),
+      top: Math.max(0, Math.min(dragRef.current.origTop + dy, window.innerHeight - sizeY)),
     };
     setPos(newPos);
   }
