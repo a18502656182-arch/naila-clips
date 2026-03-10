@@ -211,7 +211,7 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
         @media (max-width: 960px) {
           .row { grid-template-columns: 1fr 1fr; }
           .clearBtnDesktop { display: none; }
-          .clearBtnMobile { display: flex; justify-content: flex-end; margin-top: 10px; }
+          .clearBtnMobile { display: flex; align-items: flex-end; }
         }
       `}</style>
 
@@ -277,7 +277,7 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
             onSelectAll={(all) => update({ channel: all ? tax.channels.map((x) => x.slug) : [] })}
           />
 
-          {/* 电脑版：在 grid 第6格 */}
+          {/* 电脑版：grid 第6格；手机版：和视频频道同行右列 */}
           <div className="clearBtnDesktop">
             <button
               onClick={() => onFiltersChange({ sort: "newest", access: [], difficulty: [], topic: [], channel: [] })}
@@ -286,16 +286,14 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
               清空筛选
             </button>
           </div>
-        </div>
-
-        {/* 手机版：卡片右下角 */}
-        <div className="clearBtnMobile">
-          <button
-            onClick={() => onFiltersChange({ sort: "newest", access: [], difficulty: [], topic: [], channel: [] })}
-            className="clearBtn"
-          >
-            清空筛选
-          </button>
+          <div className="clearBtnMobile">
+            <button
+              onClick={() => onFiltersChange({ sort: "newest", access: [], difficulty: [], topic: [], channel: [] })}
+              className="clearBtn"
+            >
+              清空筛选
+            </button>
+          </div>
         </div>
       </div>
     </div>
