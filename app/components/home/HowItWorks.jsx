@@ -62,10 +62,12 @@ export default function HowItWorks() {
         .howTitle {
           font-size: 22px;
           font-weight: 900;
-          line-height: 1.2;
+          line-height: 1.3;
           color: #0f172a;
           letter-spacing: -0.02em;
         }
+        
+        .desktop-br { display: block; }
 
         .howSub {
           margin-top: 8px;
@@ -146,87 +148,94 @@ export default function HowItWorks() {
           .howTitle { max-width: 400px; }
         }
 
-        /* 📱 手机端极限压缩优化区 */
+        /* 📱 手机端极限压缩优化区：将占用空间压缩至半屏 */
         @media (max-width: 640px) {
-          .howWrap { padding: 20px 16px; border-radius: 24px; margin-top: 12px;}
-          .howHeader { margin-bottom: 12px; }
+          .howWrap { padding: 14px 16px; border-radius: 20px; margin-top: 10px; }
+          .howGrid { gap: 12px; }
           
-          /* 将整个 Grid 从 3列 改为 1列，并拉近上下距离 */
-          .stepsGrid { grid-template-columns: 1fr; gap: 10px; }
+          /* 头部在手机端变成横向流排版，消灭回车带来的大量空白 */
+          .howHeader { 
+            flex-direction: row; 
+            flex-wrap: wrap; 
+            align-items: center; 
+            gap: 6px; 
+            margin-bottom: 0;
+          }
+          .howBadge { margin-bottom: 0; padding: 2px 8px; font-size: 10px; }
+          .desktop-br { display: none; } /* 消除强制换行 */
+          .howTitle { font-size: 17px; margin-bottom: 0; line-height: 1.2; }
+          .howSub { font-size: 12px; margin-top: 2px; width: 100%; margin-bottom: 2px;}
+
+          .stepsGrid { grid-template-columns: 1fr; gap: 8px; }
           
-          /* 核心魔法：手机端将卡片内部强行转换为精简的横向 Grid 布局 */
+          /* 卡片在手机端被极限拍扁 */
           .stepCard {
             display: grid;
-            grid-template-columns: 44px 1fr; /* 左图 44px 宽，右边自适应 */
+            grid-template-columns: 32px 1fr; /* 左图极限缩减到 32px 宽 */
             grid-template-rows: auto auto;
             align-items: center;
-            column-gap: 12px;
-            row-gap: 4px;
-            padding: 12px 14px; /* 极简上下 Padding */
-            border-radius: 16px;
+            column-gap: 10px;
+            row-gap: 2px;
+            padding: 10px 12px; /* 内部留白收到最小 */
+            border-radius: 14px;
           }
 
-          /* 接管原本包裹 Icon 和 STEP 的 Header */
           .stepHeader {
             grid-column: 1;
-            grid-row: 1 / 3; /* 跨两行，类似左侧头像 */
+            grid-row: 1 / 3;
             margin-bottom: 0;
-            flex-direction: column; /* 图标在上，STEP 标在下 */
+            flex-direction: column;
             justify-content: center;
-            gap: 4px;
+            gap: 2px;
           }
 
-          /* 将标题移至右侧第一行 */
           .stepTitle {
             grid-column: 2;
             grid-row: 1;
             margin-bottom: 0;
-            font-size: 15px;
-            align-self: flex-end; /* 文字沉底对齐 */
+            font-size: 14px;
+            align-self: flex-end;
           }
 
-          /* 将描述移至右侧第二行 */
           .stepDesc {
             grid-column: 2;
             grid-row: 2;
-            font-size: 12px;
+            font-size: 11px;
             line-height: 1.4;
             align-self: flex-start;
           }
 
-          /* 精简内部元素大小 */
-          .stepIconWrapper { width: 34px; height: 34px; font-size: 16px; }
-          .stepIndex { font-size: 9px; letter-spacing: 0; }
+          .stepIconWrapper { width: 32px; height: 32px; font-size: 14px; }
+          .stepIndex { font-size: 9px; letter-spacing: 0; transform: scale(0.9); }
         }
       `}</style>
 
       <div className="howGrid">
-        {/* 左侧：精简文案区 */}
         <div className="howHeader">
-          <div className="howBadge">⚡ 核心学习法</div>
-          <h2 className="howTitle">三步闭环<br/>消化实境语料</h2>
+          <div className="howBadge">⚡ 核心功能闭环</div>
+          {/* 加入 desktop-br 类，确保电脑端折行，手机端不折行 */}
+          <h2 className="howTitle">三步闭环，<br className="desktop-br"/>消化实境语料</h2>
           <div className="howSub">摒弃无效播放，用最符合脑科学的方式重塑语感。</div>
         </div>
 
-        {/* 右侧：超紧凑的三联卡片 */}
         <div className="stepsGrid">
           <StepCard
             index="01"
             icon="🎧"
-            title="沉浸式盲听感知"
-            desc="脱离字幕舒适区，抓取真实语境，唤醒耳朵母语本能。"
+            title="实境视频盲听"
+            desc="看实境短片脱离字幕，抓取真实语速情绪，唤醒母语本能。"
           />
           <StepCard
             index="02"
             icon="✨"
-            title="语料级拆解精读"
-            desc="配合双语字幕与词汇卡片，将语音流切分为高频表达。"
+            title="双语字幕与词汇卡"
+            desc="开启交互双语字幕与卡片，将语音流切分为可复用的专属语料。"
           />
           <StepCard
             index="03"
-            icon="🎯"
-            title="肌肉记忆输出"
-            desc="二刷跟读复述结合手帐，将输入固化为脱口而出的直觉。"
+            icon="🎮"
+            title="游戏闯关与手帐"
+            desc="通过游戏闯关检测输出，结合数据手帐将沉淀的语料化为直觉。"
           />
         </div>
       </div>
