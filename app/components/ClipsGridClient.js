@@ -687,19 +687,19 @@ export default function ClipsGridClient({ allItems, filters }) {
       )}
 
       <style>{`
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-        .card { display: block; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+        .card { display: flex; flex-direction: column; border-radius: ${THEME.radii.lg}px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.surface}; box-shadow: ${THEME.colors.shadow}; overflow: hidden; text-decoration: none; color: inherit; transform: translateY(0); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
         .card:hover { transform: translateY(-1px); box-shadow: ${THEME.colors.shadowHover}; border-color: ${THEME.colors.border2}; }
-        .coverWrap { position: relative; width: 100%; height: 150px; background: rgba(11,18,32,0.06); overflow: hidden; }
+        .coverWrap { position: relative; width: 100%; aspect-ratio: 5/3; background: rgba(11,18,32,0.06); overflow: hidden; flex-shrink: 0; }
         .pillRow { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; align-items: center; z-index: 2; }
         .pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; border: none; }
         .pillFree { background: #10b981; color: #fff; }
         .pillVip { background: #7c3aed; color: #fff; }
         .duration { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: rgba(11,18,32,0.78); color: #fff; font-size: 12px; padding: 4px 6px; border-radius: 8px; }
-        .body { padding: 12px; }
+        .body { padding: 12px; flex: 1; display: flex; flex-direction: column; }
         .title { font-size: 15px; font-weight: 950; color: ${THEME.colors.ink}; line-height: 1.25; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .desc { font-size: 12.5px; color: ${THEME.colors.muted}; line-height: 1.5; margin: 0 0 10px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 38px; }
-        .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: ${THEME.colors.faint}; }
+        .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: ${THEME.colors.faint}; margin-top: auto; }
         .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; border: none; }
         .metaTagD { background: rgba(245,158,11,0.14); color: #92400e; }
         .metaTagT { background: rgba(99,102,241,0.12); color: #3730a3; }
@@ -708,6 +708,8 @@ export default function ClipsGridClient({ allItems, filters }) {
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
         .loadingOverlay { opacity: 0.45; pointer-events: none; transition: opacity 150ms ease; }
+        @media (max-width: 700px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+        @media (max-width: 400px) { .grid { grid-template-columns: 1fr; } }
       `}</style>
 
       <div>
