@@ -15,6 +15,16 @@ const nextConfig = {
         source: "/cf-img/:path*",
         destination: "https://imagedelivery.net/:path*",
       },
+      // Railway 后端在国内直连不稳定，走 Vercel 边缘节点转发
+      // 清空 NEXT_PUBLIC_API_BASE 环境变量后生效
+      {
+        source: "/api/:path*",
+        destination: "https://railway.nailaobao.top/api/:path*",
+      },
+      {
+        source: "/rsc-api/:path*",
+        destination: "https://railway.nailaobao.top/rsc-api/:path*",
+      },
     ];
   },
 
@@ -26,10 +36,6 @@ const nextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            // 解释：
-            // - 浏览器仍然 max-age=0（每次都会校验）
-            // - CDN/Vercel 边缘允许 s-maxage=30 复用
-            // - 允许 stale-while-revalidate，效果会非常接近参考站的 STALE
             value: "public, max-age=0, s-maxage=30, stale-while-revalidate=300",
           },
         ],
