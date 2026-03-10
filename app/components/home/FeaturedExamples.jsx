@@ -101,7 +101,7 @@ function FeaturedHoverMedia({ coverUrl, videoUrl, title }) {
 
   return (
     <div
-      style={{ position: "absolute", inset: 0 }}
+      style={{ position: "absolute", inset: 0, zIndex: 1 }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
@@ -231,6 +231,8 @@ export default function FeaturedExamples({ featured }) {
           style={{
             position: "absolute",
             inset: 0,
+            zIndex: 2,
+            pointerEvents: "none",
             background:
               "linear-gradient(180deg, rgba(8,15,30,0.06) 0%, rgba(8,15,30,0.00) 24%, rgba(8,15,30,0.56) 100%)",
           }}
