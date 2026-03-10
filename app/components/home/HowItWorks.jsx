@@ -27,13 +27,12 @@ export default function HowItWorks() {
           background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.98));
           border: 1px solid rgba(255,255,255,0.8);
           box-shadow: 0 14px 30px rgba(15,23,42,0.04);
-          padding: 24px 32px; /* 极度收紧外边距 */
+          padding: 24px 32px;
           backdrop-filter: blur(20px);
           position: relative;
           overflow: hidden;
         }
 
-        /* 全新的左右分栏布局，彻底消除上方大块空白，高度缩减一半 */
         .howGrid {
           display: grid;
           grid-template-columns: 260px 1fr;
@@ -79,12 +78,12 @@ export default function HowItWorks() {
         .stepsGrid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 16px; /* 卡片间距极致收缩 */
+          gap: 16px;
         }
 
         .stepCard {
           position: relative;
-          padding: 16px 18px; /* 大幅减小内部 Padding */
+          padding: 16px 18px;
           border-radius: 20px;
           background: #ffffff;
           border: 1px solid rgba(15,23,42,0.06);
@@ -141,18 +140,63 @@ export default function HowItWorks() {
         }
 
         @media (max-width: 960px) {
-          .howGrid { 
-            grid-template-columns: 1fr; /* 平板及以下恢复上下布局 */
-            gap: 20px; 
-          }
+          .howGrid { grid-template-columns: 1fr; gap: 20px; }
           .howWrap { padding: 24px 20px; }
           .howHeader { align-items: flex-start; }
           .howTitle { max-width: 400px; }
         }
 
+        /* 📱 手机端极限压缩优化区 */
         @media (max-width: 640px) {
-          .stepsGrid { grid-template-columns: 1fr; }
-          .howWrap { padding: 20px 16px; border-radius: 24px; }
+          .howWrap { padding: 20px 16px; border-radius: 24px; margin-top: 12px;}
+          .howHeader { margin-bottom: 12px; }
+          
+          /* 将整个 Grid 从 3列 改为 1列，并拉近上下距离 */
+          .stepsGrid { grid-template-columns: 1fr; gap: 10px; }
+          
+          /* 核心魔法：手机端将卡片内部强行转换为精简的横向 Grid 布局 */
+          .stepCard {
+            display: grid;
+            grid-template-columns: 44px 1fr; /* 左图 44px 宽，右边自适应 */
+            grid-template-rows: auto auto;
+            align-items: center;
+            column-gap: 12px;
+            row-gap: 4px;
+            padding: 12px 14px; /* 极简上下 Padding */
+            border-radius: 16px;
+          }
+
+          /* 接管原本包裹 Icon 和 STEP 的 Header */
+          .stepHeader {
+            grid-column: 1;
+            grid-row: 1 / 3; /* 跨两行，类似左侧头像 */
+            margin-bottom: 0;
+            flex-direction: column; /* 图标在上，STEP 标在下 */
+            justify-content: center;
+            gap: 4px;
+          }
+
+          /* 将标题移至右侧第一行 */
+          .stepTitle {
+            grid-column: 2;
+            grid-row: 1;
+            margin-bottom: 0;
+            font-size: 15px;
+            align-self: flex-end; /* 文字沉底对齐 */
+          }
+
+          /* 将描述移至右侧第二行 */
+          .stepDesc {
+            grid-column: 2;
+            grid-row: 2;
+            font-size: 12px;
+            line-height: 1.4;
+            align-self: flex-start;
+          }
+
+          /* 精简内部元素大小 */
+          .stepIconWrapper { width: 34px; height: 34px; font-size: 16px; }
+          .stepIndex { font-size: 9px; letter-spacing: 0; }
         }
       `}</style>
 
