@@ -1626,12 +1626,35 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       if (!token) { await new Promise(resolve => setTimeout(resolve, 400)); token = tokenRef.current; }
       try {
         setLoading(true);
-        const [meRes, vocabRes] = await Promise.all([authFetch(remote("/api/me")), authFetch(remote("/api/vocab_favorites"))]);
+        const requests = [authFetch(remote("/api/me")), authFetch(remote("/api/vocab_favorites"))];
+        if (token) requests.push(authFetch(remote("/api/game_scores")));
+        const [meRes, vocabRes, scoresRes] = await Promise.all(requests);
         const meJson = meRes.ok ? await meRes.json() : null;
         const vocabJson = vocabRes.ok ? await vocabRes.json() : { items: [] };
         if (cancelled) return;
         setMe(meJson);
         setVocabItems(Array.isArray(vocabJson?.items) ? vocabJson.items : []);
+        // 合并本地和后端分数，各取最高值
+        if (scoresRes && scoresRes.ok) {
+          try {
+            const scoresJson = await scoresRes.json();
+            const remoteScores = scoresJson?.scores || {};
+            const local = loadScores();
+            const merged = { ...local };
+            Object.entries(remoteScores).forEach(([gameId, remote]) => {
+              const localBest = Number(local[gameId]?.best || 0);
+              const remoteBest = Number(remote?.best || 0);
+              if (remoteBest > localBest) {
+                merged[gameId] = {
+                  best: remoteBest,
+                  last: local[gameId]?.last || remoteBest,
+                  playCount: Math.max(local[gameId]?.playCount || 0, remote?.playCount || 0),
+                };
+              }
+            });
+            setScores(merged);
+          } catch { /* 后端分数拉取失败，保持本地缓存 */ }
+        }
       } catch { if (!cancelled) { setMe(null); setVocabItems([]); } }
       finally { if (!cancelled) setLoading(false); }
     }
