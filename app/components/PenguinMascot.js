@@ -190,22 +190,20 @@ export default function PenguinMascot() {
 
   if (!pos) return null;
 
-  // 隐藏状态：右下角显示一个极小的点，点击可恢复
+  // 隐藏状态：右下角显示一个极小的点，点击可恢复，支持拖动
   if (minimized) {
     return (
       <button
-        onClick={() => {
-          setMinimized(false);
-          try { localStorage.removeItem(STORAGE_HIDDEN); } catch {}
-          show(getRandom(LINES.welcome));
-        }}
-        title="点击显示企鹅"
+        onMouseDown={onMouseDown}
+        onTouchStart={onTouchStart}
+        onClick={handleClick}
+        title="拖动可移位 · 点击显示企鹅"
         style={{
-          position: "fixed", right: 14, bottom: 14, zIndex: 9000,
+          position: "fixed", left: pos.left, top: pos.top, zIndex: 9000,
           width: 28, height: 28, borderRadius: "50%",
           background: "rgba(79,70,229,0.15)",
           border: "1px solid rgba(79,70,229,0.25)",
-          cursor: "pointer", fontSize: 14,
+          cursor: dragging ? "grabbing" : "grab", fontSize: 14,
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "none", padding: 0,
         }}
@@ -263,7 +261,7 @@ export default function PenguinMascot() {
 
         {/* 隐藏 */}
         {!minimized && !dragging && (
-          <button onClick={() => { setMinimized(true); setShowBubble(false); try { localStorage.setItem(STORAGE_HIDDEN, "1"); } catch {} }} style={{ fontSize: 10, color: "rgba(11,18,32,0.28)", background: "none", border: "none", cursor: "pointer", padding: "1px 4px", fontWeight: 600 }}>隐藏</button>
+          <button onClick={() => { setMinimized(true); setShowBubble(false); try { localStorage.setItem(STORAGE_HIDDEN, "1"); } catch {} }} style={{ fontSize: 10, color: "rgba(11,18,32,0.40)", background: "none", border: "none", cursor: "pointer", padding: "1px 4px", fontWeight: 900 }}>隐藏</button>
         )}
       </div>
     </>
