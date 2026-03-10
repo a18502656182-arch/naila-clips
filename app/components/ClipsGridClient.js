@@ -719,8 +719,10 @@ export default function ClipsGridClient({ allItems, filters }) {
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
-              // can_access=false 时直接拦截（不等 meLoaded），避免快速点击绕过跳转
-              const isBlocked = isVip && !r.can_access;
+              // can_access 由后端 /api/clips 返回时才可信；SSR 数据没有该字段
+              // 优先用 can_access（后端已算好），fallback 到 me.is_member
+              const canAccess = r.can_access != null ? r.can_access : (meLoaded ? !!me?.is_member : true);
+              const isBlocked = isVip && !canAccess;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
               const cardContent = (
