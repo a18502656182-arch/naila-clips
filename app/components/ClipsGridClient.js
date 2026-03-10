@@ -719,7 +719,8 @@ export default function ClipsGridClient({ allItems, filters }) {
           <div className="grid">
             {items.map((r) => {
               const isVip = r.access_tier === "vip";
-              const isBlocked = isVip && meLoaded && !me?.is_member && !r.can_access;
+              // can_access=false 时直接拦截（不等 meLoaded），避免快速点击绕过跳转
+              const isBlocked = isVip && !r.can_access;
               const duration = formatDuration(r.duration_sec);
               const dateStr = formatDate(r.created_at);
               const cardContent = (
