@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { THEME } from "../components/home/theme";
 import { remote, authFetch, formatDate, useIsMobile } from "./journalUtils";
 import { Card, SectionTitle } from "./JournalUI";
-import { OverviewPanel, TodayPlan, Heatmap, LearningAnalysis, ContinueLearning } from "./JournalPanels";
+import { OverviewPanel, TodayPlan, Heatmap, LearningAnalysis } from "./JournalPanels";
 import PosterGenerator from "./PosterGenerator";
 
 export default function Page({ accessToken }) {
@@ -290,11 +290,6 @@ export default function Page({ accessToken }) {
             gameSummary={gameSummary}
             isMobile={isMobile}
           />
-        </div>
-
-        {/* 继续学习：全宽独占一行 */}
-        <div style={{ marginTop: 14 }}>
-          <ContinueLearning isMobile={isMobile} />
         </div>
 
         {/* 海报生成器：全宽独占一行，内部横向布局 */}
