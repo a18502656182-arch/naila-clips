@@ -355,141 +355,42 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     setSaving(false);
   }
 
-  // ─── UI：全宽两列，左大字标语，右主题+按钮 ──────────────────────────────────
   return (
     <div>
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "1fr 300px",
-          gap: 14,
-          alignItems: "stretch",
-        }}
-      >
-        {/* 左：标语 + 数据亮点 */}
-        <div
-          style={{
-            padding: "24px 26px",
-            borderRadius: 20,
-            background: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            gap: 20,
-            minHeight: 180,
-          }}
-        >
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(165,180,252,0.80)", letterSpacing: "1px" }}>
-              ENGLISH JOURNAL · 打卡海报
-            </div>
-            <div style={{ fontSize: 26, fontWeight: 1000, color: "#fff", marginTop: 10, lineHeight: 1.3 }}>
-              把学习数据变成<br />一张有分享欲的海报
-            </div>
-            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10, lineHeight: 1.7 }}>
-              连续天数 · 收藏词汇 · 打卡日历，合成 1080×1920 高清图，一键发朋友圈。
-            </div>
-          </div>
-
-          {/* 三项核心数据预览 */}
-          <div style={{ display: "flex", gap: 10 }}>
-            {[
-              { val: streakDays || 0, label: "连续天" },
-              { val: vocabCount || 0, label: "收藏词" },
-              { val: activeDays || 0, label: "活跃天" },
-            ].map((s) => (
-              <div
-                key={s.label}
-                style={{
-                  flex: 1,
-                  padding: "10px 0",
-                  borderRadius: 14,
-                  background: "rgba(255,255,255,0.08)",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  textAlign: "center",
-                }}
-              >
-                <div style={{ fontSize: 28, fontWeight: 1000, color: "#a5b4fc", lineHeight: 1 }}>
-                  {s.val}
-                </div>
-                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.50)", marginTop: 6 }}>
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 右：主题卡 + 生成按钮 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* 主题指示卡 */}
-          <div
-            style={{
-              flex: 1,
-              padding: "18px 20px",
-              borderRadius: 20,
-              background: "rgba(99,102,241,0.07)",
-              border: "1px solid rgba(99,102,241,0.14)",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, color: THEME.colors.faint, letterSpacing: "0.8px" }}>
-                当前风格
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 1000, color: THEME.colors.ink, marginTop: 6 }}>
-                {POSTER_THEMES[themeIdx].name}
-              </div>
-              <div style={{ fontSize: 13, color: THEME.colors.muted, marginTop: 4 }}>
-                共 {POSTER_THEMES.length} 种风格可切换
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {POSTER_THEMES.map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: i === themeIdx ? 22 : 8,
-                    height: 8,
-                    borderRadius: 999,
-                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.14)",
-                    transition: "all 0.3s ease",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* 生成按钮 */}
-          <button
-            onClick={() => generate()}
-            disabled={generating}
-            style={{
-              width: "100%",
-              padding: "18px 0",
-              borderRadius: 16,
-              border: "none",
-              background: generating
-                ? "rgba(79,70,229,0.45)"
-                : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 1000,
-              cursor: generating ? "not-allowed" : "pointer",
-              boxShadow: generating ? "none" : "0 12px 28px rgba(15,23,42,0.22)",
-              transition: "all 0.2s ease",
-              letterSpacing: "0.3px",
-            }}
-          >
-            {generating ? "⏳ 生成中..." : "生成高清海报 ✦"}
-          </button>
+      {/* 风格指示行 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 800 }}>
+          当前风格：{POSTER_THEMES[themeIdx].name}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {POSTER_THEMES.map((_, i) => (
+            <div key={i} style={{ width: i === themeIdx ? 20 : 8, height: 8, borderRadius: 999, background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.14)", transition: "all 0.3s ease" }} />
+          ))}
         </div>
       </div>
+
+      {/* 生成按钮 */}
+      <button
+        onClick={() => generate()}
+        disabled={generating}
+        style={{
+          width: "100%",
+          padding: "16px 0",
+          borderRadius: 16,
+          border: "none",
+          background: generating ? "rgba(79,70,229,0.45)" : "linear-gradient(135deg, #0f172a 0%, #312e81 100%)",
+          color: "#fff",
+          fontSize: 15,
+          fontWeight: 1000,
+          cursor: generating ? "not-allowed" : "pointer",
+          boxShadow: generating ? "none" : "0 12px 28px rgba(15,23,42,0.20)",
+          transition: "all 0.2s ease",
+        }}
+      >
+        {generating ? "⏳ 生成中..." : "生成高清海报 ✦"}
+      </button>
 
       {/* ─── 预览弹窗 ─────────────────────────────────────────────────────── */}
       {showModal && posterUrl && createPortal(
