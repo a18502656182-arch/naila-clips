@@ -248,20 +248,26 @@ export default function Page({ accessToken }) {
                 现在这版手帐页只保留真实有效的学习数据：看视频、收藏词汇、活跃天数、学习偏好和游戏大厅入口，不再沿用旧考试系统的掌握判定。
               </div>
             </div>
-            <div
-              style={{
-                minWidth: isMobile ? "100%" : 180,
-                padding: "14px 14px",
-                borderRadius: 20,
-                background: "rgba(255,255,255,0.12)",
-                border: "1px solid rgba(255,255,255,0.18)",
-                textAlign: "center",
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
-              <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
-              <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
-            </div>
+            {isMobile ? (
+              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>
+                连续学习 <span style={{ fontSize: 20, fontWeight: 1000, opacity: 1 }}>{d.streak_days || 0}</span> 天
+              </div>
+            ) : (
+              <div
+                style={{
+                  minWidth: 180,
+                  padding: "14px 14px",
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
+                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
+                <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
+              </div>
+            )}
           </div>
         </div>
 
