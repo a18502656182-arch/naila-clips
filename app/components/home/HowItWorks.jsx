@@ -4,15 +4,17 @@ import { THEME } from "./theme";
 function StepCard({ index, title, desc, icon }) {
   return (
     <div className="stepCard">
-      <div className="stepHeader">
+      <div className="stepIconCol">
         <div className="stepIconWrapper">
           <span className="stepIcon">{icon}</span>
           <div className="stepGlow"></div>
         </div>
         <div className="stepIndex">STEP {index}</div>
       </div>
-      <h3 className="stepTitle">{title}</h3>
-      <p className="stepDesc">{desc}</p>
+      <div className="stepTextCol">
+        <h3 className="stepTitle">{title}</h3>
+        <p className="stepDesc">{desc}</p>
+      </div>
     </div>
   );
 }
@@ -40,6 +42,7 @@ export default function HowItWorks() {
           align-items: center;
         }
 
+        /* 电脑端头部排版 */
         .howHeader {
           display: flex;
           flex-direction: column;
@@ -65,8 +68,9 @@ export default function HowItWorks() {
           line-height: 1.3;
           color: #0f172a;
           letter-spacing: -0.02em;
+          margin: 0;
         }
-        
+
         .desktop-br { display: block; }
 
         .howSub {
@@ -83,6 +87,7 @@ export default function HowItWorks() {
           gap: 16px;
         }
 
+        /* 卡片基础排版（电脑端） */
         .stepCard {
           position: relative;
           padding: 16px 18px;
@@ -92,6 +97,8 @@ export default function HowItWorks() {
           box-shadow: 0 6px 20px rgba(15,23,42,0.02);
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           z-index: 1;
+          display: flex;
+          flex-direction: column;
         }
 
         .stepCard:hover {
@@ -100,7 +107,7 @@ export default function HowItWorks() {
           box-shadow: 0 12px 24px rgba(79,70,229,0.06);
         }
 
-        .stepHeader {
+        .stepIconCol {
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -127,11 +134,16 @@ export default function HowItWorks() {
           letter-spacing: 0.05em;
         }
 
+        .stepTextCol {
+          display: flex;
+          flex-direction: column;
+        }
+
         .stepTitle {
           font-size: 15px;
           font-weight: 900;
           color: #0f172a;
-          margin-bottom: 6px;
+          margin: 0 0 6px 0;
         }
 
         .stepDesc {
@@ -139,6 +151,7 @@ export default function HowItWorks() {
           line-height: 1.5;
           color: #64748b;
           font-weight: 500;
+          margin: 0;
         }
 
         @media (max-width: 960px) {
@@ -148,94 +161,77 @@ export default function HowItWorks() {
           .howTitle { max-width: 400px; }
         }
 
-        /* 📱 手机端极限压缩优化区：将占用空间压缩至半屏 */
+        /* 📱 手机端：极限压缩与绝对左对齐 */
         @media (max-width: 640px) {
-          .howWrap { padding: 14px 16px; border-radius: 20px; margin-top: 10px; }
-          .howGrid { gap: 12px; }
+          .howWrap { padding: 16px 16px; border-radius: 20px; margin-top: 10px; }
+          .howGrid { gap: 16px; }
           
-          /* 头部在手机端变成横向流排版，消灭回车带来的大量空白 */
+          /* 1. 解决黄框没对齐：强制改为上下堆叠，绝对靠左 */
           .howHeader { 
-            flex-direction: row; 
-            flex-wrap: wrap; 
-            align-items: center; 
+            flex-direction: column; 
+            align-items: flex-start; /* 完美左对齐 */
             gap: 6px; 
             margin-bottom: 0;
           }
-          .howBadge { margin-bottom: 0; padding: 2px 8px; font-size: 10px; }
-          .desktop-br { display: none; } /* 消除强制换行 */
-          .howTitle { font-size: 17px; margin-bottom: 0; line-height: 1.2; }
-          .howSub { font-size: 12px; margin-top: 2px; width: 100%; margin-bottom: 2px;}
+          .howBadge { margin: 0; padding: 4px 10px; font-size: 10px; }
+          .desktop-br { display: none; } 
+          .howTitle { font-size: 18px; margin: 0; line-height: 1.3; }
+          .howSub { font-size: 12px; margin: 0; }
 
-          .stepsGrid { grid-template-columns: 1fr; gap: 8px; }
+          .stepsGrid { grid-template-columns: 1fr; gap: 10px; }
           
-          /* 卡片在手机端被极限拍扁 */
+          /* 2. 解决卡片黄框没对齐：改为横向排版，并隐藏乱跑的 STEP 01 */
           .stepCard {
-            display: grid;
-            grid-template-columns: 32px 1fr; /* 左图极限缩减到 32px 宽 */
-            grid-template-rows: auto auto;
-            align-items: center;
-            column-gap: 10px;
-            row-gap: 2px;
-            padding: 10px 12px; /* 内部留白收到最小 */
-            border-radius: 14px;
+            flex-direction: row; /* 图标在左，文字在右 */
+            align-items: flex-start;
+            padding: 12px 14px; 
+            gap: 12px;
+            border-radius: 16px;
           }
 
-          .stepHeader {
-            grid-column: 1;
-            grid-row: 1 / 3;
-            margin-bottom: 0;
-            flex-direction: column;
-            justify-content: center;
-            gap: 2px;
+          .stepIconCol {
+            margin-bottom: 0; 
+            flex-shrink: 0; 
+          }
+          
+          /* 手机端直接隐藏 STEP 文字，让对齐变得无懈可击 */
+          .stepIndex { display: none; }
+
+          .stepTextCol {
+            gap: 4px;
+            padding-top: 2px;
           }
 
-          .stepTitle {
-            grid-column: 2;
-            grid-row: 1;
-            margin-bottom: 0;
-            font-size: 14px;
-            align-self: flex-end;
-          }
-
-          .stepDesc {
-            grid-column: 2;
-            grid-row: 2;
-            font-size: 11px;
-            line-height: 1.4;
-            align-self: flex-start;
-          }
-
-          .stepIconWrapper { width: 32px; height: 32px; font-size: 14px; }
-          .stepIndex { font-size: 9px; letter-spacing: 0; transform: scale(0.9); }
+          .stepTitle { font-size: 14px; margin: 0; }
+          .stepDesc { font-size: 11px; line-height: 1.5; margin: 0; }
         }
       `}</style>
 
       <div className="howGrid">
         <div className="howHeader">
-          <div className="howBadge">⚡ 核心功能闭环</div>
-          {/* 加入 desktop-br 类，确保电脑端折行，手机端不折行 */}
-          <h2 className="howTitle">三步闭环，<br className="desktop-br"/>消化实境语料</h2>
-          <div className="howSub">摒弃无效播放，用最符合脑科学的方式重塑语感。</div>
+          <div className="howBadge">💡 怎么学最有效？</div>
+          <h2 className="howTitle">一条短片的<br className="desktop-br"/>完整学习闭环</h2>
+          <div className="howSub">看懂不是目的，能张口说出来才是。</div>
         </div>
 
         <div className="stepsGrid">
           <StepCard
             index="01"
             icon="🎧"
-            title="实境视频盲听"
-            desc="看实境短片脱离字幕，抓取真实语速情绪，唤醒母语本能。"
+            title="原声视频找语感"
+            desc="看油管真实短片，先挑战一下不看字幕，在真实场景里感受老外怎么说话。"
           />
           <StepCard
             index="02"
             icon="✨"
-            title="双语字幕与词汇卡"
-            desc="开启交互双语字幕与卡片，将语音流切分为可复用的专属语料。"
+            title="精读查漏存单词"
+            desc="听不懂打开双语字幕。遇到好用的生词和表达，一键收藏到专属词汇本。"
           />
           <StepCard
             index="03"
             icon="🎮"
-            title="游戏闯关与手帐"
-            desc="通过游戏闯关检测输出，结合数据手帐将沉淀的语料化为直觉。"
+            title="玩闯关记手帐"
+            desc="光看不练假把式。去大厅把生词玩成通关游戏，最后在手帐打卡今日战绩。"
           />
         </div>
       </div>
