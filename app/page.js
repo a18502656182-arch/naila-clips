@@ -190,17 +190,7 @@ export default async function Page() {
         <div style={{ marginTop: 30 }}>
           <SectionTitle title="内容库" />
 
-          <div
-            style={{
-              marginTop: 14,
-              borderRadius: 24,
-              padding: 12,
-              background: "linear-gradient(180deg, rgba(255,255,255,0.72), rgba(255,255,255,0.50))",
-              border: `1px solid ${THEME.colors.border}`,
-              boxShadow: "0 18px 50px rgba(15,23,42,0.05)",
-              backdropFilter: "blur(12px)",
-            }}
-          >
+          <div style={{ marginTop: 14 }}>
             <Suspense
               fallback={
                 <div
