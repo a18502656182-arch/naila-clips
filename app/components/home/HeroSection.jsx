@@ -1,5 +1,7 @@
 // app/components/home/HeroSection.jsx
+"use client";
 import { THEME } from "./theme";
+import FeaturedExamples from "./FeaturedExamples";
 
 function MiniTag({ children }) {
   return (
@@ -34,8 +36,7 @@ function MiniTag({ children }) {
   );
 }
 
-export default function HeroSection({ children }) {
-  const featured = children?.[1] || null;
+export default function HeroSection({ featured }) {
 
   return (
     <section
@@ -350,7 +351,7 @@ export default function HeroSection({ children }) {
             <div className="heroNote">更适合想系统积累口语表达的人。</div>
           </div>
 
-          <div className="heroRight">{featured}</div>
+          <div className="heroRight"><FeaturedExamples featured={featured} /></div>
         </div>
       </div>
     </section>
