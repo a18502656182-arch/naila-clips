@@ -42,13 +42,14 @@ function SectionTitle({ emoji, title, sub, right }) {
     <div
       style={{
         display: "flex",
-        alignItems: "flex-start",
-        flexDirection: "column", alignItems: "center",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
         gap: 12,
         marginBottom: 16,
       }}
     >
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+      <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 10, minWidth: 0 }}>
         <div
           style={{
             width: 38,
@@ -63,12 +64,12 @@ function SectionTitle({ emoji, title, sub, right }) {
         >
           <span style={{ fontSize: 18 }}>{emoji}</span>
         </div>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 1000, color: THEME.colors.ink }}>{title}</div>
-          {sub ? <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 4 }}>{sub}</div> : null}
+          {sub ? <div style={{ fontSize: 12, color: THEME.colors.faint, marginTop: 3 }}>{sub}</div> : null}
         </div>
       </div>
-      {right ? <div>{right}</div> : null}
+      {right ? <div style={{ flexShrink: 0 }}>{right}</div> : null}
     </div>
   );
 }
@@ -85,10 +86,10 @@ function MiniStat({ label, value, hint, accent }) {
         boxShadow: "0 10px 30px rgba(15,23,42,0.05)",
         display: "flex",
         flexDirection: "column",
-        flexDirection: "column", alignItems: "center",
+        alignItems: "center",
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
         <div style={{ fontSize: 42, fontWeight: 1000, color: accent.color, lineHeight: 1 }}>{value}</div>
         <div
           style={{
