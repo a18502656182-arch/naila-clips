@@ -279,23 +279,9 @@ export default function BookmarksClient({ accessToken: ssrToken = null }) {
     </div>
   );
 
-  if (me !== null && !me.logged_in) {
-    return (
-      <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
-        {navBar}
-        <div style={{ maxWidth: 480, margin: "60px auto", padding: 16 }}>
-          <div style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.lg, background: THEME.colors.surface, padding: 28, textAlign: "center" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>🔒</div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: THEME.colors.ink, marginBottom: 8 }}>请先登录</div>
-            <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 20 }}>登录后即可查看收藏的视频和词汇</div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-              <a href="/login" style={{ padding: "10px 20px", borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border2}`, color: THEME.colors.ink, textDecoration: "none", fontSize: 13, fontWeight: 600 }}>去登录</a>
-              <a href="/register" style={{ padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.ink, color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>去注册</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  if (me !== null && (!me.logged_in || !me.is_member)) {
+    window.location.replace("/redeem");
+    return null;
   }
 
   return (
