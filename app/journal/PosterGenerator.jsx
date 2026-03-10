@@ -296,10 +296,9 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(blob);
       });
+      setGenerating(false);
+      setShowModal(true);
     }, "image/png", 1.0);
-    setGenerating(false);
-    setSaveMsg("");
-    setTimeout(() => setShowModal(true), 0);
   }
 
   async function handleSwitchTheme() {
