@@ -692,15 +692,18 @@ export default function ClipsGridClient({ allItems, filters }) {
         .card:hover { transform: translateY(-1px); box-shadow: ${THEME.colors.shadowHover}; border-color: ${THEME.colors.border2}; }
         .coverWrap { position: relative; width: 100%; height: 150px; background: rgba(11,18,32,0.06); overflow: hidden; }
         .pillRow { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; align-items: center; z-index: 2; }
-        .pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.82); color: ${THEME.colors.ink}; white-space: nowrap; backdrop-filter: blur(4px); }
-        .pillFree { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.15); color:#065f46; }
-        .pillVip { border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.15); color:#5b21b6; }
+        .pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; border: none; }
+        .pillFree { background: #10b981; color: #fff; }
+        .pillVip { background: #7c3aed; color: #fff; }
         .duration { position: absolute; right: 10px; bottom: 10px; z-index: 2; background: rgba(11,18,32,0.78); color: #fff; font-size: 12px; padding: 4px 6px; border-radius: 8px; }
         .body { padding: 12px; }
         .title { font-size: 15px; font-weight: 950; color: ${THEME.colors.ink}; line-height: 1.25; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .desc { font-size: 12.5px; color: ${THEME.colors.muted}; line-height: 1.5; margin: 0 0 10px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 38px; }
         .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: ${THEME.colors.faint}; }
-        .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; border: 1px solid ${THEME.colors.border}; background: ${THEME.colors.bg}; color: ${THEME.colors.faint}; white-space: nowrap; }
+        .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; border: none; }
+        .metaTagD { background: rgba(245,158,11,0.14); color: #92400e; }
+        .metaTagT { background: rgba(99,102,241,0.12); color: #3730a3; }
+        .metaTagC { background: rgba(6,182,212,0.13); color: #0e7490; }
         .foot { margin-top: 14px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; }
         .status { font-size: 13px; color: ${THEME.colors.faint}; padding: 10px 12px; border-radius: ${THEME.radii.md}px; border: 1px solid ${THEME.colors.border}; background: rgba(255,255,255,0.7); }
         .btn { padding: 9px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
@@ -744,12 +747,12 @@ export default function ClipsGridClient({ allItems, filters }) {
                     </p>
                     <div className="meta">
                       {dateStr ? <span>{dateStr}</span> : null}
-                      {r.difficulty ? <span className="metaTag">{r.difficulty}</span> : null}
+                      {r.difficulty ? <span className="metaTag metaTagD">{r.difficulty}</span> : null}
                       {(r.topics || []).map((t) => (
-                        <span key={t} className="metaTag">{t}</span>
+                        <span key={t} className="metaTag metaTagT">{t}</span>
                       ))}
                       {(r.channels || []).map((c) => (
-                        <span key={c} className="metaTag">{c}</span>
+                        <span key={c} className="metaTag metaTagC">{c}</span>
                       ))}
                     </div>
                   </div>
