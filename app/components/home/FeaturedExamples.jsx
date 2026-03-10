@@ -236,6 +236,7 @@ export default function FeaturedExamples({ featured }) {
           }}
         />
 
+        {/* 顶部标签区域 — zIndex:3 确保始终显示在媒体层之上 */}
         <div
           style={{
             position: "absolute",
@@ -247,6 +248,7 @@ export default function FeaturedExamples({ featured }) {
             alignItems: "flex-start",
             gap: 10,
             flexWrap: "wrap",
+            zIndex: 3,
           }}
         >
           <span
@@ -288,6 +290,7 @@ export default function FeaturedExamples({ featured }) {
           </div>
         </div>
 
+        {/* 底部信息区域 — zIndex:3 确保始终显示在媒体层之上 */}
         <div
           className="featuredHeroInfo"
           style={{
@@ -295,6 +298,7 @@ export default function FeaturedExamples({ featured }) {
             left: 16,
             right: 16,
             bottom: 16,
+            zIndex: 3,
           }}
         >
           <div
