@@ -6,7 +6,6 @@ import HomeClient from "./components/HomeClient";
 import UserMenuClient from "./components/UserMenuClient";
 import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
-import FeaturedExamples from "./components/home/FeaturedExamples";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 
@@ -178,10 +177,7 @@ export default async function Page() {
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
-        <HeroSection>
-          {null}
-          <FeaturedExamples featured={featured} />
-        </HeroSection>
+        <HeroSection featured={featured} />
 
         <div style={{ marginTop: 22 }}>
           <HowItWorks />
