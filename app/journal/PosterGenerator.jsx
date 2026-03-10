@@ -47,7 +47,7 @@ const FONT_FAMILY = `system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC"
 function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData, activeDays, isMobile }) {
   const canvasRef = useRef(null);
   const [generating, setGenerating] = useState(false);
-  const [posterUrl, setPosterUrl] = useState(null);
+  const [posterBlobUrl, setPosterBlobUrl] = useState(null); // blob: URL 给图片展示用（UC/夸克长按兼容）
   const [posterBlob, setPosterBlob] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [themeIdx, setThemeIdx] = useState(0);
@@ -292,9 +292,16 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     ctx.fillText("语境输入 · 词汇沉淀 · 习惯养成", W / 2, H - 65);
     ctx.textAlign = "left";
 
-    const url = canvas.toDataURL("image/png");
-    setPosterUrl(url);
-    canvas.toBlob((blob) => setPosterBlob(blob), "image/png");
+    // 生成 blob，再转成 blob: URL（比 data: URL 更兼容国内浏览器长按保存）
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      // 先清理旧的 blob URL
+      setPosterBlobUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setPosterBlob(blob);
+    }, "image/png", 1.0);
     setGenerating(false);
     setSaveMsg("");
     setTimeout(() => setShowModal(true), 0);
@@ -358,10 +365,10 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
       return;
     }
 
-    // 3. 最终兜底：dataURL
-    if (posterUrl) {
+    // 兜底：直接用 blobUrl 触发下载
+    if (posterBlobUrl) {
       const a = document.createElement("a");
-      a.href = posterUrl;
+      a.href = posterBlobUrl;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
@@ -409,7 +416,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
       </button>
 
       {/* ─── 预览弹窗：全屏图片，长按保存（兼容所有国内浏览器）──────────── */}
-      {showModal && posterUrl && createPortal(
+      {showModal && posterBlobUrl && createPortal(
         <div
           style={{
             position: "fixed",
@@ -487,20 +494,21 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
             👆 长按图片 → 选择"保存图片"即可存入相册
           </div>
 
-          {/* 图片主体：可滚动，图片足够大便于长按 */}
+          {/* 图片主体：blob: URL，UC/夸克/微信长按均可弹出保存菜单 */}
           <div
             style={{
               flex: 1,
               overflowY: "auto",
               display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "center",
-              padding: "12px",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "12px 12px 0",
               WebkitOverflowScrolling: "touch",
+              gap: 12,
             }}
           >
             <img
-              src={posterUrl}
+              src={posterBlobUrl}
               alt="打卡海报"
               style={{
                 width: "100%",
@@ -509,11 +517,32 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
                 display: "block",
                 userSelect: "none",
                 WebkitUserSelect: "none",
-                // 不设 maxHeight，让图片完整展示，便于长按任意位置
               }}
-              // 阻止默认拖拽，但不阻止长按上下文菜单
               onDragStart={(e) => e.preventDefault()}
             />
+
+            {/* 下载按钮兜底：UC等浏览器长按不行时点这个 */}
+            <a
+              href={posterBlobUrl}
+              download={`语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`}
+              style={{
+                display: "block",
+                width: "100%",
+                maxWidth: 480,
+                padding: "14px 0",
+                borderRadius: 16,
+                background: "linear-gradient(135deg, #0f172a, #312e81)",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 1000,
+                textAlign: "center",
+                textDecoration: "none",
+                boxSizing: "border-box",
+                marginBottom: 12,
+              }}
+            >
+              ⬇️ 下载到本地（长按不行时用这个）
+            </a>
           </div>
 
           {/* 底部主题指示点 */}
