@@ -1,6 +1,5 @@
-// pages/api/clip_full.js
-import { proxyCoverUrl } from "../../lib/imageUrl.js";
-import { createClient } from "@supabase/supabase-js";
+// api/clip_full.js (CommonJS for Railway/Node)
+const { createClient } = require("@supabase/supabase-js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
@@ -12,7 +11,7 @@ function getBearer(req) {
   return m ? m[1].trim() : null;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
 
@@ -40,17 +39,24 @@ export default async function handler(req, res) {
       user?.id
         ? admin.from("subscriptions").select("plan, expires_at, status")
             .eq("user_id", user.id).eq("status", "active")
-            .gt("expires_at", new Date().toISOString())
-            .order("expires_at", { ascending: false }).limit(1)
-        : Promise.resolve({ data: [], error: null }),
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (clipResult.error) return res.status(500).json({ error: "clip_query_failed", detail: clipResult.error.message });
     const clip = clipResult.data;
     if (!clip) return res.status(404).json({ error: "not_found" });
 
-    const subRow = subResult.data?.[0] || null;
-    const is_member = !!subRow;
+    const subRow = subResult.data || null;
+    const now = Date.now();
+    let is_member = false;
+    if (subRow?.status === "active") {
+      if (!subRow.expires_at) is_member = true;
+      else {
+        const endMs = new Date(subRow.expires_at).getTime();
+        if (!isNaN(endMs) && endMs > now) is_member = true;
+      }
+    }
     const can_access = clip.access_tier === "free" ? true : is_member;
 
     let details_json = detailResult.data?.details_json ?? null;
@@ -63,7 +69,7 @@ export default async function handler(req, res) {
       item: {
         id: clip.id, title: clip.title, description: clip.description,
         duration_sec: clip.duration_sec, access_tier: clip.access_tier,
-        cover_url: proxyCoverUrl(clip.cover_url), video_url: clip.video_url,
+        cover_url: clip.cover_url, video_url: clip.video_url,
         created_at: clip.created_at, difficulty_slug: clip.difficulty_slug || null,
         topic_slugs: clip.topic_slugs || [], channel_slugs: clip.channel_slugs || [],
         can_access,
@@ -74,4 +80,4 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({ error: "server_error", detail: String(e?.message || e) });
   }
-}
+};
