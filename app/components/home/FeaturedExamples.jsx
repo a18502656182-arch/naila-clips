@@ -61,8 +61,7 @@ function loadHlsJs() {
   return hlsJsPromise;
 }
 
-function FeaturedHoverMedia({ coverUrl, videoUrl, title }) {
-  const [hover, setHover] = useState(false);
+function FeaturedHoverMedia({ coverUrl, videoUrl, title, hover }) {
   const vref = useRef(null);
   const hlsRef = useRef(null);
 
@@ -100,11 +99,7 @@ function FeaturedHoverMedia({ coverUrl, videoUrl, title }) {
   const showVideo = hover && isPlayable(videoUrl);
 
   return (
-    <div
-      style={{ position: "absolute", inset: 0, zIndex: 1 }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
+    <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
       {coverUrl ? (
         <Image
           src={coverUrl} alt={title || ""} fill priority
@@ -139,6 +134,7 @@ function CoverPlaceholder() {
 }
 
 export default function FeaturedExamples({ featured }) {
+  const [hover, setHover] = useState(false);
   if (!featured?.id) {
     return (
       <div
@@ -210,6 +206,8 @@ export default function FeaturedExamples({ featured }) {
       <Link
         href={`/clips/${featured.id}`}
         className="featuredHeroCard"
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         style={{
           position: "relative",
           width: "100%",
@@ -225,7 +223,7 @@ export default function FeaturedExamples({ featured }) {
           background: "#dbe4f3",
         }}
       >
-        <FeaturedHoverMedia coverUrl={cover} videoUrl={featured.video_url} title={title} />
+        <FeaturedHoverMedia coverUrl={cover} videoUrl={featured.video_url} title={title} hover={hover} />
 
         <div
           style={{
