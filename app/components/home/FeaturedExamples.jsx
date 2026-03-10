@@ -1,6 +1,8 @@
 // app/components/home/FeaturedExamples.jsx
+"use client";
 import Link from "next/link";
 import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import { THEME } from "./theme";
 
 function formatDuration(sec) {
@@ -11,12 +13,13 @@ function formatDuration(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+// 标签：实色背景，和视频卡片保持一致
 function Pill({ children, tone = "neutral" }) {
   const map = {
-    neutral: { bg: "rgba(11,18,32,0.05)", fg: THEME.colors.ink, bd: THEME.colors.border },
-    free: { bg: "rgba(16,185,129,0.12)", fg: "#065f46", bd: "rgba(16,185,129,0.16)" },
-    vip: { bg: "rgba(124,58,237,0.12)", fg: "#5b21b6", bd: "rgba(124,58,237,0.18)" },
-    cyan: { bg: "rgba(6,182,212,0.10)", fg: "#155e75", bd: "rgba(6,182,212,0.16)" },
+    neutral: { bg: "rgba(11,18,32,0.72)", fg: "#fff", bd: "transparent" },
+    free:    { bg: "#10b981", fg: "#fff", bd: "transparent" },
+    vip:     { bg: "#7c3aed", fg: "#fff", bd: "transparent" },
+    cyan:    { bg: "rgba(6,182,212,0.85)", fg: "#fff", bd: "transparent" },
   };
   const t = map[tone] || map.neutral;
 
@@ -30,13 +33,93 @@ function Pill({ children, tone = "neutral" }) {
         background: t.bg,
         color: t.fg,
         fontSize: 12,
-        fontWeight: 700,
+        fontWeight: 800,
         border: `1px solid ${t.bd}`,
         whiteSpace: "nowrap",
       }}
     >
       {children}
     </span>
+  );
+}
+
+function isHls(url) { return typeof url === "string" && url.includes(".m3u8"); }
+function isPlayable(url) { return typeof url === "string" && url.length > 0; }
+
+let hlsJsPromise = null;
+function loadHlsJs() {
+  if (hlsJsPromise) return hlsJsPromise;
+  hlsJsPromise = new Promise((resolve) => {
+    if (typeof window === "undefined") return resolve(null);
+    if (window.Hls) return resolve(window.Hls);
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js";
+    script.onload = () => resolve(window.Hls || null);
+    script.onerror = () => resolve(null);
+    document.head.appendChild(script);
+  });
+  return hlsJsPromise;
+}
+
+function FeaturedHoverMedia({ coverUrl, videoUrl, title }) {
+  const [hover, setHover] = useState(false);
+  const vref = useRef(null);
+  const hlsRef = useRef(null);
+
+  useEffect(() => {
+    const v = vref.current;
+    if (!v) return;
+    if (!hover) {
+      try {
+        if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+        v.pause(); v.removeAttribute("src"); v.load();
+      } catch {}
+      return;
+    }
+    if (!isPlayable(videoUrl)) return;
+    v.muted = true; v.playsInline = true; v.loop = true;
+    if (isHls(videoUrl)) {
+      loadHlsJs().then((Hls) => {
+        if (!Hls) {
+          if (v.canPlayType("application/vnd.apple.mpegurl")) { v.src = videoUrl; v.play().catch(() => {}); }
+          return;
+        }
+        if (!Hls.isSupported() || !vref.current) return;
+        const hls = new Hls({ enableWorker: false, lowLatencyMode: true, maxBufferLength: 8, maxMaxBufferLength: 15 });
+        hlsRef.current = hls;
+        hls.loadSource(videoUrl); hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+        hls.on(Hls.Events.ERROR, (_, data) => { if (data.fatal) { hls.destroy(); hlsRef.current = null; } });
+      });
+    } else {
+      try { v.src = videoUrl; v.currentTime = 0; v.play().catch(() => {}); } catch {}
+    }
+    return () => { try { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } } catch {} };
+  }, [hover, videoUrl]);
+
+  const showVideo = hover && isPlayable(videoUrl);
+
+  return (
+    <div
+      style={{ position: "absolute", inset: 0 }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      {coverUrl ? (
+        <Image
+          src={coverUrl} alt={title || ""} fill priority
+          sizes="(max-width: 960px) 100vw, 460px"
+          style={{ objectFit: "cover", transition: "opacity 200ms ease", opacity: showVideo ? 0 : 1 }}
+        />
+      ) : (
+        <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
+      )}
+      <video
+        ref={vref}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: showVideo ? 1 : 0, transition: "opacity 200ms ease", pointerEvents: "none" }}
+        preload="none" muted playsInline loop
+      />
+    </div>
   );
 }
 
@@ -142,20 +225,7 @@ export default function FeaturedExamples({ featured }) {
           background: "#dbe4f3",
         }}
       >
-        <div style={{ position: "absolute", inset: 0 }}>
-          {cover ? (
-            <Image
-              src={cover}
-              alt={title}
-              fill
-              sizes="(max-width: 960px) 100vw, 460px"
-              style={{ objectFit: "cover" }}
-              priority
-            />
-          ) : (
-            <CoverPlaceholder />
-          )}
-        </div>
+        <FeaturedHoverMedia coverUrl={cover} videoUrl={featured.video_url} title={title} />
 
         <div
           style={{
