@@ -453,7 +453,7 @@ function BookmarkBtn({ clipId, saved, loggedIn, onNeedLogin, onToggle }) {
     e.preventDefault();
     e.stopPropagation();
     if (!loggedIn) {
-      onNeedLogin();
+      window.location.href = "/redeem";
       return;
     }
     if (loading) return;
