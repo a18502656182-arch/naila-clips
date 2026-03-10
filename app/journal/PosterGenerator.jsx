@@ -304,45 +304,61 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
     await generate((themeIdx + 1) % POSTER_THEMES.length);
   }
 
+  // 实时从 canvas 获取 blob，不依赖提前存好的状态
+  function getCanvasBlob() {
+    return new Promise((resolve) => {
+      canvasRef.current.toBlob((blob) => resolve(blob), "image/png", 1.0);
+    });
+  }
+
   async function handleSave() {
-    if (!posterBlob && !posterUrl) return;
     setSaving(true);
     setSaveMsg("");
     const filename = `语境重塑记录_${new Date().toISOString().slice(0, 10)}.png`;
 
-    // 1. Web Share API（iOS / Android 原生分享到相册）
-    if (navigator.canShare && posterBlob) {
-      const file = new File([posterBlob], filename, { type: "image/png" });
+    // 实时生成 blob（避免异步时序问题）
+    const blob = await getCanvasBlob();
+
+    // 1. iOS Safari 14+ / Android Chrome：Web Share API 弹出系统分享菜单
+    //    用户选"存储图像"/"存储到照片"即进相册
+    if (blob && navigator.canShare) {
+      const file = new File([blob], filename, { type: "image/png" });
       if (navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: "我的英语打卡海报" });
-          setSaveMsg("已打开系统分享，选择存储到相册即可保存");
+          setSaveMsg("✓ 已打开系统分享菜单，请选择存储到照片");
           setSaving(false);
           return;
         } catch (e) {
-          // 用户取消，继续走下一步
+          if (e.name === "AbortError") {
+            // 用户主动取消分享，不算失败
+            setSaving(false);
+            return;
+          }
+          // 其他错误，继续走下载方案
         }
       }
     }
 
-    // 2. Blob URL 下载（Android / 桌面端）
-    if (posterBlob) {
-      try {
-        const blobUrl = URL.createObjectURL(posterBlob);
-        const a = document.createElement("a");
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
+    // 2. 下载方案（Android / 桌面）
+    if (blob) {
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-        setSaveMsg("图片已下载，请在下载文件夹中查找");
-        setSaving(false);
-        return;
-      } catch (e) {}
+        URL.revokeObjectURL(blobUrl);
+      }, 3000);
+      setSaveMsg("✓ 已发起下载，请在下载文件夹中查找");
+      setSaving(false);
+      return;
     }
 
-    // 3. 兜底 dataURL
+    // 3. 最终兜底：dataURL
     if (posterUrl) {
       const a = document.createElement("a");
       a.href = posterUrl;
@@ -350,7 +366,7 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setSaveMsg("图片已下载，请在下载文件夹中查找");
+      setSaveMsg("✓ 已发起下载，请在下载文件夹中查找");
     }
     setSaving(false);
   }
@@ -392,131 +408,137 @@ function PosterGenerator({ me, streakDays, totalVideos, vocabCount, heatmapData,
         {generating ? "⏳ 生成中..." : "生成高清海报 ✦"}
       </button>
 
-      {/* ─── 预览弹窗 ─────────────────────────────────────────────────────── */}
+      {/* ─── 预览弹窗：全屏图片，长按保存（兼容所有国内浏览器）──────────── */}
       {showModal && posterUrl && createPortal(
         <div
-          onClick={() => setShowModal(false)}
           style={{
             position: "fixed",
             inset: 0,
             zIndex: 9999,
-            background: "rgba(15,23,42,0.82)",
+            background: "#000",
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
+            flexDirection: "column",
+            alignItems: "stretch",
           }}
         >
+          {/* 顶部操作栏 */}
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#ffffff",
-              borderRadius: 32,
-              padding: "22px 20px",
-              width: "100%",
-              maxWidth: 400,
-              maxHeight: "92vh",
-              overflowY: "auto",
-              boxShadow: "0 40px 100px rgba(0,0,0,0.5)",
               display: "flex",
-              flexDirection: "column",
-              gap: 14,
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 20px",
+              background: "rgba(0,0,0,0.85)",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              flexShrink: 0,
             }}
           >
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 1000, color: "#0f172a" }}>海报已生成</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, fontWeight: 800 }}>
-                  风格：<span style={{ color: "#4f46e5" }}>{POSTER_THEMES[themeIdx].name}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{
-                  width: 36, height: 36,
-                  borderRadius: 12,
-                  border: "none",
-                  background: "rgba(241,245,249,1)",
-                  cursor: "pointer",
-                  fontSize: 17,
-                  color: "#64748b",
-                  fontWeight: 900,
-                  flexShrink: 0,
-                }}
-              >✕</button>
-            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 20,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: "pointer",
+              }}
+            >
+              ← 返回
+            </button>
+            <span style={{ fontSize: 14, fontWeight: 1000, color: "#fff" }}>
+              {POSTER_THEMES[themeIdx].name}
+            </span>
+            <button
+              onClick={handleSwitchTheme}
+              disabled={generating}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 20,
+                border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.1)",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: generating ? "not-allowed" : "pointer",
+                opacity: generating ? 0.5 : 1,
+              }}
+            >
+              {generating ? "切换中..." : "换风格"}
+            </button>
+          </div>
 
-            <div style={{ borderRadius: 18, overflow: "hidden", background: "#f8fafc", border: "1px solid rgba(15,23,42,0.06)" }}>
-              <img
-                src={posterUrl}
-                alt="打卡海报"
-                style={{ width: "100%", maxHeight: "50vh", objectFit: "contain", display: "block" }}
+          {/* 长按提示横幅 */}
+          <div
+            style={{
+              textAlign: "center",
+              padding: "10px 16px",
+              background: "rgba(99,102,241,0.85)",
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 900,
+              letterSpacing: "0.3px",
+              flexShrink: 0,
+            }}
+          >
+            👆 长按图片 → 选择"保存图片"即可存入相册
+          </div>
+
+          {/* 图片主体：可滚动，图片足够大便于长按 */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: "auto",
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "center",
+              padding: "12px",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            <img
+              src={posterUrl}
+              alt="打卡海报"
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                borderRadius: 12,
+                display: "block",
+                userSelect: "none",
+                WebkitUserSelect: "none",
+                // 不设 maxHeight，让图片完整展示，便于长按任意位置
+              }}
+              // 阻止默认拖拽，但不阻止长按上下文菜单
+              onDragStart={(e) => e.preventDefault()}
+            />
+          </div>
+
+          {/* 底部主题指示点 */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 8,
+              padding: "14px 0 28px",
+              background: "rgba(0,0,0,0.85)",
+              flexShrink: 0,
+            }}
+          >
+            {POSTER_THEMES.map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: i === themeIdx ? 24 : 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: i === themeIdx ? "#fff" : "rgba(255,255,255,0.25)",
+                  transition: "all 0.3s ease",
+                }}
               />
-            </div>
-
-            {saveMsg ? (
-              <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.09)", border: "1px solid rgba(16,185,129,0.20)", fontSize: 13, color: "#065f46", fontWeight: 800 }}>
-                {saveMsg}
-              </div>
-            ) : (
-              <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(99,102,241,0.07)", border: "1px solid rgba(99,102,241,0.14)", fontSize: 12, color: "#3730a3", lineHeight: 1.7, fontWeight: 700 }}>
-                手机端：点击保存按钮，弹出系统分享后选择存储到相册。<br />
-                电脑端：点击保存按钮，图片自动下载到本地。
-              </div>
-            )}
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  padding: "14px 0",
-                  borderRadius: 18,
-                  border: "none",
-                  background: saving ? "rgba(79,70,229,0.5)" : "linear-gradient(135deg, #0f172a, #4f46e5)",
-                  color: "#fff",
-                  fontSize: 14,
-                  fontWeight: 1000,
-                  cursor: saving ? "not-allowed" : "pointer",
-                  boxShadow: saving ? "none" : "0 10px 20px rgba(79,70,229,0.22)",
-                }}
-              >
-                {saving ? "处理中..." : "保存图片"}
-              </button>
-              <button
-                onClick={handleSwitchTheme}
-                disabled={generating}
-                style={{
-                  padding: "14px 0",
-                  borderRadius: 18,
-                  border: "1.5px solid rgba(15,23,42,0.10)",
-                  background: "rgba(248,250,252,0.9)",
-                  color: "#334155",
-                  fontSize: 14,
-                  fontWeight: 1000,
-                  cursor: generating ? "not-allowed" : "pointer",
-                }}
-              >
-                {generating ? "切换中..." : "切换风格"}
-              </button>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: 8 }}>
-              {POSTER_THEMES.map((_, i) => (
-                <div
-                  key={i}
-                  style={{
-                    width: i === themeIdx ? 24 : 8,
-                    height: 8,
-                    borderRadius: 999,
-                    background: i === themeIdx ? "#4f46e5" : "rgba(15,23,42,0.10)",
-                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
-                  }}
-                />
-              ))}
-            </div>
+            ))}
           </div>
         </div>,
         document.body
