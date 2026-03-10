@@ -2,6 +2,7 @@
 
 // app/clips/[id]/ClipDetailClient.js
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Hls from "hls.js";
 import { THEME } from "../../components/home/theme";
@@ -322,6 +323,7 @@ function BookmarkLoginModal({ onClose }) {
 // ─── 主页面 ────────────────────────────────────────────────
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
   const isMobile = useIsMobile();
+  const router = useRouter();
 
   const [loading, setLoading] = useState(!initialItem);
   const [notFound, setNotFound] = useState(false);
@@ -404,6 +406,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
   }, [clipId]);
+
+  // 客户端验证完成后：vip视频无权限 → 直接跳兑换页
+  useEffect(() => {
+    if (checkingAccess) return;
+    if (item?.access_tier === "vip" && !item?.can_access) {
+      router.replace("/redeem");
+    }
+  }, [checkingAccess, item?.access_tier, item?.can_access]);
 
   // hls.js 处理 HLS 播放（手机 Chrome / 安卓等不支持原生 m3u8 的浏览器）
   const hlsRef = useRef(null);
