@@ -65,43 +65,9 @@ export default function Page({ accessToken }) {
     setLoading(false);
   }
 
-  if (!loading && (!me || !me.logged_in)) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          background: THEME.colors.bg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 8,
-        }}
-      >
-        <Card style={{ maxWidth: 420, textAlign: "center", padding: 28 }}>
-          <div style={{ fontSize: 52, marginBottom: 10 }}>📒</div>
-          <div style={{ fontSize: 18, fontWeight: 1000, color: THEME.colors.ink, marginBottom: 8 }}>我的英语手帐</div>
-          <div style={{ fontSize: 13, color: THEME.colors.muted, marginBottom: 18, lineHeight: 1.7 }}>
-            登录后查看你的学习总览、学习日历、收藏积累和海报生成器。
-          </div>
-          <a
-            href="/login"
-            style={{
-              display: "inline-block",
-              padding: "12px 34px",
-              background: "linear-gradient(135deg, rgba(15,23,42,1), rgba(99,102,241,0.95))",
-              color: "#fff",
-              borderRadius: 999,
-              textDecoration: "none",
-              fontSize: 14,
-              fontWeight: 1000,
-              boxShadow: "0 18px 40px rgba(2,6,23,0.18)",
-            }}
-          >
-            去登录
-          </a>
-        </Card>
-      </div>
-    );
+  if (!loading && (!me || !me.logged_in || !me.is_member)) {
+    if (typeof window !== "undefined") window.location.replace("/redeem");
+    return null;
   }
 
   if (loading) {
