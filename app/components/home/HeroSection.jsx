@@ -3,40 +3,24 @@
 import { THEME } from "./theme";
 import FeaturedExamples from "./FeaturedExamples";
 
-function MiniTag({ children }) {
+// 将原先的标签改为文本特征列表，避免和按钮视觉打架
+function FeatureItem({ children }) {
   return (
-    <span
+    <div
       style={{
-        display: "inline-flex",
+        display: "flex",
         alignItems: "center",
-        gap: 8,
-        padding: "8px 16px",
-        borderRadius: 999,
-        background: "rgba(255, 255, 255, 0.6)",
-        border: `1px solid rgba(255, 255, 255, 0.8)`,
-        color: THEME.colors.ink,
-        fontSize: 13,
-        fontWeight: 800,
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.4)",
-        transition: "transform 0.3s ease, box-shadow 0.3s ease",
-        cursor: "default",
+        gap: 6,
+        color: "#334155",
+        fontSize: 14,
+        fontWeight: 700,
       }}
-      className="heroMiniTag"
     >
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 999,
-          background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
-          boxShadow: "0 0 10px rgba(79, 70, 229, 0.4)",
-          flex: "0 0 auto",
-        }}
-      />
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
       {children}
-    </span>
+    </div>
   );
 }
 
@@ -73,22 +57,17 @@ export default function HeroSection({ featured }) {
         .orb-2 { bottom: -20%; right: -10%; width: 600px; height: 600px; background: rgba(6,182,212,0.3); animation-delay: -3s; }
         .orb-3 { top: 30%; left: 40%; width: 450px; height: 450px; background: rgba(236,72,153,0.25); animation-delay: -6s; }
 
-        .heroMiniTag:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08), inset 0 0 0 1px rgba(255, 255, 255, 0.6);
-        }
-
         .heroWrap {
           position: relative;
           z-index: 10;
-          padding: 40px 32px;
+          padding: 24px 32px; /* 减小上下空白，让内容更紧凑 */
           background: url('data:image/svg+xml;utf8,<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(15,23,42,0.03)"/></svg>') repeat;
         }
         
         .heroGrid {
           display: grid;
           grid-template-columns: minmax(0, 1fr) 480px;
-          gap: 40px;
+          gap: 32px; /* 略微减小左右间距 */
           align-items: center;
         }
 
@@ -101,14 +80,14 @@ export default function HeroSection({ featured }) {
         .heroEyebrow {
           display: inline-flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           width: fit-content;
-          padding: 8px 16px;
+          padding: 6px 14px;
           border-radius: 999px;
           background: rgba(255,255,255,0.6);
           border: 1px solid rgba(255,255,255,0.8);
           color: ${THEME.colors.accent};
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 900;
           letter-spacing: 0.1em;
           text-transform: uppercase;
@@ -117,8 +96,8 @@ export default function HeroSection({ featured }) {
         }
 
         .heroTitle {
-          margin: 24px 0 0;
-          font-size: 60px;
+          margin: 16px 0 0; /* 减小间距 */
+          font-size: 56px;
           line-height: 1.05;
           letter-spacing: -0.04em;
           font-weight: 900;
@@ -129,25 +108,25 @@ export default function HeroSection({ featured }) {
         }
 
         .heroDesc {
-          margin-top: 20px;
+          margin-top: 14px; /* 减小间距 */
           max-width: 520px;
           color: #475569;
-          font-size: 17px;
-          line-height: 1.8;
+          font-size: 16px;
+          line-height: 1.7;
           font-weight: 500;
         }
 
-        .heroTags {
-          margin-top: 28px;
+        .heroFeatures {
+          margin-top: 16px; /* 减小间距 */
           display: flex;
-          gap: 12px;
+          gap: 16px;
           flex-wrap: wrap;
         }
 
         .heroActions {
-          margin-top: 36px;
+          margin-top: 24px; /* 减小间距 */
           display: flex;
-          gap: 14px;
+          gap: 12px;
           flex-wrap: nowrap;
           align-items: center;
         }
@@ -157,21 +136,21 @@ export default function HeroSection({ featured }) {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          height: 54px;
-          padding: 0 28px;
+          height: 50px;
+          padding: 0 24px;
           border-radius: 999px;
           text-decoration: none;
           background: linear-gradient(135deg, #0f172a 0%, #312e81 100%);
           color: #fff;
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 900;
-          box-shadow: 0 12px 30px rgba(49, 46, 129, 0.25);
+          box-shadow: 0 12px 24px rgba(49, 46, 129, 0.25);
           white-space: nowrap;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .heroBtnPrimary:hover {
-          transform: translateY(-3px) scale(1.02);
-          box-shadow: 0 20px 40px rgba(49, 46, 129, 0.35);
+          transform: translateY(-2px) scale(1.02);
+          box-shadow: 0 16px 32px rgba(49, 46, 129, 0.35);
         }
 
         /* 玻璃质感次按钮 */
@@ -180,13 +159,13 @@ export default function HeroSection({ featured }) {
           align-items: center;
           justify-content: center;
           gap: 8px;
-          height: 54px;
-          padding: 0 24px;
+          height: 50px;
+          padding: 0 20px;
           border-radius: 999px;
           text-decoration: none;
           background: rgba(255, 255, 255, 0.7);
           color: ${THEME.colors.ink};
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 800;
           white-space: nowrap;
           backdrop-filter: blur(10px);
@@ -212,7 +191,7 @@ export default function HeroSection({ featured }) {
         }
 
         .heroNote {
-          margin-top: 20px;
+          margin-top: 16px; /* 减小间距 */
           color: #94a3b8;
           font-size: 13px;
           font-weight: 700;
@@ -237,33 +216,24 @@ export default function HeroSection({ featured }) {
           min-width: 0;
           position: relative;
         }
-        .heroRight::after {
-          content: '';
-          position: absolute;
-          inset: -20px;
-          background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
-          z-index: -1;
-          pointer-events: none;
-        }
 
         @media (max-width: 1180px) {
-          .heroGrid { grid-template-columns: minmax(0, 1fr) 420px; gap: 30px; }
-          .heroTitle { font-size: 48px; }
+          .heroGrid { grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; }
+          .heroTitle { font-size: 44px; }
         }
 
         @media (max-width: 960px) {
-          .heroWrap { padding: 32px 20px; }
-          .heroGrid { grid-template-columns: 1fr; gap: 30px; }
-          .heroTitle { font-size: 40px; margin-top: 20px; }
+          .heroWrap { padding: 24px 20px; }
+          .heroGrid { grid-template-columns: 1fr; gap: 24px; }
+          .heroTitle { font-size: 38px; margin-top: 16px; }
           .heroActions { flex-wrap: wrap; }
-          .heroRight::after { display: none; }
         }
 
         @media (max-width: 640px) {
-          .heroWrap { padding: 24px 16px; }
-          .heroTitle { font-size: 34px; }
-          .heroDesc { font-size: 15px; }
-          .heroBtnPrimary, .heroBtnJournal, .heroBtnGame { height: 48px; font-size: 14px; padding: 0 20px;}
+          .heroWrap { padding: 20px 16px; }
+          .heroTitle { font-size: 32px; }
+          .heroDesc { font-size: 14px; }
+          .heroBtnPrimary, .heroBtnJournal, .heroBtnGame { height: 46px; font-size: 13px; padding: 0 18px;}
         }
       `}</style>
 
@@ -289,10 +259,11 @@ export default function HeroSection({ featured }) {
               摒弃死记硬背。从全网精选的超清实境短片中提取高频语料，配合交互式双语字幕与动态卡片，让每一次观看都转化为真正的肌肉记忆。
             </div>
 
-            <div className="heroTags">
-              <MiniTag>实境短片流</MiniTag>
-              <MiniTag>动态双语字幕</MiniTag>
-              <MiniTag>高频语料库</MiniTag>
+            {/* 修改后的文本特征列表，彻底和底下的按钮区分开 */}
+            <div className="heroFeatures">
+              <FeatureItem>实境短片流</FeatureItem>
+              <FeatureItem>动态双语字幕</FeatureItem>
+              <FeatureItem>高频语料库</FeatureItem>
             </div>
 
             <div className="heroActions">
