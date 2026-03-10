@@ -534,12 +534,18 @@ export default function ClipsGridClient({ allItems, filters }) {
   useEffect(() => {
     fetchMeAndBookmarks();
     const supabase = createSupabaseBrowserClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        try { localStorage.removeItem("sb_access_token"); } catch {}
         setMe({ logged_in: false });
         setMeLoaded(true);
         setSavedMap({});
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        // ✅ 先把最新 token 同步到 localStorage，再调 fetchMe
+        // 否则 getToken() 可能读到旧 token，导致 is_member 判断错误
+        if (session?.access_token) {
+          try { localStorage.setItem("sb_access_token", session.access_token); } catch {}
+        }
         fetchMeAndBookmarks();
       }
     });
