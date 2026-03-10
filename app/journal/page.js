@@ -249,8 +249,10 @@ export default function Page({ accessToken }) {
               </div>
             </div>
             {isMobile ? (
-              <div style={{ fontSize: 13, opacity: 0.75, marginTop: 6 }}>
-                连续学习 <span style={{ fontSize: 20, fontWeight: 1000, opacity: 1 }}>{d.streak_days || 0}</span> 天
+              <div style={{ textAlign: "center", marginTop: 8 }}>
+                <div style={{ fontSize: 11, opacity: 0.86, fontWeight: 900 }}>当前状态</div>
+                <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 4 }}>{d.streak_days || 0} 天</div>
+                <div style={{ fontSize: 12, opacity: 0.88, marginTop: 4 }}>连续学习中</div>
               </div>
             ) : (
               <div
