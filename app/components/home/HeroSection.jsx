@@ -3,23 +3,14 @@
 import { THEME } from "./theme";
 import FeaturedExamples from "./FeaturedExamples";
 
-// 将原先的标签改为文本特征列表，避免和按钮视觉打架
+// 更新特征列表组件，添加了 className 方便手机端精准控制缩放
 function FeatureItem({ children }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        color: "#334155",
-        fontSize: 14,
-        fontWeight: 700,
-      }}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <div className="featureItem">
+      <svg className="featureIcon" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
-      {children}
+      <span className="featureText">{children}</span>
     </div>
   );
 }
@@ -37,7 +28,6 @@ export default function HeroSection({ featured }) {
       }}
     >
       <style>{`
-        /* 动感流光背景动画 */
         @keyframes floatBlob {
           0% { transform: translate(0, 0) scale(1); }
           33% { transform: translate(30px, -50px) scale(1.1); }
@@ -60,14 +50,14 @@ export default function HeroSection({ featured }) {
         .heroWrap {
           position: relative;
           z-index: 10;
-          padding: 24px 32px; /* 减小上下空白，让内容更紧凑 */
+          padding: 24px 32px;
           background: url('data:image/svg+xml;utf8,<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="2" cy="2" r="1" fill="rgba(15,23,42,0.03)"/></svg>') repeat;
         }
         
         .heroGrid {
           display: grid;
           grid-template-columns: minmax(0, 1fr) 480px;
-          gap: 32px; /* 略微减小左右间距 */
+          gap: 32px;
           align-items: center;
         }
 
@@ -96,7 +86,7 @@ export default function HeroSection({ featured }) {
         }
 
         .heroTitle {
-          margin: 16px 0 0; /* 减小间距 */
+          margin: 16px 0 0;
           font-size: 56px;
           line-height: 1.05;
           letter-spacing: -0.04em;
@@ -108,7 +98,7 @@ export default function HeroSection({ featured }) {
         }
 
         .heroDesc {
-          margin-top: 14px; /* 减小间距 */
+          margin-top: 14px;
           max-width: 520px;
           color: #475569;
           font-size: 16px;
@@ -116,22 +106,38 @@ export default function HeroSection({ featured }) {
           font-weight: 500;
         }
 
+        /* 特征列表的基础样式 (电脑端) */
         .heroFeatures {
-          margin-top: 16px; /* 减小间距 */
+          margin-top: 16px;
           display: flex;
           gap: 16px;
           flex-wrap: wrap;
         }
+        .featureItem {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .featureIcon {
+          width: 16px;
+          height: 16px;
+        }
+        .featureText {
+          color: #334155;
+          font-size: 14px;
+          font-weight: 700;
+          white-space: nowrap;
+        }
 
+        /* 按钮基础样式 (电脑端) */
         .heroActions {
-          margin-top: 24px; /* 减小间距 */
+          margin-top: 24px;
           display: flex;
           gap: 12px;
           flex-wrap: nowrap;
           align-items: center;
         }
 
-        /* 动感主按钮 */
         .heroBtnPrimary {
           display: inline-flex;
           align-items: center;
@@ -153,7 +159,6 @@ export default function HeroSection({ featured }) {
           box-shadow: 0 16px 32px rgba(49, 46, 129, 0.35);
         }
 
-        /* 玻璃质感次按钮 */
         .heroBtnJournal, .heroBtnGame {
           display: inline-flex;
           align-items: center;
@@ -191,7 +196,7 @@ export default function HeroSection({ featured }) {
         }
 
         .heroNote {
-          margin-top: 16px; /* 减小间距 */
+          margin-top: 16px;
           color: #94a3b8;
           font-size: 13px;
           font-weight: 700;
@@ -226,14 +231,43 @@ export default function HeroSection({ featured }) {
           .heroWrap { padding: 24px 20px; }
           .heroGrid { grid-template-columns: 1fr; gap: 24px; }
           .heroTitle { font-size: 38px; margin-top: 16px; }
-          .heroActions { flex-wrap: wrap; }
         }
 
+        /* 📱 手机端极限压缩优化区 */
         @media (max-width: 640px) {
           .heroWrap { padding: 20px 16px; }
-          .heroTitle { font-size: 32px; }
-          .heroDesc { font-size: 14px; }
-          .heroBtnPrimary, .heroBtnJournal, .heroBtnGame { height: 46px; font-size: 13px; padding: 0 18px;}
+          .heroTitle { font-size: 30px; line-height: 1.1; }
+          .heroDesc { font-size: 14px; margin-top: 12px; }
+          
+          /* 特征列表强制同行并缩小 */
+          .heroFeatures {
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            gap: 4px;
+            margin-top: 14px;
+          }
+          .featureItem { gap: 4px; }
+          .featureIcon { width: 14px; height: 14px; }
+          .featureText { font-size: 11px; }
+
+          /* 按钮强制同行并均分宽度 */
+          .heroActions {
+            flex-wrap: nowrap;
+            gap: 6px;
+            width: 100%;
+            margin-top: 18px;
+          }
+          .heroBtnPrimary, .heroBtnJournal, .heroBtnGame {
+            flex: 1; /* 平分空间，保证绝对一样大 */
+            height: 42px;
+            font-size: 11px;
+            padding: 0; /* 移除左右内边距由 flex 接管 */
+            gap: 4px;
+            letter-spacing: -0.2px;
+            border-width: 1px;
+          }
+          
+          .heroNote { font-size: 12px; margin-top: 12px; }
         }
       `}</style>
 
@@ -259,7 +293,6 @@ export default function HeroSection({ featured }) {
               摒弃死记硬背。从全网精选的超清实境短片中提取高频语料，配合交互式双语字幕与动态卡片，让每一次观看都转化为真正的肌肉记忆。
             </div>
 
-            {/* 修改后的文本特征列表，彻底和底下的按钮区分开 */}
             <div className="heroFeatures">
               <FeatureItem>实境短片流</FeatureItem>
               <FeatureItem>动态双语字幕</FeatureItem>
@@ -273,8 +306,9 @@ export default function HeroSection({ featured }) {
               <a href="/journal" className="heroBtnJournal">
                 📒 专属数据手帐
               </a>
+              {/* 改为游戏闯关 */}
               <a href="/practice" className="heroBtnGame">
-                🎮 语境闯关
+                🎮 游戏闯关
               </a>
             </div>
 
