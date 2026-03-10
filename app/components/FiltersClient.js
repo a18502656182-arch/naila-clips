@@ -205,7 +205,7 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
         .chipX { width: 18px; height: 18px; border-radius: 999px; display: grid; place-items: center; border: 1px solid rgba(11,18,32,0.14); background: rgba(255,255,255,0.75); cursor: pointer; font-size: 12px; color: ${THEME.colors.ink}; }
         .row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr; gap: 10px; align-items: end; }
         .select { padding: 8px 10px; border-radius: 12px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; color: ${THEME.colors.ink}; font-size: 13px; outline: none; width: 100%; }
-        .clearBtn { margin-top: 10px; padding: 7px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; }
+        .clearBtn { padding: 7px 12px; border-radius: 999px; border: 1px solid ${THEME.colors.border2}; background: ${THEME.colors.surface}; cursor: pointer; color: ${THEME.colors.ink}; font-size: 13px; width: 100%; }
         @media (max-width: 960px) { .row { grid-template-columns: 1fr 1fr; } }
       `}</style>
 
@@ -270,14 +270,17 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
             onToggle={(slug) => update({ channel: toggleInArray(filters.channel, slug) })}
             onSelectAll={(all) => update({ channel: all ? tax.channels.map((x) => x.slug) : [] })}
           />
-        </div>
 
-        <button
-          onClick={() => onFiltersChange({ sort: "newest", access: [], difficulty: [], topic: [], channel: [] })}
-          className="clearBtn"
-        >
-          清空筛选
-        </button>
+          {/* 清空筛选：桌面端紧跟第5列；手机端2列布局时自然落到左列，与上方对齐 */}
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
+            <button
+              onClick={() => onFiltersChange({ sort: "newest", access: [], difficulty: [], topic: [], channel: [] })}
+              className="clearBtn"
+            >
+              清空筛选
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
