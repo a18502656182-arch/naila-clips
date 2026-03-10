@@ -1776,6 +1776,12 @@ export default function PracticeClient({ accessToken: ssrToken }) {
     );
   }
 
+  // 已登录但非会员 → 跳兑换页（未登录保持原有锁定界面）
+  if (me?.logged_in && !me?.is_member) {
+    if (typeof window !== "undefined") window.location.replace("/redeem");
+    return null;
+  }
+
   const page = { minHeight: "100vh", background: THEME.colors.bg, color: THEME.colors.ink, padding: 14, boxSizing: "border-box" };
   const topBar = { maxWidth: 980, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 6px 14px" };
 
