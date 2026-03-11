@@ -862,7 +862,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [dragging, checkingAccess]);
+  }, [dragging, checkingAccess, videoReady]);
 
   function togglePlay() { const v = videoRef.current; if (!v) return; try { v.paused ? v.play?.() : v.pause?.(); } catch {} }
   function seekTo(t) { const v = videoRef.current; if (!v) return; try { v.currentTime = Math.max(0, Math.min(Number(t || 0), v.duration || 0)); } catch {} }
@@ -1155,16 +1155,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 {vPlaying ? "⏸" : "▶"}
               </button>
               <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
-              <div style={{ flex: 1 }}>
-                <input type="range" min={0} max={sliderMax || 0.000001} step="0.01" value={sliderVal}
-                  onPointerDown={() => { setDragging(true); setDragValue(sliderVal); }}
-                  onPointerUp={() => { setDragging(false); seekTo(dragValue); }}
-                  onChange={e => { const v = Number(e.target.value); setDragValue(v); seekTo(v); }}
-                  style={{ width: "100%" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>
-                  <span>{fmtSec(dragging ? dragValue : vCur)}</span><span>{fmtSec(vDur)}</span>
-                </div>
-              </div>
+
               <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "4px 2px", fontSize: 12, background: THEME.colors.surface, width: 52 }}>
                 {[0.75, 1, 1.25, 1.5, 2].map(r => <option key={r} value={r}>{r}x</option>)}
               </select>
