@@ -200,10 +200,10 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
   const [showReveal, setShowReveal] = useState(false); // 听写行眼睛开关
 
   return (
-    <div ref={rowRef} onClick={!isDictation ? onClick : undefined} role="button" tabIndex={0} style={{
+    <div ref={rowRef} onClick={onClick} role="button" tabIndex={0} style={{
       border: `1px solid ${active ? "#bfe3ff" : THEME.colors.border}`,
       background: active ? "#f3fbff" : THEME.colors.surface,
-      borderRadius: THEME.radii.md, padding: 12, cursor: isDictation ? "default" : "pointer",
+      borderRadius: THEME.radii.md, padding: 12, cursor: "pointer",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 12, color: THEME.colors.faint, whiteSpace: "nowrap" }}>
@@ -493,7 +493,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // ── 听写输入同步到当前句 ──
   useEffect(() => {
     if (subMode !== "dictation") return;
-    const saved = dictationMap[activeSegIdx]?.input_text || "";
+    const idx = activeSegIdx >= 0 ? activeSegIdx : 0;
+    const saved = dictationMap[idx]?.input_text || "";
     setDictInput(saved);
     setDictShowAnswer(false);
   }, [activeSegIdx, subMode]);
@@ -653,19 +654,18 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (v.src && v.src === url) return;
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
     if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
-      // 原生 HLS（Safari / Chrome 142+）：设置 src 后手动触发 play
+      // 原生 HLS（Safari / iOS）：直接设置 src，不强制 play（移动端需用户交互）
       v.src = url;
-      // 和参考站一样：loadedmetadata 后 play，避免 autoplay 拦截
-      v.addEventListener("loadedmetadata", () => v.play?.().catch(() => {}), { once: true });
+      v.load();
       return;
     }
     if (!Hls.isSupported()) { v.src = url; return; }
-    const hls = new Hls();
+    const hls = new Hls({ enableWorker: false });
     hlsRef.current = hls;
     hls.attachMedia(v);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-    // hls.js 路径：manifest 解析完成后触发 play
-    hls.on(Hls.Events.MANIFEST_PARSED, () => { v.play?.().catch(() => {}); });
+    // 不强制 autoplay，避免手机端被浏览器策略拦截导致页面报错
+    // 用户点击 controls 上的播放按钮即可开始播放
   }, []); // 空依赖，函数永不重建
 
   // video DOM 挂载时初始化一次
@@ -824,17 +824,24 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const el = rowRefs.current[activeSegIdx];
     const wrap = isMobile ? mobileListRef.current : desktopListRef.current;
     if (!el || !wrap) return;
-    // 用 getBoundingClientRect 算元素相对于滚动容器的真实位置
     const elRect = el.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
     const relativeTop = elRect.top - wrapRect.top + wrap.scrollTop;
-    // 移动端：高亮句子滚到列表顶部（留8px间距），不被吸顶区域遮挡
-    // 桌面端：保持居中逻辑
     const scrollTop = isMobile
       ? Math.max(0, relativeTop - 8)
       : Math.max(0, relativeTop - wrap.clientHeight * 0.35 + el.offsetHeight * 0.5);
     wrap.scrollTo({ top: scrollTop, behavior: "smooth" });
   }, [activeSegIdx, follow, isMobile]);
+
+  // ── 上一句 / 下一句 ──
+  function jumpToPrevSeg() {
+    const idx = Math.max(0, activeSegIdx <= 0 ? 0 : activeSegIdx - 1);
+    if (segments[idx]) jumpTo(segments[idx], idx);
+  }
+  function jumpToNextSeg() {
+    const idx = Math.min(segments.length - 1, activeSegIdx + 1);
+    if (segments[idx]) jumpTo(segments[idx], idx);
+  }
 
   useEffect(() => {
     const v = videoRef.current;
@@ -1075,33 +1082,34 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     </div>
   ) : null;
 
+  const dictSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
   const dictPanel = (
-    canAccess && subMode === "dictation" && activeSegIdx >= 0 && activeSegIdx < segments.length ? (
+    canAccess && subMode === "dictation" && segments.length > 0 ? (
       <div style={{ marginTop: 10, background: THEME.colors.surface, border: `2px solid ${THEME.colors.accent}`, borderRadius: THEME.radii.md, padding: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: THEME.colors.faint }}>
-          <span>{activeSegIdx + 1} / {segments.length}</span>
+          <span>{dictSegIdx + 1} / {segments.length}</span>
           <button type="button" style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: THEME.colors.faint }}
             onClick={() => setSubMode("bilingual")}>
             切换到跟读
           </button>
-          {dictationMap[activeSegIdx]?.updated_at && (
-            <span style={{ marginLeft: "auto" }}>上次听写：{new Date(dictationMap[activeSegIdx].updated_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+          {dictationMap[dictSegIdx]?.updated_at && (
+            <span style={{ marginLeft: "auto" }}>上次听写：{new Date(dictationMap[dictSegIdx].updated_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
           )}
         </div>
-        <textarea value={dictInput} onChange={e => { setDictInput(e.target.value); saveDictation(activeSegIdx, e.target.value); }}
+        <textarea value={dictInput} onChange={e => { setDictInput(e.target.value); saveDictation(dictSegIdx, e.target.value); }}
           placeholder="开始听写吧..." rows={3}
           style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "8px 10px", fontSize: 14, fontFamily: "monospace", resize: "vertical", background: THEME.colors.bg }} />
         {dictShowAnswer && (
           <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff5f5", borderRadius: THEME.radii.sm, border: "1px solid #fecaca" }}>
             <div style={{ fontSize: 11, color: THEME.colors.faint, marginBottom: 4 }}>字幕原文：</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", fontFamily: "monospace" }}>{segments[activeSegIdx]?.en}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", fontFamily: "monospace" }}>{segments[dictSegIdx]?.en}</div>
           </div>
         )}
         <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
           <button type="button" onClick={() => setDictShowAnswer(x => !x)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.sm, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
             {dictShowAnswer ? "关闭" : "查看原文"}
           </button>
-          {dictInput.trim() && <button type="button" onClick={() => { setDictInput(""); saveDictation(activeSegIdx, ""); }} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.sm, padding: "6px 14px", cursor: "pointer", fontSize: 13 }}>清空</button>}
+          {dictInput.trim() && <button type="button" onClick={() => { setDictInput(""); saveDictation(dictSegIdx, ""); }} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.sm, padding: "6px 14px", cursor: "pointer", fontSize: 13 }}>清空</button>}
         </div>
       </div>
     ) : null
@@ -1138,10 +1146,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
         {canAccess && (
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900, fontSize: 12, color: THEME.colors.ink }}>
                 {vPlaying ? "暂停" : "播放"}
               </button>
+              <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
+              <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
               <div style={{ flex: 1 }}>
                 <input type="range" min={0} max={sliderMax || 0.000001} step="0.01" value={sliderVal}
                   onPointerDown={() => { setDragging(true); setDragValue(sliderVal); }}
@@ -1191,6 +1201,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             {canAccess && (
               <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                 <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
+                <button type="button" onClick={jumpToPrevSeg} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: THEME.colors.ink }}>⏮ 上一句</button>
+                <button type="button" onClick={jumpToNextSeg} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: THEME.colors.ink }}>下一句 ⏭</button>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12, color: THEME.colors.faint }}>倍速</span>
                   <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "6px 8px", fontSize: 12, background: THEME.colors.surface }}>
