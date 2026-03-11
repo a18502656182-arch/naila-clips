@@ -192,27 +192,97 @@ function IconBtn({ title, onClick, active, children }) {
   );
 }
 
-function SubtitleRow({ seg, idx, active, onClick, showZh, rowRef, loopIdx, onToggleLoop, renderEn }) {
+// 普通双语/单语字幕行
+function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay }) {
+  const isDictation = subMode === "dictation";
+  const savedText = dictationMap?.[idx]?.input_text;
+  const savedAt = dictationMap?.[idx]?.updated_at;
+
   return (
-    <div ref={rowRef} onClick={onClick} role="button" tabIndex={0} style={{
+    <div ref={rowRef} onClick={!isDictation ? onClick : undefined} role="button" tabIndex={0} style={{
       border: `1px solid ${active ? "#bfe3ff" : THEME.colors.border}`,
       background: active ? "#f3fbff" : THEME.colors.surface,
-      borderRadius: THEME.radii.md, padding: 12, cursor: "pointer",
+      borderRadius: THEME.radii.md, padding: 12, cursor: isDictation ? "default" : "pointer",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ fontSize: 12, color: THEME.colors.faint, whiteSpace: "nowrap" }}>
           {fmtSec(seg.start)} – {fmtSec(seg.end)}
         </div>
-        <button type="button" onClick={e => { e.stopPropagation(); onToggleLoop(idx); }} style={{
-          border: `1px solid ${THEME.colors.border}`,
-          background: loopIdx === idx ? THEME.colors.ink : THEME.colors.surface,
-          color: loopIdx === idx ? "#fff" : THEME.colors.ink,
-          borderRadius: THEME.radii.pill, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer",
-        }}>循环</button>
+        {!isDictation && (
+          <button type="button" onClick={e => { e.stopPropagation(); onToggleLoop(idx); }} style={{
+            border: `1px solid ${THEME.colors.border}`,
+            background: loopIdx === idx ? THEME.colors.ink : THEME.colors.surface,
+            color: loopIdx === idx ? "#fff" : THEME.colors.ink,
+            borderRadius: THEME.radii.pill, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer",
+          }}>循环</button>
+        )}
+        {/* 录音按钮 */}
+        {!isDictation && (
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            {recording?.url && (
+              <button type="button" onClick={e => { e.stopPropagation(); onRecordPlay(idx); }} style={{
+                border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface,
+                borderRadius: THEME.radii.pill, padding: "3px 8px", fontSize: 11, cursor: "pointer",
+              }}>{recording.playing ? "⏹" : "▶"}</button>
+            )}
+            <button type="button" onClick={e => { e.stopPropagation(); onRecordToggle(idx); }} style={{
+              border: `1px solid ${recording?.recording ? "#ef4444" : THEME.colors.border}`,
+              background: recording?.recording ? "#fef2f2" : THEME.colors.surface,
+              color: recording?.recording ? "#ef4444" : THEME.colors.ink,
+              borderRadius: THEME.radii.pill, padding: "3px 8px", fontSize: 11, cursor: "pointer",
+            }}>{recording?.recording ? "⏺ 停止" : "🎙"}</button>
+          </div>
+        )}
       </div>
-      <div style={{ marginTop: 8, lineHeight: 1.55 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>
-        {showZh && <div style={{ marginTop: 6, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>}
+      {/* 听写模式：只显示 ... */}
+      {isDictation ? (
+        <div style={{ marginTop: 8, fontSize: 14, color: THEME.colors.faint }}>
+          {savedText ? (
+            <div>
+              <div style={{ fontSize: 13, color: THEME.colors.ink, fontWeight: 600 }}>{savedText}</div>
+              {savedAt && <div style={{ fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>上次听写：{new Date(savedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>}
+            </div>
+          ) : "..."}
+        </div>
+      ) : (
+        <div style={{ marginTop: 8, lineHeight: 1.55 }}>
+          {(subMode === "bilingual" || subMode === "en") && (
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>
+          )}
+          {(subMode === "bilingual" || subMode === "zh") && (
+            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 阅读/中译英行 — 显示主语言，点箭头展开另一语言
+function ReadingRow({ seg, idx, mode, renderEn, rowRef, onClick }) {
+  const [expanded, setExpanded] = useState(false);
+  // mode="reading": 主显英文，展开中文；mode="zh2en": 主显中文，展开英文
+  const primary = mode === "reading"
+    ? <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>
+    : <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
+  const secondary = mode === "reading"
+    ? <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
+    : <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>;
+
+  return (
+    <div ref={rowRef} style={{
+      borderBottom: `1px solid ${THEME.colors.border}`, padding: "10px 4px", cursor: "pointer",
+    }} onClick={onClick}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ fontSize: 12, color: THEME.colors.faint, minWidth: 28, paddingTop: 2 }}>{idx + 1}</div>
+        <div style={{ flex: 1 }}>
+          {primary}
+          {expanded && secondary}
+        </div>
+        <button type="button" onClick={e => { e.stopPropagation(); setExpanded(x => !x); }} style={{
+          border: "none", background: "transparent", cursor: "pointer",
+          fontSize: 14, color: THEME.colors.faint, paddingTop: 2, flexShrink: 0,
+        }}>{expanded ? "▲" : "▼"}</button>
       </div>
     </div>
   );
@@ -337,10 +407,22 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [showBookmarkLoginModal, setShowBookmarkLoginModal] = useState(false);
 
-  const [subLang, setSubLang] = useState("zh");
+  const [subMode, setSubMode] = useState("bilingual"); // bilingual | en | zh | dictation | reading | zh2en
   const [vocabOpen, setVocabOpen] = useState(false);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
+
+  // ── 听写 ──
+  const [dictationMap, setDictationMap] = useState({}); // { [seg_index]: { input_text, updated_at } }
+  const [dictInput, setDictInput] = useState("");
+  const [dictShowAnswer, setDictShowAnswer] = useState(false);
+  const dictSaveTimer = useRef(null);
+
+  // ── 录音（纯本地）──
+  const [recordings, setRecordings] = useState({}); // { [idx]: { url, blob, recording, playing } }
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const audioPlayerRef = useRef(null);
 
   const videoRef = useRef(null);
   const [videoReady, setVideoReady] = useState(0); // video元素挂载时递增，触发timeupdate重绑
@@ -364,6 +446,102 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     if (!me?.logged_in) return;
     apiFavList().then(set => setFavSet(set));
   }, [me?.logged_in]);
+
+  // ── 加载听写历史 ──
+  useEffect(() => {
+    if (!clipId || !me?.logged_in) return;
+    const token = getToken();
+    if (!token) return;
+    fetch(remote(`/api/dictation_list?clip_id=${clipId}`), {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(r => r.json()).then(d => {
+      if (d?.map) setDictationMap(d.map);
+    }).catch(() => {});
+  }, [clipId, me?.logged_in]);
+
+  // ── 听写输入同步到当前句 ──
+  useEffect(() => {
+    if (subMode !== "dictation") return;
+    const saved = dictationMap[activeSegIdx]?.input_text || "";
+    setDictInput(saved);
+    setDictShowAnswer(false);
+  }, [activeSegIdx, subMode]);
+
+  // ── 自动保存听写（防抖500ms）──
+  function saveDictation(segIdx, text) {
+    if (!me?.logged_in || !clipId) return;
+    clearTimeout(dictSaveTimer.current);
+    dictSaveTimer.current = setTimeout(async () => {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const r = await fetch(remote("/api/dictation_upsert"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ clip_id: clipId, seg_index: segIdx, input_text: text }),
+        });
+        const d = await r.json();
+        if (d?.ok) {
+          setDictationMap(prev => ({
+            ...prev,
+            [segIdx]: { input_text: text, updated_at: d.data?.updated_at || new Date().toISOString() },
+          }));
+        }
+      } catch {}
+    }, 500);
+  }
+
+  // ── 录音函数 ──
+  async function toggleRecording(idx) {
+    const cur = recordings[idx];
+    if (cur?.recording) {
+      // 停止录音
+      mediaRecorderRef.current?.stop();
+      return;
+    }
+    // 停止其他录音
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    // 停止其他播放
+    if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
+    setRecordings(prev => {
+      const next = {};
+      Object.keys(prev).forEach(k => { next[k] = { ...prev[k], recording: false, playing: false }; });
+      return { ...next, [idx]: { ...prev[idx], recording: true } };
+    });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
+      const mr = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setRecordings(prev => ({ ...prev, [idx]: { blob, url, recording: false, playing: false } }));
+      };
+      mr.start();
+    } catch {
+      setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], recording: false } }));
+    }
+  }
+
+  function togglePlayback(idx) {
+    const rec = recordings[idx];
+    if (!rec?.url) return;
+    if (rec.playing) {
+      audioPlayerRef.current?.pause();
+      setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+      return;
+    }
+    if (audioPlayerRef.current) { audioPlayerRef.current.pause(); }
+    const audio = new Audio(rec.url);
+    audioPlayerRef.current = audio;
+    setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], playing: true } }));
+    audio.onended = () => setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], playing: false } }));
+    audio.play();
+  }
 
   // SSR 已提供所有数据，客户端只需补充登录状态和精确的 can_access
   useEffect(() => {
@@ -780,7 +958,82 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     </>
   );
 
-  // ─── MOBILE LAYOUT ────────────────────────────────────────
+  // ─── helpers ──────────────────────────────────────────────
+  const subtitleList = (listRef, maxH) => {
+    const isReading = subMode === "reading" || subMode === "zh2en";
+    if (!segments.length) return (
+      <Card style={{ padding: 14 }}>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>
+          {details ? "暂无字幕段" : "暂无详情内容，上传字幕后即可显示。"}
+        </div>
+      </Card>
+    );
+    if (isReading) return (
+      <div ref={listRef} style={{ display: "flex", flexDirection: "column", maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
+        {segments.map((seg, idx) => (
+          <ReadingRow key={idx} seg={seg} idx={idx} mode={subMode}
+            renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }}
+            onClick={() => jumpTo(seg, idx)} />
+        ))}
+      </div>
+    );
+    return (
+      <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
+        {segments.map((seg, idx) => (
+          <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
+            subMode={subMode} onClick={() => jumpTo(seg, idx)}
+            loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
+            renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }}
+            dictationMap={dictationMap}
+            recording={recordings[idx]}
+            onRecordToggle={toggleRecording}
+            onRecordPlay={togglePlayback} />
+        ))}
+      </div>
+    );
+  };
+
+  const modeTabs = (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {[["bilingual","双语"],["en","英文"],["zh","中文"],["dictation","听写"],["reading","阅读"],["zh2en","中译英"]].map(([m, label]) => (
+        <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)}>{label}</Btn>
+      ))}
+    </div>
+  );
+
+  const dictPanel = (
+    canAccess && subMode === "dictation" && activeSegIdx >= 0 && activeSegIdx < segments.length ? (
+      <div style={{ marginTop: 10, background: THEME.colors.surface, border: `2px solid ${THEME.colors.accent}`, borderRadius: THEME.radii.md, padding: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 12, color: THEME.colors.faint }}>
+          <span>{activeSegIdx + 1} / {segments.length}</span>
+          <button type="button" style={{ marginLeft: "auto", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, color: THEME.colors.faint }}
+            onClick={() => setSubMode(subMode === "dictation" ? "reading" : "dictation")}>
+            切换到跟读
+          </button>
+          {dictationMap[activeSegIdx]?.updated_at && (
+            <span>上次听写：{new Date(dictationMap[activeSegIdx].updated_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+          )}
+        </div>
+        <textarea value={dictInput} onChange={e => { setDictInput(e.target.value); saveDictation(activeSegIdx, e.target.value); }}
+          placeholder="开始听写吧..." rows={3}
+          style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "8px 10px", fontSize: 14, fontFamily: "monospace", resize: "vertical", background: THEME.colors.bg }} />
+        {dictShowAnswer && (
+          <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff5f5", borderRadius: THEME.radii.sm, border: "1px solid #fecaca" }}>
+            <div style={{ fontSize: 11, color: THEME.colors.faint, marginBottom: 4 }}>字幕原文：</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", fontFamily: "monospace" }}>{segments[activeSegIdx]?.en}</div>
+          </div>
+        )}
+        <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
+          <button type="button" onClick={() => setDictShowAnswer(x => !x)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.sm, padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+            {dictShowAnswer ? "关闭" : "查看原文"}
+          </button>
+          {dictInput.trim() && <button type="button" onClick={() => { setDictInput(""); saveDictation(activeSegIdx, ""); }} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.sm, padding: "6px 14px", cursor: "pointer", fontSize: 13 }}>清空</button>}
+        </div>
+      </div>
+    ) : null
+  );
+
+  // ─── MOBILE LAYOUT ─────────────────────────────────────────
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
@@ -799,36 +1052,17 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               </div>
             )}
           </Card>
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <Btn active={subLang === "en"} onClick={() => setSubLang("en")}>EN</Btn>
-              <Btn active={subLang === "zh"} onClick={() => setSubLang("zh")}>中</Btn>
-            </div>
-            <button type="button" onClick={() => setVocabOpen(true)} style={{ marginLeft: "auto", border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "8px 12px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>查看词汇卡</button>
-          </div>
+          <div style={{ marginTop: 10 }}>{modeTabs}</div>
+          {dictPanel}
         </div>
 
         <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
-          {segments.length ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {segments.map((seg, idx) => (
-                <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
-                  showZh={subLang === "zh"} onClick={() => jumpTo(seg, idx)}
-                  loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
-                  renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }} />
-              ))}
-            </div>
-          ) : (
-            <Card style={{ padding: 14 }}>
-              <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>暂无字幕内容。</div>
-            </Card>
-          )}
+          {subtitleList(null, undefined)}
         </div>
 
         {canAccess && (
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
-            <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900, fontSize: 12, color: THEME.colors.ink }}>
                 {vPlaying ? "暂停" : "播放"}
               </button>
@@ -866,15 +1100,26 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     );
   }
 
-  // ─── DESKTOP LAYOUT ───────────────────────────────────────
+  // ─── DESKTOP LAYOUT ────────────────────────────────────────
   return (
     <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
       <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
       {navBar}
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "16px 16px 40px" }}>
+      {/* 全屏宽度，左右 padding */}
+      <div style={{ padding: "16px 24px 40px" }}>
+        {/* 模式切换栏 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+          {modeTabs}
+          {!vocabOpen
+            ? <button type="button" onClick={() => setVocabOpen(true)} style={{ marginLeft: "auto", border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
+            : <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "8px 14px", cursor: "pointer", fontSize: 12 }}>收起词汇卡</button>
+          }
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr 1fr" : "1.1fr 1fr", gap: 16, alignItems: "start" }}>
 
+          {/* 左列：视频 + 控制 + 听写面板 */}
           <Card style={{ padding: 14, position: "sticky", top: 70 }}>
             {videoOrGate(null)}
             {canAccess && (
@@ -888,38 +1133,19 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 </div>
               </div>
             )}
+            {dictPanel}
           </Card>
 
+          {/* 右列：字幕列表 */}
           <Card style={{ padding: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
-              <div style={{ display: "flex", gap: 6 }}>
-                <Btn active={subLang === "en"} onClick={() => setSubLang("en")}>EN</Btn>
-                <Btn active={subLang === "zh"} onClick={() => setSubLang("zh")}>中</Btn>
-              </div>
-              {!vocabOpen
-                ? <button type="button" onClick={() => setVocabOpen(true)} style={{ marginLeft: "auto", border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "8px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
-                : <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
-              }
+              <div style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
             </div>
-            {segments.length ? (
-              <div ref={desktopListRef} style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 560, overflow: "auto", paddingRight: 4 }}>
-                {segments.map((seg, idx) => (
-                  <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
-                    showZh={subLang === "zh"} onClick={() => jumpTo(seg, idx)}
-                    loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
-                    renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }} />
-                ))}
-              </div>
-            ) : (
-              <Card style={{ padding: 14 }}>
-                <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>
-                  {details ? "暂无字幕段" : "暂无详情内容，上传字幕后即可显示。"}
-                </div>
-              </Card>
-            )}
+            {subtitleList(desktopListRef, 560)}
           </Card>
 
+          {/* 词汇卡列 */}
           {vocabOpen && (
             <Card style={{ padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
