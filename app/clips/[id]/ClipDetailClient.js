@@ -653,8 +653,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     // 已经加载过同一个 url，不重复初始化
     if (v.src && v.src === url) return;
     if (hlsRef.current) { try { hlsRef.current.destroy(); } catch {} hlsRef.current = null; }
-    if (v.canPlayType("application/vnd.apple.mpegurl") || v.canPlayType("application/x-mpegURL")) {
-      // 原生 HLS（Safari / iOS）：直接设置 src，不强制 play（移动端需用户交互）
+    // 只有 iOS Safari 才走原生 HLS（UA 里有 Safari 但没有 Chrome/Android）
+    // 华为/安卓浏览器 canPlayType 也返回 maybe，但实际不支持原生 HLS，必须用 HLS.js
+    const ua = navigator.userAgent || "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    if (isIOS) {
       v.src = url;
       v.load();
       return;
@@ -664,8 +667,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     hlsRef.current = hls;
     hls.attachMedia(v);
     hls.on(Hls.Events.MEDIA_ATTACHED, () => hls.loadSource(url));
-    // 不强制 autoplay，避免手机端被浏览器策略拦截导致页面报错
-    // 用户点击 controls 上的播放按钮即可开始播放
   }, []); // 空依赖，函数永不重建
 
   // video DOM 挂载时初始化一次
