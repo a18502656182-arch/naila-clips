@@ -500,6 +500,17 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ── 自动保存听写（防抖500ms）──
   function saveDictation(segIdx, text) {
+    // 立即更新本地 dictationMap，让字幕列表实时显示输入内容
+    setDictationMap(prev => ({
+      ...prev,
+      [segIdx]: {
+        ...prev[segIdx],
+        input_text: text,
+        updated_at: prev[segIdx]?.updated_at || new Date().toISOString(),
+      },
+    }));
+
+    // 未登录时只更新本地，不保存后端
     if (!me?.logged_in || !clipId) return;
     clearTimeout(dictSaveTimer.current);
     dictSaveTimer.current = setTimeout(async () => {
@@ -513,6 +524,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         });
         const d = await r.json();
         if (d?.ok) {
+          // 用服务器返回的 updated_at 更新时间戳
           setDictationMap(prev => ({
             ...prev,
             [segIdx]: { input_text: text, updated_at: d.data?.updated_at || new Date().toISOString() },
