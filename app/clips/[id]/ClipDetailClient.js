@@ -566,11 +566,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       return;
     }
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    mediaRecorderRef.current = null; // 清空旧的 recorder，防止删除后重录时事件残留
+    audioChunksRef.current = [];
     if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
     setRecordings(prev => {
       const next = {};
       Object.keys(prev).forEach(k => { next[k] = { ...prev[k], recording: false, playing: false }; });
-      return { ...next, [idx]: { ...prev[idx], recording: true } };
+      return { ...next, [idx]: { recording: true } }; // 不继承旧state，干净开始
     });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -605,10 +607,21 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       const mimeType = rec.blob.type || "audio/webm";
       const seg = Array.isArray(details?.segments) ? details.segments[idx] : null;
       const duration_sec = seg ? (Number(seg.end || 0) - Number(seg.start || 0)) : null;
-      const res = await fetch(
-        remote(`/api/recording_save?clip_id=${clipId}&segment_idx=${idx}&duration_sec=${duration_sec || 0}`),
-        { method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": mimeType }, body: rec.blob }
-      );
+      // 转成 base64 通过 JSON 发送，避免 express.json 中间件和 Vercel rewrite 截断二进制流
+      const arrayBuf = await rec.blob.arrayBuffer();
+      // 分块转 base64，避免大文件时 spread operator 导致 stack overflow
+      const uint8 = new Uint8Array(arrayBuf);
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < uint8.length; i += chunkSize) {
+        binary += String.fromCharCode(...uint8.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
+      const res = await fetch(remote("/api/recording_save"), {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ clip_id: clipId, segment_idx: idx, duration_sec: duration_sec || 0, mime: mimeType, data: base64 }),
+      });
       const d = await res.json();
       if (d?.ok) {
         setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], saving: false, saved: true, remoteId: d.id } }));
