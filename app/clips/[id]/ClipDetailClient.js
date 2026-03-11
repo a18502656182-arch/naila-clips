@@ -1063,9 +1063,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     );
   };
 
+  const modeTabItems = [["bilingual","双语"],["en","英文"],["zh","中文"],["dictation","听写"],["reading","阅读"],["zh2en","中译英"]];
+  const mobileHiddenModes = ["reading", "zh2en"];
   const modeTabs = (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {[["bilingual","双语"],["en","英文"],["zh","中文"],["dictation","听写"],["reading","阅读"],["zh2en","中译英"]].map(([m, label]) => (
+      {modeTabItems.filter(([m]) => !isMobile || !mobileHiddenModes.includes(m)).map(([m, label]) => (
         <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)}>{label}</Btn>
       ))}
     </div>
@@ -1136,7 +1138,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
               </div>
             )}
-            {belowVideoPanel}
+            {subMode === "dictation" ? dictPanel : null}
           </Card>
           <div style={{ marginTop: 10 }}>{modeTabs}</div>
         </div>
@@ -1148,10 +1150,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {canAccess && (
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontWeight: 900, fontSize: 12, color: THEME.colors.ink }}>
-                {vPlaying ? "暂停" : "播放"}
-              </button>
               <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
+              <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 18, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {vPlaying ? "⏸" : "▶"}
+              </button>
               <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
               <div style={{ flex: 1 }}>
                 <input type="range" min={0} max={sliderMax || 0.000001} step="0.01" value={sliderVal}
@@ -1163,7 +1165,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                   <span>{fmtSec(dragging ? dragValue : vCur)}</span><span>{fmtSec(vDur)}</span>
                 </div>
               </div>
-              <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "6px 8px", fontSize: 12, background: THEME.colors.surface }}>
+              <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "4px 2px", fontSize: 12, background: THEME.colors.surface, width: 52 }}>
                 {[0.75, 1, 1.25, 1.5, 2].map(r => <option key={r} value={r}>{r}x</option>)}
               </select>
               <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "10px 10px", cursor: "pointer", fontWeight: 900, fontSize: 11 }}>词卡</button>
@@ -1212,7 +1214,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 </div>
               </div>
             )}
-            {belowVideoPanel}
+            {subMode === "dictation" ? dictPanel : null}
           </Card>
 
           {/* 右列：模式切换 + 字幕列表 [+ 词汇卡] */}
