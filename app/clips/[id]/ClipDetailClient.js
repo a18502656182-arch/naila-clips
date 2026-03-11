@@ -193,7 +193,7 @@ function IconBtn({ title, onClick, active, children }) {
 }
 
 // 普通双语/单语字幕行
-function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onPlaySegment }) {
+function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment }) {
   const isDictation = subMode === "dictation";
   const savedText = dictationMap?.[idx]?.input_text;
   const savedAt = dictationMap?.[idx]?.updated_at;
@@ -227,19 +227,41 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
               cursor: "pointer", fontSize: 13, flexShrink: 0,
             }}>▷</button>
           )}
-          {/* 录音回放按钮（有录音时才显示，用不同图标区分） */}
-          {!isDictation && recording?.url && (
-            <button type="button" title={recording.playing ? "停止播放录音" : "播放我的录音"} onClick={e => { e.stopPropagation(); onRecordPlay(idx); }} style={{
-              border: `1px solid ${recording.playing ? "#2563eb" : THEME.colors.border}`,
-              background: recording.playing ? "#eff6ff" : THEME.colors.surface,
-              color: recording.playing ? "#2563eb" : THEME.colors.ink,
-              borderRadius: THEME.radii.pill,
-              width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", fontSize: 13, flexShrink: 0,
-            }}>{recording.playing ? "⏸" : "🔊"}</button>
+          {/* 有录音时：播放 + 删除 + (未保存时显示保存) */}
+          {!isDictation && recording?.url && !recording?.recording && (
+            <>
+              <button type="button" title={recording.playing ? "停止播放" : "播放录音"} onClick={e => { e.stopPropagation(); onRecordPlay(idx); }} style={{
+                border: `1px solid ${recording.playing ? "#2563eb" : THEME.colors.border}`,
+                background: recording.playing ? "#eff6ff" : THEME.colors.surface,
+                color: recording.playing ? "#2563eb" : THEME.colors.ink,
+                borderRadius: THEME.radii.pill,
+                width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", fontSize: 13, flexShrink: 0,
+              }}>{recording.playing ? "⏸" : "🔊"}</button>
+              <button type="button" title="删除录音" onClick={e => { e.stopPropagation(); onRecordDelete(idx); }} style={{
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface, color: "#ef4444",
+                borderRadius: THEME.radii.pill,
+                width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", fontSize: 13, flexShrink: 0,
+              }}>🗑</button>
+              {!recording.saved && (
+                <button type="button" title={recording.saving ? "保存中…" : "保存录音"} onClick={e => { e.stopPropagation(); onRecordSave(idx); }} disabled={recording.saving} style={{
+                  border: `1px solid ${recording.saving ? THEME.colors.border : "#16a34a"}`,
+                  background: recording.saving ? THEME.colors.surface : "#f0fdf4",
+                  color: recording.saving ? THEME.colors.faint : "#16a34a",
+                  borderRadius: THEME.radii.pill,
+                  width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: recording.saving ? "default" : "pointer", fontSize: 13, flexShrink: 0,
+                }}>{recording.saving ? "…" : "💾"}</button>
+              )}
+              {recording.saved && (
+                <span title="已保存" style={{ width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#16a34a" }}>✅</span>
+              )}
+            </>
           )}
-          {/* 录音按钮 */}
-          {!isDictation && (
+          {/* 录音按钮（没有录音时，或正在录音时显示） */}
+          {!isDictation && (!recording?.url || recording?.recording) && (
             <button type="button" title={recording?.recording ? "停止录音" : "开始录音"} onClick={e => { e.stopPropagation(); onRecordToggle(idx); }} style={{
               border: `2px solid ${recording?.recording ? "#ef4444" : THEME.colors.border}`,
               background: recording?.recording ? "#fef2f2" : THEME.colors.surface,
@@ -449,8 +471,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [dictShowAnswer, setDictShowAnswer] = useState(false);
   const dictSaveTimer = useRef(null);
 
-  // ── 录音（纯本地）──
-  const [recordings, setRecordings] = useState({}); // { [idx]: { url, blob, recording, playing } }
+  // ── 录音（支持云端保存）──
+  // { [idx]: { url, blob, recording, playing, saved, remoteId, saving } }
+  const [recordings, setRecordings] = useState({});
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioPlayerRef = useRef(null);
@@ -539,13 +562,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   async function toggleRecording(idx) {
     const cur = recordings[idx];
     if (cur?.recording) {
-      // 停止录音
       mediaRecorderRef.current?.stop();
       return;
     }
-    // 停止其他录音
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-    // 停止其他播放
     if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
     setRecordings(prev => {
       const next = {};
@@ -558,17 +578,69 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
       const mr = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mr;
+      // 最长3分钟自动停止
+      const maxTimer = setTimeout(() => { if (mr.state === "recording") mr.stop(); }, 3 * 60 * 1000);
       mr.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
       mr.onstop = () => {
+        clearTimeout(maxTimer);
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         const url = URL.createObjectURL(blob);
-        setRecordings(prev => ({ ...prev, [idx]: { blob, url, recording: false, playing: false } }));
+        // saved: false = 未保存，显示「听/删/存」三个按钮
+        setRecordings(prev => ({ ...prev, [idx]: { blob, url, recording: false, playing: false, saved: false, remoteId: null } }));
       };
       mr.start();
     } catch {
       setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], recording: false } }));
     }
+  }
+
+  async function saveRecording(idx) {
+    const rec = recordings[idx];
+    if (!rec?.blob || rec.saved || rec.saving) return;
+    const token = getToken();
+    if (!token) return;
+    setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], saving: true } }));
+    try {
+      const mimeType = rec.blob.type || "audio/webm";
+      const seg = Array.isArray(details?.segments) ? details.segments[idx] : null;
+      const duration_sec = seg ? (Number(seg.end || 0) - Number(seg.start || 0)) : null;
+      const res = await fetch(
+        remote(`/api/recording_save?clip_id=${clipId}&segment_idx=${idx}&duration_sec=${duration_sec || 0}`),
+        { method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": mimeType }, body: rec.blob }
+      );
+      const d = await res.json();
+      if (d?.ok) {
+        setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], saving: false, saved: true, remoteId: d.id } }));
+      } else {
+        setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], saving: false } }));
+      }
+    } catch {
+      setRecordings(prev => ({ ...prev, [idx]: { ...prev[idx], saving: false } }));
+    }
+  }
+
+  async function deleteRecording(idx) {
+    const rec = recordings[idx];
+    if (!rec) return;
+    // 停止播放
+    if (audioPlayerRef.current) { audioPlayerRef.current.pause(); audioPlayerRef.current = null; }
+    // 如果已保存到云端，调接口删除
+    if (rec.saved && rec.remoteId) {
+      const token = getToken();
+      if (token) {
+        try {
+          await fetch(remote("/api/recording_delete"), {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ clip_id: clipId, segment_idx: idx }),
+          });
+        } catch {}
+      }
+    }
+    // 本地释放 blob URL
+    if (rec.url && rec.url.startsWith("blob:")) URL.revokeObjectURL(rec.url);
+    setRecordings(prev => { const next = { ...prev }; delete next[idx]; return next; });
   }
 
   function togglePlayback(idx) {
@@ -627,6 +699,27 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     }
     run();
     return () => { mounted = false; document.title = "油管英语场景库"; };
+  }, [clipId]);
+
+  // 加载云端已保存的录音
+  useEffect(() => {
+    if (!clipId) return;
+    const token = getToken();
+    if (!token) return;
+    let mounted = true;
+    async function loadRecordings() {
+      try {
+        const d = await fetchJson(remote(`/api/recording_list?clip_id=${clipId}`));
+        if (!mounted || !d?.recordings?.length) return;
+        const next = {};
+        d.recordings.forEach(r => {
+          next[r.segment_idx] = { url: r.url, blob: null, recording: false, playing: false, saved: true, remoteId: r.id };
+        });
+        setRecordings(prev => ({ ...next, ...prev })); // 本地未保存的优先
+      } catch {}
+    }
+    loadRecordings();
+    return () => { mounted = false; };
   }, [clipId]);
 
   // 客户端验证完成后：vip视频无权限 → 直接跳兑换页
@@ -1057,6 +1150,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             recording={recordings[idx]}
             onRecordToggle={toggleRecording}
             onRecordPlay={togglePlayback}
+            onRecordSave={saveRecording}
+            onRecordDelete={deleteRecording}
             onPlaySegment={() => playSegmentOnly(seg)} />
         ))}
       </div>
