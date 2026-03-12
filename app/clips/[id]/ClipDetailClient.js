@@ -1060,7 +1060,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ─── 视频区（复刻参考站：video src=m3u8，Stream SDK 自动接管 HLS）
   const videoOrGate = (maxH) => checkingAccess ? (
-    <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />
+    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", ...(maxH ? { maxHeight: maxH } : {}), background: "#1a1a2e" }}>
+      {/* checkingAccess期间用封面图垫底，消除骨架屏→视频的黑屏闪烁 */}
+      {item?.cover_url && (
+        <img src={item.cover_url} alt="" style={{ width: "100%", display: "block", borderRadius: THEME.radii.md, objectFit: "cover", ...(maxH ? { maxHeight: maxH } : {}) }} />
+      )}
+      {!item?.cover_url && <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />}
+    </div>
   ) : canAccess ? (
     <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
@@ -1082,18 +1088,45 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       />
       {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
       {item.cover_url && !hasPlayed && (
-        <img
-          src={item.cover_url}
-          alt=""
+        <div
           onClick={togglePlay}
-          onLoad={() => setCoverImgReady(true)}
-          style={{
-            position: "absolute", inset: 0, width: "100%", height: "100%",
-            objectFit: "cover", cursor: "pointer", zIndex: 2,
-            opacity: coverImgReady ? 1 : 0,
-            transition: "opacity 150ms ease",
-          }}
-        />
+          style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer" }}
+        >
+          <img
+            src={item.cover_url}
+            alt=""
+            onLoad={() => setCoverImgReady(true)}
+            style={{
+              width: "100%", height: "100%",
+              objectFit: "cover",
+              opacity: coverImgReady ? 1 : 0,
+              transition: "opacity 150ms ease",
+            }}
+          />
+          {/* 播放按钮 */}
+          {coverImgReady && (
+            <div style={{
+              position: "absolute", inset: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: "rgba(0,0,0,0.15)",
+            }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%",
+                background: "rgba(0,0,0,0.55)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
+              }}>
+                <div style={{
+                  width: 0, height: 0,
+                  borderTop: "14px solid transparent",
+                  borderBottom: "14px solid transparent",
+                  borderLeft: "24px solid #fff",
+                  marginLeft: 6,
+                }} />
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   ) : (
