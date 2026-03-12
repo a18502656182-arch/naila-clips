@@ -285,7 +285,7 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading }) {
     difficulty_slug: initial.difficulty_slug || "",
     topic_slugs: initial.topic_slugs || [],
     channel_slugs: initial.channel_slugs || [],
-    details_json: "",
+    details_json: initial.details_json || "",
     upload_time: initial.upload_time
       ? new Date(initial.upload_time).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10),
@@ -419,6 +419,7 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
   const [editClip, setEditClip] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [loadingEdit, setLoadingEdit] = useState(null); // 正在加载 details 的 clip id
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -441,13 +442,15 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
   }
 
   async function handleEdit(clip) {
-    setEditClip(clip);
-    setShowForm(true);
-    // 加载 details_json 预填
+    setLoadingEdit(clip.id);
     const r = await api("clip_get_details", { id: clip.id });
+    const withDetails = { ...clip };
     if (r.ok && r.details_json) {
-      clip._details_json = JSON.stringify(r.details_json, null, 2);
+      withDetails._details_json = JSON.stringify(r.details_json, null, 2);
     }
+    setLoadingEdit(null);
+    setEditClip(withDetails);
+    setShowForm(true);
   }
 
   async function handleDelete(clip) {
@@ -511,7 +514,7 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)}>编辑</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)} disabled={loadingEdit === clip.id}>{loadingEdit === clip.id ? "加载中…" : "编辑"}</Btn>
               <Btn size="sm" variant="danger" onClick={() => handleDelete(clip)} disabled={deleting === clip.id}>
                 {deleting === clip.id ? "…" : "删除"}
               </Btn>
