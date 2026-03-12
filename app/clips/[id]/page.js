@@ -55,8 +55,8 @@ export default async function ClipPage({ params }) {
   const token = getAccessTokenFromCookies();
   const admin = getSupabaseAdmin();
 
-  // 并行查询：clip 基础信息 + 详情 + 用户订阅
-  const [clipResult, detailResult, subResult] = await Promise.all([
+  // 并行查询：clip 基础信息 + 详情 + 用户订阅 + 收藏状态
+  const [clipResult, detailResult, subResult, bookmarkResult] = await Promise.all([
     admin
       .from("clips_view")
       .select(
@@ -90,6 +90,19 @@ export default async function ClipPage({ params }) {
           return { user, sub: subData?.[0] || null };
         })()
       : Promise.resolve({ user: null, sub: null }),
+    token
+      ? (async () => {
+          const anon = createClient(
+            process.env.SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            { auth: { persistSession: false } }
+          );
+          const { data: userData } = await anon.auth.getUser(token);
+          const user = userData?.user || null;
+          if (!user) return { data: null };
+          return await admin.from("bookmarks").select("id").eq("user_id", user.id).eq("clip_id", id).maybeSingle();
+        })()
+      : Promise.resolve({ data: null }),
   ]);
 
   if (clipResult.error || !clipResult.data) notFound();
@@ -98,6 +111,7 @@ export default async function ClipPage({ params }) {
   const { user, sub } = subResult;
   const is_member = !!sub;
   const can_access = clip.access_tier === "free" ? true : is_member;
+  const initialBookmarked = !!bookmarkResult.data;
 
   let details_json = detailResult.data?.details_json ?? null;
   if (typeof details_json === "string") {
@@ -133,6 +147,7 @@ export default async function ClipPage({ params }) {
       initialItem={initialItem}
       initialMe={initialMe}
       initialDetails={details_json}
+      initialBookmarked={initialBookmarked}
     />
   );
 }
