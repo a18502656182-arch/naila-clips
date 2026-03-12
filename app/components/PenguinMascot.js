@@ -70,6 +70,15 @@ export default function PenguinMascot() {
   const lastActivity = useRef(Date.now());
   const dragRef = useRef(null);
   const isDragMove = useRef(false);
+  const penguinRef = useRef(null); // 用于注册 non-passive touchstart
+
+  // 注册 non-passive touchstart，防止 React 合成事件无法 preventDefault
+  useEffect(() => {
+    const el = penguinRef.current;
+    if (!el) return;
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    return () => el.removeEventListener("touchstart", onTouchStart);
+  });
 
   // 初始化位置（仅客户端）
   useEffect(() => {
@@ -171,6 +180,7 @@ export default function PenguinMascot() {
 
   // 触摸事件
   function onTouchStart(e) {
+    e.preventDefault(); // 阻止滚动误触发拖拽
     const t = e.touches[0];
     startDrag(t.clientX, t.clientY);
     const onMove = ev => { ev.preventDefault(); const tt = ev.touches[0]; moveDrag(tt.clientX, tt.clientY); };
@@ -243,8 +253,8 @@ export default function PenguinMascot() {
 
         {/* 企鹅 */}
         <div
+          ref={penguinRef}
           onMouseDown={onMouseDown}
-          onTouchStart={onTouchStart}
           onClick={handleClick}
           title="拖动可移位 · 点击说话"
           style={{
