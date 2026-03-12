@@ -493,6 +493,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [vCur, setVCur] = useState(0);
   const [vDur, setVDur] = useState(0);
   const [vPlaying, setVPlaying] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false); // 是否曾经开始播放，用于手机封面图
   const [dragging, setDragging] = useState(false);
   const [dragValue, setDragValue] = useState(0);
 
@@ -954,7 +955,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const v = videoRef.current;
     if (!v) return;
     const sync = () => { if (!dragging) setVCur(v.currentTime || 0); setVDur(v.duration || 0); };
-    const onPlay = () => setVPlaying(true);
+    const onPlay = () => { setVPlaying(true); setHasPlayed(true); };
     const onPause = () => setVPlaying(false);
     v.addEventListener("timeupdate", sync);
     v.addEventListener("durationchange", sync);
@@ -1033,9 +1034,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ fontSize: 16, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.title || `Clip #${clipId}`}
           </div>
-          <div style={{ fontSize: 11, color: THEME.colors.faint }}>
-            登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
-          </div>
         </div>
         <button type="button" onClick={toggleBookmark} disabled={bookmarkLoading} title={bookmarked ? "取消收藏" : "收藏"}
           style={{
@@ -1057,10 +1055,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />
   ) : canAccess ? (
     <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}>
-      {/* 封面图底层（解决手机端 muted video 不显示 poster 的问题） */}
-      {item.cover_url && !vPlaying && (
-        <img src={item.cover_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
-      )}
       <video
         ref={videoCallbackRef}
         controls
@@ -1074,9 +1068,22 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           borderRadius: THEME.radii.md,
           background: "transparent",
           position: "relative",
+          zIndex: 1,
           ...(maxH ? { maxHeight: maxH } : {}),
         }}
       />
+      {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
+      {item.cover_url && !hasPlayed && (
+        <img
+          src={item.cover_url}
+          alt=""
+          onClick={togglePlay}
+          style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%",
+            objectFit: "cover", cursor: "pointer", zIndex: 2,
+          }}
+        />
+      )}
     </div>
   ) : (
     <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
@@ -1313,7 +1320,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
           <Card style={{ padding: 14, position: "sticky", top: 16, display: "flex", flexDirection: "column" }}>
             {/* 标题行 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 32, marginBottom: 10 }}>
               <Link href="/" style={{
                 border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
                 borderRadius: THEME.radii.md, padding: "6px 12px", textDecoration: "none",
@@ -1322,9 +1329,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.title || `Clip #${clipId}`}
-                </div>
-                <div style={{ fontSize: 11, color: THEME.colors.faint }}>
-                  登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
                 </div>
               </div>
               <button type="button" onClick={toggleBookmark} disabled={bookmarkLoading} title={bookmarked ? "取消收藏" : "收藏"}
@@ -1340,7 +1344,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               >{bookmarked ? "❤️ 已收藏" : "🤍 收藏"}</button>
             </div>
             {/* 分隔线 */}
-            <div style={{ height: 1, background: THEME.colors.border, marginBottom: 12 }} />
+            <div style={{ height: 1, background: THEME.colors.border, marginBottom: 10 }} />
             {videoOrGate(null)}
             {canAccess && (
               <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -1362,9 +1366,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", height: 32, marginBottom: 10 }}>
                 {modeTabs}
-                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
                   {!vocabOpen
                     ? <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
                     : <button type="button" onClick={() => setVocabOpen(false)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>收起词汇卡</button>
@@ -1373,11 +1378,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               </div>
               {/* 分隔线 */}
               <div style={{ height: 1, background: THEME.colors.border, marginBottom: 10 }} />
-              {/* 字幕信息行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
-                <div style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
-              </div>
               {/* 字幕列表填充剩余高度 */}
               <div style={{ flex: 1, overflow: "hidden" }}>
                 {subtitleList(desktopListRef, "100%")}
