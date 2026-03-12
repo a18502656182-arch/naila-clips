@@ -1323,18 +1323,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {canAccess && (
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* 左侧：播放 + 上一句 + 下一句 */}
+              {/* 左侧：播放 + 下一句 */}
               <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 18, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {vPlaying ? "⏸" : "▶"}
               </button>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 30, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
-                <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>上一句</span>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 30, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
-                <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>下一句</span>
-              </div>
+              <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
+              <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
               {/* 右侧：倍速 + 词卡 */}
               <div style={{ flex: 1 }} />
               <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "4px 2px", fontSize: 12, background: THEME.colors.surface, width: 52 }}>
@@ -1418,17 +1412,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, flexShrink: 0, marginBottom: 10, flexWrap: "nowrap", overflow: "hidden" }}>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  {modeTabItems.filter(([m]) => !mobileHiddenModes.includes(m)).map(([m, label]) => (
-                    <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)}>{label}</Btn>
-                  ))}
-                </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 12, color: THEME.colors.faint, whiteSpace: "nowrap" }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
-                  {!vocabOpen && (
-                    <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12, whiteSpace: "nowrap" }}>词汇卡</button>
-                  )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, height: 44, flexShrink: 0, marginBottom: 10 }}>
+                {modeTabs}
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
+                  {!vocabOpen
+                    ? <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
+                    : <button type="button" onClick={() => setVocabOpen(false)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>收起词汇卡</button>
+                  }
                 </div>
               </div>
               {/* 分隔线 */}
@@ -1443,6 +1434,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               <Card style={{ padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
+                  <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
                 </div>
                 {vocabPanel(540)}
               </Card>
