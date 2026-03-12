@@ -494,6 +494,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [vDur, setVDur] = useState(0);
   const [vPlaying, setVPlaying] = useState(false);
   const [hasPlayed, setHasPlayed] = useState(false); // 是否曾经开始播放，用于手机封面图
+  const [coverImgReady, setCoverImgReady] = useState(false); // 封面图是否已加载完成
   const [dragging, setDragging] = useState(false);
   const [dragValue, setDragValue] = useState(0);
 
@@ -705,7 +706,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       try {
         const d = await fetchJson(remote(`/api/clip_full?id=${clipId}`));
         if (!mounted) return;
-        if (d?.item) setItem(prev => ({ ...(prev || {}), ...d.item }));
+        if (d?.item) setItem(prev => {
+          const next = { ...(prev || {}), ...d.item };
+          // cover_url 不变时不触发重渲染（避免手机封面图闪烁）
+          if (prev && prev.cover_url === next.cover_url && prev.can_access === next.can_access) {
+            return prev;
+          }
+          return next;
+        });
         if (d?.me) setMe(d.me);
       } catch {} finally {
         if (mounted) setCheckingAccess(false);
@@ -1054,7 +1062,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const videoOrGate = (maxH) => checkingAccess ? (
     <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />
   ) : canAccess ? (
-    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}>
+    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
         controls
@@ -1078,9 +1086,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           src={item.cover_url}
           alt=""
           onClick={togglePlay}
+          onLoad={() => setCoverImgReady(true)}
           style={{
             position: "absolute", inset: 0, width: "100%", height: "100%",
             objectFit: "cover", cursor: "pointer", zIndex: 2,
+            opacity: coverImgReady ? 1 : 0,
+            transition: "opacity 150ms ease",
           }}
         />
       )}
