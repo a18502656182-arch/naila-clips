@@ -156,31 +156,25 @@ export default function Page({ accessToken }) {
           height: 56,
           display: "flex",
           alignItems: "center",
-          flexDirection: "column", alignItems: "center",
-          gap: 10,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <a
-            href="/"
-            style={{
-              padding: "8px 12px",
-              borderRadius: 999,
-              border: "1px solid rgba(15,23,42,0.10)",
-              background: "rgba(15,23,42,0.04)",
-              textDecoration: "none",
-              fontSize: 13,
-              color: THEME.colors.ink,
-              fontWeight: 900,
-            }}
-          >
-            ← 返回
-          </a>
-          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink }}>我的英语手帐</span>
+        {/* 左：返回按钮 */}
+        <a
+          href="/"
+          style={{
+            display: "flex", alignItems: "center",
+            textDecoration: "none", color: THEME.colors.ink,
+            fontWeight: 300, fontSize: 28, lineHeight: 1,
+            flexShrink: 0, padding: "4px 6px",
+          }}
+        >‹</a>
+        {/* 中：标题 + 日期同行居中 */}
+        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink, whiteSpace: "nowrap" }}>我的英语手帐</span>
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800, whiteSpace: "nowrap" }}>📅 {formatDate()}</span>
         </div>
-        {!isMobile ? (
-          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800 }}>📅 {formatDate()}</span>
-        ) : null}
+        {/* 右：占位保持标题视觉居中 */}
+        <div style={{ flexShrink: 0, width: 52 }} />
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 60px" }}>
