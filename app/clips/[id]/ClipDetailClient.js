@@ -1056,20 +1056,28 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const videoOrGate = (maxH) => checkingAccess ? (
     <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />
   ) : canAccess ? (
-    <video
-      ref={videoCallbackRef}
-      controls
-      playsInline
-      muted
-      preload="metadata"
-      poster={item.cover_url || undefined}
-      style={{
-        width: "100%",
-        borderRadius: THEME.radii.md,
-        background: "#000",
-        ...(maxH ? { maxHeight: maxH } : {}),
-      }}
-    />
+    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#000", ...(maxH ? { maxHeight: maxH } : {}) }}>
+      {/* 封面图底层（解决手机端 muted video 不显示 poster 的问题） */}
+      {item.cover_url && !vPlaying && (
+        <img src={item.cover_url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+      )}
+      <video
+        ref={videoCallbackRef}
+        controls
+        playsInline
+        muted
+        preload="metadata"
+        poster={item.cover_url || undefined}
+        style={{
+          width: "100%",
+          display: "block",
+          borderRadius: THEME.radii.md,
+          background: "transparent",
+          position: "relative",
+          ...(maxH ? { maxHeight: maxH } : {}),
+        }}
+      />
+    </div>
   ) : (
     <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
       <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
@@ -1135,6 +1143,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // ─── helpers ──────────────────────────────────────────────
   const subtitleList = (listRef, maxH) => {
     const isReading = subMode === "reading" || subMode === "zh2en";
+    const fillStyle = maxH === "100%"
+      ? { height: "100%", overflow: "auto", paddingRight: 4 }
+      : { maxHeight: maxH, overflow: "auto", paddingRight: 4 };
     if (!segments.length) return (
       <Card style={{ padding: 14 }}>
         <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6 }}>
@@ -1144,7 +1155,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     );
     // 阅读/中译英：静止不自动滚动，不传 ref
     if (isReading) return (
-      <div style={{ display: "flex", flexDirection: "column", maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", ...fillStyle }}>
         {segments.map((seg, idx) => (
           <ReadingRow key={idx} seg={seg} idx={idx} mode={subMode}
             renderEn={renderEn} rowRef={null}
@@ -1153,7 +1164,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       </div>
     );
     return (
-      <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
+      <div ref={listRef} style={{ display: "flex", flexDirection: "column", gap: 10, ...fillStyle }}>
         {segments.map((seg, idx) => (
           <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
             subMode={subMode} onClick={() => jumpTo(seg, idx)}
@@ -1247,7 +1258,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
               </div>
             )}
-            {belowVideoPanel}
+            {subMode === "dictation" ? dictPanel : null}
           </Card>
           <div style={{ marginTop: 10 }}>{modeTabs}</div>
         </div>
@@ -1259,12 +1270,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {canAccess && (
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
+              {/* 左侧：播放 + 下一句 */}
               <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 18, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {vPlaying ? "⏸" : "▶"}
               </button>
               <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
-
+              <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
+              {/* 右侧：倍速 + 词卡 */}
+              <div style={{ flex: 1 }} />
               <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "4px 2px", fontSize: 12, background: THEME.colors.surface, width: 52 }}>
                 {[0.75, 1, 1.25, 1.5, 2].map(r => <option key={r} value={r}>{r}x</option>)}
               </select>
@@ -1291,15 +1304,43 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ─── DESKTOP LAYOUT ────────────────────────────────────────
   return (
-    <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
+    <div style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
-      {navBar}
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
-      <div style={{ padding: "16px 24px 40px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, alignItems: "start" }}>
+      <div style={{ flex: 1, overflow: "hidden", padding: "16px 24px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
 
-          {/* 左列：视频 + 控制 + 当前句面板 */}
-          <Card style={{ padding: 14, position: "sticky", top: 70 }}>
+          {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
+          <Card style={{ padding: 14, position: "sticky", top: 16, display: "flex", flexDirection: "column" }}>
+            {/* 标题行 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <Link href="/" style={{
+                border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
+                borderRadius: THEME.radii.md, padding: "6px 12px", textDecoration: "none",
+                color: THEME.colors.ink, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", flexShrink: 0,
+              }}>← 返回</Link>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.title || `Clip #${clipId}`}
+                </div>
+                <div style={{ fontSize: 11, color: THEME.colors.faint }}>
+                  登录 {me?.logged_in ? "✅" : "❌"} · 会员 {me?.is_member ? "✅" : "❌"}
+                </div>
+              </div>
+              <button type="button" onClick={toggleBookmark} disabled={bookmarkLoading} title={bookmarked ? "取消收藏" : "收藏"}
+                style={{
+                  border: `1px solid ${bookmarked ? "rgba(239,68,68,0.3)" : THEME.colors.border2}`,
+                  background: bookmarked ? "rgba(239,68,68,0.10)" : THEME.colors.surface,
+                  borderRadius: THEME.radii.pill, padding: "6px 14px",
+                  cursor: "pointer", fontSize: 12, fontWeight: 700,
+                  color: bookmarked ? "#b00000" : THEME.colors.ink,
+                  display: "flex", alignItems: "center", gap: 6,
+                  opacity: bookmarkLoading ? 0.6 : 1, transition: "all 150ms ease", whiteSpace: "nowrap", flexShrink: 0,
+                }}
+              >{bookmarked ? "❤️ 已收藏" : "🤍 收藏"}</button>
+            </div>
+            {/* 分隔线 */}
+            <div style={{ height: 1, background: THEME.colors.border, marginBottom: 12 }} />
             {videoOrGate(null)}
             {canAccess && (
               <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -1317,39 +1358,41 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             {belowVideoPanel}
           </Card>
 
-          {/* 右列：模式切换 + 字幕列表 [+ 词汇卡] */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {/* 模式切换行 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              {modeTabs}
-              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                {!vocabOpen
-                  ? <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
-                  : <button type="button" onClick={() => setVocabOpen(false)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>收起词汇卡</button>
-                }
-              </div>
-            </div>
-
-            {/* 字幕列表 + 词汇卡并排（词汇卡开启时） */}
-            <div style={{ display: vocabOpen ? "grid" : "block", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16 }}>
-              <Card style={{ padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
-                  <div style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
+          {/* 右列：字幕卡片（含模式tab）撑满高度 [+ 词汇卡] */}
+          <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
+            <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
+              {/* 模式切换行 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                {modeTabs}
+                <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                  {!vocabOpen
+                    ? <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>词汇卡</button>
+                    : <button type="button" onClick={() => setVocabOpen(false)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 14px", cursor: "pointer", fontSize: 12 }}>收起词汇卡</button>
+                  }
                 </div>
-                {subtitleList(desktopListRef, 560)}
-              </Card>
+              </div>
+              {/* 分隔线 */}
+              <div style={{ height: 1, background: THEME.colors.border, marginBottom: 10 }} />
+              {/* 字幕信息行 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>字幕</div>
+                <div style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
+              </div>
+              {/* 字幕列表填充剩余高度 */}
+              <div style={{ flex: 1, overflow: "hidden" }}>
+                {subtitleList(desktopListRef, "100%")}
+              </div>
+            </Card>
 
-              {vocabOpen && (
-                <Card style={{ padding: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
-                    <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
-                  </div>
-                  {vocabPanel(540)}
-                </Card>
-              )}
-            </div>
+            {vocabOpen && (
+              <Card style={{ padding: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
+                  <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
+                </div>
+                {vocabPanel(540)}
+              </Card>
+            )}
           </div>
 
         </div>
