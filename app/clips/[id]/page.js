@@ -39,6 +39,15 @@ function proxyVideoUrl(url) {
   return `/api/proxy_video?url=${encodeURIComponent(url)}`;
 }
 
+// cover_url 走 /cf-img/ 反代，与 Railway clips.js 保持一致
+function proxyCoverUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("https://imagedelivery.net")) {
+    return "/cf-img" + url.slice("https://imagedelivery.net".length);
+  }
+  return url;
+}
+
 export default async function ClipPage({ params }) {
   const id = Number(params?.id);
   if (!id || isNaN(id)) notFound();
@@ -101,7 +110,7 @@ export default async function ClipPage({ params }) {
     description: clip.description,
     duration_sec: clip.duration_sec,
     access_tier: clip.access_tier,
-    cover_url: clip.cover_url,
+    cover_url: proxyCoverUrl(clip.cover_url),
     // ✅ SSR 阶段就用反代 URL，确保视频不走原始 Cloudflare 地址
     video_url: proxyVideoUrl(clip.video_url),
     created_at: clip.created_at,
