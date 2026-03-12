@@ -1318,7 +1318,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
 
           {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
-          <Card style={{ padding: 14, position: "sticky", top: 16, display: "flex", flexDirection: "column" }}>
+          <Card style={{ padding: 14, position: "sticky", top: 0, alignSelf: "start", display: "flex", flexDirection: "column" }}>
             {/* 标题行 */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, height: 44, flexShrink: 0, marginBottom: 10 }}>
               <Link href="/" style={{
