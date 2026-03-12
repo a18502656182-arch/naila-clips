@@ -1244,6 +1244,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       ))}
     </div>
   );
+  // 电脑版：词汇卡打开时按钮缩小以适应一行，关闭时恢复原始大小
+  const desktopBtnStyle = vocabOpen ? { padding: "5px 9px", fontSize: 11 } : {};
 
   // 跟读模式：视频下方显示当前句中英文
   const readSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
@@ -1419,13 +1421,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, flexShrink: 0, marginBottom: 10, flexWrap: "nowrap" }}>
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: vocabOpen ? 4 : 6, flexShrink: 0 }}>
                   {modeTabItems.map(([m, label]) => (
-                    <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)} style={{ padding: "5px 9px", fontSize: 11 }}>{label}</Btn>
+                    <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)} style={desktopBtnStyle}>{label}</Btn>
                   ))}
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 11, color: THEME.colors.faint, whiteSpace: "nowrap" }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
+                  <span style={{ fontSize: vocabOpen ? 11 : 12, color: THEME.colors.faint, whiteSpace: "nowrap" }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
                   {!vocabOpen && (
                     <button type="button" onClick={() => setVocabOpen(true)} style={{ border: "none", background: THEME.colors.ink, color: "#fff", borderRadius: THEME.radii.md, padding: "5px 10px", cursor: "pointer", fontWeight: 700, fontSize: 11, whiteSpace: "nowrap" }}>词汇卡</button>
                   )}
