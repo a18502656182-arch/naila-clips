@@ -279,6 +279,53 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   }
 
+  // ── 用户详情：学习数据 ──
+  if (action === "user_detail") {
+    const { user_id } = body;
+    if (!user_id) return NextResponse.json({ error: "缺少 user_id" }, { status: 400 });
+
+    const [
+      { data: bookmarks },
+      { data: dictations },
+      { data: viewLogs },
+      { data: vocabFavs },
+      { data: recordings },
+      { data: gameScores },
+    ] = await Promise.all([
+      db.from("bookmarks").select("clip_id, created_at").eq("user_id", user_id),
+      db.from("dictation_history").select("clip_id, seg_index, input_text, updated_at").eq("user_id", user_id).order("updated_at", { ascending: false }),
+      db.from("view_logs").select("clip_id, viewed_date").eq("user_id", user_id).order("viewed_date", { ascending: false }),
+      db.from("vocab_favorites").select("term, clip_id, kind, mastery_level, data").eq("user_id", user_id).order("kind"),
+      db.from("recordings").select("clip_id, segment_idx, duration_sec, created_at").eq("user_id", user_id),
+      db.from("game_scores").select("game_id, best_score, play_count").eq("user_id", user_id),
+    ]);
+
+    // 收集所有 clip_id 去查标题
+    const clipIdSet = new Set([
+      ...(bookmarks || []).map(r => r.clip_id),
+      ...(dictations || []).map(r => Number(r.clip_id)),
+      ...(viewLogs || []).map(r => r.clip_id),
+      ...(vocabFavs || []).map(r => r.clip_id),
+      ...(recordings || []).map(r => r.clip_id),
+    ]);
+    const clipIds = [...clipIdSet].filter(Boolean);
+    let clipTitleMap = {};
+    if (clipIds.length > 0) {
+      const { data: clipRows } = await db.from("clips").select("id, title").in("id", clipIds);
+      (clipRows || []).forEach(c => { clipTitleMap[c.id] = c.title; });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      bookmarks: (bookmarks || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, created_at: r.created_at })),
+      dictations: (dictations || []).map(r => ({ clip_id: Number(r.clip_id), title: clipTitleMap[Number(r.clip_id)] || `#${r.clip_id}`, seg_index: r.seg_index, input_text: r.input_text, updated_at: r.updated_at })),
+      view_logs: (viewLogs || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, viewed_date: r.viewed_date })),
+      vocab_favs: (vocabFavs || []).map(r => ({ term: r.term, clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, kind: r.kind, mastery_level: r.mastery_level })),
+      recordings: (recordings || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, segment_idx: r.segment_idx, duration_sec: r.duration_sec, created_at: r.created_at })),
+      game_scores: gameScores || [],
+    });
+  }
+
   return NextResponse.json({ error: "unknown_action" }, { status: 400 });
 }
 
