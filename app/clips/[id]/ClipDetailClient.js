@@ -1320,7 +1320,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
           <Card style={{ padding: 14, position: "sticky", top: 16, display: "flex", flexDirection: "column" }}>
             {/* 标题行 */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 32, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 44, flexShrink: 0, marginBottom: 10 }}>
               <Link href="/" style={{
                 border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
                 borderRadius: THEME.radii.md, padding: "6px 12px", textDecoration: "none",
@@ -1366,7 +1366,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", height: 32, marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, height: 44, flexShrink: 0, marginBottom: 10 }}>
                 {modeTabs}
                 <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</span>
