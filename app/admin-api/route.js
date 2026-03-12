@@ -296,7 +296,7 @@ export async function POST(req) {
       db.from("dictation_history").select("clip_id, seg_index, input_text, updated_at").eq("user_id", user_id).order("updated_at", { ascending: false }),
       db.from("view_logs").select("clip_id, viewed_date").eq("user_id", user_id).order("viewed_date", { ascending: false }),
       db.from("vocab_favorites").select("term, clip_id, kind, mastery_level, data").eq("user_id", user_id).order("kind"),
-      db.from("recordings").select("clip_id, segment_idx, duration_sec, created_at").eq("user_id", user_id),
+      db.from("recordings").select("clip_id, segment_idx, duration_sec, file_path, created_at").eq("user_id", user_id),
       db.from("game_scores").select("game_id, best_score, play_count").eq("user_id", user_id),
     ]);
 
@@ -321,7 +321,7 @@ export async function POST(req) {
       dictations: (dictations || []).map(r => ({ clip_id: Number(r.clip_id), title: clipTitleMap[Number(r.clip_id)] || `#${r.clip_id}`, seg_index: r.seg_index, input_text: r.input_text, updated_at: r.updated_at })),
       view_logs: (viewLogs || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, viewed_date: r.viewed_date })),
       vocab_favs: (vocabFavs || []).map(r => ({ term: r.term, clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, kind: r.kind, mastery_level: r.mastery_level })),
-      recordings: (recordings || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, segment_idx: r.segment_idx, duration_sec: r.duration_sec, created_at: r.created_at })),
+      recordings: (recordings || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, segment_idx: r.segment_idx, duration_sec: r.duration_sec, file_path: r.file_path, created_at: r.created_at })),
       game_scores: gameScores || [],
     });
   }
