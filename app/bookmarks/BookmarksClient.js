@@ -270,10 +270,11 @@ export default function BookmarksClient({ accessToken: ssrToken = null }) {
     }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
         <a href="/" style={{
-          border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
-          borderRadius: THEME.radii.md, padding: "8px 14px", textDecoration: "none",
-          color: THEME.colors.ink, fontWeight: 700, fontSize: 13,
-        }}>← 返回首页</a>
+          display: "flex", alignItems: "center",
+          border: "none", background: "transparent",
+          textDecoration: "none", color: THEME.colors.ink,
+          fontWeight: 300, fontSize: 28, lineHeight: 1, padding: "4px 6px",
+        }}>‹</a>
         <div style={{ fontWeight: 900, fontSize: 17, color: THEME.colors.ink }}>我的收藏</div>
       </div>
     </div>
