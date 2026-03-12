@@ -1036,10 +1036,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}>
         <Link href="/" style={{
-          border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
-          borderRadius: THEME.radii.md, padding: "8px 14px", textDecoration: "none",
-          color: THEME.colors.ink, fontWeight: 700, fontSize: 13, whiteSpace: "nowrap",
-        }}>← 返回</Link>
+          display: "flex", alignItems: "center", gap: 4,
+          border: "none", background: "transparent",
+          textDecoration: "none", color: THEME.colors.ink,
+          fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", padding: "4px 0",
+        }}><span style={{ fontSize: 20, lineHeight: 1, marginTop: -1 }}>‹</span> 返回</Link>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 16, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {item.title || `Clip #${clipId}`}
@@ -1376,10 +1377,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             {/* 标题行 */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, height: 44, flexShrink: 0, marginBottom: 10 }}>
               <Link href="/" style={{
-                border: `1px solid ${THEME.colors.border2}`, background: THEME.colors.surface,
-                borderRadius: THEME.radii.md, padding: "6px 12px", textDecoration: "none",
-                color: THEME.colors.ink, fontWeight: 700, fontSize: 12, whiteSpace: "nowrap", flexShrink: 0,
-              }}>← 返回</Link>
+                display: "flex", alignItems: "center", gap: 4,
+                border: "none", background: "transparent",
+                textDecoration: "none", color: THEME.colors.ink,
+                fontWeight: 700, fontSize: 15, whiteSpace: "nowrap", flexShrink: 0, padding: "4px 0",
+              }}><span style={{ fontSize: 20, lineHeight: 1, marginTop: -1 }}>‹</span> 返回</Link>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.title || `Clip #${clipId}`}
