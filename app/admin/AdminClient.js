@@ -735,6 +735,14 @@ function CodesPanel({ initialCodes, onToast }) {
 // 掌握度标签
 const MASTERY_LABELS = ["未掌握", "学习中", "已掌握"];
 const MASTERY_COLORS = [T.danger, T.warn, T.good];
+const GAME_NAMES = {
+  bubble:  { name: "气泡拼写",   emoji: "🫧" },
+  match:   { name: "极速连连看", emoji: "🔗" },
+  swipe:   { name: "单词探探",   emoji: "🃏" },
+  rebuild: { name: "台词磁力贴", emoji: "🧩" },
+  balloon: { name: "盲听气球",   emoji: "🎧" },
+  speed:   { name: "极速二选一", emoji: "⚡" },
+};
 
 // 用户详情 Modal（两层：数字概览 + 分 tab 明细）
 function UserDetailModal({ user, onClose, onOpenMember }) {
@@ -900,14 +908,29 @@ function UserDetailModal({ user, onClose, onOpenMember }) {
               detail.recordings.length === 0
                 ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无跟读录音</div>
                 : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.recordings.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.title}</span>
-                        <Chip color={T.faint}>第 {r.segment_idx + 1} 句</Chip>
-                        {r.duration_sec && <span style={{ fontSize: 11, color: T.muted }}>{r.duration_sec.toFixed(1)}s</span>}
-                        <span style={{ fontSize: 11, color: T.faint }}>{fmt(r.created_at)}</span>
+                    {detail.recordings.map((r, i) => {
+                      // R2 路径：{user_id}/{clip_id}/{segment_idx}.ext
+                      // 文件夹 = user_id（路径第一段），文件名 = clip_id/segment_idx.ext（后两段）
+                      const pathParts = r.file_path ? r.file_path.split("/") : [];
+                      const folderName = pathParts[0] || "—";
+                      const fileName = pathParts.slice(1).join("/") || "—";
+                      return (
+                      <div key={i} style={{ padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: r.file_path ? 6 : 0 }}>
+                          <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.title}</span>
+                          <Chip color={T.faint}>第 {r.segment_idx + 1} 句</Chip>
+                          {r.duration_sec && <span style={{ fontSize: 11, color: T.muted }}>{r.duration_sec.toFixed(1)}s</span>}
+                          <span style={{ fontSize: 11, color: T.faint }}>{fmt(r.created_at)}</span>
+                        </div>
+                        {r.file_path && (
+                          <div style={{ fontSize: 11, color: T.faint, fontFamily: "monospace", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            <span>📁 文件夹：<span style={{ color: T.muted }}>{folderName}</span></span>
+                            <span>📄 文件名：<span style={{ color: T.muted }}>{fileName}</span></span>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
             )}
 
@@ -916,13 +939,17 @@ function UserDetailModal({ user, onClose, onOpenMember }) {
               detail.game_scores.length === 0
                 ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无游戏记录</div>
                 : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.game_scores.map((r, i) => (
+                    {detail.game_scores.map((r, i) => {
+                      const meta = GAME_NAMES[r.game_id];
+                      return (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.game_id}</span>
+                        <span style={{ fontSize: 16 }}>{meta?.emoji || "🎮"}</span>
+                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{meta?.name || r.game_id}</span>
                         <span style={{ fontSize: 12, color: T.warn, fontWeight: 800 }}>最高 {r.best_score} 分</span>
                         <span style={{ fontSize: 11, color: T.faint }}>共玩 {r.play_count} 次</span>
                       </div>
-                    ))}
+                      );
+                    })}
                     <div style={{ padding: "8px 12px", background: `${T.warn}15`, borderRadius: T.radius.sm, border: `1px solid ${T.warn}33`, display: "flex", justifyContent: "space-between" }}>
                       <span style={{ fontSize: 12, color: T.muted }}>总分合计</span>
                       <span style={{ fontSize: 13, fontWeight: 900, color: T.warn }}>{detail.game_scores.reduce((s, r) => s + (r.best_score || 0), 0)} 分</span>
