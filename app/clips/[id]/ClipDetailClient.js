@@ -444,7 +444,7 @@ function BookmarkLoginModal({ onClose }) {
 }
 
 // ─── 主页面 ────────────────────────────────────────────────
-export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails }) {
+export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails, initialBookmarked }) {
   const isMobile = useIsMobile();
   const router = useRouter();
 
@@ -456,7 +456,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // SSR 时 can_access 无法判断，需要等客户端验证完才能决定是否显示锁屏
   const [checkingAccess, setCheckingAccess] = useState(!!initialItem && !initialItem?.can_access);
 
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked ?? false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [showBookmarkLoginModal, setShowBookmarkLoginModal] = useState(false);
 
@@ -804,7 +804,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   useEffect(() => {
     // 有 token 就直接发，不等 me?.logged_in 确认（token 无效时 API 返回 401 忽略即可）
+    // 如果 clip_full 已经返回了收藏状态，跳过此请求
     if (!clipId) return;
+    if (initialBookmarked !== undefined && initialBookmarked !== null) return;
     const token = getToken();
     if (!token) return;
     const headers = { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
