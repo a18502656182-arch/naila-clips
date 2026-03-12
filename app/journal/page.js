@@ -152,29 +152,22 @@ export default function Page({ accessToken }) {
           backdropFilter: "blur(10px)",
           WebkitBackdropFilter: "blur(10px)",
           borderBottom: "1px solid rgba(15,23,42,0.08)",
-          padding: "0 16px",
           height: 56,
-          display: "flex",
-          alignItems: "center",
         }}
       >
-        {/* 左：返回按钮 */}
-        <a
-          href="/"
-          style={{
-            display: "flex", alignItems: "center",
-            textDecoration: "none", color: THEME.colors.ink,
-            fontWeight: 300, fontSize: 28, lineHeight: 1,
-            flexShrink: 0, padding: "4px 6px",
-          }}
-        >‹</a>
-        {/* 中：标题 + 日期同行居中 */}
-        <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px", height: "100%", display: "flex", alignItems: "center", gap: 4 }}>
+          <a
+            href="/"
+            style={{
+              display: "flex", alignItems: "center",
+              textDecoration: "none", color: THEME.colors.ink,
+              fontWeight: 300, fontSize: 28, lineHeight: 1,
+              flexShrink: 0, padding: "4px 6px 4px 0",
+            }}
+          >‹</a>
           <span style={{ fontSize: 15, fontWeight: 1000, color: THEME.colors.ink, whiteSpace: "nowrap" }}>我的英语手帐</span>
-          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800, whiteSpace: "nowrap" }}>📅 {formatDate()}</span>
+          <span style={{ fontSize: 11, color: THEME.colors.faint, fontWeight: 800, whiteSpace: "nowrap", marginLeft: 8 }}>📅 {formatDate()}</span>
         </div>
-        {/* 右：占位保持标题视觉居中 */}
-        <div style={{ flexShrink: 0, width: 52 }} />
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "18px 16px 60px" }}>
