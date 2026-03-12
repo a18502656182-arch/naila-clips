@@ -1182,13 +1182,14 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   );
 
   // 跟读模式：视频下方显示当前句中英文
-  const readingPanel = canAccess && subMode !== "dictation" && activeSegIdx >= 0 && activeSegIdx < segments.length ? (
+  const readSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
+  const readingPanel = canAccess && subMode !== "dictation" && segments.length > 0 ? (
     <div style={{ marginTop: 10, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.md, padding: "14px 16px", textAlign: "center" }}>
       <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.6, marginBottom: 6 }}>
-        {renderEn ? renderEn(segments[activeSegIdx]?.en || "") : (segments[activeSegIdx]?.en || "")}
+        {renderEn ? renderEn(segments[readSegIdx]?.en || "") : (segments[readSegIdx]?.en || "")}
       </div>
       <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.6 }}>
-        {segments[activeSegIdx]?.zh || ""}
+        {segments[readSegIdx]?.zh || ""}
       </div>
     </div>
   ) : null;
@@ -1246,7 +1247,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
               </div>
             )}
-            {subMode === "dictation" ? dictPanel : null}
+            {belowVideoPanel}
           </Card>
           <div style={{ marginTop: 10 }}>{modeTabs}</div>
         </div>
@@ -1313,7 +1314,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 </div>
               </div>
             )}
-            {subMode === "dictation" ? dictPanel : null}
+            {belowVideoPanel}
           </Card>
 
           {/* 右列：模式切换 + 字幕列表 [+ 词汇卡] */}
