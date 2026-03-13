@@ -92,11 +92,14 @@ async function apiFavList() {
 
 function speakEn(text) {
   try {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-US"; u.rate = 0.95;
-    window.speechSynthesis.speak(u);
+    const src = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
+    new Audio(src).play().catch(() => {
+      if (!("speechSynthesis" in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "en-US"; u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    });
   } catch {}
 }
 
@@ -451,7 +454,7 @@ function TermPopup({ popup, onClose }) {
             {v.example_zh && <div style={{ color: "#64748b", marginTop: 3 }}>{v.example_zh}</div>}
           </div>
         )}
-        <button onClick={() => { v?.audio_url ? new Audio(v.audio_url).play() : window.speechSynthesis?.speak?.(Object.assign(new SpeechSynthesisUtterance(term), { lang: "en-US" })); }} style={{ marginTop: 8, border: "1px solid #e2e8f0", background: "transparent", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#64748b" }}>🔊 发音</button>
+        <button onClick={() => { if (v?.audio_url) { new Audio(v.audio_url).play(); } else { speakEn(term); } }} style={{ marginTop: 8, border: "1px solid #e2e8f0", background: "transparent", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#64748b" }}>🔊 发音</button>
       </div>
     </>
   );
