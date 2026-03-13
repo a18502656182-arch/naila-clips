@@ -285,7 +285,7 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading }) {
     difficulty_slug: initial.difficulty_slug || "",
     topic_slugs: initial.topic_slugs || [],
     channel_slugs: initial.channel_slugs || [],
-    details_json: "",
+    details_json: initial.details_json || "",
     youtube_url: initial.youtube_url || "",
     upload_time: initial.upload_time
       ? new Date(initial.upload_time).toISOString().slice(0, 10)
