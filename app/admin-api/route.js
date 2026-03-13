@@ -48,6 +48,78 @@ export async function POST(req) {
   const { action } = body;
   const db = getSupabaseAdmin();
 
+  // ── 标签：重命名 ──
+  if (action === "taxonomy_rename") {
+    const { type, old_slug, new_slug } = body;
+    if (!type || !old_slug || !new_slug) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    const s = new_slug.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!s) return NextResponse.json({ error: "新名称不能为空" }, { status: 400 });
+
+    // 1. 更新 taxonomies 表
+    const { error: taxErr } = await db
+      .from("taxonomies").update({ slug: s }).eq("type", type).eq("slug", old_slug);
+    if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
+
+    // 2. 更新 clips 表里对应的 slug 字段
+    if (type === "difficulty") {
+      await db.from("clips").update({ difficulty_slug: s }).eq("difficulty_slug", old_slug);
+    } else if (type === "topic") {
+      const { data: affectedClips } = await db.from("clips").select("id, topic_slugs")
+        .contains("topic_slugs", [old_slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.topic_slugs || []).map((t) => t === old_slug ? s : t);
+        await db.from("clips").update({ topic_slugs: updated }).eq("id", clip.id);
+      }
+    } else if (type === "channel") {
+      const { data: affectedClips } = await db.from("clips").select("id, channel_slugs")
+        .contains("channel_slugs", [old_slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.channel_slugs || []).map((c) => c === old_slug ? s : c);
+        await db.from("clips").update({ channel_slugs: updated }).eq("id", clip.id);
+      }
+    }
+
+    await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 标签：删除 ──
+  if (action === "taxonomy_delete") {
+    const { type, slug } = body;
+    if (!type || !slug) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+
+    // 1. 找到 taxonomy id
+    const { data: tax } = await db.from("taxonomies").select("id").eq("type", type).eq("slug", slug).maybeSingle();
+    if (tax?.id) {
+      await db.from("clip_taxonomies").delete().eq("taxonomy_id", tax.id);
+    }
+    await db.from("taxonomies").delete().eq("type", type).eq("slug", slug);
+
+    // 2. 从 clips 表的 slug 字段中移除
+    if (type === "difficulty") {
+      await db.from("clips").update({ difficulty_slug: null }).eq("difficulty_slug", slug);
+    } else if (type === "topic") {
+      const { data: affectedClips } = await db.from("clips").select("id, topic_slugs")
+        .contains("topic_slugs", [slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.topic_slugs || []).filter((t) => t !== slug);
+        await db.from("clips").update({ topic_slugs: updated }).eq("id", clip.id);
+      }
+    } else if (type === "channel") {
+      const { data: affectedClips } = await db.from("clips").select("id, channel_slugs")
+        .contains("channel_slugs", [slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.channel_slugs || []).filter((c) => c !== slug);
+        await db.from("clips").update({ channel_slugs: updated }).eq("id", clip.id);
+      }
+    }
+
+    await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    return NextResponse.json({ ok: true });
+  }
+
   // ── 视频：新增 ──
   if (action === "clip_create") {
     const {
@@ -337,6 +409,12 @@ export async function GET(req) {
   const db = getSupabaseAdmin();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
+
+  if (type === "taxonomies") {
+    const { data, error } = await db.from("taxonomies").select("type,slug").order("type").order("slug");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, taxonomies: data || [] });
+  }
 
   if (type === "clips") {
     const offset = Number(searchParams.get("offset") || 0);
