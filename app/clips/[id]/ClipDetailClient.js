@@ -124,14 +124,30 @@ function buildHighlighter(terms) {
   const clean = Array.from(new Set((terms || []).map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
   if (!clean.length) return (text) => text || "-";
   const re = new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig");
-  return (text) => {
+  return (text, opts) => {
+    // opts: { cloze, clozeRevealed, onClickTerm }
     const s = String(text || "");
     if (!s) return "-";
-    return s.split(re).map((p, i) =>
-      clean.some(t => t.toLowerCase() === p.toLowerCase())
-        ? <mark key={i} style={{ background: "#fff1b8", padding: "0 3px", borderRadius: 6 }}>{p}</mark>
-        : <span key={i}>{p}</span>
-    );
+    return s.split(re).map((p, i) => {
+      const isMatch = clean.some(t => t.toLowerCase() === p.toLowerCase());
+      if (!isMatch) return <span key={i}>{p}</span>;
+      const normTerm = p.toLowerCase();
+      if (opts?.cloze) {
+        const revealed = opts.clozeRevealed?.[normTerm];
+        return (
+          <mark key={i}
+            onClick={e => { e.stopPropagation(); opts.onClickTerm?.(p, e); }}
+            style={{ background: revealed ? "#fff1b8" : "#d1d5db", color: revealed ? "inherit" : "transparent", padding: "0 3px", borderRadius: 6, cursor: "pointer", userSelect: "none" }}
+          >{p}</mark>
+        );
+      }
+      return (
+        <mark key={i}
+          onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(p, e); }) : undefined}
+          style={{ background: "#fff1b8", padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
+        >{p}</mark>
+      );
+    });
   };
 }
 
@@ -193,7 +209,7 @@ function IconBtn({ title, onClick, active, children }) {
 }
 
 // 普通双语/单语字幕行
-function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment }) {
+function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment, onClickTerm, clozeMode, clozeRevealed }) {
   const isDictation = subMode === "dictation";
   const savedText = dictationMap?.[idx]?.input_text;
   const savedAt = dictationMap?.[idx]?.updated_at;
@@ -300,7 +316,7 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
       ) : (
         <div style={{ marginTop: 8, lineHeight: 1.55 }}>
           {(subMode === "bilingual" || subMode === "en") && (
-            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en || "-")}</div>
           )}
           {(subMode === "bilingual" || subMode === "zh") && (
             <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>
@@ -401,6 +417,46 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
   );
 }
 
+// 点击高亮词弹出的迷你词汇卡
+function TermPopup({ popup, onClose }) {
+  if (!popup) return null;
+  const { term, v, kind, x, y } = popup;
+  return (
+    <>
+      {/* 遮罩：点外部关闭 */}
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />
+      <div style={{
+        position: "fixed",
+        left: Math.min(x, typeof window !== "undefined" ? window.innerWidth - 240 : x),
+        top: Math.min(y, typeof window !== "undefined" ? window.innerHeight - 200 : y),
+        zIndex: 9999,
+        background: "#fff",
+        border: "1px solid rgba(99,102,241,0.2)",
+        borderRadius: 16,
+        boxShadow: "0 12px 40px rgba(11,18,32,0.18)",
+        padding: "14px 16px",
+        width: 220,
+        maxWidth: "calc(100vw - 32px)",
+        animation: "bIn 200ms cubic-bezier(.2,.9,.2,1)",
+      }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(11,18,32,0.07)", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>✕</button>
+        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 2 }}>{term}</div>
+        {v?.ipa && <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>/ {v.ipa} /</div>}
+        {v?.meaning_zh && (
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8, lineHeight: 1.5 }}>{v.meaning_zh}</div>
+        )}
+        {(v?.example_en || v?.example_zh) && (
+          <div style={{ fontSize: 12, background: "#f3fbff", borderRadius: 10, padding: "7px 10px", border: "1px solid #cfe6ff", lineHeight: 1.55 }}>
+            {v.example_en && <div style={{ color: "#0b5aa6", fontWeight: 600 }}>{v.example_en}</div>}
+            {v.example_zh && <div style={{ color: "#64748b", marginTop: 3 }}>{v.example_zh}</div>}
+          </div>
+        )}
+        <button onClick={() => { v?.audio_url ? new Audio(v.audio_url).play() : window.speechSynthesis?.speak?.(Object.assign(new SpeechSynthesisUtterance(term), { lang: "en-US" })); }} style={{ marginTop: 8, border: "1px solid #e2e8f0", background: "transparent", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#64748b" }}>🔊 发音</button>
+      </div>
+    </>
+  );
+}
+
 // 未登录收藏弹窗
 function BookmarkLoginModal({ onClose }) {
   return (
@@ -464,6 +520,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [vocabOpen, setVocabOpen] = useState(false);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
+  const [clozeMode, setClozeMode] = useState(false);          // 挖空模式（仅电脑端）
+  const [clozeRevealed, setClozeRevealed] = useState({});     // { term: true } 已点击显示的词
+  const [termPopup, setTermPopup] = useState(null);           // { term, v, kind, x, y } 点击高亮块弹窗
 
   // ── 听写 ──
   const [dictationMap, setDictationMap] = useState({}); // { [seg_index]: { input_text, updated_at } }
@@ -847,6 +906,19 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     setBookmarkLoading(false);
   }
 
+  // 点击高亮词：挖空模式下揭示，否则弹出词汇卡片
+  function handleClickTerm(term, e) {
+    const normTerm = term.toLowerCase();
+    if (clozeMode && !isMobile) {
+      setClozeRevealed(prev => ({ ...prev, [normTerm]: true }));
+      return;
+    }
+    const found = allVocabByTerm[normTerm];
+    if (!found) return;
+    const rect = e.target.getBoundingClientRect();
+    setTermPopup({ term, v: found.v, kind: found.kind, x: rect.left + rect.width / 2, y: rect.bottom + window.scrollY + 8 });
+  }
+
   const segments = useMemo(() => Array.isArray(details?.segments) ? details.segments : [], [details]);
   const vocab = useMemo(() => {
     const v = details?.vocab || {};
@@ -865,6 +937,23 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     [vocabList]
   );
   const renderEn = useMemo(() => buildHighlighter(tabTerms), [tabTerms]);
+
+  // 全词汇 term → { v, kind } 映射，用于弹窗查找（不限当前 tab）
+  const allVocabByTerm = useMemo(() => {
+    const map = {};
+    [["words", vocab.words], ["phrases", vocab.phrases], ["expressions", vocab.expressions]].forEach(([kind, arr]) => {
+      (arr || []).forEach(v => {
+        const t = String(v?.term || v?.word || "").trim().toLowerCase();
+        if (t && !map[t]) map[t] = { v, kind };
+      });
+    });
+    return map;
+  }, [vocab]);
+
+  // 构造带点击回调的 renderEn（供字幕行使用）
+  const makeRenderEnWithClick = useCallback((onClickTerm, cloze, clozeRevealedMap) => {
+    return (text) => buildHighlighter(tabTerms)(text, { onClickTerm, cloze, clozeRevealed: clozeRevealedMap });
+  }, [tabTerms]);
   const canAccess = !!item?.can_access;
 
   function jumpTo(seg, idx) {
@@ -1233,7 +1322,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             onRecordPlay={togglePlayback}
             onRecordSave={saveRecording}
             onRecordDelete={deleteRecording}
-            onPlaySegment={() => playSegmentOnly(seg)} />
+            onPlaySegment={() => playSegmentOnly(seg)}
+            onClickTerm={handleClickTerm}
+            clozeMode={clozeMode}
+            clozeRevealed={clozeRevealed} />
         ))}
       </div>
     );
@@ -1306,9 +1398,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
-        <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+        <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} } @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }`}</style>
         {navBar}
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
+        <TermPopup popup={termPopup} onClose={() => setTermPopup(null)} />
         {/* 视频区：去掉Card和padding，完全填满宽度 */}
         <div style={{ position: "sticky", top: 52, zIndex: 10, background: "#1a1a2e" }}>
           {videoOrGate("38vh", true)}
@@ -1376,8 +1469,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // ─── DESKTOP LAYOUT ────────────────────────────────────────
   return (
     <div style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
+      <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} } @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }`}</style>
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
+      <TermPopup popup={termPopup} onClose={() => setTermPopup(null)} />
       <div style={{ flex: 1, overflow: "hidden", padding: "16px 24px 16px" }}>
         <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
 
@@ -1432,9 +1526,19 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
               <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, flexShrink: 0, marginBottom: 10, flexWrap: "nowrap" }}>
-                <div style={{ display: "flex", gap: vocabOpen ? 4 : 6, flexShrink: 0 }}>
-                  {modeTabItems.map(([m, label]) => (
-                    <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)} style={desktopBtnStyle}>{label}</Btn>
+                <div style={{ display: "flex", gap: vocabOpen ? 4 : 6, flexShrink: 0, flexWrap: "nowrap" }}>
+                  {modeTabItems.slice(0, 4).map(([m, label]) => (
+                    <Btn key={m} active={subMode === m} onClick={() => { setSubMode(m); if (clozeMode) { setClozeMode(false); setClozeRevealed({}); } }} style={desktopBtnStyle}>{label}</Btn>
+                  ))}
+                  {/* 挖空按钮（仅电脑端，夹在听写和阅读之间） */}
+                  <Btn active={clozeMode} onClick={() => {
+                    const next = !clozeMode;
+                    setClozeMode(next);
+                    setClozeRevealed({});
+                    if (next && subMode !== "bilingual" && subMode !== "en") setSubMode("bilingual");
+                  }} style={{ ...desktopBtnStyle, ...(clozeMode ? {} : {}) }}>挖空</Btn>
+                  {modeTabItems.slice(4).map(([m, label]) => (
+                    <Btn key={m} active={subMode === m} onClick={() => { setSubMode(m); if (clozeMode) { setClozeMode(false); setClozeRevealed({}); } }} style={desktopBtnStyle}>{label}</Btn>
                   ))}
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
