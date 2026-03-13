@@ -445,12 +445,14 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
   }
 
   async function handleEdit(clip) {
+    // 浅拷贝避免直接修改列表里的对象
+    const clipCopy = { ...clip };
     // 先加载 details_json，再打开 Modal，避免 useState 已初始化后才拿到数据
-    const r = await api("clip_get_details", { id: clip.id });
+    const r = await api("clip_get_details", { id: clipCopy.id });
     if (r.ok && r.details_json) {
-      clip._details_json = JSON.stringify(r.details_json, null, 2);
+      clipCopy._details_json = JSON.stringify(r.details_json, null, 2);
     }
-    setEditClip(clip);
+    setEditClip(clipCopy);
     setShowForm(true);
   }
 
