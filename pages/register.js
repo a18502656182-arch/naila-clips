@@ -116,8 +116,11 @@ export default function RegisterPage() {
           code_used_up: "该兑换码已达使用上限",
           email_exists: "该邮箱已注册",
           username_exists: "该用户名已被占用",
+          register_failed: "注册失败，请稍后重试",
+          db_read_failed: "服务器繁忙，请稍后重试",
+          server_error: "服务器错误，请稍后重试",
         };
-        setMsg(errMap[j.error] || j.error || "注册失败");
+        setMsg(errMap[j.error] || "注册失败，请稍后重试");
         setLoading(false);
         return;
       }
