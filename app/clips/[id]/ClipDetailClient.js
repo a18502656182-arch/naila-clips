@@ -399,21 +399,39 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
             <div style={{ marginTop: 10, border: "1px solid #ffe3a3", background: "#fff8e8", borderRadius: 12, padding: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
               <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{v.meaning_zh}</div>
+              {v.meaning_en && (
+                <div style={{ marginTop: 4, fontSize: 12, color: "#b86b00", opacity: 0.75, lineHeight: 1.5 }}>{v.meaning_en}</div>
+              )}
             </div>
           )}
-          {(exampleEn || exampleZh) && (
+          {kind !== "expressions" && (exampleEn || exampleZh) && (
             <div style={{ marginTop: 10, border: "1px solid #cfe6ff", background: "#f3fbff", borderRadius: 12, padding: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: "#0b5aa6" }}>{kind === "expressions" ? "字幕原句" : "例句"}</div>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#0b5aa6" }}>例句</div>
               {exampleEn && <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{exampleEn}</div>}
               {showZh && exampleZh && <div style={{ marginTop: 4, fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55 }}>{exampleZh}</div>}
             </div>
           )}
-          {kind === "expressions" && showZh && v.use_case_zh && (
-            <div style={{ marginTop: 10, border: "1px solid #e7e7ff", background: "#f6f6ff", borderRadius: 12, padding: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, color: "#3c3ccf" }}>详细解析</div>
-              <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{v.use_case_zh}</div>
+          {kind === "expressions" && (exampleEn || exampleZh) && (
+            <div style={{ marginTop: 10, border: "1px solid #cfe6ff", background: "#f3fbff", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#0b5aa6" }}>字幕原句</div>
+              {exampleEn && <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{exampleEn}</div>}
+              {showZh && exampleZh && <div style={{ marginTop: 4, fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55 }}>{exampleZh}</div>}
             </div>
           )}
+          {kind === "expressions" && showZh && v.use_case_zh && (() => {
+            // 去掉 use_case_zh 开头的【字幕原句】和【中文翻译】两行，避免与上方卡片重复
+            const cleaned = v.use_case_zh
+              .replace(/^【字幕原句】[^\n]*\n?/, "")
+              .replace(/^【中文翻译】[^\n]*\n?/, "")
+              .replace(/^\n+/, "")
+              .trim();
+            return cleaned ? (
+              <div style={{ marginTop: 10, border: "1px solid #e7e7ff", background: "#f6f6ff", borderRadius: 12, padding: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: "#3c3ccf" }}>详细解析</div>
+                <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.65, whiteSpace: "pre-wrap" }}>{cleaned}</div>
+              </div>
+            ) : null;
+          })()}
         </>
       )}
     </Card>
@@ -1259,7 +1277,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {vocabList.map((v, i) => (
               <VocabCard key={i} v={v} kind={vocabTab} showZh={showZhExplain} segments={segments}
-                onLocate={idx => { setVocabOpen(false); setTimeout(() => locateToSegIdx(idx), 80); }}
+                onLocate={idx => { locateToSegIdx(idx); }}
                 favSet={favSet} onToggleFav={toggleFav} />
             ))}
           </div>
@@ -1455,13 +1473,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
         {vocabOpen && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.18)", display: "flex", alignItems: "flex-end" }} onClick={() => setVocabOpen(false)}>
-            <div style={{ width: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: 16, height: "55vh", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: 16, height: "90vh", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 40, height: 4, borderRadius: 999, background: THEME.colors.border2, margin: "0 auto 12px" }} />
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>词汇卡</div>
                 <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>关闭</button>
               </div>
-              {vocabPanel("calc(55vh - 130px)")}
+              {vocabPanel("calc(90vh - 130px)")}
             </div>
           </div>
         )}
