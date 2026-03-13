@@ -1062,16 +1062,18 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   );
 
   // ─── 视频区（复刻参考站：video src=m3u8，Stream SDK 自动接管 HLS）
-  const videoOrGate = (maxH) => checkingAccess ? (
-    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", ...(maxH ? { maxHeight: maxH } : {}), background: "#1a1a2e" }}>
+  const videoOrGate = (maxH, noRadius = false) => {
+    const radius = noRadius ? 0 : THEME.radii.md;
+    return checkingAccess ? (
+    <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", ...(maxH ? { maxHeight: maxH } : {}), background: "#1a1a2e" }}>
       {/* checkingAccess期间用封面图垫底，消除骨架屏→视频的黑屏闪烁 */}
       {item?.cover_url && (
-        <img src={item.cover_url} alt="" style={{ width: "100%", display: "block", borderRadius: THEME.radii.md, objectFit: "cover", ...(maxH ? { maxHeight: maxH } : {}) }} />
+        <img src={item.cover_url} alt="" style={{ width: "100%", display: "block", borderRadius: radius, objectFit: "cover", ...(maxH ? { maxHeight: maxH } : {}) }} />
       )}
-      {!item?.cover_url && <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={14} />}
+      {!item?.cover_url && <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={noRadius ? 0 : 14} />}
     </div>
   ) : canAccess ? (
-    <div style={{ position: "relative", width: "100%", borderRadius: THEME.radii.md, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
+    <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
         controls
@@ -1082,7 +1084,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         style={{
           width: "100%",
           display: "block",
-          borderRadius: THEME.radii.md,
+          borderRadius: radius,
           background: "transparent",
           position: "relative",
           zIndex: 1,
@@ -1145,6 +1147,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       }
     </div>
   );
+  };
 
   // ─── 词汇卡面板 ───────────────────────────────────────────
   const vocabPanel = (maxH) => (
@@ -1297,6 +1300,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const belowVideoPanel = subMode === "dictation" ? dictPanel : readingPanel;
 
   // ─── MOBILE LAYOUT ─────────────────────────────────────────
+      // ─── MOBILE LAYOUT ─────────────────────────────────────────
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
@@ -1305,18 +1309,23 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }`}</style>
         {navBar}
         {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
-        <div style={{ position: "sticky", top: 52, zIndex: 10, background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: 12 }}>
-          <Card style={{ padding: 10 }}>
-            {videoOrGate("33vh")}
+        {/* 视频区：去掉Card和padding，完全填满宽度 */}
+        <div style={{ position: "sticky", top: 52, zIndex: 10, background: "#1a1a2e" }}>
+          {videoOrGate("38vh", true)}
+          {subMode === "dictation" ? <div style={{ padding: "8px 12px", background: THEME.colors.bg }}>{dictPanel}</div> : null}
+          {/* 模式tab行 + 自动跟随按钮 */}
+          <div style={{ background: THEME.colors.bg, borderBottom: `1px solid ${THEME.colors.border}`, padding: "8px 12px", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", flex: 1, minWidth: 0, overflow: "hidden" }}>
+              {modeTabItems.filter(([m]) => !mobileHiddenModes.includes(m)).map(([m, label]) => (
+                <Btn key={m} active={subMode === m} onClick={() => setSubMode(m)}>{label}</Btn>
+              ))}
+            </div>
             {canAccess && (
-              <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
-                <div style={{ marginLeft: "auto", fontSize: 12, color: THEME.colors.faint }}>循环：{loopIdx === -1 ? "关闭" : `第${loopIdx + 1}句`}</div>
-              </div>
+              <Btn active={follow} onClick={() => setFollow(x => !x)} style={{ flexShrink: 0, padding: "5px 8px", fontSize: 11 }}>
+                跟随 {follow ? "ON" : "OFF"}
+              </Btn>
             )}
-            {subMode === "dictation" ? dictPanel : null}
-          </Card>
-          <div style={{ marginTop: 10 }}>{modeTabs}</div>
+          </div>
         </div>
 
         <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
