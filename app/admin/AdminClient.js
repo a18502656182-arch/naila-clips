@@ -445,13 +445,13 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
   }
 
   async function handleEdit(clip) {
-    setEditClip(clip);
-    setShowForm(true);
-    // 加载 details_json 预填
+    // 先加载 details_json，再打开 Modal，避免 useState 已初始化后才拿到数据
     const r = await api("clip_get_details", { id: clip.id });
     if (r.ok && r.details_json) {
       clip._details_json = JSON.stringify(r.details_json, null, 2);
     }
+    setEditClip(clip);
+    setShowForm(true);
   }
 
   async function handleDelete(clip) {
