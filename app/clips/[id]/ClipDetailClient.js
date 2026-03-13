@@ -395,13 +395,13 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
       </div>
       {!collapsed && (
         <>
+          {kind !== "expressions" && v.meaning_en && (
+            <div style={{ marginTop: 8, fontSize: 12, color: THEME.colors.muted, lineHeight: 1.5 }}>{v.meaning_en}</div>
+          )}
           {showZh && v.meaning_zh && (
-            <div style={{ marginTop: 10, border: "1px solid #ffe3a3", background: "#fff8e8", borderRadius: 12, padding: 10 }}>
+            <div style={{ marginTop: 8, border: "1px solid #ffe3a3", background: "#fff8e8", borderRadius: 12, padding: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 900, color: "#b86b00" }}>中文含义</div>
               <div style={{ marginTop: 4, fontSize: 13, lineHeight: 1.55 }}>{v.meaning_zh}</div>
-              {v.meaning_en && (
-                <div style={{ marginTop: 4, fontSize: 12, color: "#b86b00", opacity: 0.75, lineHeight: 1.5 }}>{v.meaning_en}</div>
-              )}
             </div>
           )}
           {kind !== "expressions" && (exampleEn || exampleZh) && (
@@ -1260,19 +1260,19 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   };
 
   // ─── 词汇卡面板 ───────────────────────────────────────────
-  const vocabPanel = (maxH) => (
-    <>
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+  const vocabPanel = (h) => (
+    <div style={{ display: "flex", flexDirection: "column", height: h, overflow: "hidden" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", flexShrink: 0 }}>
         <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)}>
           {showZhExplain ? "中文 ON" : "中文 OFF"}
         </Btn>
       </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
           <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{label} ({arr.length})</Btn>
         ))}
       </div>
-      <div style={{ maxHeight: maxH, overflow: "auto", paddingRight: 4 }}>
+      <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
         {vocabList.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {vocabList.map((v, i) => (
@@ -1287,7 +1287,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </Card>
         )}
       </div>
-    </>
+    </div>
   );
 
   // ─── 单句播放 ─────────────────────────────────────────────
@@ -1578,12 +1578,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             </Card>
 
             {vocabOpen && (
-              <Card style={{ padding: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+              <Card style={{ padding: 14, display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
                   <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
                 </div>
-                {vocabPanel(540)}
+                {vocabPanel("100%")}
               </Card>
             )}
           </div>
