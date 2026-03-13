@@ -48,6 +48,60 @@ export async function POST(req) {
   const { action } = body;
   const db = getSupabaseAdmin();
 
+  // ── 标签：重命名 ──
+  if (action === "taxonomy_rename") {
+    const { type, old_slug, new_slug } = body;
+    if (!type || !old_slug || !new_slug) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    const s = new_slug.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!s) return NextResponse.json({ error: "新名称不能为空" }, { status: 400 });
+    const { error: taxErr } = await db
+      .from("taxonomies").update({ slug: s }).eq("type", type).eq("slug", old_slug);
+    if (taxErr) return NextResponse.json({ error: taxErr.message }, { status: 500 });
+    if (type === "difficulty") {
+      await db.from("clips").update({ difficulty_slug: s }).eq("difficulty_slug", old_slug);
+    } else if (type === "topic") {
+      const { data: affectedClips } = await db.from("clips").select("id, topic_slugs").contains("topic_slugs", [old_slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.topic_slugs || []).map((t) => t === old_slug ? s : t);
+        await db.from("clips").update({ topic_slugs: updated }).eq("id", clip.id);
+      }
+    } else if (type === "channel") {
+      const { data: affectedClips } = await db.from("clips").select("id, channel_slugs").contains("channel_slugs", [old_slug]);
+      for (const clip of affectedClips || []) {
+        const updated = (clip.channel_slugs || []).map((c) => c === old_slug ? s : c);
+        await db.from("clips").update({ channel_slugs: updated }).eq("id", clip.id);
+      }
+    }
+    await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 标签：删除 ──
+  if (action === "taxonomy_delete") {
+    const { type, slug } = body;
+    if (!type || !slug) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    const { data: tax } = await db.from("taxonomies").select("id").eq("type", type).eq("slug", slug).maybeSingle();
+    if (tax?.id) { await db.from("clip_taxonomies").delete().eq("taxonomy_id", tax.id); }
+    await db.from("taxonomies").delete().eq("type", type).eq("slug", slug);
+    if (type === "difficulty") {
+      await db.from("clips").update({ difficulty_slug: null }).eq("difficulty_slug", slug);
+    } else if (type === "topic") {
+      const { data: affectedClips } = await db.from("clips").select("id, topic_slugs").contains("topic_slugs", [slug]);
+      for (const clip of affectedClips || []) {
+        await db.from("clips").update({ topic_slugs: (clip.topic_slugs || []).filter((t) => t !== slug) }).eq("id", clip.id);
+      }
+    } else if (type === "channel") {
+      const { data: affectedClips } = await db.from("clips").select("id, channel_slugs").contains("channel_slugs", [slug]);
+      for (const clip of affectedClips || []) {
+        await db.from("clips").update({ channel_slugs: (clip.channel_slugs || []).filter((c) => c !== slug) }).eq("id", clip.id);
+      }
+    }
+    await db.rpc("refresh_clips_view");
+    revalidateTag("clips_view:all");
+    return NextResponse.json({ ok: true });
+  }
+
   // ── 视频：新增 ──
   if (action === "clip_create") {
     const {
@@ -281,6 +335,45 @@ export async function POST(req) {
     return NextResponse.json({ ok: true });
   }
 
+  // ── 用户详情：学习数据 ──
+  if (action === "user_detail") {
+    const { user_id } = body;
+    if (!user_id) return NextResponse.json({ error: "缺少 user_id" }, { status: 400 });
+    const [
+      { data: bookmarks }, { data: dictations }, { data: viewLogs },
+      { data: vocabFavs }, { data: recordings }, { data: gameScores },
+    ] = await Promise.all([
+      db.from("bookmarks").select("clip_id, created_at").eq("user_id", user_id),
+      db.from("dictation_history").select("clip_id, seg_index, input_text, updated_at").eq("user_id", user_id).order("updated_at", { ascending: false }),
+      db.from("view_logs").select("clip_id, viewed_date").eq("user_id", user_id).order("viewed_date", { ascending: false }),
+      db.from("vocab_favorites").select("term, clip_id, kind, mastery_level, data").eq("user_id", user_id).order("kind"),
+      db.from("recordings").select("clip_id, segment_idx, duration_sec, file_path, created_at").eq("user_id", user_id),
+      db.from("game_scores").select("game_id, best_score, play_count").eq("user_id", user_id),
+    ]);
+    const clipIdSet = new Set([
+      ...(bookmarks || []).map(r => r.clip_id),
+      ...(dictations || []).map(r => Number(r.clip_id)),
+      ...(viewLogs || []).map(r => r.clip_id),
+      ...(vocabFavs || []).map(r => r.clip_id),
+      ...(recordings || []).map(r => r.clip_id),
+    ]);
+    const clipIds = [...clipIdSet].filter(Boolean);
+    let clipTitleMap = {};
+    if (clipIds.length > 0) {
+      const { data: clipRows } = await db.from("clips").select("id, title").in("id", clipIds);
+      (clipRows || []).forEach(c => { clipTitleMap[c.id] = c.title; });
+    }
+    return NextResponse.json({
+      ok: true,
+      bookmarks: (bookmarks || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, created_at: r.created_at })),
+      dictations: (dictations || []).map(r => ({ clip_id: Number(r.clip_id), title: clipTitleMap[Number(r.clip_id)] || `#${r.clip_id}`, seg_index: r.seg_index, input_text: r.input_text, updated_at: r.updated_at })),
+      view_logs: (viewLogs || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, viewed_date: r.viewed_date })),
+      vocab_favs: (vocabFavs || []).map(r => ({ term: r.term, clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, kind: r.kind, mastery_level: r.mastery_level })),
+      recordings: (recordings || []).map(r => ({ clip_id: r.clip_id, title: clipTitleMap[r.clip_id] || `#${r.clip_id}`, segment_idx: r.segment_idx, duration_sec: r.duration_sec, file_path: r.file_path, created_at: r.created_at })),
+      game_scores: gameScores || [],
+    });
+  }
+
   return NextResponse.json({ error: "unknown_action" }, { status: 400 });
 }
 
@@ -292,6 +385,12 @@ export async function GET(req) {
   const db = getSupabaseAdmin();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");
+
+  if (type === "taxonomies") {
+    const { data, error } = await db.from("taxonomies").select("type,slug").order("type").order("slug");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, taxonomies: data || [] });
+  }
 
   if (type === "clips") {
     const offset = Number(searchParams.get("offset") || 0);
