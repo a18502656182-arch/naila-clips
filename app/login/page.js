@@ -105,7 +105,17 @@ function LoginForm() {
       const supabase = createSupabaseBrowserClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setMsg(error.message || "登录失败");
+        const msg = error.message || "";
+        const errMap = {
+          "Invalid login credentials": "邮箱/用户名或密码错误",
+          "Email not confirmed": "邮箱尚未验证，请检查收件箱",
+          "Too many requests": "操作过于频繁，请稍后再试",
+          "User not found": "账号不存在",
+          "Invalid email or password": "邮箱/用户名或密码错误",
+          "Password should be at least 6 characters": "密码至少需要 6 位",
+        };
+        const zhMsg = errMap[msg] || (msg.toLowerCase().includes("invalid") ? "邮箱/用户名或密码错误" : msg.toLowerCase().includes("many") ? "操作过于频繁，请稍后再试" : "登录失败，请检查账号和密码");
+        setMsg(zhMsg);
         setLoading(false);
         return;
       }
@@ -120,7 +130,7 @@ function LoginForm() {
       router.push(redirectTo);
       router.refresh();
     } catch (err) {
-      setMsg(err.message || "未知错误");
+      setMsg("网络错误，请重试");
       setLoading(false);
     }
   }
