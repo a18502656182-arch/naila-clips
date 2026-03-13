@@ -172,33 +172,118 @@ function Toast({ msg, type = "success" }) {
   );
 }
 
-// ── 标签选择器（多选 + 可新增）────────────────────────
-function TagSelector({ label, value = [], onChange, options = [], type }) {
+// ── 标签编辑操作（rename / delete）────────────────────
+async function taxRename(type, oldSlug, newSlug) {
+  return api("taxonomy_rename", { type, old_slug: oldSlug, new_slug: newSlug });
+}
+async function taxDelete(type, slug) {
+  return api("taxonomy_delete", { type, slug });
+}
+
+// ── 单个标签 pill（含编辑 / 删除）─────────────────────
+function TagPill({ slug, selected, accent, onSelect, onRename, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [editVal, setEditVal] = useState(slug);
+  const [busy, setBusy] = useState(false);
+
+  const confirmRename = async () => {
+    const s = editVal.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!s || s === slug) { setEditing(false); setEditVal(slug); return; }
+    setBusy(true);
+    const r = await onRename(slug, s);
+    setBusy(false);
+    if (r?.ok) { setEditing(false); }
+    else { alert(r?.error || "重命名失败"); setEditVal(slug); setEditing(false); }
+  };
+
+  const confirmDelete = async () => {
+    if (!confirm(`确认删除标签「${slug}」？这会同时从所有视频中移除该标签。`)) return;
+    setBusy(true);
+    const r = await onDelete(slug);
+    setBusy(false);
+    if (!r?.ok) alert(r?.error || "删除失败");
+  };
+
+  if (editing) {
+    return (
+      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+        <input
+          autoFocus value={editVal}
+          onChange={(e) => setEditVal(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") { setEditing(false); setEditVal(slug); } }}
+          style={{
+            padding: "4px 10px", borderRadius: T.radius.pill, fontSize: 12,
+            background: T.surface3, border: `1px solid ${T.accent}`, color: T.ink, outline: "none", width: 110,
+          }}
+        />
+        <Btn size="sm" onClick={confirmRename} disabled={busy}>✓</Btn>
+        <Btn size="sm" variant="ghost" onClick={() => { setEditing(false); setEditVal(slug); }}>✕</Btn>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 0, borderRadius: T.radius.pill, overflow: "hidden", border: `1px solid ${selected ? accent : T.border2}`, background: selected ? `${accent}22` : T.surface3 }}>
+      <button onClick={onSelect} style={{
+        padding: "4px 10px", fontSize: 12, fontWeight: 700,
+        cursor: "pointer", border: "none", background: "transparent",
+        color: selected ? accent : T.muted,
+      }}>{slug}</button>
+      <button onClick={() => { setEditing(true); setEditVal(slug); }} title="重命名" style={{
+        padding: "4px 5px", fontSize: 11, cursor: "pointer",
+        border: "none", borderLeft: `1px solid ${selected ? accent : T.border2}`,
+        background: "transparent", color: T.faint, lineHeight: 1,
+      }}>✏️</button>
+      <button onClick={confirmDelete} disabled={busy} title="删除" style={{
+        padding: "4px 5px", fontSize: 11, cursor: "pointer",
+        border: "none", borderLeft: `1px solid ${selected ? accent : T.border2}`,
+        background: "transparent", color: T.faint, lineHeight: 1,
+      }}>🗑</button>
+    </div>
+  );
+}
+
+// ── 标签选择器（多选 + 可新增 + 可编辑/删除）────────────────────
+function TagSelector({ label, value = [], onChange, options = [], type, onRefreshOptions }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const toggle = (slug) => onChange(value.includes(slug) ? value.filter((v) => v !== slug) : [...value, slug]);
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
-    if (!options.includes(s)) options.push(s); // 乐观更新
+    if (!options.includes(s)) options.push(s);
     if (!value.includes(s)) onChange([...value, s]);
     setNewVal(""); setAdding(false);
   };
+
+  const handleRename = async (oldSlug, newSlug) => {
+    const r = await taxRename(type, oldSlug, newSlug);
+    if (r?.ok) {
+      if (value.includes(oldSlug)) onChange(value.map((v) => v === oldSlug ? newSlug : v));
+      onRefreshOptions?.();
+    }
+    return r;
+  };
+  const handleDelete = async (slug) => {
+    const r = await taxDelete(type, slug);
+    if (r?.ok) {
+      onChange(value.filter((v) => v !== slug));
+      onRefreshOptions?.();
+    }
+    return r;
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => {
-          const sel = value.includes(slug);
-          return (
-            <button key={slug} onClick={() => toggle(slug)} style={{
-              padding: "4px 12px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
-              cursor: "pointer", border: `1px solid ${sel ? T.accent : T.border2}`,
-              background: sel ? `${T.accent}22` : T.surface3, color: sel ? T.accent2 : T.muted,
-              transition: "all .15s",
-            }}>{slug}</button>
-          );
-        })}
+        {options.map((slug) => (
+          <TagPill key={slug} slug={slug} selected={value.includes(slug)} accent={T.accent2}
+            onSelect={() => toggle(slug)}
+            onRename={(o, n) => handleRename(o, n)}
+            onDelete={(s) => handleDelete(s)}
+          />
+        ))}
         {adding ? (
           <div style={{ display: "flex", gap: 4 }}>
             <input
@@ -224,7 +309,7 @@ function TagSelector({ label, value = [], onChange, options = [], type }) {
 }
 
 // ── 单选标签（难度）────────────────────────────────────
-function SingleTagSelector({ label, value, onChange, options = [] }) {
+function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const addNew = () => {
@@ -234,21 +319,35 @@ function SingleTagSelector({ label, value, onChange, options = [] }) {
     onChange(s);
     setNewVal(""); setAdding(false);
   };
+
+  const handleRename = async (oldSlug, newSlug) => {
+    const r = await taxRename(type, oldSlug, newSlug);
+    if (r?.ok) {
+      if (value === oldSlug) onChange(newSlug);
+      onRefreshOptions?.();
+    }
+    return r;
+  };
+  const handleDelete = async (slug) => {
+    const r = await taxDelete(type, slug);
+    if (r?.ok) {
+      if (value === slug) onChange("");
+      onRefreshOptions?.();
+    }
+    return r;
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => {
-          const sel = value === slug;
-          return (
-            <button key={slug} onClick={() => onChange(sel ? "" : slug)} style={{
-              padding: "4px 12px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
-              cursor: "pointer", border: `1px solid ${sel ? T.warn : T.border2}`,
-              background: sel ? `${T.warn}22` : T.surface3, color: sel ? T.warn : T.muted,
-              transition: "all .15s",
-            }}>{slug}</button>
-          );
-        })}
+        {options.map((slug) => (
+          <TagPill key={slug} slug={slug} selected={value === slug} accent={T.warn}
+            onSelect={() => onChange(value === slug ? "" : slug)}
+            onRename={(o, n) => handleRename(o, n)}
+            onDelete={(s) => handleDelete(s)}
+          />
+        ))}
         {adding ? (
           <div style={{ display: "flex", gap: 4 }}>
             <input
@@ -272,9 +371,8 @@ function SingleTagSelector({ label, value, onChange, options = [] }) {
     </div>
   );
 }
-
 // ── 视频表单（新增/编辑共用）──────────────────────────
-function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading }) {
+function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
   const [form, setForm] = useState({
     title: initial.title || "",
     description: initial.description || "",
@@ -329,9 +427,11 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading }) {
         value={form.difficulty_slug}
         onChange={(v) => setF("difficulty_slug", v)}
         options={difficulties}
+        type="difficulty"
+        onRefreshOptions={onRefreshTaxonomies}
       />
-      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} />
-      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} />
+      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} type="topic" onRefreshOptions={onRefreshTaxonomies} />
+      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} type="channel" onRefreshOptions={onRefreshTaxonomies} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -417,14 +517,24 @@ function OverviewPanel({ stats }) {
 // ══════════════════════════════════════════════════════
 // 模块二：视频管理
 // ══════════════════════════════════════════════════════
-function ClipsPanel({ initialClips, taxonomies, onToast }) {
+function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast }) {
   const [clips, setClips] = useState(initialClips);
+  const [taxonomies, setTaxonomies] = useState(initialTaxonomiesFromProps);
   const [showForm, setShowForm] = useState(false);
   const [editClip, setEditClip] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [loadingEdit, setLoadingEdit] = useState(null);
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
+
+  const refreshTaxonomies = async () => {
+    try {
+      const r = await fetch("/admin-api?type=taxonomies", { headers: { Authorization: `Bearer ${getToken()}` } });
+      const d = await r.json();
+      if (d?.ok && d.taxonomies) setTaxonomies(d.taxonomies);
+    } catch {}
+  };
 
   const filtered = clips.filter((c) =>
     !search || c.title?.toLowerCase().includes(search.toLowerCase())
@@ -517,7 +627,7 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)}>编辑</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)} disabled={loadingEdit === clip.id}>{loadingEdit === clip.id ? "加载中…" : "编辑"}</Btn>
               <Btn size="sm" variant="danger" onClick={() => handleDelete(clip)} disabled={deleting === clip.id}>
                 {deleting === clip.id ? "…" : "删除"}
               </Btn>
@@ -550,6 +660,7 @@ function ClipsPanel({ initialClips, taxonomies, onToast }) {
           onSave={handleSave}
           onCancel={() => { setShowForm(false); setEditClip(null); }}
           loading={saving}
+          onRefreshTaxonomies={refreshTaxonomies}
         />
       </Modal>
     </div>
