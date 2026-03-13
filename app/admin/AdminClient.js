@@ -172,119 +172,33 @@ function Toast({ msg, type = "success" }) {
   );
 }
 
-// ── 标签编辑操作（rename / delete）────────────────────
-async function taxRename(type, oldSlug, newSlug) {
-  return api("taxonomy_rename", { type, old_slug: oldSlug, new_slug: newSlug });
-}
-async function taxDelete(type, slug) {
-  return api("taxonomy_delete", { type, slug });
-}
-
-// ── 单个标签 pill（含编辑 / 删除）─────────────────────
-function TagPill({ slug, selected, accent, onSelect, onRename, onDelete }) {
-  const [editing, setEditing] = useState(false);
-  const [editVal, setEditVal] = useState(slug);
-  const [busy, setBusy] = useState(false);
-
-  const confirmRename = async () => {
-    const s = editVal.trim().toLowerCase().replace(/\s+/g, "-");
-    if (!s || s === slug) { setEditing(false); setEditVal(slug); return; }
-    setBusy(true);
-    const r = await onRename(slug, s);
-    setBusy(false);
-    if (r?.ok) { setEditing(false); }
-    else { alert(r?.error || "重命名失败"); setEditVal(slug); setEditing(false); }
-  };
-
-  const confirmDelete = async () => {
-    if (!confirm(`确认删除标签「${slug}」？这会同时从所有视频中移除该标签。`)) return;
-    setBusy(true);
-    const r = await onDelete(slug);
-    setBusy(false);
-    if (!r?.ok) alert(r?.error || "删除失败");
-  };
-
-  if (editing) {
-    return (
-      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-        <input
-          autoFocus value={editVal}
-          onChange={(e) => setEditVal(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") { setEditing(false); setEditVal(slug); } }}
-          style={{
-            padding: "4px 10px", borderRadius: T.radius.pill, fontSize: 12,
-            background: T.surface3, border: `1px solid ${T.accent}`, color: T.ink, outline: "none", width: 110,
-          }}
-        />
-        <Btn size="sm" onClick={confirmRename} disabled={busy}>✓</Btn>
-        <Btn size="sm" variant="ghost" onClick={() => { setEditing(false); setEditVal(slug); }}>✕</Btn>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 0, borderRadius: T.radius.pill, overflow: "hidden", border: `1px solid ${selected ? accent : T.border2}`, background: selected ? `${accent}22` : T.surface3 }}>
-      <button onClick={onSelect} style={{
-        padding: "4px 10px", fontSize: 12, fontWeight: 700,
-        cursor: "pointer", border: "none", background: "transparent",
-        color: selected ? accent : T.muted,
-      }}>{slug}</button>
-      <button onClick={() => { setEditing(true); setEditVal(slug); }} title="重命名" style={{
-        padding: "4px 5px", fontSize: 11, cursor: "pointer",
-        border: "none", borderLeft: `1px solid ${selected ? accent : T.border2}`,
-        background: "transparent", color: T.faint, lineHeight: 1,
-      }}>✏️</button>
-      <button onClick={confirmDelete} disabled={busy} title="删除" style={{
-        padding: "4px 5px", fontSize: 11, cursor: "pointer",
-        border: "none", borderLeft: `1px solid ${selected ? accent : T.border2}`,
-        background: "transparent", color: T.faint, lineHeight: 1,
-      }}>🗑</button>
-    </div>
-  );
-}
-
-// ── 标签选择器（多选 + 可新增 + 可编辑/删除）────────────────────
-function TagSelector({ label, value = [], onChange, options = [], type, onRefreshOptions }) {
+// ── 标签选择器（多选 + 可新增）────────────────────────
+function TagSelector({ label, value = [], onChange, options = [], type }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const toggle = (slug) => onChange(value.includes(slug) ? value.filter((v) => v !== slug) : [...value, slug]);
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
-    if (!options.includes(s)) options.push(s);
+    if (!options.includes(s)) options.push(s); // 乐观更新
     if (!value.includes(s)) onChange([...value, s]);
     setNewVal(""); setAdding(false);
   };
-
-  const handleRename = async (oldSlug, newSlug) => {
-    const r = await taxRename(type, oldSlug, newSlug);
-    if (r?.ok) {
-      // 乐观更新选中值
-      if (value.includes(oldSlug)) onChange(value.map((v) => v === oldSlug ? newSlug : v));
-      onRefreshOptions?.();
-    }
-    return r;
-  };
-  const handleDelete = async (slug) => {
-    const r = await taxDelete(type, slug);
-    if (r?.ok) {
-      onChange(value.filter((v) => v !== slug));
-      onRefreshOptions?.();
-    }
-    return r;
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => (
-          <TagPill key={slug} slug={slug} selected={value.includes(slug)} accent={T.accent2}
-            onSelect={() => toggle(slug)}
-            onRename={(o, n) => handleRename(o, n)}
-            onDelete={(s) => handleDelete(s)}
-          />
-        ))}
+        {options.map((slug) => {
+          const sel = value.includes(slug);
+          return (
+            <button key={slug} onClick={() => toggle(slug)} style={{
+              padding: "4px 12px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", border: `1px solid ${sel ? T.accent : T.border2}`,
+              background: sel ? `${T.accent}22` : T.surface3, color: sel ? T.accent2 : T.muted,
+              transition: "all .15s",
+            }}>{slug}</button>
+          );
+        })}
         {adding ? (
           <div style={{ display: "flex", gap: 4 }}>
             <input
@@ -310,7 +224,7 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
 }
 
 // ── 单选标签（难度）────────────────────────────────────
-function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions }) {
+function SingleTagSelector({ label, value, onChange, options = [] }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const addNew = () => {
@@ -320,35 +234,21 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
     onChange(s);
     setNewVal(""); setAdding(false);
   };
-
-  const handleRename = async (oldSlug, newSlug) => {
-    const r = await taxRename(type, oldSlug, newSlug);
-    if (r?.ok) {
-      if (value === oldSlug) onChange(newSlug);
-      onRefreshOptions?.();
-    }
-    return r;
-  };
-  const handleDelete = async (slug) => {
-    const r = await taxDelete(type, slug);
-    if (r?.ok) {
-      if (value === slug) onChange("");
-      onRefreshOptions?.();
-    }
-    return r;
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => (
-          <TagPill key={slug} slug={slug} selected={value === slug} accent={T.warn}
-            onSelect={() => onChange(value === slug ? "" : slug)}
-            onRename={(o, n) => handleRename(o, n)}
-            onDelete={(s) => handleDelete(s)}
-          />
-        ))}
+        {options.map((slug) => {
+          const sel = value === slug;
+          return (
+            <button key={slug} onClick={() => onChange(sel ? "" : slug)} style={{
+              padding: "4px 12px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", border: `1px solid ${sel ? T.warn : T.border2}`,
+              background: sel ? `${T.warn}22` : T.surface3, color: sel ? T.warn : T.muted,
+              transition: "all .15s",
+            }}>{slug}</button>
+          );
+        })}
         {adding ? (
           <div style={{ display: "flex", gap: 4 }}>
             <input
@@ -374,7 +274,7 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
 }
 
 // ── 视频表单（新增/编辑共用）──────────────────────────
-function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
+function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading }) {
   const [form, setForm] = useState({
     title: initial.title || "",
     description: initial.description || "",
@@ -385,7 +285,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     difficulty_slug: initial.difficulty_slug || "",
     topic_slugs: initial.topic_slugs || [],
     channel_slugs: initial.channel_slugs || [],
-    details_json: initial.details_json || "",
+    details_json: "",
+    youtube_url: initial.youtube_url || "",
     upload_time: initial.upload_time
       ? new Date(initial.upload_time).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10),
@@ -418,6 +319,9 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         <div style={{ gridColumn: "1/-1" }}>
           <Input label="描述" value={form.description} onChange={(e) => setF("description", e.target.value)} placeholder="视频描述（可选）" />
         </div>
+        <div style={{ gridColumn: "1/-1" }}>
+          <Input label="原 YouTube 链接" value={form.youtube_url} onChange={(e) => setF("youtube_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+        </div>
       </div>
 
       <SingleTagSelector
@@ -425,11 +329,9 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         value={form.difficulty_slug}
         onChange={(v) => setF("difficulty_slug", v)}
         options={difficulties}
-        type="difficulty"
-        onRefreshOptions={onRefreshTaxonomies}
       />
-      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} type="topic" onRefreshOptions={onRefreshTaxonomies} />
-      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} type="channel" onRefreshOptions={onRefreshTaxonomies} />
+      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} />
+      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -515,24 +417,14 @@ function OverviewPanel({ stats }) {
 // ══════════════════════════════════════════════════════
 // 模块二：视频管理
 // ══════════════════════════════════════════════════════
-function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast }) {
+function ClipsPanel({ initialClips, taxonomies, onToast }) {
   const [clips, setClips] = useState(initialClips);
-  const [taxonomies, setTaxonomies] = useState(initialTaxonomiesFromProps);
   const [showForm, setShowForm] = useState(false);
   const [editClip, setEditClip] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
-  const [loadingEdit, setLoadingEdit] = useState(null); // 正在加载 details 的 clip id
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
-
-  const refreshTaxonomies = async () => {
-    try {
-      const r = await fetch("/admin-api?type=taxonomies", { headers: { Authorization: `Bearer ${getToken()}` } });
-      const d = await r.json();
-      if (d?.ok && d.taxonomies) setTaxonomies(d.taxonomies);
-    } catch {}
-  };
 
   const filtered = clips.filter((c) =>
     !search || c.title?.toLowerCase().includes(search.toLowerCase())
@@ -553,15 +445,13 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   }
 
   async function handleEdit(clip) {
-    setLoadingEdit(clip.id);
-    const r = await api("clip_get_details", { id: clip.id });
-    const withDetails = { ...clip };
-    if (r.ok && r.details_json) {
-      withDetails._details_json = JSON.stringify(r.details_json, null, 2);
-    }
-    setLoadingEdit(null);
-    setEditClip(withDetails);
+    setEditClip(clip);
     setShowForm(true);
+    // 加载 details_json 预填
+    const r = await api("clip_get_details", { id: clip.id });
+    if (r.ok && r.details_json) {
+      clip._details_json = JSON.stringify(r.details_json, null, 2);
+    }
   }
 
   async function handleDelete(clip) {
@@ -625,7 +515,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)} disabled={loadingEdit === clip.id}>{loadingEdit === clip.id ? "加载中…" : "编辑"}</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)}>编辑</Btn>
               <Btn size="sm" variant="danger" onClick={() => handleDelete(clip)} disabled={deleting === clip.id}>
                 {deleting === clip.id ? "…" : "删除"}
               </Btn>
@@ -658,7 +548,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
           onSave={handleSave}
           onCancel={() => { setShowForm(false); setEditClip(null); }}
           loading={saving}
-          onRefreshTaxonomies={refreshTaxonomies}
         />
       </Modal>
     </div>
@@ -846,238 +735,6 @@ function CodesPanel({ initialCodes, onToast }) {
 // ══════════════════════════════════════════════════════
 // 模块四：用户管理
 // ══════════════════════════════════════════════════════
-
-// 掌握度标签
-const MASTERY_LABELS = ["未掌握", "学习中", "已掌握"];
-const MASTERY_COLORS = [T.danger, T.warn, T.good];
-const GAME_NAMES = {
-  bubble:  { name: "气泡拼写",   emoji: "🫧" },
-  match:   { name: "极速连连看", emoji: "🔗" },
-  swipe:   { name: "单词探探",   emoji: "🃏" },
-  rebuild: { name: "台词磁力贴", emoji: "🧩" },
-  balloon: { name: "盲听气球",   emoji: "🎧" },
-  speed:   { name: "极速二选一", emoji: "⚡" },
-};
-
-// 用户详情 Modal（两层：数字概览 + 分 tab 明细）
-function UserDetailModal({ user, onClose, onOpenMember }) {
-  const [detail, setDetail] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [detailTab, setDetailTab] = useState("bookmarks");
-
-  useEffect(() => {
-    if (!user) return;
-    setLoading(true);
-    setDetail(null);
-    api("user_detail", { user_id: user.id }).then(res => {
-      setLoading(false);
-      if (res.ok) setDetail(res);
-    });
-  }, [user?.id]);
-
-  if (!user) return null;
-
-  const active = isMemberActive(user.subscription);
-  const expired = user.subscription && !active;
-
-  const stats = detail ? [
-    { emoji: "📚", label: "收藏视频", value: detail.bookmarks.length, color: T.accent2 },
-    { emoji: "📝", label: "听写段落", value: detail.dictations.length, color: T.good },
-    { emoji: "👁️", label: "观看记录", value: detail.view_logs.length, color: T.warn },
-    { emoji: "📖", label: "词汇收藏", value: detail.vocab_favs.length, color: T.vip },
-    { emoji: "🎙️", label: "跟读录音", value: detail.recordings.length, color: "#06b6d4" },
-    { emoji: "🎮", label: "游戏场次", value: detail.game_scores.reduce((s, r) => s + (r.play_count || 0), 0), color: T.danger },
-  ] : [];
-
-  const detailTabs = [
-    { id: "bookmarks", label: `📚 收藏 ${detail ? `(${detail.bookmarks.length})` : ""}` },
-    { id: "dictations", label: `📝 听写 ${detail ? `(${detail.dictations.length})` : ""}` },
-    { id: "view_logs", label: `👁️ 观看 ${detail ? `(${detail.view_logs.length})` : ""}` },
-    { id: "vocab_favs", label: `📖 词汇 ${detail ? `(${detail.vocab_favs.length})` : ""}` },
-    { id: "recordings", label: `🎙️ 录音 ${detail ? `(${detail.recordings.length})` : ""}` },
-    { id: "game_scores", label: `🎮 游戏 ${detail ? `(${detail.game_scores.length})` : ""}` },
-  ];
-
-  return (
-    <Modal open={!!user} onClose={onClose} title={`👤 ${user.username || user.email?.split("@")[0] || "用户详情"}`} width={720}>
-      {/* 用户基础信息行 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: T.surface3, borderRadius: T.radius.md, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", flexShrink: 0, background: `linear-gradient(135deg, ${T.accent}, ${T.vip})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 900, color: "#fff" }}>
-          {(user.username || user.email || "?")[0].toUpperCase()}
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: T.ink }}>{user.username || user.email?.split("@")[0] || "匿名"}</div>
-          <div style={{ fontSize: 12, color: T.faint, marginTop: 2 }}>{user.email}</div>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-          {active && <Chip color={T.vip}>✨ 会员中</Chip>}
-          {expired && <Chip color={T.danger}>已过期</Chip>}
-          {!user.subscription && <Chip color={T.muted}>普通用户</Chip>}
-          {user.subscription && <span style={{ fontSize: 11, color: T.faint }}>到期：{fmt(user.subscription.expires_at)}</span>}
-          {user.used_code && <span style={{ fontSize: 11, color: T.faint }}>注册码：<code style={{ fontFamily: "monospace", color: T.muted }}>{user.used_code}</code></span>}
-          <span style={{ fontSize: 11, color: T.faint }}>注册：{fmt(user.created_at)}</span>
-          <Btn size="sm" variant="ghost" onClick={() => { onClose(); onOpenMember(user); }}>调整会员</Btn>
-        </div>
-      </div>
-
-      {loading && (
-        <div style={{ textAlign: "center", padding: 48, color: T.faint }}>加载中…</div>
-      )}
-
-      {!loading && detail && (
-        <>
-          {/* 第一层：数字概览 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 20 }}>
-            {stats.map(s => (
-              <div key={s.label} style={{ background: T.surface3, borderRadius: T.radius.md, padding: "14px 10px", textAlign: "center", border: `1px solid ${T.border}` }}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{s.emoji}</div>
-                <div style={{ fontSize: 22, fontWeight: 900, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 10, color: T.faint, marginTop: 4, lineHeight: 1.3 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* 第二层：分 tab 明细 */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-            {detailTabs.map(t => (
-              <button key={t.id} onClick={() => setDetailTab(t.id)} style={{
-                padding: "5px 12px", borderRadius: T.radius.pill, fontSize: 11, fontWeight: 700,
-                cursor: "pointer", border: `1px solid ${detailTab === t.id ? T.accent : T.border2}`,
-                background: detailTab === t.id ? `${T.accent}22` : "transparent",
-                color: detailTab === t.id ? T.accent2 : T.muted,
-              }}>{t.label}</button>
-            ))}
-          </div>
-
-          <div style={{ maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
-
-            {/* 收藏视频 */}
-            {detailTab === "bookmarks" && (
-              detail.bookmarks.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无收藏</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.bookmarks.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.title}</span>
-                        <span style={{ fontSize: 11, color: T.faint, flexShrink: 0 }}>{fmt(r.created_at)}</span>
-                      </div>
-                    ))}
-                  </div>
-            )}
-
-            {/* 听写记录 */}
-            {detailTab === "dictations" && (
-              detail.dictations.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无听写记录</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.dictations.map((r, i) => (
-                      <div key={i} style={{ padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: T.accent2 }}>{r.title}</span>
-                          <Chip color={T.faint}>第 {r.seg_index + 1} 句</Chip>
-                          <span style={{ fontSize: 11, color: T.faint, marginLeft: "auto" }}>{fmtFull(r.updated_at)}</span>
-                        </div>
-                        {r.input_text
-                          ? <div style={{ fontSize: 12, color: T.muted, fontFamily: "monospace", background: T.surface2, padding: "4px 8px", borderRadius: 6 }}>{r.input_text}</div>
-                          : <div style={{ fontSize: 11, color: T.faint, fontStyle: "italic" }}>（已清空）</div>
-                        }
-                      </div>
-                    ))}
-                  </div>
-            )}
-
-            {/* 观看记录 */}
-            {detailTab === "view_logs" && (
-              detail.view_logs.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无观看记录</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.view_logs.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.title}</span>
-                        <span style={{ fontSize: 11, color: T.faint, flexShrink: 0 }}>{r.viewed_date}</span>
-                      </div>
-                    ))}
-                  </div>
-            )}
-
-            {/* 词汇收藏 */}
-            {detailTab === "vocab_favs" && (
-              detail.vocab_favs.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无词汇收藏</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.vocab_favs.map((r, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <code style={{ fontSize: 13, fontWeight: 800, color: T.ink, fontFamily: "monospace", minWidth: 80 }}>{r.term}</code>
-                        <Chip color={T.accent}>{r.kind}</Chip>
-                        {r.mastery_level !== null && r.mastery_level !== undefined && (
-                          <Chip color={MASTERY_COLORS[r.mastery_level] || T.faint}>{MASTERY_LABELS[r.mastery_level] || r.mastery_level}</Chip>
-                        )}
-                        <span style={{ fontSize: 11, color: T.faint, flex: 1, textAlign: "right" }}>{r.title}</span>
-                      </div>
-                    ))}
-                  </div>
-            )}
-
-            {/* 跟读录音 */}
-            {detailTab === "recordings" && (
-              detail.recordings.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无跟读录音</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.recordings.map((r, i) => {
-                      // R2 路径：{user_id}/{clip_id}/{segment_idx}.ext
-                      // 文件夹 = user_id（路径第一段），文件名 = clip_id/segment_idx.ext（后两段）
-                      const pathParts = r.file_path ? r.file_path.split("/") : [];
-                      const folderName = pathParts[0] || "—";
-                      const fileName = pathParts.slice(1).join("/") || "—";
-                      return (
-                      <div key={i} style={{ padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: r.file_path ? 6 : 0 }}>
-                          <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{r.title}</span>
-                          <Chip color={T.faint}>第 {r.segment_idx + 1} 句</Chip>
-                          {r.duration_sec && <span style={{ fontSize: 11, color: T.muted }}>{r.duration_sec.toFixed(1)}s</span>}
-                          <span style={{ fontSize: 11, color: T.faint }}>{fmt(r.created_at)}</span>
-                        </div>
-                        {r.file_path && (
-                          <div style={{ fontSize: 11, color: T.faint, fontFamily: "monospace", display: "flex", gap: 12, flexWrap: "wrap" }}>
-                            <span>📁 文件夹：<span style={{ color: T.muted }}>{folderName}</span></span>
-                            <span>📄 文件名：<span style={{ color: T.muted }}>{fileName}</span></span>
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
-                  </div>
-            )}
-
-            {/* 游戏分数 */}
-            {detailTab === "game_scores" && (
-              detail.game_scores.length === 0
-                ? <div style={{ color: T.faint, fontSize: 13, padding: "20px 0", textAlign: "center" }}>暂无游戏记录</div>
-                : <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {detail.game_scores.map((r, i) => {
-                      const meta = GAME_NAMES[r.game_id];
-                      return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: T.surface3, borderRadius: T.radius.sm }}>
-                        <span style={{ fontSize: 16 }}>{meta?.emoji || "🎮"}</span>
-                        <span style={{ fontSize: 13, color: T.ink, flex: 1 }}>{meta?.name || r.game_id}</span>
-                        <span style={{ fontSize: 12, color: T.warn, fontWeight: 800 }}>最高 {r.best_score} 分</span>
-                        <span style={{ fontSize: 11, color: T.faint }}>共玩 {r.play_count} 次</span>
-                      </div>
-                      );
-                    })}
-                    <div style={{ padding: "8px 12px", background: `${T.warn}15`, borderRadius: T.radius.sm, border: `1px solid ${T.warn}33`, display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ fontSize: 12, color: T.muted }}>总分合计</span>
-                      <span style={{ fontSize: 13, fontWeight: 900, color: T.warn }}>{detail.game_scores.reduce((s, r) => s + (r.best_score || 0), 0)} 分</span>
-                    </div>
-                  </div>
-            )}
-          </div>
-        </>
-      )}
-    </Modal>
-  );
-}
-
 function UsersPanel({ initialUsers, onToast }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
@@ -1086,7 +743,6 @@ function UsersPanel({ initialUsers, onToast }) {
   const [memberDays, setMemberDays] = useState("30");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [detailUser, setDetailUser] = useState(null);
 
   async function handleSearch(q) {
     setSearch(q);
@@ -1209,25 +865,13 @@ function UsersPanel({ initialUsers, onToast }) {
                   <span style={{ fontSize: 11, color: T.faint }}>注册：{fmt(u.created_at)}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                <Btn size="sm" variant="ghost" onClick={() => setDetailUser(u)}>
-                  学习详情
-                </Btn>
-                <Btn size="sm" variant="ghost" onClick={() => { setMemberModal(u); setMemberDays("30"); }}>
-                  调整会员
-                </Btn>
-              </div>
+              <Btn size="sm" variant="ghost" onClick={() => { setMemberModal(u); setMemberDays("30"); }}>
+                调整会员
+              </Btn>
             </div>
           );
         })}
       </div>
-
-      {/* 用户学习详情弹窗 */}
-      <UserDetailModal
-        user={detailUser}
-        onClose={() => setDetailUser(null)}
-        onOpenMember={(u) => { setMemberModal(u); setMemberDays("30"); }}
-      />
 
       {/* 调整会员弹窗 */}
       <Modal open={!!memberModal} onClose={() => setMemberModal(null)} title="✨ 调整会员时长" width={400}>
