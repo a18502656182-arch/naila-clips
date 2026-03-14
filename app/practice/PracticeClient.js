@@ -1274,7 +1274,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
         <div style={{ opacity: 0.75, fontWeight: 900 }}>答对 {correct}</div>
       </div>
       <div style={{ maxWidth: 560, margin: "0 auto 10px", padding: "0 14px" }}>
-        <TimerBar timeLeft={timeLeft} totalSeconds={TIMER_SECONDS} />
+        <TimerBar timeLeft={started ? timeLeft : TIMER_SECONDS} totalSeconds={TIMER_SECONDS} />
       </div>
       <div style={cardWrap}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 140, pointerEvents: "none" }}>
@@ -1626,7 +1626,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
         <button onClick={() => playWord(currentWord?.term)} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", cursor: "pointer", fontWeight: 1000 }}>再听 🔁</button>
       </div>
       <div style={{ maxWidth: 980, margin: "0 auto 6px", padding: "0 6px" }}>
-        <TimerBar timeLeft={timeLeft} totalSeconds={TIMER_SECONDS} />
+        <TimerBar timeLeft={started ? timeLeft : TIMER_SECONDS} totalSeconds={TIMER_SECONDS} />
       </div>
       <div style={{ maxWidth: 980, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: "0 6px", alignItems: "center" }}>
         <div style={{ background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.pill, padding: "8px 12px", fontWeight: 1000, textAlign: "center" }}>分数：{score}</div>
@@ -1773,7 +1773,7 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
           <div style={pill}>🔥 {combo > 0 ? `x${combo}` : score + "分"}</div>
         </div>
         <div style={{ maxWidth: 980, margin: "8px auto 0" }}>
-          <TimerBar timeLeft={timeLeft} totalSeconds={started ? TIMER_SECONDS : TIMER_SECONDS} />
+          <TimerBar timeLeft={started ? timeLeft : TIMER_SECONDS} totalSeconds={TIMER_SECONDS} />
         </div>
         <div style={{ maxWidth: 980, margin: "6px auto 0", height: 4, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
           <div style={{ width: `${tRatio * 100}%`, height: "100%", background: tRatio > 0.4 ? THEME.colors.accent : "#ef4444", borderRadius: 9999, transition: "width 0.1s linear" }} />
