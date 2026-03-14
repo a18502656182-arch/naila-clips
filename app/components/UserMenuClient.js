@@ -178,7 +178,8 @@ export default function UserMenuClient() {
     );
   }
 
-  const initial = (email || "U").split("@")[0].slice(0, 1).toUpperCase();
+  const displayName = meData?.username || (email || "U").split("@")[0];
+  const initial = displayName.slice(0, 1).toUpperCase();
   const expiryStr = formatExpiry(meData?.ends_at || meData?.expires_at || meData?.end_at);
 
   return (
@@ -271,7 +272,7 @@ export default function UserMenuClient() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {email}
+                  {displayName}
                 </div>
                 <div
                   style={{
