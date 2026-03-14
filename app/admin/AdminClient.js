@@ -277,7 +277,7 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => (
+        {[...options, ...value.filter(v => !options.includes(v))].map((slug) => (
           <TagPill key={slug} slug={slug} selected={value.includes(slug)} accent={T.accent2}
             onSelect={() => toggle(slug)}
             onRename={(o, n) => handleRename(o, n)}
@@ -567,8 +567,11 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   async function handleEdit(clip) {
     // 浅拷贝避免直接修改列表里的对象
     const clipCopy = { ...clip };
-    // 先加载 details_json，再打开 Modal，避免 useState 已初始化后才拿到数据
-    const r = await api("clip_get_details", { id: clipCopy.id });
+    // 并行加载 details_json 和最新 taxonomies
+    const [r] = await Promise.all([
+      api("clip_get_details", { id: clipCopy.id }),
+      refreshTaxonomies(),
+    ]);
     if (r.ok && r.details_json) {
       clipCopy._details_json = JSON.stringify(r.details_json, null, 2);
     }
