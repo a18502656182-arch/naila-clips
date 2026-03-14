@@ -1809,7 +1809,7 @@ export default function PracticeClient({ accessToken }) {
         <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
 
         <div style={{ opacity: 0.7, fontWeight: 900 }}>
-          {me?.email ? me.email : "未登录"}
+          {me ? (me.username || (me.email || "").split("@")[0] || "未登录") : "未登录"}
         </div>
       </div>
 
