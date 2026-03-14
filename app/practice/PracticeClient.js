@@ -488,9 +488,7 @@ function TimerBar({ timeLeft, totalSeconds }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
-        <div style={{ width: "100%", height: "100%", background: "#e5e7eb", borderRadius: 9999, position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: 0, left: 0, width: `${pct}%`, height: "100%", background: color, borderRadius: 9999, transition: "width 1s linear, background 0.3s", transformOrigin: "left" }} />
-        </div>
+        <div style={{ height: "100%", borderRadius: 9999, width: `${pct}%`, background: color, transition: "width 1s linear, background 0.3s", boxShadow: `0 0 6px ${color}88` }} />
       </div>
       <div style={{ fontSize: 13, fontWeight: 1000, color, minWidth: 36, textAlign: "right" }}>
         {m}:{String(s).padStart(2, "0")}
@@ -1561,7 +1559,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     const otherMeanings = shuffle(pool.filter(x => x?.id !== word?.id).map(x => x?.data?.zh || "").filter(Boolean)).slice(0, 5);
     const texts = shuffle([correctMeaning, ...otherMeanings]).slice(0, 6);
     const positions = shuffle([0,1,2,3,4,5]);
-    const newBalloons = texts.map((txt, i) => ({ id: `${rid}-${i}`, text: txt, correct: txt === correctMeaning, left: 5 + (positions[i] % 6) * 12 + Math.random() * 3, duration: 7 + Math.random() * 3, delay: i * 0.4, color: balloonColors[i % balloonColors.length], popped: false }));
+    const newBalloons = texts.map((txt, i) => ({ id: `${rid}-${i}`, text: txt, correct: txt === correctMeaning, left: 5 + positions[i] * 10 + Math.random() * 2, duration: 7 + Math.random() * 3, delay: i * 0.4, color: balloonColors[i % balloonColors.length], popped: false }));
     setCurrentWord(word); setBalloons(newBalloons); setAnswered(false);
     playWord(word?.term);
     const maxTime = (7 + 3 + 5 * 0.4 + 1) * 1000;
@@ -1641,7 +1639,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
       `}</style>
       <div style={{ position: "relative", width: "100%", height: "72vh", marginTop: 6, overflow: "hidden" }}>
         {balloons.map((b) => (
-          <div key={b.id} onClick={() => clickBalloon(b)} style={{ position: "absolute", bottom: "-130px", left: `${b.left}%`, width: 60, cursor: answered ? "default" : "pointer", userSelect: "none", animation: b.popped ? "balloonPop 0.4s ease-out forwards" : `floatUp ${b.duration}s linear ${b.delay}s forwards` }}>
+          <div key={b.id} onClick={() => clickBalloon(b)} style={{ position: "absolute", bottom: "-130px", left: `${b.left}%`, width: 60, maxWidth: "calc(100% - 10px)", cursor: answered ? "default" : "pointer", userSelect: "none", animation: b.popped ? "balloonPop 0.4s ease-out forwards" : `floatUp ${b.duration}s linear ${b.delay}s forwards` }}>
             <div style={{ width: 60, height: 70, borderRadius: "50% 50% 50% 50% / 55% 55% 45% 45%", background: b.color.bg, boxShadow: `0 8px 20px ${b.color.shadow}, inset 6px 6px 12px rgba(255,255,255,0.28), inset -3px -3px 8px rgba(0,0,0,0.12)`, display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 5px", textAlign: "center", fontSize: 11, fontWeight: 900, color: "#fff", lineHeight: 1.25, textShadow: "0 1px 3px rgba(0,0,0,0.35)", position: "relative" }}>
               <div style={{ position: "absolute", top: "12%", left: "18%", width: "24%", height: "14%", borderRadius: "50%", background: "rgba(255,255,255,0.42)", pointerEvents: "none" }} />
               <span style={{ position: "relative", zIndex: 1 }}>{b.text}</span>
