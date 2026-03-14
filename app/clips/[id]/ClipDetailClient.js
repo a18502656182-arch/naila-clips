@@ -1239,9 +1239,22 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         }}
       />
       {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
-      {item.cover_url && !hasPlayed && (
+      {/* 电脑版播放/暂停overlay */}
+      {!isMobile && hasPlayed && (
         <div
           onClick={togglePlay}
+          style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: vPlaying ? "transparent" : "rgba(0,0,0,0.25)", transition: "background 0.2s" }}
+        >
+          {!vPlaying && (
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
+              <div style={{ width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderLeft: "24px solid #fff", marginLeft: 6 }} />
+            </div>
+          )}
+        </div>
+      )}
+      {item.cover_url && !hasPlayed && (
+        <div
+          onClick={() => { setHasPlayed(true); togglePlay(); }}
           style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer" }}
         >
           <img
@@ -1280,6 +1293,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           )}
         </div>
       )}
+
     </div>
   ) : (
     <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
