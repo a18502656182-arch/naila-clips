@@ -248,17 +248,20 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const toggle = (slug) => onChange(value.includes(slug) ? value.filter((v) => v !== slug) : [...value, slug]);
+  const [localOptions, setLocalOptions] = useState(options);
+
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
+    setLocalOptions(prev => prev.includes(s) ? prev : [...prev, s]);
     onAddLocalOption?.(type, s);
     if (!value.includes(s)) onChange([...value, s]);
     setNewVal(""); setAdding(false);
   };
-
   const handleRename = async (oldSlug, newSlug) => {
     const r = await taxRename(type, oldSlug, newSlug);
     if (r?.ok) {
+      setLocalOptions(prev => prev.map(s => s === oldSlug ? newSlug : s));
       if (value.includes(oldSlug)) onChange(value.map((v) => v === oldSlug ? newSlug : v));
       onRefreshOptions?.();
     }
@@ -267,6 +270,7 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
   const handleDelete = async (slug) => {
     const r = await taxDelete(type, slug);
     if (r?.ok) {
+      setLocalOptions(prev => prev.filter(s => s !== slug));
       onChange(value.filter((v) => v !== slug));
       onRefreshOptions?.();
     }
@@ -277,7 +281,7 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {[...options, ...value.filter(v => !options.includes(v))].map((slug) => (
+        {[...localOptions, ...value.filter(v => !localOptions.includes(v))].map((slug) => (
           <TagPill key={slug} slug={slug} selected={value.includes(slug)} accent={T.accent2}
             onSelect={() => toggle(slug)}
             onRename={(o, n) => handleRename(o, n)}
@@ -312,17 +316,20 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
 function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions, onAddLocalOption }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
+  const [localOptions, setLocalOptions] = useState(options);
+
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
+    setLocalOptions(prev => prev.includes(s) ? prev : [...prev, s]);
     onAddLocalOption?.(type, s);
     onChange(s);
     setNewVal(""); setAdding(false);
   };
-
   const handleRename = async (oldSlug, newSlug) => {
     const r = await taxRename(type, oldSlug, newSlug);
     if (r?.ok) {
+      setLocalOptions(prev => prev.map(s => s === oldSlug ? newSlug : s));
       if (value === oldSlug) onChange(newSlug);
       onRefreshOptions?.();
     }
@@ -331,6 +338,7 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
   const handleDelete = async (slug) => {
     const r = await taxDelete(type, slug);
     if (r?.ok) {
+      setLocalOptions(prev => prev.filter(s => s !== slug));
       if (value === slug) onChange("");
       onRefreshOptions?.();
     }
@@ -341,7 +349,7 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {options.map((slug) => (
+        {localOptions.map((slug) => (
           <TagPill key={slug} slug={slug} selected={value === slug} accent={T.warn}
             onSelect={() => onChange(value === slug ? "" : slug)}
             onRename={(o, n) => handleRename(o, n)}
