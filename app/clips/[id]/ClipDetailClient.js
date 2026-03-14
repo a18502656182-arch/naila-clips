@@ -123,38 +123,46 @@ function findSegIdxBySegmentId(segments, segmentId) {
   return -1;
 }
 
-function buildHighlighter(terms) {
-  const clean = Array.from(new Set((terms || []).map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
+// 三种高亮颜色
+const HIGHLIGHT_COLORS = {
+  words:       { bg: "#fff1b8" }, // 黄色-单词
+  phrases:     { bg: "#dbeafe" }, // 蓝色-短语
+  expressions: { bg: "#dcfce7" }, // 绿色-地道表达
+};
+
+// buildHighlighter 接收 { term -> kind } 映射，三种词汇同时高亮显示不同颜色
+function buildHighlighter(termKindMap) {
+  const terms = Object.keys(termKindMap || {});
+  const clean = Array.from(new Set(terms.map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
   if (!clean.length) return (text) => text || "-";
   const re = new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig");
   return (text, opts) => {
-    // opts: { cloze, clozeRevealed, onClickTerm }
     const s = String(text || "");
     if (!s) return "-";
     return s.split(re).map((p, i) => {
-      const isMatch = clean.some(t => t.toLowerCase() === p.toLowerCase());
-      if (!isMatch) return <span key={i}>{p}</span>;
       const normTerm = p.toLowerCase();
+      const isMatch = clean.some(t => t.toLowerCase() === normTerm);
+      if (!isMatch) return <span key={i}>{p}</span>;
+      const kind = termKindMap[normTerm] || "words";
+      const bg = (HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words).bg;
       if (opts?.cloze) {
         const revealed = opts.clozeRevealed?.[normTerm];
         return (
           <mark key={i}
             onClick={e => { e.stopPropagation(); opts.onClickTerm?.(p, e); }}
-            style={{ background: revealed ? "#fff1b8" : "#d1d5db", color: revealed ? "inherit" : "transparent", padding: "0 3px", borderRadius: 6, cursor: "pointer", userSelect: "none" }}
+            style={{ background: revealed ? bg : "#d1d5db", color: revealed ? "inherit" : "transparent", padding: "0 3px", borderRadius: 6, cursor: "pointer", userSelect: "none" }}
           >{p}</mark>
         );
       }
       return (
         <mark key={i}
           onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(p, e); }) : undefined}
-          style={{ background: "#fff1b8", padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
+          style={{ background: bg, padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
         >{p}</mark>
       );
     });
   };
 }
-
-function useIsMobile(bp = 960) {
   const [m, setM] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${bp}px)`);
@@ -953,11 +961,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     vocabTab === "phrases" ? vocab.phrases : vocabTab === "expressions" ? vocab.expressions : vocab.words,
     [vocabTab, vocab]
   );
-  const tabTerms = useMemo(() =>
-    Array.from(new Set((vocabList || []).map(x => String(x?.term || x?.word || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length),
-    [vocabList]
-  );
-  const renderEn = useMemo(() => buildHighlighter(tabTerms), [tabTerms]);
 
   // 全词汇 term → { v, kind } 映射，用于弹窗查找（不限当前 tab）
   const allVocabByTerm = useMemo(() => {
@@ -971,10 +974,24 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     return map;
   }, [vocab]);
 
+  // term -> kind 映射，三种词汇全部高亮（颜色不同）
+  const termKindMap = useMemo(() => {
+    const map = {};
+    [["words", vocab.words], ["phrases", vocab.phrases], ["expressions", vocab.expressions]].forEach(([kind, arr]) => {
+      (arr || []).forEach(v => {
+        const t = String(v?.term || v?.word || "").trim().toLowerCase();
+        if (t && !map[t]) map[t] = kind;
+      });
+    });
+    return map;
+  }, [vocab]);
+
+  const renderEn = useMemo(() => buildHighlighter(termKindMap), [termKindMap]);
+
   // 构造带点击回调的 renderEn（供字幕行使用）
   const makeRenderEnWithClick = useCallback((onClickTerm, cloze, clozeRevealedMap) => {
-    return (text) => buildHighlighter(tabTerms)(text, { onClickTerm, cloze, clozeRevealed: clozeRevealedMap });
-  }, [tabTerms]);
+    return (text) => buildHighlighter(termKindMap)(text, { onClickTerm, cloze, clozeRevealed: clozeRevealedMap });
+  }, [termKindMap]);
   const canAccess = !!item?.can_access;
 
   function jumpTo(seg, idx) {
