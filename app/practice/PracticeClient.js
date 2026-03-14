@@ -488,7 +488,9 @@ function TimerBar({ timeLeft, totalSeconds }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ flex: 1, height: 6, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 9999, transition: "width 1s linear, background 0.3s" }} />
+        <div style={{ width: "100%", height: "100%", background: "#e5e7eb", borderRadius: 9999, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, width: `${pct}%`, height: "100%", background: color, borderRadius: 9999, transition: "width 1s linear, background 0.3s", transformOrigin: "left" }} />
+        </div>
       </div>
       <div style={{ fontSize: 13, fontWeight: 1000, color, minWidth: 36, textAlign: "right" }}>
         {m}:{String(s).padStart(2, "0")}
@@ -841,7 +843,6 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
         <ProgressBar current={idx} total={cards.length} onExit={onExit} />
         <div style={{ background: THEME.colors.surface, borderRadius: THEME.radii.lg, border: `1px solid ${THEME.colors.border}`, padding: "24px 20px 28px", boxShadow: "0 4px 16px rgba(11,18,32,0.08)", animation: successAnim ? "successPulse 400ms ease" : "none" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <MasteryBadge level={card.mastery_level ?? 0} />
             <button type="button" onClick={handlePlayAudio} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: THEME.radii.pill, background: playingAudio ? THEME.colors.accent : "#eef2ff", border: `1px solid ${playingAudio ? THEME.colors.accent : "#c7d2fe"}`, color: playingAudio ? "#fff" : THEME.colors.accent, fontSize: 13, fontWeight: 800, cursor: "pointer", transition: "all 200ms" }}>
               {playingAudio ? "🔊 播放中..." : "🔊 听发音"}
             </button>
@@ -917,7 +918,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
 }
 
 
-const MATCH_TIME = 30;
+const MATCH_TIME = 60;
 const BATCH_SIZE = 5;
 
 function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceLabel = "我的收藏" }) {
@@ -1129,7 +1130,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
 
 function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏" }) {
   const pool = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
-  const TIMER_SECONDS = 60;
+  const TIMER_SECONDS = 45;
   const [started, setStarted] = useState(false);
   const [idx, setIdx] = useState(0);
   const [correct, setCorrect] = useState(0);
@@ -1294,7 +1295,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
         </div>
         <div style={btnRow}>
           <button onClick={() => judge("left")} style={{ ...bigBtnBase, background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)" }}>❌ 不匹配</button>
-          <div style={{ textAlign: "center", opacity: 0.75, fontWeight: 1000 }}>剩余 {Math.max(0, total - idx)}</div>
+          <div />
           <button onClick={() => judge("right")} style={{ ...bigBtnBase, background: "rgba(34,197,94,0.08)", borderColor: "rgba(34,197,94,0.25)" }}>✅ 匹配</button>
         </div>
       </div>
@@ -1560,7 +1561,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     const otherMeanings = shuffle(pool.filter(x => x?.id !== word?.id).map(x => x?.data?.zh || "").filter(Boolean)).slice(0, 5);
     const texts = shuffle([correctMeaning, ...otherMeanings]).slice(0, 6);
     const positions = shuffle([0,1,2,3,4,5]);
-    const newBalloons = texts.map((txt, i) => ({ id: `${rid}-${i}`, text: txt, correct: txt === correctMeaning, left: 2 + positions[i] * 15 + Math.random() * 5, duration: 7 + Math.random() * 3, delay: i * 0.4, color: balloonColors[i % balloonColors.length], popped: false }));
+    const newBalloons = texts.map((txt, i) => ({ id: `${rid}-${i}`, text: txt, correct: txt === correctMeaning, left: 5 + (positions[i] % 6) * 12 + Math.random() * 3, duration: 7 + Math.random() * 3, delay: i * 0.4, color: balloonColors[i % balloonColors.length], popped: false }));
     setCurrentWord(word); setBalloons(newBalloons); setAnswered(false);
     playWord(word?.term);
     const maxTime = (7 + 3 + 5 * 0.4 + 1) * 1000;
@@ -1657,7 +1658,7 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
 
 function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏" }) {
   const items = useMemo(() => shuffle(vocabItems || []), [vocabItems]);
-  const TIMER_SECONDS = 60;
+  const TIMER_SECONDS = 45;
   const [started, setStarted] = useState(false);
   const [round, setRound] = useState(0);
   const [word, setWord] = useState(null);
