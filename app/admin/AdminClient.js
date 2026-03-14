@@ -244,14 +244,14 @@ function TagPill({ slug, selected, accent, onSelect, onRename, onDelete }) {
 }
 
 // ── 标签选择器（多选 + 可新增 + 可编辑/删除）────────────────────
-function TagSelector({ label, value = [], onChange, options = [], type, onRefreshOptions }) {
+function TagSelector({ label, value = [], onChange, options = [], type, onRefreshOptions, onAddLocalOption }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const toggle = (slug) => onChange(value.includes(slug) ? value.filter((v) => v !== slug) : [...value, slug]);
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
-    if (!options.includes(s)) options.push(s);
+    onAddLocalOption?.(type, s);
     if (!value.includes(s)) onChange([...value, s]);
     setNewVal(""); setAdding(false);
   };
@@ -309,13 +309,13 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
 }
 
 // ── 单选标签（难度）────────────────────────────────────
-function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions }) {
+function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions, onAddLocalOption }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
     if (!s) return;
-    if (!options.includes(s)) options.push(s);
+    onAddLocalOption?.(type, s);
     onChange(s);
     setNewVal(""); setAdding(false);
   };
@@ -390,9 +390,18 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
       : new Date().toISOString().slice(0, 10),
   });
   const [jsonStatus, setJsonStatus] = useState(null); // null | "ok" | "error"
-  const difficulties = taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug);
-  const topics = taxonomies.filter((t) => t.type === "topic").map((t) => t.slug);
-  const channels = taxonomies.filter((t) => t.type === "channel").map((t) => t.slug);
+  const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
+  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
+  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+
+  const handleRefreshTaxonomies = async () => {
+    await onRefreshTaxonomies?.();
+  };
+  const addLocalOption = (type, slug) => {
+    if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "topic") setTopics(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "channel") setChannels(prev => prev.includes(slug) ? prev : [...prev, slug]);
+  };
 
   function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
 
@@ -428,10 +437,11 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         onChange={(v) => setF("difficulty_slug", v)}
         options={difficulties}
         type="difficulty"
-        onRefreshOptions={onRefreshTaxonomies}
+        onRefreshOptions={handleRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
       />
-      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} type="topic" onRefreshOptions={onRefreshTaxonomies} />
-      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} type="channel" onRefreshOptions={onRefreshTaxonomies} />
+      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} type="topic" onRefreshOptions={handleRefreshTaxonomies} onAddLocalOption={addLocalOption} />
+      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} type="channel" onRefreshOptions={handleRefreshTaxonomies} onAddLocalOption={addLocalOption} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
