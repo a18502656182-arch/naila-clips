@@ -163,6 +163,8 @@ function buildHighlighter(termKindMap) {
     });
   };
 }
+
+function useIsMobile(bp = 960) {
   const [m, setM] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${bp}px)`);
