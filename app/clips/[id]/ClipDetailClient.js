@@ -574,6 +574,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [follow, setFollow] = useState(true);
   const [rate, setRate] = useState(1);
   const [loopIdx, setLoopIdx] = useState(-1);
+  const [singlePause, setSinglePause] = useState(false);
+  const singlePauseRef = useRef(false);
 
   const mobileListRef = useRef(null);
   const desktopListRef = useRef(null);
@@ -1036,6 +1038,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const loopIdxRef = useRef(-1);
   useEffect(() => { activeSegIdxRef.current = activeSegIdx; }, [activeSegIdx]);
   useEffect(() => { loopIdxRef.current = loopIdx; }, [loopIdx]);
+  useEffect(() => { singlePauseRef.current = singlePause; }, [singlePause]);
 
   useEffect(() => {
     const v = videoRef.current;
@@ -1058,6 +1061,16 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         const seg = segments[li];
         if (seg && t >= parseTime(seg.end) - 0.02) {
           try { v.currentTime = Math.max(0, parseTime(seg.start)); if (!v.paused) v.play?.(); } catch {}
+        }
+      }
+      // 单句暂停：播放到当前句末尾时暂停
+      if (singlePauseRef.current) {
+        const curIdx = activeSegIdxRef.current;
+        if (curIdx !== -1) {
+          const seg = segments[curIdx];
+          if (seg && t >= parseTime(seg.end) - 0.05) {
+            try { v.pause(); } catch {}
+          }
         }
       }
     }
@@ -1083,11 +1096,17 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   // ── 上一句 / 下一句 ──
   function jumpToPrevSeg() {
     const idx = Math.max(0, activeSegIdx <= 0 ? 0 : activeSegIdx - 1);
-    if (segments[idx]) jumpTo(segments[idx], idx);
+    if (segments[idx]) {
+      jumpTo(segments[idx], idx);
+      if (singlePauseRef.current) { try { videoRef.current?.play?.(); } catch {} }
+    }
   }
   function jumpToNextSeg() {
     const idx = Math.min(segments.length - 1, activeSegIdx + 1);
-    if (segments[idx]) jumpTo(segments[idx], idx);
+    if (segments[idx]) {
+      jumpTo(segments[idx], idx);
+      if (singlePauseRef.current) { try { videoRef.current?.play?.(); } catch {} }
+    }
   }
 
   useEffect(() => {
@@ -1207,7 +1226,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         ref={videoCallbackRef}
         controls
         playsInline
-        muted
         preload="metadata"
         poster={item.cover_url || undefined}
         style={{
@@ -1473,12 +1491,22 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 {vPlaying ? "⏸" : "▶"}
               </button>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 30, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏮</button>
+                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
                 <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>上一句</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 30, borderRadius: THEME.radii.md, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 14, color: THEME.colors.ink, flexShrink: 0 }}>⏭</button>
+                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
                 <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>下一句</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }} title="单句暂停" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${singlePause ? THEME.colors.accent : THEME.colors.border}`, background: singlePause ? THEME.colors.accent : THEME.colors.surface, cursor: "pointer", color: singlePause ? "#fff" : THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16H7V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                </button>
+                <span style={{ fontSize: 10, color: singlePause ? THEME.colors.accent : THEME.colors.faint, lineHeight: 1 }}>单句停</span>
               </div>
               {/* 右侧：倍速 + 词卡 */}
               <div style={{ flex: 1 }} />
@@ -1550,6 +1578,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 <Btn active={follow} onClick={() => setFollow(x => !x)}>自动跟随 {follow ? "ON" : "OFF"}</Btn>
                 <button type="button" onClick={jumpToPrevSeg} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: THEME.colors.ink }}>⏮ 上一句</button>
                 <button type="button" onClick={jumpToNextSeg} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: THEME.colors.ink }}>下一句 ⏭</button>
+                <button type="button" onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }} style={{ border: `1px solid ${singlePause ? THEME.colors.accent : THEME.colors.border}`, background: singlePause ? THEME.colors.accent : THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: singlePause ? "#fff" : THEME.colors.ink }}>单句暂停 {singlePause ? "ON" : "OFF"}</button>
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 12, color: THEME.colors.faint }}>倍速</span>
                   <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "6px 8px", fontSize: 12, background: THEME.colors.surface }}>
