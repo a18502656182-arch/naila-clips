@@ -1258,7 +1258,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
             })}
           </div>
           <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-            <button onClick={() => { endCalledRef.current = false; setIdx(0); setCorrect(0); setDone(false); setRecords([]); setDx(0); setDy(0); }} style={{ ...bigBtnBase, padding: "0 16px", borderColor: THEME.colors.accent, color: THEME.colors.accent }}>再来一轮</button>
+            <button onClick={() => { endCalledRef.current = false; setIdx(0); setCorrect(0); setDone(false); setRecords([]); setDx(0); setDy(0); setStarted(false); setTimeout(() => setStarted(true), 50); }} style={{ ...bigBtnBase, padding: "0 16px", borderColor: THEME.colors.accent, color: THEME.colors.accent }}>再来一轮</button>
             <button onClick={onExit} style={{ ...bigBtnBase, padding: "0 16px" }}>返回大厅</button>
           </div>
         </div>
