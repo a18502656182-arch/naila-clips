@@ -265,7 +265,7 @@ const BUILTIN_VOCAB = [
   { id:"c50", term:"eradicate",     kind:"words", data:{ zh:"根除；消灭",          example_en:"Global cooperation is essential to eradicate extreme poverty.",      example_zh:"全球合作对于根除极端贫困至关重要。" } },
   { id:"c51", term:"erudite",       kind:"words", data:{ zh:"博学的；饱学的",      example_en:"Her erudite commentary demonstrated decades of scholarly research.", example_zh:"她博学的评论展示了数十年的学术研究积累。" } },
   { id:"c52", term:"esoteric",      kind:"words", data:{ zh:"深奥的；秘传的",      example_en:"The lecture was so esoteric that only specialists could follow it.", example_zh:"这堂讲座过于深奥只有专家才能听懂。" } },
-  { id:"c53", term:"euphemism",     kind:"words", data:{ zh:"委婉语；讳饰",        example_en:"Downsizing is often a euphemism for large-scale layoffs.",          example_zh:""精简机构"往往是大规模裁员的委婉说法。" } },
+  { id:"c53", term:"euphemism",     kind:"words", data:{ zh:"委婉语；讳饰",        example_en:"Downsizing is often a euphemism for large-scale layoffs.",          example_zh:"'精简机构'往往是大规模裁员的委婉说法。" } },
   { id:"c54", term:"exacerbate",    kind:"words", data:{ zh:"加剧；使恶化",        example_en:"Poor communication will only exacerbate the existing team tensions.", example_zh:"糟糕的沟通只会加剧现有的团队矛盾。" } },
   { id:"c55", term:"exemplary",     kind:"words", data:{ zh:"模范的；堪为典范的",  example_en:"Her exemplary conduct during the crisis earned widespread respect.",  example_zh:"她在危机中的模范表现赢得了广泛尊重。" } },
   { id:"c56", term:"exonerate",     kind:"words", data:{ zh:"宣告无罪；免除责任",  example_en:"New DNA evidence was enough to exonerate the wrongfully convicted man.", example_zh:"新的DNA证据足以为这名被错误定罪的男子洗清罪名。" } },
