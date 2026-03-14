@@ -1505,20 +1505,20 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 {vPlaying ? "⏸" : "▶"}
               </button>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
                 </button>
                 <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>上一句</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", color: THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
                 </button>
                 <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1 }}>下一句</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }} title="单句暂停" style={{ width: 38, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${singlePause ? THEME.colors.accent : THEME.colors.border}`, background: singlePause ? THEME.colors.accent : THEME.colors.surface, cursor: "pointer", color: singlePause ? "#fff" : THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16H7V8h2v8zm4 0h-2V8h2v8z"/></svg>
+                <button type="button" onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }} title="单句暂停" style={{ width: 36, height: 36, borderRadius: "50%", border: `1px solid ${singlePause ? THEME.colors.accent : THEME.colors.border}`, background: singlePause ? THEME.colors.accent : THEME.colors.surface, cursor: "pointer", color: singlePause ? "#fff" : THEME.colors.ink, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16H7V8h2v8zm4 0h-2V8h2v8z"/></svg>
                 </button>
                 <span style={{ fontSize: 10, color: singlePause ? THEME.colors.accent : THEME.colors.faint, lineHeight: 1 }}>单句停</span>
               </div>
