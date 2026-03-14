@@ -1714,14 +1714,14 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       for (let i = 0; i < str.length; i++) { h = Math.imul(31, h) + str.charCodeAt(i) | 0; }
       return Math.abs(h) / 2147483647;
     }
-    const seed = me?.email || "guest";
+    const seed = me?.username || me?.email || "guest";
     const namePool = ["xiao_yu","breezy92","tangjun","forest_k","qinghe","nova_li","zhuwei","pixel88","sunnyday","cfeng21","mintleaf","haochen","sky_blue","rui2024","dandelion","wuming","luckyx3","peach_bb","jiaming","comet77","xlei","morning_z","tigger","baixue","echo_ran","jingtao","spark_y","coconut","feifei9","breeze_w","longfei","purple_m","xingchen","cloudy_q","ray2025","hazel_x","zhiyuan","orbit_k","meimei","dusk_fan","binbin","starfall","yuchen3","misty_l","foxrun","caiyun","neon_j","huxiao","leafy_w","zephyr9","xiaoxue","blaze_r","pengfei","cotton_y","storm88","ruoxi","glitch_z","tianhao","maple_q","drift_c","linlin","wave_xu","chengyu","panda_f","jade_w","bowen","pixel_s","ruolin","echo99","sunny_t","yanyan","ghost_li","mingze","velvet_r","crane_w","junjun","amber_x","zhenyu","flash_q","brook_f","xixi","cobalt_z","haoran","mint_y","blaze_j","feiyu","dusk_w","jiahao","river_x","pearl_q","momo_z","spark_f","yuxuan","stone_r","bloom_c","leilei","prism_w","zhengyu","dew_x","lunar_j"];
     const shuffled = [...namePool];
     for (let i = shuffled.length - 1; i > 0; i--) { const j = Math.floor(seededRand(seed, i) * (i + 1)); [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]; }
     const scoreSlots = [255, 238, 220, 198, 175, 155, 132, 110, 88, 65];
     const fakeUsers = shuffled.slice(0, 10).map((name, i) => { const jitter = Math.floor(seededRand(seed, i + 200) * 12) - 6; return { name, totalScore: scoreSlots[i] + jitter, isMe: false }; });
     const myTotal = GAME_META.reduce((sum, m) => sum + Number(scores?.[m.id]?.best || 0), 0);
-    const myName = me?.email ? me.email.split("@")[0].slice(0, 10) : null;
+    const myName = me ? (me.username || (me.email || "").split("@")[0].slice(0, 10) || null) : null;
     const allEntries = [...fakeUsers];
     if (myName) allEntries.push({ name: myName, totalScore: myTotal, isMe: true });
     allEntries.sort((a, b) => b.totalScore - a.totalScore);
@@ -1820,7 +1820,7 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       <div style={topBar}>
         <Link href="/" style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", textDecoration: "none", color: THEME.colors.ink, fontWeight: 900, display: "inline-flex", alignItems: "center", gap: 8 }}>← 返回首页</Link>
         <div style={{ fontSize: 18, fontWeight: 1000 }}>🎮 游戏大厅</div>
-        <div className="practice-topbar-email">{me?.email ? me.email : "未登录"}</div>
+        <div className="practice-topbar-email">{me ? (me.username || (me.email || "").split("@")[0] || "未登录") : "未登录"}</div>
       </div>
 
       <div style={{ maxWidth: 980, margin: "0 auto 10px", padding: "0 6px" }}>
