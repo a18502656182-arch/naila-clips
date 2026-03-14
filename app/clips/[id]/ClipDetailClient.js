@@ -1354,7 +1354,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {segments.map((seg, idx) => (
           <SubtitleRow key={idx} seg={seg} idx={idx} active={idx === activeSegIdx}
             subMode={subMode} onClick={() => jumpTo(seg, idx)}
-            loopIdx={loopIdx} onToggleLoop={i => setLoopIdx(p => p === i ? -1 : i)}
+            loopIdx={loopIdx} onToggleLoop={i => { const next = loopIdx === i ? -1 : i; setLoopIdx(next); if (next >= 0) setFollow(false); else setFollow(true); }}
             renderEn={renderEn} rowRef={el => { if (el) rowRefs.current[idx] = el; }}
             dictationMap={dictationMap}
             recording={recordings[idx]}
