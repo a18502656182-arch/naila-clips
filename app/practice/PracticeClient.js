@@ -1775,8 +1775,10 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
         <div style={{ maxWidth: 980, margin: "8px auto 0" }}>
           <TimerBar timeLeft={started ? timeLeft : TIMER_SECONDS} totalSeconds={TIMER_SECONDS} />
         </div>
-        <div style={{ maxWidth: 980, margin: "6px auto 0", height: 4, background: "#e5e7eb", borderRadius: 9999, overflow: "hidden" }}>
-          <div style={{ width: `${tRatio * 100}%`, height: "100%", background: tRatio > 0.4 ? THEME.colors.accent : "#ef4444", borderRadius: 9999, transition: "width 0.1s linear" }} />
+        <div style={{ maxWidth: 980, margin: "2px auto 0", textAlign: "right", paddingRight: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 900, color: tRatio > 0.4 ? THEME.colors.accent : "#ef4444", transition: "color 0.2s" }}>
+            {Math.ceil(tRatio * limitMs / 1000)}s
+          </span>
         </div>
       </div>
       <div style={{ maxWidth: 560, margin: "28px auto 0", padding: "0 14px" }}>
