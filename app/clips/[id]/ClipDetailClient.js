@@ -1507,9 +1507,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 value={dragging ? dragValue : vCur}
                 onMouseDown={() => setDragging(true)}
                 onTouchStart={() => setDragging(true)}
-                onChange={e => { setDragValue(Number(e.target.value)); if (!dragging) seekTo(Number(e.target.value)); }}
-                onMouseUp={e => { seekTo(Number(e.target.value)); setDragging(false); }}
-                onTouchEnd={e => { seekTo(Number(e.target.changedTouches[0] ? dragValue : e.target.value)); setDragging(false); }}
+                onChange={e => { const v = Number(e.target.value); setDragValue(v); seekTo(v); }}
+                onMouseUp={e => { const v = Number(e.target.value); seekTo(v); setDragging(false); }}
+                onTouchEnd={e => { seekTo(dragValue); setDragging(false); }}
                 style={{ flex: 1, accentColor: THEME.colors.accent, height: 4, cursor: "pointer" }}
               />
               <span style={{ fontSize: 11, color: THEME.colors.faint, minWidth: 36, textAlign: "right" }}>{fmtSec(vDur)}</span>
