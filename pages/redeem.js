@@ -23,7 +23,7 @@ const C = {
 };
 
 const BENEFITS = [
-  { icon: "🔓", title: "解锁全站所有功能", sub: "视频 / 游戏 / 手账", desc: "会员专享内容全部开放，无限次使用" },
+  { icon: "🔓", title: "解锁全站所有功能", sub: "视频 / 游戏 / 手账", desc: "会员专享内容全部开放，无限使用" },
   { icon: "📚", title: "150+ 场景持续更新", sub: null, desc: "精选 YouTube 真实场景，每周持续新增" },
   { icon: "📱", title: "手机 · 电脑 · 平板三端互通", sub: null, desc: "任意设备登录，数据实时同步" },
 ];
@@ -122,7 +122,7 @@ export default function RedeemPage() {
       minHeight: "100vh",
       background: "radial-gradient(900px 400px at 5% 0%, rgba(99,102,241,0.11), transparent 52%), radial-gradient(800px 350px at 95% 0%, rgba(139,92,246,0.09), transparent 48%), linear-gradient(180deg, #f7f8fd 0%, #f3f5fb 100%)",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "12px 14px 20px", boxSizing: "border-box",
+      padding: "0 0 16px", boxSizing: "border-box",
     }}>
       <style>{`
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -137,6 +137,7 @@ export default function RedeemPage() {
           .back-home { display: block !important; }
           .login-guide { display: block !important; }
           .redeem-wrap { max-width: 960px; }
+          .redeem-card { border-radius: 28px !important; border-top: 1px solid rgba(11,18,32,0.07) !important; }
           .redeem-grid { display: grid !important; grid-template-columns: 1fr 1fr; gap: 0; align-items: stretch; }
           .panel-left { border-right: 1px solid rgba(99,102,241,0.10) !important; border-bottom: none !important; }
         }
@@ -145,11 +146,12 @@ export default function RedeemPage() {
         .panel-left { border-bottom: 1px solid rgba(99,102,241,0.10); }
 
         /* 手机端：隐藏logo和返回首页，紧凑布局 */
-        .logo-link { display: none; }
+        .logo-link { display: none !important; }
         .back-home { display: none; }
         .login-guide { display: none; }
         /* 手机端：紧凑 padding 和字号 */
         .panel-left { padding: 16px 18px 14px !important; }
+        .redeem-card { border-radius: 0 0 24px 24px !important; border-top: none !important; }
         .panel-right { padding: 16px 18px 18px !important; }
         .hero-title { font-size: 20px !important; }
         .benefit-item { padding: 7px 10px !important; gap: 10px !important; }
@@ -171,7 +173,7 @@ export default function RedeemPage() {
       {showWechat && <WechatModal onClose={() => setShowWechat(false)} />}
 
       {/* Logo：手机隐藏，电脑显示 */}
-      <a href="/" className="logo-link" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+      <a href="/" className="logo-link" style={{ textDecoration: "none", alignItems: "center", gap: 14, marginBottom: 24 }}>
         <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14, boxShadow: "0 10px 24px rgba(99,102,241,0.26)" }}>EC</div>
         <div>
           <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>油管英语场景库</div>
@@ -181,7 +183,7 @@ export default function RedeemPage() {
 
       {/* 主卡片 */}
       <div className="redeem-wrap">
-        <div style={{ background: "rgba(255,255,255,0.95)", borderRadius: 28, border: "1px solid rgba(11,18,32,0.07)", boxShadow: "0 28px 80px rgba(11,18,32,0.10)", overflow: "hidden", backdropFilter: "blur(16px)" }}>
+        <div className="redeem-card" style={{ background: "rgba(255,255,255,0.95)", borderRadius: 28, border: "1px solid rgba(11,18,32,0.07)", boxShadow: "0 28px 80px rgba(11,18,32,0.10)", overflow: "hidden", backdropFilter: "blur(16px)" }}>
           <div className="redeem-grid">
 
             {/* ── 左栏：权益展示 ── */}
@@ -206,10 +208,8 @@ export default function RedeemPage() {
                   }}>
                     <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "linear-gradient(135deg, rgba(99,102,241,0.13), rgba(124,58,237,0.09))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{b.icon}</div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>
-                        {b.title}
-                        {b.sub && <span style={{ fontSize: 11, fontWeight: 700, color: C.faint, marginLeft: 6 }}>{b.sub}</span>}
-                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: C.ink }}>{b.title}</div>
+                      {b.sub && <div style={{ fontSize: 11, fontWeight: 700, color: C.faint, marginTop: 1 }}>{b.sub}</div>}
                       <div style={{ fontSize: 12, color: C.faint, marginTop: 2, lineHeight: 1.4 }}>{b.desc}</div>
                     </div>
                     <div style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, background: "rgba(16,185,129,0.13)", border: "1px solid rgba(16,185,129,0.28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: C.good, fontWeight: 900 }}>✓</div>
