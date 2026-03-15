@@ -1501,9 +1501,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {/* 左侧：播放 + 上一句 + 下一句 */}
-              <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 18, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {vPlaying ? "⏸" : "▶"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" onClick={togglePlay} style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 16, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {vPlaying ? "⏸" : "▶"}
+                </button>
+                <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1, marginTop: 2 }}>{vPlaying ? "暂停" : "播放"}</span>
+              </div>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                 <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: THEME.colors.ink, cursor: "pointer", color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
