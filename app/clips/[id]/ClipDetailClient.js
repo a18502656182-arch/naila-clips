@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Hls from "hls.js";
 import { THEME } from "../../components/home/theme";
-import { createSupabaseBrowserClient } from "../../utils/supabase/client";
+import { createSupabaseBrowserClient } from "../../../utils/supabase/client";
 
 // ─── 工具函数 ────────────────────────────────────────────────
 function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
