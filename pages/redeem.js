@@ -5,7 +5,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
 // ⚠️ 如果二维码无法识别，去 Cloudflare Images 控制台新建一个 fit=contain 不裁剪的 variant，改为那个名字
-const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/685d26db-152c-4d55-819b-37c447880000/qr";
+const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/5c491370-2fe2-430e-f155-5b96d3fbdf00/qr";
 const WECHAT_ID = "wll74748585";
 
 function getToken() {
