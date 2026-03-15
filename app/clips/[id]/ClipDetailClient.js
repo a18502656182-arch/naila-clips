@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Hls from "hls.js";
 import { THEME } from "../../components/home/theme";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 // ─── 工具函数 ────────────────────────────────────────────────
 function getToken() { try { return localStorage.getItem("sb_access_token") || null; } catch { return null; } }
@@ -539,6 +540,21 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [notFound, setNotFound] = useState(false);
   const [item, setItem] = useState(initialItem || null);
   const [me, setMe] = useState(initialMe || null);
+
+  // 监听 Supabase token 刷新，及时同步到 localStorage
+  // 解决：停留 1 小时后 token 过期，can_access 变 false，误跳 /redeem 的问题
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" && session?.access_token) {
+        try { localStorage.setItem("sb_access_token", session.access_token); } catch {}
+      }
+      if (event === "SIGNED_OUT") {
+        try { localStorage.removeItem("sb_access_token"); } catch {}
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
   const [details, setDetails] = useState(initialDetails || null);
   // SSR 时 can_access 无法判断，需要等客户端验证完才能决定是否显示锁屏
   const [checkingAccess, setCheckingAccess] = useState(!!initialItem && !initialItem?.can_access);
