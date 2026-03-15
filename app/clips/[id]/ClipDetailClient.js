@@ -165,7 +165,10 @@ function buildHighlighter(termKindMap) {
 }
 
 function useIsMobile(bp = 960) {
-  const [m, setM] = useState(false);
+  const [m, setM] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(`(max-width: ${bp}px)`).matches;
+  });
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${bp}px)`);
     const fn = () => setM(!!mq.matches);
