@@ -4,8 +4,8 @@ import { useRouter } from "next/router";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-// /public variant 保证原图质量，二维码才能被正确识别
-const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/685d26db-152c-4d55-819b-37c447880000/public";
+// ⚠️ 如果二维码无法识别，去 Cloudflare Images 控制台新建一个 fit=contain 不裁剪的 variant，改为那个名字
+const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/685d26db-152c-4d55-819b-37c447880000/cover";
 const WECHAT_ID = "wll74748585";
 
 function getToken() {
@@ -67,7 +67,7 @@ function WechatModal({ onClose }) {
         border: "1px solid rgba(11,18,32,0.08)",
         boxShadow: "0 40px 100px rgba(11,18,32,0.20)",
         padding: "24px 24px 20px",
-        width: "100%", maxWidth: 380,
+        width: "100%", maxWidth: 420,
         animation: "slideUp 200ms cubic-bezier(.2,.9,.2,1)",
       }}>
         {/* 弹窗标题 */}
@@ -219,7 +219,7 @@ export default function RedeemPage() {
       minHeight: "100vh",
       background: "radial-gradient(900px 400px at 5% 0%, rgba(99,102,241,0.11), transparent 52%), radial-gradient(800px 350px at 95% 0%, rgba(139,92,246,0.09), transparent 48%), linear-gradient(180deg, #f7f8fd 0%, #f3f5fb 100%)",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "28px 16px 40px",
+      padding: "28px 16px 40px", boxSizing: "border-box",
     }}>
       <style>{`
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -231,6 +231,13 @@ export default function RedeemPage() {
         .main-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 20px 40px rgba(124,58,237,0.30) !important; }
         .auth-btn-login:hover { background: rgba(99,102,241,0.07) !important; }
         .auth-btn-register:hover { transform: translateY(-1px); box-shadow: 0 20px 40px rgba(124,58,237,0.30) !important; }
+        /* 电脑版：卡片内部左右分栏 */
+        .card-inner { display: flex; flex-direction: column; }
+        @media (min-width: 700px) {
+          .card-inner { flex-direction: row; align-items: stretch; }
+          .card-left { flex: 1.15; border-right: 1px solid rgba(11,18,32,0.07); border-bottom: none !important; }
+          .card-right { flex: 0.85; }
+        }
       `}</style>
 
       {showWechat && <WechatModal onClose={() => setShowWechat(false)} />}
@@ -252,7 +259,7 @@ export default function RedeemPage() {
 
       {/* 主卡片 */}
       <div className="redeem-card" style={{
-        width: "100%", maxWidth: 440,
+        width: "100%", maxWidth: 640,
         background: "rgba(255,255,255,0.94)",
         borderRadius: 28,
         border: "1px solid rgba(11,18,32,0.07)",
@@ -261,8 +268,9 @@ export default function RedeemPage() {
         backdropFilter: "blur(16px)",
       }}>
 
-        {/* ── 顶部：会员权益区 ── */}
-        <div style={{
+        <div className="card-inner">
+        {/* ── 左/上：会员权益区 ── */}
+        <div className="card-left" style={{
           padding: "22px 24px 18px",
           background: "linear-gradient(160deg, rgba(99,102,241,0.06) 0%, rgba(124,58,237,0.04) 100%)",
           borderBottom: "1px solid rgba(99,102,241,0.10)",
@@ -344,8 +352,8 @@ export default function RedeemPage() {
           </div>
         </div>
 
-        {/* ── 下方：登录/兑换/成功 区 ── */}
-        <div style={{ padding: "22px 24px 24px" }}>
+        {/* ── 右/下：登录/兑换/成功 区 ── */}
+        <div className="card-right" style={{ padding: "22px 24px 24px" }}>
 
           {/* 加载中 */}
           {me === null && (
@@ -483,6 +491,7 @@ export default function RedeemPage() {
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
     </div>
