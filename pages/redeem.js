@@ -122,7 +122,7 @@ export default function RedeemPage() {
       minHeight: "100vh",
       background: "radial-gradient(900px 400px at 5% 0%, rgba(99,102,241,0.11), transparent 52%), radial-gradient(800px 350px at 95% 0%, rgba(139,92,246,0.09), transparent 48%), linear-gradient(180deg, #f7f8fd 0%, #f3f5fb 100%)",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "24px 20px 36px", boxSizing: "border-box",
+      padding: "12px 14px 20px", boxSizing: "border-box",
     }}>
       <style>{`
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -133,6 +133,9 @@ export default function RedeemPage() {
 
         /* 电脑版整体放大，左右分栏 */
         @media (min-width:760px) {
+          .logo-link { display: flex !important; }
+          .back-home { display: block !important; }
+          .login-guide { display: block !important; }
           .redeem-wrap { max-width: 960px; }
           .redeem-grid { display: grid !important; grid-template-columns: 1fr 1fr; gap: 0; align-items: stretch; }
           .panel-left { border-right: 1px solid rgba(99,102,241,0.10) !important; border-bottom: none !important; }
@@ -141,11 +144,15 @@ export default function RedeemPage() {
         .redeem-grid { display: flex; flex-direction: column; }
         .panel-left { border-bottom: 1px solid rgba(99,102,241,0.10); }
 
+        /* 手机端：隐藏logo和返回首页，紧凑布局 */
+        .logo-link { display: none; }
+        .back-home { display: none; }
+        .login-guide { display: none; }
         /* 手机端：紧凑 padding 和字号 */
-        .panel-left { padding: 20px 20px 16px !important; }
-        .panel-right { padding: 18px 20px 22px !important; }
+        .panel-left { padding: 16px 18px 14px !important; }
+        .panel-right { padding: 16px 18px 18px !important; }
         .hero-title { font-size: 20px !important; }
-        .benefit-item { padding: 9px 11px !important; }
+        .benefit-item { padding: 7px 10px !important; gap: 10px !important; }
         .benefit-icon { width: 30px !important; height: 30px !important; font-size: 15px !important; }
         .benefit-title { font-size: 13px !important; }
         .benefit-desc { font-size: 11px !important; }
@@ -163,8 +170,8 @@ export default function RedeemPage() {
 
       {showWechat && <WechatModal onClose={() => setShowWechat(false)} />}
 
-      {/* Logo */}
-      <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
+      {/* Logo：手机隐藏，电脑显示 */}
+      <a href="/" className="logo-link" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
         <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14, boxShadow: "0 10px 24px rgba(99,102,241,0.26)" }}>EC</div>
         <div>
           <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>油管英语场景库</div>
@@ -181,14 +188,14 @@ export default function RedeemPage() {
             <div className="panel-left" style={{ padding: "32px 36px 28px", background: "linear-gradient(160deg, rgba(99,102,241,0.07) 0%, rgba(124,58,237,0.04) 100%)" }}>
 
               {/* 标题区 */}
-              <div style={{ marginBottom: 24 }}>
+              <div style={{ marginBottom: 16 }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", borderRadius: 999, background: "rgba(124,58,237,0.10)", border: "1px solid rgba(124,58,237,0.18)", color: C.vip, fontSize: 12, fontWeight: 900, letterSpacing: "0.04em", marginBottom: 12 }}>✨ 会员专属</span>
                 <div className="hero-title" style={{ fontSize: 28, fontWeight: 950, color: C.ink, letterSpacing: "-0.03em", lineHeight: 1.2 }}>加入会员</div>
                 <div className="hero-title" style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-0.03em", lineHeight: 1.2, background: "linear-gradient(135deg, #6366f1, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>解锁全站内容</div>
               </div>
 
               {/* 权益列表 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
                 {BENEFITS.map((b, i) => (
                   <div key={i} className="benefit-item" style={{
                     display: "flex", alignItems: "center", gap: 14,
@@ -211,16 +218,20 @@ export default function RedeemPage() {
               </div>
 
               {/* 客服行 */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 16px", borderRadius: 14, background: "rgba(255,255,255,0.55)", border: "1px solid rgba(11,18,32,0.07)" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>购买兑换码 · 售后 · 建议</div>
-                  <div style={{ fontSize: 12, color: C.faint, marginTop: 3 }}>微信联系客服，即时响应</div>
+              <button className="wechat-btn wechat-row" onClick={() => setShowWechat(true)} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(5,150,105,0.20)", background: "rgba(5,150,105,0.05)", cursor: "pointer", transition: "all 160ms ease" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(5,150,105,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <WechatIcon size={14} color="#059669" />
+                  </div>
+                  <div style={{ textAlign: "left" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, lineHeight: 1.3 }}>购买兑换码 · 售后 · 建议</div>
+                    <div style={{ fontSize: 11, color: C.faint, marginTop: 1 }}>微信联系客服，即时响应</div>
+                  </div>
                 </div>
-                <button className="wechat-btn" onClick={() => setShowWechat(true)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(5,150,105,0.22)", background: "rgba(5,150,105,0.06)", color: "#059669", fontSize: 13, fontWeight: 800, cursor: "pointer", transition: "all 160ms ease", whiteSpace: "nowrap" }}>
-                  <WechatIcon size={14} color="#059669" />
-                  联系客服
-                </button>
-              </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#059669", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                  联系客服 <span style={{ fontSize: 10 }}>›</span>
+                </div>
+              </button>
             </div>
 
             {/* ── 右栏：操作区 ── */}
@@ -247,12 +258,12 @@ export default function RedeemPage() {
               {me !== null && !me.logged_in && (
                 <div>
                   <div className="action-title" style={{ fontSize: 22, fontWeight: 950, color: C.ink, marginBottom: 6, letterSpacing: "-0.02em" }}>登录后即可激活</div>
-                  <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 28 }}>已有兑换码请先登录，<br/>没有账号可注册并同步激活会员。</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 20 }} className="login-guide">已有兑换码请先登录，<br/>没有账号可注册并同步激活会员。</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <a href={`/login?next=${encodeURIComponent(router.asPath)}`} className="login-btn action-btn" style={{ textAlign: "center", minHeight: 50, borderRadius: 999, border: "1px solid rgba(99,102,241,0.24)", color: C.accent, background: "rgba(99,102,241,0.04)", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 160ms ease" }}>登录已有账号</a>
                     <a href={`/register?next=${encodeURIComponent(router.asPath)}`} className="register-btn action-btn" style={{ textAlign: "center", minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 32px rgba(124,58,237,0.24)", transition: "all 160ms ease" }}>注册并开通会员 ✨</a>
                   </div>
-                  <div style={{ marginTop: 20, textAlign: "center" }}>
+                  <div className="back-home" style={{ marginTop: 20, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
                   </div>
                 </div>
@@ -293,7 +304,7 @@ export default function RedeemPage() {
                     {loading ? "兑换中..." : "立即兑换 ✨"}
                   </button>
 
-                  <div style={{ marginTop: 18, textAlign: "center" }}>
+                  <div className="back-home" style={{ marginTop: 18, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
                   </div>
                 </div>
