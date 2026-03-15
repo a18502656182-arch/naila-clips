@@ -164,11 +164,8 @@ function buildHighlighter(termKindMap) {
   };
 }
 
-function useIsMobile(bp = 960) {
-  const [m, setM] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia(`(max-width: ${bp}px)`).matches;
-  });
+function useIsMobile(initial = false, bp = 960) {
+  const [m, setM] = useState(initial);
   useEffect(() => {
     const mq = window.matchMedia(`(max-width: ${bp}px)`);
     const fn = () => setM(!!mq.matches);
@@ -534,8 +531,8 @@ function BookmarkLoginModal({ onClose }) {
 }
 
 // ─── 主页面 ────────────────────────────────────────────────
-export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails, initialBookmarked }) {
-  const isMobile = useIsMobile();
+export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails, initialBookmarked, initialIsMobile = false }) {
+  const isMobile = useIsMobile(initialIsMobile);
   const router = useRouter();
 
   const [loading, setLoading] = useState(!initialItem);
