@@ -1224,7 +1224,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
-        controls={!isMobile}
+        controls={true}
         playsInline
         preload="metadata"
         poster={item.cover_url || undefined}
@@ -1243,7 +1243,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       {!isMobile && hasPlayed && (
         <div
           onClick={togglePlay}
-          style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: vPlaying ? "transparent" : "rgba(0,0,0,0.25)", transition: "background 0.2s" }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 40, zIndex: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: vPlaying ? "transparent" : "rgba(0,0,0,0.25)", transition: "background 0.2s" }}
         >
           {!vPlaying && (
             <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
