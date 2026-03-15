@@ -141,6 +141,19 @@ export default function RedeemPage() {
         .redeem-grid { display: flex; flex-direction: column; }
         .panel-left { border-bottom: 1px solid rgba(99,102,241,0.10); }
 
+        /* 手机端：紧凑 padding 和字号 */
+        .panel-left { padding: 20px 20px 16px !important; }
+        .panel-right { padding: 18px 20px 22px !important; }
+        .hero-title { font-size: 20px !important; }
+        .benefit-item { padding: 9px 11px !important; }
+        .benefit-icon { width: 30px !important; height: 30px !important; font-size: 15px !important; }
+        .benefit-title { font-size: 13px !important; }
+        .benefit-desc { font-size: 11px !important; }
+        .action-title { font-size: 17px !important; }
+        .action-btn { min-height: 44px !important; font-size: 14px !important; }
+        .redeem-input { padding: 11px 13px !important; font-size: 14px !important; }
+        .redeem-submit { min-height: 46px !important; font-size: 14px !important; }
+
         .benefit-item:hover { background: rgba(255,255,255,0.90) !important; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.08); }
         .wechat-btn:hover { background: rgba(5,150,105,0.12) !important; border-color: rgba(5,150,105,0.32) !important; }
         .main-btn:hover:not(:disabled) { transform: translateY(-1px) !important; box-shadow: 0 22px 44px rgba(124,58,237,0.32) !important; }
@@ -170,8 +183,8 @@ export default function RedeemPage() {
               {/* 标题区 */}
               <div style={{ marginBottom: 24 }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 11px", borderRadius: 999, background: "rgba(124,58,237,0.10)", border: "1px solid rgba(124,58,237,0.18)", color: C.vip, fontSize: 12, fontWeight: 900, letterSpacing: "0.04em", marginBottom: 12 }}>✨ 会员专属</span>
-                <div style={{ fontSize: 28, fontWeight: 950, color: C.ink, letterSpacing: "-0.03em", lineHeight: 1.2 }}>加入会员</div>
-                <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-0.03em", lineHeight: 1.2, background: "linear-gradient(135deg, #6366f1, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>解锁全站内容</div>
+                <div className="hero-title" style={{ fontSize: 28, fontWeight: 950, color: C.ink, letterSpacing: "-0.03em", lineHeight: 1.2 }}>加入会员</div>
+                <div className="hero-title" style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-0.03em", lineHeight: 1.2, background: "linear-gradient(135deg, #6366f1, #7c3aed)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>解锁全站内容</div>
               </div>
 
               {/* 权益列表 */}
@@ -211,7 +224,7 @@ export default function RedeemPage() {
             </div>
 
             {/* ── 右栏：操作区 ── */}
-            <div style={{ padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div className="panel-right" style={{ padding: "32px 36px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
 
               {me === null && (
                 <div style={{ textAlign: "center", color: C.faint, fontSize: 14 }}>加载中...</div>
@@ -233,11 +246,11 @@ export default function RedeemPage() {
               {/* 未登录 */}
               {me !== null && !me.logged_in && (
                 <div>
-                  <div style={{ fontSize: 22, fontWeight: 950, color: C.ink, marginBottom: 6, letterSpacing: "-0.02em" }}>登录后即可激活</div>
+                  <div className="action-title" style={{ fontSize: 22, fontWeight: 950, color: C.ink, marginBottom: 6, letterSpacing: "-0.02em" }}>登录后即可激活</div>
                   <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 28 }}>已有兑换码请先登录，<br/>没有账号可注册并同步激活会员。</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <a href={`/login?next=${encodeURIComponent(router.asPath)}`} className="login-btn" style={{ textAlign: "center", minHeight: 50, borderRadius: 999, border: "1px solid rgba(99,102,241,0.24)", color: C.accent, background: "rgba(99,102,241,0.04)", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 160ms ease" }}>登录已有账号</a>
-                    <a href={`/register?next=${encodeURIComponent(router.asPath)}`} className="register-btn" style={{ textAlign: "center", minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 32px rgba(124,58,237,0.24)", transition: "all 160ms ease" }}>注册并开通会员 ✨</a>
+                    <a href={`/login?next=${encodeURIComponent(router.asPath)}`} className="login-btn action-btn" style={{ textAlign: "center", minHeight: 50, borderRadius: 999, border: "1px solid rgba(99,102,241,0.24)", color: C.accent, background: "rgba(99,102,241,0.04)", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 160ms ease" }}>登录已有账号</a>
+                    <a href={`/register?next=${encodeURIComponent(router.asPath)}`} className="register-btn action-btn" style={{ textAlign: "center", minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 32px rgba(124,58,237,0.24)", transition: "all 160ms ease" }}>注册并开通会员 ✨</a>
                   </div>
                   <div style={{ marginTop: 20, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
@@ -267,7 +280,7 @@ export default function RedeemPage() {
                   <input value={code} onChange={e => setCode(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") onSubmit(e); }}
                     placeholder="输入月卡 / 年卡兑换码" autoFocus
-                    style={{ width: "100%", padding: "13px 16px", boxSizing: "border-box", border: "1px solid rgba(124,58,237,0.22)", borderRadius: 14, fontSize: 15, background: "rgba(124,58,237,0.03)", outline: "none", color: C.ink, letterSpacing: "0.04em", marginBottom: 14, transition: "border-color 160ms ease" }}
+                    className="redeem-input" style={{ width: "100%", padding: "13px 16px", boxSizing: "border-box", border: "1px solid rgba(124,58,237,0.22)", borderRadius: 14, fontSize: 15, background: "rgba(124,58,237,0.03)", outline: "none", color: C.ink, letterSpacing: "0.04em", marginBottom: 14, transition: "border-color 160ms ease" }}
                     onFocus={e => e.target.style.borderColor = "rgba(124,58,237,0.5)"}
                     onBlur={e => e.target.style.borderColor = "rgba(124,58,237,0.22)"}
                   />
@@ -276,7 +289,7 @@ export default function RedeemPage() {
                     <div style={{ padding: "11px 14px", background: "#fff2f2", border: "1px solid #ffd5d5", borderRadius: 12, fontSize: 13, color: "#b00000", lineHeight: 1.6, marginBottom: 14 }}>{msg}</div>
                   )}
 
-                  <button type="button" onClick={onSubmit} disabled={loading} className="main-btn" style={{ width: "100%", minHeight: 52, borderRadius: 999, border: "none", background: loading ? "rgba(124,58,237,0.40)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 16px 32px rgba(124,58,237,0.24)", transition: "all 180ms ease" }}>
+                  <button type="button" onClick={onSubmit} disabled={loading} className="main-btn redeem-submit" style={{ width: "100%", minHeight: 52, borderRadius: 999, border: "none", background: loading ? "rgba(124,58,237,0.40)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 16px 32px rgba(124,58,237,0.24)", transition: "all 180ms ease" }}>
                     {loading ? "兑换中..." : "立即兑换 ✨"}
                   </button>
 
