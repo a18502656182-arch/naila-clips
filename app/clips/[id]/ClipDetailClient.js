@@ -1464,42 +1464,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const belowVideoPanel = subMode === "dictation" ? dictPanel : readingPanel;
 
   // ─── MOBILE LAYOUT ─────────────────────────────────────────
+      // ─── MOBILE LAYOUT ─────────────────────────────────────────
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
-
-    const mobileCircleBtnBase = {
-      width: 48,
-      height: 48,
-      borderRadius: "50%",
-      border: "none",
-      background: "#4b4b4b",
-      color: "#fff",
-      cursor: "pointer",
-      flexShrink: 0,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
-    };
-
-    const mobileActionItemBase = {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "flex-start",
-      minWidth: 56,
-      gap: 6,
-    };
-
-    const mobileActionLabelBase = {
-      fontSize: 11,
-      color: "#3f3f46",
-      lineHeight: 1,
-      fontWeight: 500,
-      whiteSpace: "nowrap",
-    };
-
     return (
       <div style={{ height: "100vh", background: THEME.colors.bg, display: "flex", flexDirection: "column" }}>
         <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} } @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }`}</style>
@@ -1525,96 +1493,35 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </div>
         </div>
 
-        <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 104 : 16 }}>
+        <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
           {subtitleList(null, undefined)}
         </div>
 
         {canAccess && (
-          <div style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 30,
-            background: THEME.colors.surface,
-            borderTop: `1px solid ${THEME.colors.border}`,
-            padding: "8px 12px 10px",
-          }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
-              {/* 播放（顺序保持不变：仍然在最前） */}
-              <div style={mobileActionItemBase}>
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  style={{
-                    ...mobileCircleBtnBase,
-                    width: 52,
-                    height: 52,
-                    background: "#4b4b4b",
-                    fontSize: 20,
-                    fontWeight: 900,
-                  }}
-                >
-                  {vPlaying ? "⏸" : "▶"}
+          <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* 左侧：播放 + 上一句 + 下一句 */}
+              <button type="button" onClick={togglePlay} style={{ width: 44, height: 44, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.ink, cursor: "pointer", fontWeight: 900, fontSize: 18, color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {vPlaying ? "⏸" : "▶"}
+              </button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" onClick={jumpToPrevSeg} title="上一句" style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: THEME.colors.ink, cursor: "pointer", color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg>
                 </button>
-                <span style={mobileActionLabelBase}>播放</span>
+                <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1, marginTop: 2 }}>上一句</span>
               </div>
-
-              {/* 上一句 */}
-              <div style={mobileActionItemBase}>
-                <button
-                  type="button"
-                  onClick={jumpToPrevSeg}
-                  title="上一句"
-                  style={{
-                    ...mobileCircleBtnBase,
-                    fontSize: 18,
-                  }}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/>
-                  </svg>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" onClick={jumpToNextSeg} title="下一句" style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: THEME.colors.ink, cursor: "pointer", color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
                 </button>
-                <span style={mobileActionLabelBase}>上一句</span>
+                <span style={{ fontSize: 10, color: THEME.colors.faint, lineHeight: 1, marginTop: 2 }}>下一句</span>
               </div>
-
-              {/* 下一句 */}
-              <div style={mobileActionItemBase}>
-                <button
-                  type="button"
-                  onClick={jumpToNextSeg}
-                  title="下一句"
-                  style={{
-                    ...mobileCircleBtnBase,
-                    fontSize: 18,
-                  }}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
-                  </svg>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }} title="单句暂停" style={{ width: 36, height: 36, borderRadius: "50%", border: "none", background: singlePause ? THEME.colors.accent : THEME.colors.ink, cursor: "pointer", color: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16H7V8h2v8zm4 0h-2V8h2v8z"/></svg>
                 </button>
-                <span style={mobileActionLabelBase}>下一句</span>
+                <span style={{ fontSize: 10, color: singlePause ? THEME.colors.accent : THEME.colors.faint, lineHeight: 1 }}>单句停</span>
               </div>
-
-              {/* 单句暂停 */}
-              <div style={mobileActionItemBase}>
-                <button
-                  type="button"
-                  onClick={() => { const next = !singlePause; setSinglePause(next); if (next) setFollow(false); }}
-                  title="单句暂停"
-                  style={{
-                    ...mobileCircleBtnBase,
-                    background: singlePause ? "#4b4b4b" : "#4b4b4b",
-                    boxShadow: singlePause ? "0 0 0 2px rgba(34,197,94,0.22) inset" : "inset 0 1px 0 rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill={singlePause ? "#22c55e" : "currentColor"}>
-                    <path d="M9 16H7V8h2v8zm4 0h-2V8h2v8z"/>
-                  </svg>
-                </button>
-                <span style={{ ...mobileActionLabelBase, color: singlePause ? "#16a34a" : "#3f3f46" }}>单句暂停</span>
-              </div>
-
               {/* 右侧：倍速 + 词卡 */}
               <div style={{ flex: 1 }} />
               <select value={rate} onChange={e => setRate(Number(e.target.value))} style={{ border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.sm, padding: "4px 2px", fontSize: 12, background: THEME.colors.surface, width: 52 }}>
