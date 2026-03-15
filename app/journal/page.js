@@ -5,6 +5,7 @@ import { remote, authFetch, formatDate, useIsMobile } from "./journalUtils";
 import { Card, SectionTitle } from "./JournalUI";
 import { OverviewPanel, TodayPlan, Heatmap, LearningAnalysis } from "./JournalPanels";
 import PosterGenerator from "./PosterGenerator";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 export default function Page({ accessToken }) {
   const isMobile = useIsMobile(960);
@@ -15,6 +16,21 @@ export default function Page({ accessToken }) {
     totalGameScore: 0,
     playedGameCount: 0,
   });
+
+  // 监听 Supabase token 刷新，及时同步到 localStorage
+  // 否则 token 1小时后过期，authFetch 还在用旧 token，导致误判未登录
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "TOKEN_REFRESHED" && session?.access_token) {
+        try { localStorage.setItem("sb_access_token", session.access_token); } catch {}
+      }
+      if (event === "SIGNED_OUT") {
+        try { localStorage.removeItem("sb_access_token"); } catch {}
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     authFetch(remote("/api/me"), { cache: "no-store" })
