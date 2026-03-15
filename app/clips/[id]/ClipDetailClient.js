@@ -1224,7 +1224,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
-        controls
+        controls={!isMobile}
         playsInline
         preload="metadata"
         poster={item.cover_url || undefined}
@@ -1254,7 +1254,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       )}
       {item.cover_url && !hasPlayed && (
         <div
-          onClick={() => { setHasPlayed(true); togglePlay(); }}
+          onClick={() => { togglePlay(); }}
           style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer" }}
         >
           <img
@@ -1493,12 +1493,27 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </div>
         </div>
 
-        <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 84 : 16 }}>
+        <div ref={mobileListRef} style={{ flex: 1, overflow: "auto", padding: 12, paddingBottom: canAccess ? 110 : 16 }}>
           {subtitleList(null, undefined)}
         </div>
 
         {canAccess && (
-          <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: 10 }}>
+          <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 30, background: THEME.colors.surface, borderTop: `1px solid ${THEME.colors.border}`, padding: "6px 10px 8px" }}>
+            {/* 进度条 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: THEME.colors.faint, minWidth: 36 }}>{fmtSec(vCur)}</span>
+              <input
+                type="range" min={0} max={Math.max(1, vDur)} step={0.1}
+                value={dragging ? dragValue : vCur}
+                onMouseDown={() => setDragging(true)}
+                onTouchStart={() => setDragging(true)}
+                onChange={e => { setDragValue(Number(e.target.value)); if (!dragging) seekTo(Number(e.target.value)); }}
+                onMouseUp={e => { seekTo(Number(e.target.value)); setDragging(false); }}
+                onTouchEnd={e => { seekTo(Number(e.target.changedTouches[0] ? dragValue : e.target.value)); setDragging(false); }}
+                style={{ flex: 1, accentColor: THEME.colors.accent, height: 4, cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 11, color: THEME.colors.faint, minWidth: 36, textAlign: "right" }}>{fmtSec(vDur)}</span>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {/* 左侧：播放 + 上一句 + 下一句 */}
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
