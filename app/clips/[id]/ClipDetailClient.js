@@ -1268,13 +1268,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               transition: "opacity 150ms ease",
             }}
           />
-          {false && coverImgReady && (
-            <div>
-              <div>
-                <div>
-              </div>
-            </div>
-          )}
+
         </div>
       )}
 
