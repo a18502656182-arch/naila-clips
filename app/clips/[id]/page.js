@@ -1,5 +1,5 @@
 // app/clips/[id]/page.js
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import ClipDetailClient from "./ClipDetailClient";
@@ -51,6 +51,10 @@ function proxyCoverUrl(url) {
 export default async function ClipPage({ params }) {
   const id = Number(params?.id);
   if (!id || isNaN(id)) notFound();
+
+  // 服务端读UA判断手机，避免客户端hydrate时的布局闪烁
+  const ua = headers().get("user-agent") || "";
+  const initialIsMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
 
   const token = getAccessTokenFromCookies();
   const admin = getSupabaseAdmin();
@@ -148,6 +152,7 @@ export default async function ClipPage({ params }) {
       initialMe={initialMe}
       initialDetails={details_json}
       initialBookmarked={initialBookmarked}
+      initialIsMobile={initialIsMobile}
     />
   );
 }
