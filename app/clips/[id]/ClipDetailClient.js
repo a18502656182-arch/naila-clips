@@ -890,10 +890,6 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     }
   }, [item?.can_access, initHls]);
 
-
-
-
-
   useEffect(() => {
     // 有 token 就直接发，不等 me?.logged_in 确认（token 无效时 API 返回 401 忽略即可）
     // 如果 clip_full 已经返回了收藏状态，跳过此请求
@@ -1213,79 +1209,92 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const videoOrGate = (maxH, noRadius = false) => {
     const radius = noRadius ? 0 : THEME.radii.md;
     return checkingAccess ? (
-    <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", ...(maxH ? { maxHeight: maxH } : {}), background: "#1a1a2e" }}>
-      {/* checkingAccess期间用封面图垫底，消除骨架屏→视频的黑屏闪烁 */}
-      {item?.cover_url && (
-        <img src={item.cover_url} alt="" style={{ width: "100%", display: "block", borderRadius: radius, objectFit: "cover", ...(maxH ? { maxHeight: maxH } : {}) }} />
-      )}
-      {!item?.cover_url && <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={noRadius ? 0 : 14} />}
-    </div>
-  ) : canAccess ? (
-    <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
-      <video
-        ref={videoCallbackRef}
-        controls={true}
-        playsInline
-        preload="metadata"
-        poster={item.cover_url || undefined}
-        style={{
-          width: "100%",
-          display: "block",
-          borderRadius: radius,
-          background: "transparent",
-          position: "relative",
-          zIndex: 1,
-          ...(maxH ? { maxHeight: maxH } : {}),
-        }}
-      />
-      {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
-      {/* 电脑版播放/暂停overlay */}
-      {!isMobile && hasPlayed && (
-        <div
-          onClick={togglePlay}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 40, zIndex: 2, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: vPlaying ? "transparent" : "rgba(0,0,0,0.25)", transition: "background 0.2s" }}
-        >
-          {!vPlaying && (
-            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
-              <div style={{ width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderLeft: "24px solid #fff", marginLeft: 6 }} />
-            </div>
-          )}
-        </div>
-      )}
-      {item.cover_url && !hasPlayed && (
-        <div
-          onClick={() => { togglePlay(); }}
-          style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer" }}
-        >
-          <img
-            src={item.cover_url}
-            alt=""
-            onLoad={() => setCoverImgReady(true)}
-            style={{
-              width: "100%", height: "100%",
-              objectFit: "cover",
-              opacity: coverImgReady ? 1 : 0,
-              transition: "opacity 150ms ease",
-            }}
-          />
-
-        </div>
-      )}
-
-    </div>
-  ) : (
-    <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
-      <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
-      <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
-      <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
-        {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
+      <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", ...(maxH ? { maxHeight: maxH } : {}), background: "#1a1a2e" }}>
+        {/* checkingAccess期间用封面图垫底，消除骨架屏→视频的黑屏闪烁 */}
+        {item?.cover_url && (
+          <img src={item.cover_url} alt="" style={{ width: "100%", display: "block", borderRadius: radius, objectFit: "cover", ...(maxH ? { maxHeight: maxH } : {}) }} />
+        )}
+        {!item?.cover_url && <SkeletonBlock w="100%" h={typeof maxH === "number" ? maxH : 220} r={noRadius ? 0 : 14} />}
       </div>
-      {!me?.logged_in
-        ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
-        : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
-      }
-    </div>
-  );
+    ) : canAccess ? (
+      <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
+        <video
+          ref={videoCallbackRef}
+          controls={true}
+          playsInline
+          preload="metadata"
+          poster={item.cover_url || undefined}
+          style={{
+            width: "100%",
+            display: "block",
+            borderRadius: radius,
+            background: "transparent",
+            position: "relative",
+            zIndex: 1,
+            ...(maxH ? { maxHeight: maxH } : {}),
+          }}
+        />
+        {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
+        {/* 电脑版播放/暂停overlay */}
+        {!isMobile && hasPlayed && (
+          <div
+            onClick={vPlaying ? undefined : togglePlay}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 56,
+              zIndex: 2,
+              cursor: vPlaying ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: vPlaying ? "transparent" : "rgba(0,0,0,0.25)",
+              transition: "background 0.2s",
+              pointerEvents: vPlaying ? "none" : "auto",
+            }}
+          >
+            {!vPlaying && (
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 24px rgba(0,0,0,0.35)" }}>
+                <div style={{ width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderLeft: "24px solid #fff", marginLeft: 6 }} />
+              </div>
+            )}
+          </div>
+        )}
+        {item.cover_url && !hasPlayed && (
+          <div
+            onClick={() => { setHasPlayed(true); togglePlay(); }}
+            style={{ position: "absolute", inset: 0, zIndex: 2, cursor: "pointer" }}
+          >
+            <img
+              src={item.cover_url}
+              alt=""
+              onLoad={() => setCoverImgReady(true)}
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                opacity: coverImgReady ? 1 : 0,
+                transition: "opacity 150ms ease",
+              }}
+            />
+          </div>
+        )}
+
+      </div>
+    ) : (
+      <div style={{ border: `1px solid rgba(124,58,237,0.22)`, background: "rgba(124,58,237,0.06)", borderRadius: THEME.radii.md, padding: 24, textAlign: "center" }}>
+        <div style={{ fontSize: 28, marginBottom: 12 }}>🔒</div>
+        <div style={{ fontSize: 15, fontWeight: 900, color: THEME.colors.vip, marginBottom: 8 }}>会员专享视频</div>
+        <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.6, marginBottom: 16 }}>
+          {me?.logged_in ? "需要激活会员后观看" : "请先登录，再激活会员"}
+        </div>
+        {!me?.logged_in
+          ? <Link href="/login" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.accent, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>去登录</Link>
+          : <Link href="/register" style={{ display: "inline-block", padding: "10px 20px", borderRadius: THEME.radii.pill, background: THEME.colors.vip, color: "#fff", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>激活会员</Link>
+        }
+      </div>
+    );
   };
 
   // ─── 词汇卡面板 ───────────────────────────────────────────
@@ -1442,7 +1451,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const belowVideoPanel = subMode === "dictation" ? dictPanel : readingPanel;
 
   // ─── MOBILE LAYOUT ─────────────────────────────────────────
-      // ─── MOBILE LAYOUT ─────────────────────────────────────────
+  // ─── MOBILE LAYOUT ─────────────────────────────────────────
   if (isMobile) {
     const sliderMax = Math.max(0, Number(vDur || 0));
     const sliderVal = dragging ? Math.min(Number(dragValue || 0), sliderMax) : Math.min(Number(vCur || 0), sliderMax);
