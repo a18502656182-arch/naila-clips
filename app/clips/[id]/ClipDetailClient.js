@@ -1224,7 +1224,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
-        controls={true}
+        controls={!isMobile}
         playsInline
         preload="metadata"
         poster={item.cover_url || undefined}
@@ -1268,26 +1268,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               transition: "opacity 150ms ease",
             }}
           />
-          {/* 播放按钮 */}
-          {coverImgReady && (
-            <div style={{
-              position: "absolute", inset: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: "rgba(0,0,0,0.15)",
-            }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: "50%",
-                background: "rgba(0,0,0,0.55)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 24px rgba(0,0,0,0.35)",
-              }}>
-                <div style={{
-                  width: 0, height: 0,
-                  borderTop: "14px solid transparent",
-                  borderBottom: "14px solid transparent",
-                  borderLeft: "24px solid #fff",
-                  marginLeft: 6,
-                }} />
+          {false && coverImgReady && (
+            <div>
+              <div>
+                <div>
               </div>
             </div>
           )}
