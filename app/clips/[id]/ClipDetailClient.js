@@ -1224,7 +1224,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     <div style={{ position: "relative", width: "100%", borderRadius: radius, overflow: "hidden", background: "#1a1a2e", ...(maxH ? { maxHeight: maxH } : {}) }}>
       <video
         ref={videoCallbackRef}
-        controls={!isMobile}
+        controls={true}
         playsInline
         preload="metadata"
         poster={item.cover_url || undefined}
@@ -1508,8 +1508,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 onMouseDown={() => setDragging(true)}
                 onTouchStart={() => setDragging(true)}
                 onChange={e => { const v = Number(e.target.value); setDragValue(v); }}
-                onMouseUp={e => { const v = Number(e.target.value); seekTo(v); setTimeout(() => setDragging(false), 300); }}
-                onTouchEnd={() => { seekTo(dragValue); setTimeout(() => setDragging(false), 300); }}
+                onMouseUp={e => { const v = Number(e.target.value); seekTo(v); setTimeout(() => setDragging(false), 100); }}
+                onTouchEnd={e => { const v = Number(e.target.value); seekTo(v); setTimeout(() => setDragging(false), 100); }}
                 style={{ flex: 1, accentColor: THEME.colors.accent, height: 4, cursor: "pointer" }}
               />
               <span style={{ fontSize: 11, color: THEME.colors.faint, minWidth: 36, textAlign: "right" }}>{fmtSec(vDur)}</span>
