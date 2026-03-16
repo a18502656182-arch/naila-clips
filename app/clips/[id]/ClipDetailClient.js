@@ -1555,13 +1555,13 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
         {vocabOpen && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.18)", display: "flex", alignItems: "flex-end" }} onClick={() => setVocabOpen(false)}>
-            <div style={{ width: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: 16, height: "90vh", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: 16, height: "46vh", overflow: "hidden" }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 40, height: 4, borderRadius: 999, background: THEME.colors.border2, margin: "0 auto 12px" }} />
               <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
                 <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>词汇卡</div>
                 <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>关闭</button>
               </div>
-              {vocabPanel("calc(90vh - 130px)")}
+              {vocabPanel("calc(46vh - 100px)")}
             </div>
           </div>
         )}
