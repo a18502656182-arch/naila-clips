@@ -1314,17 +1314,26 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   };
 
   // ─── 词汇卡面板 ───────────────────────────────────────────
-  const vocabPanel = (h) => (
+  const vocabPanel = (h, compact = false) => (
     <div style={{ display: "flex", flexDirection: "column", height: h, overflow: "hidden" }}>
-      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", flexShrink: 0 }}>
-        <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)}>
-          {showZhExplain ? "中文 ON" : "中文 OFF"}
-        </Btn>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, flexShrink: 0 }}>
+      {/* 非紧凑模式（电脑）：中文按钮单独一行 */}
+      {!compact && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", flexShrink: 0 }}>
+          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)}>
+            {showZhExplain ? "中文 ON" : "中文 OFF"}
+          </Btn>
+        </div>
+      )}
+      {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center" }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
           <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{label} ({arr.length})</Btn>
         ))}
+        {compact && (
+          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0 }}>
+            {showZhExplain ? "中文 ON" : "中文 OFF"}
+          </Btn>
+        )}
       </div>
       <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
         {vocabList.length ? (
@@ -1555,13 +1564,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
         {vocabOpen && (
           <div role="dialog" aria-modal="true" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 50, height: "46vh" }} onClick={() => setVocabOpen(false)}>
-            <div style={{ width: "100%", height: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: 16, overflow: "hidden", boxSizing: "border-box" }} onClick={e => e.stopPropagation()}>
-              <div style={{ width: 40, height: 4, borderRadius: 999, background: THEME.colors.border2, margin: "0 auto 12px" }} />
-              <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ fontWeight: 900, fontSize: 16, color: THEME.colors.ink }}>词汇卡</div>
-                <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>关闭</button>
+            <div style={{ width: "100%", height: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", padding: "12px 14px", overflow: "hidden", boxSizing: "border-box" }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+                <div style={{ width: 36, height: 4, borderRadius: 999, background: THEME.colors.border2, flex: 1, margin: "0 auto" }} />
+                <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: 12, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "5px 10px", cursor: "pointer", fontSize: 12, flexShrink: 0 }}>关闭</button>
               </div>
-              {vocabPanel("calc(46vh - 100px)")}
+              {vocabPanel("calc(46vh - 76px)", true)}
             </div>
           </div>
         )}
