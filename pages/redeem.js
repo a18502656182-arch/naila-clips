@@ -274,7 +274,7 @@ export default function RedeemPage() {
                 <div>
                   {/* 账号状态 */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderRadius: 12, marginBottom: 20, background: "rgba(11,18,32,0.03)", border: "1px solid rgba(11,18,32,0.07)" }}>
-                    <div style={{ fontSize: 13, color: C.muted }}>当前账号：<span style={{ fontWeight: 700, color: C.ink }}>{me.email || me.username || "—"}</span></div>
+                    <div style={{ fontSize: 13, color: C.muted }}>当前账号：<span style={{ fontWeight: 700, color: C.ink }}>{me.username || (me.email && !me.email.includes("nailaobao.local") ? me.email : null) || me.email?.split("@")[0]?.replace(/@.*/, "") || "—"}</span></div>
                     {me.is_member
                       ? <span style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, background: "rgba(124,58,237,0.10)", color: C.vip, fontWeight: 800 }}>✨ 会员</span>
                       : <span style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, background: "rgba(11,18,32,0.06)", color: C.faint, fontWeight: 700 }}>普通用户</span>
