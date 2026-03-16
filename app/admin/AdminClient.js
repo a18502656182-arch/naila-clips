@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 // ── 常量 ──────────────────────────────────────────────
 const ADMIN_API = "/admin-api";
@@ -25,9 +26,14 @@ const T = {
 // ── 小工具 ────────────────────────────────────────────
 let _adminToken = "";
 function setAdminToken(t) { _adminToken = t; }
-function getToken() {
+async function getToken() {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) return data.session.access_token;
+  } catch {}
   if (_adminToken) return _adminToken;
-  // 从 cookie 直接读（客户端 fallback）
+  // 从 cookie 直接读（fallback）
   try {
     const match = document.cookie.split(";").map(c => c.trim()).find(c => c.includes("-auth-token="));
     if (!match) return "";
@@ -42,7 +48,7 @@ function getToken() {
 async function api(action, extra = {}) {
   const r = await fetch(ADMIN_API, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
     body: JSON.stringify({ action, ...extra }),
   });
   return r.json();
@@ -50,7 +56,7 @@ async function api(action, extra = {}) {
 async function apiGet(type, params = {}) {
   const qs = new URLSearchParams({ type, ...params }).toString();
   const r = await fetch(`${ADMIN_API}?${qs}`, {
-    headers: { Authorization: `Bearer ${getToken()}` },
+    headers: { Authorization: `Bearer ${await getToken()}` },
   });
   return r.json();
 }
@@ -140,7 +146,7 @@ function Select({ label, value, onChange, options }) {
 function Modal({ open, onClose, title, children, width = 640 }) {
   if (!open) return null;
   return (
-    <div onClick={onClose} style={{
+    <div style={{
       position: "fixed", inset: 0, zIndex: 999,
       background: "rgba(0,0,0,0.7)", display: "flex",
       alignItems: "center", justifyContent: "center", padding: 20,
@@ -548,7 +554,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 
   const refreshTaxonomies = async () => {
     try {
-      const r = await fetch("/admin-api?type=taxonomies", { headers: { Authorization: `Bearer ${getToken()}` } });
+      const r = await fetch("/admin-api?type=taxonomies", { headers: { Authorization: `Bearer ${await getToken()}` } });
       const d = await r.json();
       if (d?.ok && d.taxonomies) setTaxonomies(d.taxonomies);
     } catch {}
