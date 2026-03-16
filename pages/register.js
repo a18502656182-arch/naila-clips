@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { createSupabaseBrowserClient } from "../utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
@@ -135,6 +136,12 @@ export default function RegisterPage() {
         try {
           localStorage.setItem("sb_access_token", j.access_token);
           if (j.refresh_token) localStorage.setItem("sb_refresh_token", j.refresh_token);
+          // 注入 Supabase SDK session，确保跳转后 getSession() 能读到登录状态
+          const supabase = createSupabaseBrowserClient();
+          await supabase.auth.setSession({
+            access_token: j.access_token,
+            refresh_token: j.refresh_token || "",
+          });
         } catch (e) {}
       }
 
