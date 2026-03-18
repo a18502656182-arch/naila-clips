@@ -650,7 +650,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
                 {clip.difficulty_slug && <Chip color={T.warn}>{clip.difficulty_slug}</Chip>}
                 {(clip.topic_slugs || []).map((s) => <Chip key={s} color={T.accent}>{s}</Chip>)}
                 {(clip.channel_slugs || []).map((s) => <Chip key={s} color={T.muted}>{s}</Chip>)}
-                <span style={{ fontSize: 11, color: T.faint }}>{fmt(clip.created_at)}</span>
+                <span style={{ fontSize: 11, color: T.faint }}>{fmt(clip.upload_time || clip.created_at)}</span>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
