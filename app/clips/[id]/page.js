@@ -130,7 +130,7 @@ export default async function ClipPage({ params }) {
     access_tier: clip.access_tier,
     cover_url: proxyCoverUrl(clip.cover_url),
     // ✅ SSR 阶段就用反代 URL，确保视频不走原始 Cloudflare 地址
-    video_url: proxyVideoUrl(clip.video_url),
+    video_url: can_access ? proxyVideoUrl(clip.video_url) : null,
     created_at: clip.created_at,
     difficulty_slug: clip.difficulty_slug || null,
     topic_slugs: clip.topic_slugs || [],
@@ -150,7 +150,7 @@ export default async function ClipPage({ params }) {
       clipId={id}
       initialItem={initialItem}
       initialMe={initialMe}
-      initialDetails={details_json}
+      initialDetails={can_access ? details_json : null}
       initialBookmarked={initialBookmarked}
       initialIsMobile={initialIsMobile}
     />
