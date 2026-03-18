@@ -185,10 +185,27 @@ export async function POST(req) {
         .upsert({ clip_id: id, details_json: parsed }, { onConflict: "clip_id" });
     }
 
-    // 只在传了标签字段时才同步 taxonomies
-    const hasTaxonomyChange = difficulty_slug !== undefined || topic_slugs !== undefined || channel_slugs !== undefined;
-    if (hasTaxonomyChange) {
-      await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
+    // 各标签字段独立处理，只更新传了的，不传的保持原值
+    const hasDifficulty = difficulty_slug !== undefined;
+    const hasTopics = topic_slugs !== undefined;
+    const hasChannels = channel_slugs !== undefined;
+
+    if (hasDifficulty || hasTopics || hasChannels) {
+      // 先查出当前的标签状态
+      const { data: currentTaxRows } = await db
+        .from("clip_taxonomies")
+        .select("taxonomy_id, taxonomies(type, slug)")
+        .eq("clip_id", id);
+
+      const currentDifficulty = currentTaxRows?.find(r => r.taxonomies?.type === "difficulty")?.taxonomies?.slug || null;
+      const currentTopics = currentTaxRows?.filter(r => r.taxonomies?.type === "topic").map(r => r.taxonomies.slug) || [];
+      const currentChannels = currentTaxRows?.filter(r => r.taxonomies?.type === "channel").map(r => r.taxonomies.slug) || [];
+
+      const finalDifficulty = hasDifficulty ? difficulty_slug : currentDifficulty;
+      const finalTopics = hasTopics ? topic_slugs : currentTopics;
+      const finalChannels = hasChannels ? channel_slugs : currentChannels;
+
+      await syncTaxonomies(db, id, finalDifficulty, finalTopics, finalChannels);
     }
 
     await db.rpc("refresh_clips_view");
