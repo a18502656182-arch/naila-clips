@@ -386,7 +386,98 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
   );
 }
 // ── 视频表单（新增/编辑共用）──────────────────────────
-function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
+function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
+  const [form, setForm] = useState({
+    access_tier: "",
+    difficulty_slug: "",
+    topic_slugs: [],
+    channel_slugs: [],
+    upload_time: "",
+  });
+  const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
+  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
+  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+
+  const addLocalOption = (type, slug) => {
+    if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "topic") setTopics(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "channel") setChannels(prev => prev.includes(slug) ? prev : [...prev, slug]);
+  };
+  function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
+
+  // 只把有值的字段传出去
+  function handleSave() {
+    const payload = {};
+    if (form.access_tier) payload.access_tier = form.access_tier;
+    if (form.difficulty_slug) payload.difficulty_slug = form.difficulty_slug;
+    if (form.topic_slugs.length > 0) payload.topic_slugs = form.topic_slugs;
+    if (form.channel_slugs.length > 0) payload.channel_slugs = form.channel_slugs;
+    if (form.upload_time) payload.upload_time = form.upload_time;
+    onSave(payload);
+  }
+
+  const hasAnyValue = form.access_tier || form.difficulty_slug || form.topic_slugs.length > 0 || form.channel_slugs.length > 0 || form.upload_time;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: "10px 14px", background: `${T.warn}18`, borderRadius: T.radius.sm, border: `1px solid ${T.warn}40`, fontSize: 13, color: T.ink }}>
+        ⚠️ 只有填写的字段才会被更新，留空的字段保持原值不变。
+      </div>
+
+      <Select
+        label="访问权限"
+        value={form.access_tier}
+        onChange={(e) => setF("access_tier", e.target.value)}
+        options={[{ value: "", label: "— 不修改 —" }, { value: "free", label: "🆓 免费" }, { value: "vip", label: "✨ 会员" }]}
+      />
+
+      <Input
+        label="上传日期"
+        value={form.upload_time}
+        onChange={(e) => setF("upload_time", e.target.value)}
+        type="date"
+        placeholder="留空则不修改"
+      />
+
+      <SingleTagSelector
+        label="难度"
+        value={form.difficulty_slug}
+        onChange={(v) => setF("difficulty_slug", v)}
+        options={difficulties}
+        type="difficulty"
+        onRefreshOptions={onRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+      <TagSelector
+        label="话题标签（多选）"
+        value={form.topic_slugs}
+        onChange={(v) => setF("topic_slugs", v)}
+        options={topics}
+        type="topic"
+        onRefreshOptions={onRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+      <TagSelector
+        label="博主 / 频道（多选）"
+        value={form.channel_slugs}
+        onChange={(v) => setF("channel_slugs", v)}
+        options={channels}
+        type="channel"
+        onRefreshOptions={onRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+        <Btn variant="ghost" onClick={onCancel}>取消</Btn>
+        <Btn onClick={handleSave} disabled={loading || !hasAnyValue}>
+          {loading ? "批量保存中…" : "💾 批量保存"}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefreshTaxonomies, isBatch = false }) {
   const [form, setForm] = useState({
     title: initial.title || "",
     description: initial.description || "",
@@ -484,8 +575,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         <Btn variant="ghost" onClick={onCancel}>取消</Btn>
         <Btn
           onClick={() => onSave(form)}
-          disabled={loading || !form.title || !form.video_url || jsonStatus === "error"}
-        >{loading ? "保存中…" : "💾 保存视频"}</Btn>
+          disabled={loading || (!isBatch && (!form.title || !form.video_url)) || jsonStatus === "error"}
+        >{loading ? (isBatch ? "批量保存中…" : "保存中…") : (isBatch ? "💾 批量保存" : "💾 保存视频")}</Btn>
       </div>
     </div>
   );
@@ -552,6 +643,15 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // 分页
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // 批量选择
+  const [selected, setSelected] = useState(new Set());
+  const [showBatchForm, setShowBatchForm] = useState(false);
+  const [batchSaving, setBatchSaving] = useState(false);
+
   const refreshTaxonomies = async () => {
     try {
       const r = await fetch("/admin-api?type=taxonomies", { headers: { Authorization: `Bearer ${await getToken()}` } });
@@ -564,6 +664,32 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     !search || c.title?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // 分页计算
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageClips = filtered.slice(pageStart, pageStart + pageSize);
+
+  // 搜索/pageSize变化时回到第1页
+  const prevSearch = useState(search)[0];
+  if (prevSearch !== search && currentPage !== 1) setCurrentPage(1);
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll() {
+    if (pageClips.every((c) => selected.has(c.id))) {
+      setSelected((prev) => { const next = new Set(prev); pageClips.forEach((c) => next.delete(c.id)); return next; });
+    } else {
+      setSelected((prev) => { const next = new Set(prev); pageClips.forEach((c) => next.add(c.id)); return next; });
+    }
+  }
+  const allPageSelected = pageClips.length > 0 && pageClips.every((c) => selected.has(c.id));
+
   async function handleSave(form) {
     setSaving(true);
     const action = editClip ? "clip_update" : "clip_create";
@@ -573,15 +699,29 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     if (!res.ok) { onToast(res.error || "保存失败", "error"); return; }
     onToast(editClip ? "视频已更新 ✓" : "视频已添加 ✓");
     setShowForm(false); setEditClip(null);
-    // 刷新列表
+    const r = await apiGet("clips", { offset: 0 });
+    if (r.ok) setClips(r.clips);
+  }
+
+  async function handleBatchSave(form) {
+    if (selected.size === 0) return;
+    if (!confirm(`确认批量更新 ${selected.size} 个视频？`)) return;
+    setBatchSaving(true);
+    let successCount = 0;
+    for (const id of selected) {
+      const res = await api("clip_update", { ...form, id });
+      if (res.ok) successCount++;
+    }
+    setBatchSaving(false);
+    onToast(`批量更新完成：${successCount}/${selected.size} 个成功 ✓`);
+    setShowBatchForm(false);
+    setSelected(new Set());
     const r = await apiGet("clips", { offset: 0 });
     if (r.ok) setClips(r.clips);
   }
 
   async function handleEdit(clip) {
-    // 浅拷贝避免直接修改列表里的对象
     const clipCopy = { ...clip };
-    // 并行加载 details_json 和最新 taxonomies
     const [r] = await Promise.all([
       api("clip_get_details", { id: clipCopy.id }),
       refreshTaxonomies(),
@@ -612,30 +752,101 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* 顶栏 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>🎬 视频管理</h2>
         <input
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           placeholder="搜索标题…"
           style={{
             padding: "7px 14px", borderRadius: T.radius.pill, fontSize: 13,
             background: T.surface2, border: `1px solid ${T.border2}`, color: T.ink, outline: "none", width: 200,
           }}
         />
+        {selected.size > 0 && (
+          <Btn variant="ghost" onClick={() => { refreshTaxonomies(); setShowBatchForm(true); }}>
+            ✏️ 批量编辑 ({selected.size})
+          </Btn>
+        )}
         <Btn onClick={() => { setEditClip(null); setShowForm(true); }}>+ 上传新视频</Btn>
       </div>
 
+      {/* 分页控制栏 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: T.faint }}>
+          共 {filtered.length} 个视频，第 {safePage}/{totalPages} 页
+          {selected.size > 0 && `，已选 ${selected.size} 个`}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+          <span style={{ fontSize: 12, color: T.muted }}>每页</span>
+          {[10, 20, 50, 100].map((n) => (
+            <button key={n} onClick={() => { setPageSize(n); setCurrentPage(1); }} style={{
+              padding: "3px 10px", borderRadius: T.radius.pill, fontSize: 12, cursor: "pointer",
+              background: pageSize === n ? T.accent : T.surface2,
+              color: pageSize === n ? "#fff" : T.muted,
+              border: `1px solid ${pageSize === n ? T.accent : T.border2}`,
+              fontWeight: pageSize === n ? 700 : 400,
+            }}>{n}</button>
+          ))}
+        </div>
+        {/* 翻页按钮 */}
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setCurrentPage(1)} disabled={safePage === 1} style={{
+            padding: "3px 8px", borderRadius: T.radius.sm, fontSize: 12, cursor: safePage === 1 ? "default" : "pointer",
+            background: T.surface2, border: `1px solid ${T.border2}`, color: safePage === 1 ? T.faint : T.ink,
+          }}>«</button>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} style={{
+            padding: "3px 10px", borderRadius: T.radius.sm, fontSize: 12, cursor: safePage === 1 ? "default" : "pointer",
+            background: T.surface2, border: `1px solid ${T.border2}`, color: safePage === 1 ? T.faint : T.ink,
+          }}>‹ 上一页</button>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={{
+            padding: "3px 10px", borderRadius: T.radius.sm, fontSize: 12, cursor: safePage === totalPages ? "default" : "pointer",
+            background: T.surface2, border: `1px solid ${T.border2}`, color: safePage === totalPages ? T.faint : T.ink,
+          }}>下一页 ›</button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={safePage === totalPages} style={{
+            padding: "3px 8px", borderRadius: T.radius.sm, fontSize: 12, cursor: safePage === totalPages ? "default" : "pointer",
+            background: T.surface2, border: `1px solid ${T.border2}`, color: safePage === totalPages ? T.faint : T.ink,
+          }}>»</button>
+        </div>
+      </div>
+
+      {/* 全选行 */}
+      {pageClips.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+          <input type="checkbox" checked={allPageSelected} onChange={toggleSelectAll}
+            style={{ width: 16, height: 16, cursor: "pointer" }} />
+          <span style={{ fontSize: 12, color: T.muted, cursor: "pointer" }} onClick={toggleSelectAll}>
+            {allPageSelected ? "取消全选当前页" : `全选当前页（${pageClips.length} 个）`}
+          </span>
+          {selected.size > 0 && (
+            <span style={{ fontSize: 12, color: T.faint, marginLeft: 8 }}>
+              · 已选 {selected.size} 个（跨页保留）
+            </span>
+          )}
+          {selected.size > 0 && (
+            <button onClick={() => setSelected(new Set())} style={{
+              fontSize: 11, color: T.danger, background: "none", border: "none", cursor: "pointer", padding: "0 4px",
+            }}>清空选择</button>
+          )}
+        </div>
+      )}
+
       {/* 视频列表 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filtered.length === 0 && (
+        {pageClips.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.faint }}>暂无视频</div>
         )}
-        {filtered.map((clip) => (
+        {pageClips.map((clip) => (
           <div key={clip.id} style={{
-            background: T.surface2, borderRadius: T.radius.md,
-            border: `1px solid ${T.border}`, padding: "12px 16px",
+            background: selected.has(clip.id) ? `${T.accent}12` : T.surface2,
+            borderRadius: T.radius.md,
+            border: `1px solid ${selected.has(clip.id) ? T.accent : T.border}`,
+            padding: "12px 16px",
             display: "flex", alignItems: "center", gap: 12,
+            transition: "all 100ms",
           }}>
+            <input type="checkbox" checked={selected.has(clip.id)} onChange={() => toggleSelect(clip.id)}
+              style={{ width: 16, height: 16, cursor: "pointer", flexShrink: 0 }} />
             {clip.cover_url && (
               <img src={clip.cover_url} alt="" style={{ width: 56, height: 36, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
             )}
@@ -663,15 +874,16 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         ))}
       </div>
 
+      {/* 加载更多（全量加载时显示） */}
       {clips.length % 50 === 0 && clips.length > 0 && (
         <div style={{ textAlign: "center" }}>
           <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>
-            {loadingMore ? "加载中…" : "加载更多"}
+            {loadingMore ? "加载中…" : "加载更多视频（后台共" + clips.length + "条，点击加载更多）"}
           </Btn>
         </div>
       )}
 
-      {/* 新增/编辑弹窗 */}
+      {/* 单个新增/编辑弹窗 */}
       <Modal
         open={showForm}
         onClose={() => { setShowForm(false); setEditClip(null); }}
@@ -687,6 +899,22 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
           onSave={handleSave}
           onCancel={() => { setShowForm(false); setEditClip(null); }}
           loading={saving}
+          onRefreshTaxonomies={refreshTaxonomies}
+        />
+      </Modal>
+
+      {/* 批量编辑弹窗 */}
+      <Modal
+        open={showBatchForm}
+        onClose={() => setShowBatchForm(false)}
+        title={`✏️ 批量编辑 · 已选 ${selected.size} 个视频`}
+        width={560}
+      >
+        <BatchForm
+          taxonomies={taxonomies}
+          onSave={handleBatchSave}
+          onCancel={() => setShowBatchForm(false)}
+          loading={batchSaving}
           onRefreshTaxonomies={refreshTaxonomies}
         />
       </Modal>
