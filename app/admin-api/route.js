@@ -154,7 +154,7 @@ export async function POST(req) {
     const {
       id, title, description, video_url, cover_url, duration_sec,
       access_tier, difficulty_slug, topic_slugs, channel_slugs,
-      details_json, youtube_url,
+      details_json, youtube_url, upload_time,
     } = body;
 
     const { error: clipErr } = await db
@@ -163,6 +163,7 @@ export async function POST(req) {
         title, description, video_url, cover_url,
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
+        upload_time: upload_time || undefined,
         youtube_url: youtube_url !== undefined ? (youtube_url || null) : undefined,
       })
       .eq("id", id);
