@@ -157,18 +157,21 @@ export async function POST(req) {
       details_json, youtube_url, upload_time,
     } = body;
 
-    const { error: clipErr } = await db
-      .from("clips")
-      .update({
-        title, description, video_url, cover_url,
-        duration_sec: duration_sec ? Number(duration_sec) : null,
-        access_tier: access_tier || "free",
-        upload_time: upload_time || undefined,
-        youtube_url: youtube_url !== undefined ? (youtube_url || null) : undefined,
-      })
-      .eq("id", id);
+    // 只更新 body 里实际传了的字段，未传的字段保持原值
+    const updatePayload = {};
+    if (title !== undefined) updatePayload.title = title;
+    if (description !== undefined) updatePayload.description = description;
+    if (video_url !== undefined) updatePayload.video_url = video_url;
+    if (cover_url !== undefined) updatePayload.cover_url = cover_url;
+    if (duration_sec !== undefined) updatePayload.duration_sec = duration_sec ? Number(duration_sec) : null;
+    if (access_tier !== undefined) updatePayload.access_tier = access_tier || "free";
+    if (upload_time !== undefined) updatePayload.upload_time = upload_time || undefined;
+    if (youtube_url !== undefined) updatePayload.youtube_url = youtube_url || null;
 
-    if (clipErr) return NextResponse.json({ error: clipErr.message }, { status: 500 });
+    if (Object.keys(updatePayload).length > 0) {
+      const { error: clipErr } = await db.from("clips").update(updatePayload).eq("id", id);
+      if (clipErr) return NextResponse.json({ error: clipErr.message }, { status: 500 });
+    }
 
     if (details_json !== undefined) {
       let parsed = details_json;
@@ -182,8 +185,12 @@ export async function POST(req) {
         .upsert({ clip_id: id, details_json: parsed }, { onConflict: "clip_id" });
     }
 
-    // 同步 taxonomies 表 + 重建 clip_taxonomies 关联
-    await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
+    // 只在传了标签字段时才同步 taxonomies
+    const hasTaxonomyChange = difficulty_slug !== undefined || topic_slugs !== undefined || channel_slugs !== undefined;
+    if (hasTaxonomyChange) {
+      await syncTaxonomies(db, id, difficulty_slug, topic_slugs, channel_slugs);
+    }
+
     await db.rpc("refresh_clips_view");
     revalidateTag("clips_view:all");
     revalidateTag("clips_view:featured");
