@@ -196,8 +196,8 @@ function Btn({ active, onClick, children, style }) {
       border: `1px solid ${active ? THEME.colors.accent : THEME.colors.border2}`,
       background: active ? THEME.colors.accent : THEME.colors.surface,
       color: active ? "#fff" : THEME.colors.ink,
-      borderRadius: THEME.radii.pill, padding: "6px 12px",
-      cursor: "pointer", fontSize: 12, fontWeight: 700, ...style,
+      borderRadius: THEME.radii.pill, padding: "6px 10px",
+      cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, ...style,
     }}>{children}</button>
   );
 }
@@ -1325,9 +1325,9 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         </div>
       )}
       {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", overflow: "hidden", minWidth: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
-          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{label} ({arr.length})</Btn>
+          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
         ))}
         {compact && (
           <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0 }}>
