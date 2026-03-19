@@ -699,8 +699,8 @@ export default function ClipsGridClient({ allItems, filters }) {
         .body { padding: 12px; flex: 1; display: flex; flex-direction: column; }
         .title { font-size: 15px; font-weight: 950; color: ${THEME.colors.ink}; line-height: 1.25; margin: 0 0 6px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .desc { font-size: 12.5px; color: ${THEME.colors.muted}; line-height: 1.5; margin: 0 0 10px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 38px; }
-        .meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; color: ${THEME.colors.faint}; margin-top: auto; }
-        .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; border: none; }
+        .meta { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; font-size: 12px; color: ${THEME.colors.faint}; margin-top: auto; overflow: hidden; min-width: 0; }
+        .metaTag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; border: none; max-width: 120px; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
         .metaTagD { background: rgba(245,158,11,0.14); color: #92400e; }
         .metaTagT { background: rgba(99,102,241,0.12); color: #3730a3; }
         .metaTagC { background: rgba(6,182,212,0.13); color: #0e7490; }
@@ -757,7 +757,7 @@ export default function ClipsGridClient({ allItems, filters }) {
                         <span key={t} className="metaTag metaTagT">{t}</span>
                       ))}
                       {(r.channels || []).map((c) => (
-                        <span key={c} className="metaTag metaTagC">{c}</span>
+                        <span key={c} className="metaTag metaTagC" style={{ minWidth: 0, flexShrink: 1 }} title={c}>{c}</span>
                       ))}
                     </div>
                   </div>
