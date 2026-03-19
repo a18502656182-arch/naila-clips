@@ -51,6 +51,11 @@ function normalizeSentence(s) {
     .trim();
 }
 
+// 兼容两种字段结构：新收藏用 zh，旧收藏用 meaning_zh
+function getZh(data) {
+  return data?.zh || data?.meaning_zh || "";
+}
+
 const BUILTIN_VOCAB = [
   // ════════════════════════════════════════════════════════
   // 高中水平（50个）— 高频实用，句子贴近日常与校园生活
@@ -846,10 +851,10 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
             </button>
           </div>
           <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-            {card.data?.zh && (
+            {getZh(card.data) && (
               <div style={{ padding: "10px 14px", background: "#fffbeb", borderRadius: THEME.radii.md, border: "1px solid #fde68a" }}>
                 <span style={{ fontSize: 11, fontWeight: 900, color: "#b45309" }}>中文含义　</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink }}>{card.data.zh}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: THEME.colors.ink }}>{getZh(card.data)}</span>
               </div>
             )}
             {card.data?.ipa && (
@@ -878,7 +883,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
             <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: THEME.radii.md, background: "#fff5f5", border: "1px solid #fecaca" }}>
               <div style={{ fontWeight: 1000, color: "#dc2626", marginBottom: 6 }}>✗ 拼写有误</div>
               <div style={{ fontSize: 13, color: THEME.colors.ink }}>正确拼写：<strong style={{ color: "#dc2626", fontSize: 16 }}>{card.term}</strong></div>
-              {card.data?.zh && <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{card.data.zh}</div>}
+              {getZh(card.data) && <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 4 }}>{getZh(card.data)}</div>}
             </div>
           )}
           {checked && isCorrect && (
@@ -1113,7 +1118,7 @@ function MatchMadnessGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, so
               const isFlashing = flash?.id === card.id;
               return (
                 <button key={card.id} type="button" onClick={() => handleRight(card.id)} style={{ padding: "12px 14px", borderRadius: 14, border: "2px solid", borderColor: isMatched ? "#bbf7d0" : isSelected ? "#ec4899" : border2, background: isMatched ? "#f0fdf4" : isSelected ? "#fdf2f8" : THEME.colors.surface, color: isMatched ? "#16a34a" : isSelected ? "#db2777" : THEME.colors.ink, fontSize: 13, fontWeight: 900, cursor: isMatched ? "default" : "pointer", textAlign: "center", transition: "all 150ms", opacity: isMatched ? 0.45 : 1, animation: isFlashing ? "matchPop 400ms ease" : "none", boxShadow: isSelected ? "0 0 0 3px rgba(236,72,153,0.20)" : "none", textDecoration: isMatched ? "line-through" : "none" }}>
-                  {card.data?.zh || "（无释义）"}
+                  {getZh(card.data) || "（无释义）"}
                 </button>
               );
             })}
@@ -1153,12 +1158,12 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   useEffect(() => {
     if (done) return;
     if (!current) return;
-    const correctMeaning = current?.data?.zh || "";
+    const correctMeaning = getZh(current?.data) || "";
     const shouldBeCorrect = Math.random() < 0.5;
     if (shouldBeCorrect || items.length < 2) { setCardMeaning(correctMeaning); setIsMeaningCorrect(true); return; }
     const others = items.filter((x) => x?.id !== current?.id);
     const other = pickOne(others) || pickOne(items);
-    const wrongMeaning = other?.data?.zh || "";
+    const wrongMeaning = getZh(other?.data) || "";
     if (!wrongMeaning || wrongMeaning === correctMeaning) { setCardMeaning(correctMeaning); setIsMeaningCorrect(true); return; }
     setCardMeaning(wrongMeaning);
     setIsMeaningCorrect(false);
@@ -1179,7 +1184,7 @@ function SwipeGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
     const choseMatch = dir === "right";
     const shouldMatch = isMeaningCorrect;
     const ok = choseMatch === shouldMatch;
-    const correctMeaning = current?.data?.zh || "";
+    const correctMeaning = getZh(current?.data) || "";
     setRecords((prev) => [...prev, { term: current?.term || "", displayedMeaning: cardMeaning || "", correctMeaning: correctMeaning || "", wasCorrect: ok, isMatchQuestion: isMeaningCorrect, userChoseMatch: choseMatch }]);
     if (ok) setCorrect((c) => c + 1);
     setAnimating(true);
@@ -1479,7 +1484,7 @@ function RebuildGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, sourceL
             <div>
               <div style={{ fontSize: 12, opacity: 0.65, fontWeight: 900 }}>当前词汇</div>
               <div style={{ fontSize: 26, fontWeight: 1000, marginTop: 4, wordBreak: "break-word" }}>{current?.term || "-"} <span style={{ fontSize: 14, opacity: 0.7, fontWeight: 900 }}>{current?.data?.ipa ? `/${current.data.ipa}/` : ""}</span></div>
-              <div style={{ marginTop: 6, opacity: 0.85, fontWeight: 900 }}>{current?.data?.zh || "（无释义）"}</div>
+              <div style={{ marginTop: 6, opacity: 0.85, fontWeight: 900 }}>{getZh(current?.data) || "（无释义）"}</div>
               {current?.data?.example_zh ? <div style={{ marginTop: 10, opacity: 0.55, fontWeight: 900, lineHeight: 1.35 }}>提示：{current.data.example_zh}</div> : null}
             </div>
           </div>
@@ -1555,8 +1560,8 @@ function BalloonGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收�
     if (gameOverRef.current) return;
     const rid = (roundIdRef.current += 1);
     const word = pickOne(pool);
-    const correctMeaning = word?.data?.zh || "";
-    const otherMeanings = shuffle(pool.filter(x => x?.id !== word?.id).map(x => x?.data?.zh || "").filter(Boolean)).slice(0, 5);
+    const correctMeaning = getZh(word?.data) || "";
+    const otherMeanings = shuffle(pool.filter(x => x?.id !== word?.id).map(x => getZh(x?.data) || "").filter(Boolean)).slice(0, 5);
     const texts = shuffle([correctMeaning, ...otherMeanings]).slice(0, 6);
     const positions = shuffle([0,1,2,3,4,5]);
     const newBalloons = texts.map((txt, i) => ({ id: `${rid}-${i}`, text: txt, correct: txt === correctMeaning, left: 5 + positions[i] * 10 + Math.random() * 2, duration: 7 + Math.random() * 3, delay: i * 0.4, color: balloonColors[i % balloonColors.length], popped: false }));
@@ -1689,10 +1694,10 @@ function SpeedGame({ vocabItems, onExit, onGameEnd, sourceLabel = "我的收藏"
   function pickQuestion() {
     if (!items || items.length < 2) return;
     const w = pickOne(items);
-    const correctMeaning = w?.data?.zh || "";
+    const correctMeaning = getZh(w?.data) || "";
     const others = items.filter((x) => x?.id !== w?.id);
     const wrong = pickOne(others);
-    const wrongMeaning = wrong?.data?.zh || "";
+    const wrongMeaning = getZh(wrong?.data) || "";
     const correctIsLeft = Math.random() < 0.5;
     setWord(w); setCorrectSide(correctIsLeft ? "left" : "right");
     setLeftText(correctIsLeft ? correctMeaning : wrongMeaning);
