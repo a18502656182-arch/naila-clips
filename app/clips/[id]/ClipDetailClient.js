@@ -393,7 +393,10 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
-          <IconBtn title="收藏" active={isFav} onClick={() => onToggleFav(term, kind, v)}>{isFav ? "❤️" : "🤍"}</IconBtn>
+          <IconBtn title="收藏" active={isFav} onClick={() => {
+            const normalizedData = { ...v, zh: v.zh || v.meaning_zh || "" };
+            onToggleFav(term, kind, normalizedData);
+          }}>{isFav ? "❤️" : "🤍"}</IconBtn>
           <IconBtn title="定位到字幕" onClick={() => {
             const byId = findSegIdxBySegmentId(segments, v.segment_id);
             const idx = byId !== -1 ? byId : findSegIdxForTerm(segments, term);
