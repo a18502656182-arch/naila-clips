@@ -751,7 +751,7 @@ export default function ClipsGridClient({ allItems, filters }) {
                       {r.description || "打开视频，跟读字幕，沉浸式练听力和表达。"}
                     </p>
                     <div className="meta">
-                      {dateStr ? <span>{dateStr}</span> : null}
+                      {dateStr ? <span style={{ whiteSpace: "nowrap", flexShrink: 0 }}>{dateStr}</span> : null}
                       {r.difficulty ? <span className="metaTag metaTagD">{r.difficulty}</span> : null}
                       {(r.topics || []).map((t) => (
                         <span key={t} className="metaTag metaTagT">{t}</span>
