@@ -292,14 +292,6 @@ export default function BookmarksClient({ accessToken: ssrToken = null }) {
         .bm-vocab-header { display: flex; gap: 10px; align-items: flex-start; }
         .bm-vocab-term { flex: 1; min-width: 0; }
         .bm-vocab-btns { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
-        @media (min-width: 768px) and (pointer: coarse) {
-          .bm-vocab-header { flex-direction: column; gap: 6px; }
-          .bm-vocab-term { width: 100%; }
-          .bm-vocab-btns button, .bm-vocab-btns a {
-            width: 28px !important; height: 28px !important;
-            min-width: 28px !important; font-size: 13px !important;
-          }
-        }
       `}</style>
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
         {navBar}
