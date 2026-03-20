@@ -292,7 +292,7 @@ export default function PenguinMascot() {
         @keyframes bIn { 0%{opacity:0;transform:translateY(8px) scale(0.94)} 100%{opacity:1;transform:translateY(0) scale(1)} }
       `}</style>
 
-      <div style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9000, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9000, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, userSelect: "none", WebkitUserSelect: "none", isolation: "isolate", transform: "translateZ(0)" }}>
 
         {/* 气泡 */}
         {showBubble && !minimized && (
