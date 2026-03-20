@@ -1339,7 +1339,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </Btn>
         )}
       </div>
-      <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
+      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", paddingRight: 4 }}>
         {vocabList.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {vocabList.map((v, i) => (
@@ -1429,7 +1429,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     </div>
   );
   // 电脑版：词汇卡打开时按钮缩小以适应一行，关闭时恢复原始大小
-  const desktopBtnStyle = vocabOpen ? { padding: "5px 9px", fontSize: 11 } : {};
+  const desktopBtnStyle = vocabOpen ? { padding: "4px 6px", fontSize: 11 } : {};
 
   // 跟读模式：视频下方显示当前句中英文
   const readSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
@@ -1591,7 +1591,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <TermPopup popup={termPopup} onClose={() => setTermPopup(null)} />
       <div style={{ flex: 1, overflow: "hidden", padding: "16px 24px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "2fr 3fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
 
           {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
           <Card style={{ padding: 14, position: "sticky", top: 0, alignSelf: "start", display: "flex", flexDirection: "column" }}>
@@ -1641,7 +1641,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </Card>
 
           {/* 右列：字幕卡片（含模式tab）撑满高度 [+ 词汇卡] */}
-          <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
+          <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1.2fr 0.8fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, minHeight: 36, flexShrink: 0, marginBottom: 10, flexWrap: "wrap", rowGap: 4 }}>
@@ -1676,7 +1676,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             </Card>
 
             {vocabOpen && (
-              <Card style={{ padding: 14, display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
+              <Card style={{ padding: 14, display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden", overflowX: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
                   <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
