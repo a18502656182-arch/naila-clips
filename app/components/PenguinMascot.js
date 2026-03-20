@@ -290,9 +290,11 @@ export default function PenguinMascot() {
         @keyframes pFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
         @keyframes pBounce { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-10px)} 60%{transform:translateY(-4px)} }
         @keyframes bIn { 0%{opacity:0;transform:translateY(8px) scale(0.94)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        .penguin-root { display: none !important; }
+        @media (min-width: 768px) { .penguin-root { display: flex !important; } }
       `}</style>
 
-      <div style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9000, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, userSelect: "none", WebkitUserSelect: "none", isolation: "isolate", transform: "translateZ(0)" }}>
+      <div className="penguin-root" style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 9000, flexDirection: "column", alignItems: "center", gap: 4, userSelect: "none", WebkitUserSelect: "none" }}>
 
         {/* 气泡 */}
         {showBubble && !minimized && (
