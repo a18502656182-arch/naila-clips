@@ -388,8 +388,8 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
   return (
     <Card style={{ padding: 14 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 17, fontWeight: 900 }}>{term || "-"}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{term || "-"}</div>
           {v.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {v.ipa} /</div>}
         </div>
         <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
@@ -1329,12 +1329,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         </div>
       )}
       {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", overflow: "hidden", minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", rowGap: 4, marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", minWidth: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
-          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
+          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)} style={{ padding: "4px 8px", fontSize: 11 }}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
         ))}
         {compact && (
-          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0 }}>
+          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 11 }}>
             {showZhExplain ? "中文 ON" : "中文 OFF"}
           </Btn>
         )}
