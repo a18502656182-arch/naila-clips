@@ -388,12 +388,12 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
   return (
     <Card style={{ padding: 14 }}>
       {/* 默认布局：单词+按钮同行；pad布局（CSS控制）：单词占满一行，按钮缩小在下方 */}
-      <div className="vocab-card-header">
-        <div className="vocab-card-term">
+      <div className="vocab-card-header" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div className="vocab-card-term" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 17, fontWeight: 900 }}>{term || "-"}</div>
           {v.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {v.ipa} /</div>}
         </div>
-        <div className="vocab-card-btns">
+        <div className="vocab-card-btns" style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
           <IconBtn title="收藏" active={isFav} onClick={() => {
             const normalizedData = { ...v, zh: v.zh || v.meaning_zh || "" };
@@ -1599,19 +1599,17 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       <style>{`
         @keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        /* 默认：VocabCard header 同行布局 */
+        /* 默认（手机/电脑）：VocabCard header 同行布局 */
         .vocab-card-header { display: flex; gap: 10px; align-items: flex-start; }
         .vocab-card-term { flex: 1; min-width: 0; }
         .vocab-card-btns { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
 
-        /* pad横屏（华为等1100-1400px触摸屏）：单词占满一行，按钮换到下方缩小 */
-        @media (min-width: 1100px) and (max-width: 1400px) and (pointer: coarse) {
-          .clip-detail-root { font-size: 87.5% !important; }
+        /* 所有pad（触摸屏，宽度>=768px）：单词占满一行，按钮缩小排在下方 */
+        @media (min-width: 768px) and (pointer: coarse) {
           .vocab-card-header { flex-direction: column; gap: 6px; }
           .vocab-card-term { width: 100%; }
           .vocab-card-btns { gap: 6px; }
           .vocab-card-btns button { width: 28px !important; height: 28px !important; min-width: 28px !important; font-size: 13px !important; }
-          /* 地道表达按钮文字缩短 */
           .clip-detail-root .expressions-tab-label { display: none; }
           .clip-detail-root .expressions-tab-short { display: inline !important; }
         }
