@@ -387,12 +387,13 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
 
   return (
     <Card style={{ padding: 14 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{term || "-"}</div>
+      {/* 默认布局：单词+按钮同行；pad布局（CSS控制）：单词占满一行，按钮缩小在下方 */}
+      <div className="vocab-card-header">
+        <div className="vocab-card-term">
+          <div style={{ fontSize: 17, fontWeight: 900 }}>{term || "-"}</div>
           {v.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {v.ipa} /</div>}
         </div>
-        <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+        <div className="vocab-card-btns">
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
           <IconBtn title="收藏" active={isFav} onClick={() => {
             const normalizedData = { ...v, zh: v.zh || v.meaning_zh || "" };
@@ -1331,7 +1332,15 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
       <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", minWidth: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
-          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)} style={{ padding: "4px 8px", fontSize: 11 }}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
+          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)} style={{ padding: "4px 8px", fontSize: 11 }}>
+            {label === "地道表达" ? (
+              <>
+                <span className="expressions-tab-label">地道表达</span>
+                <span className="expressions-tab-short" style={{ display: "none" }}>表达</span>
+              </>
+            ) : (compact && label === "地道表达" ? "表达" : label)}
+            {" "}({arr.length})
+          </Btn>
         ))}
         {compact && (
           <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 11 }}>
@@ -1590,9 +1599,21 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
       <style>{`
         @keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
         @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        /* 默认：VocabCard header 同行布局 */
+        .vocab-card-header { display: flex; gap: 10px; align-items: flex-start; }
+        .vocab-card-term { flex: 1; min-width: 0; }
+        .vocab-card-btns { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+
+        /* pad横屏（华为等1100-1400px触摸屏）：单词占满一行，按钮换到下方缩小 */
         @media (min-width: 1100px) and (max-width: 1400px) and (pointer: coarse) {
           .clip-detail-root { font-size: 87.5% !important; }
-          .clip-detail-root button { font-size: 87.5% !important; }
+          .vocab-card-header { flex-direction: column; gap: 6px; }
+          .vocab-card-term { width: 100%; }
+          .vocab-card-btns { gap: 6px; }
+          .vocab-card-btns button { width: 28px !important; height: 28px !important; min-width: 28px !important; font-size: 13px !important; }
+          /* 地道表达按钮文字缩短 */
+          .clip-detail-root .expressions-tab-label { display: none; }
+          .clip-detail-root .expressions-tab-short { display: inline !important; }
         }
       `}</style>
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
