@@ -94,8 +94,8 @@ function VocabFavCard({ item, onRemove, showZh }) {
       background: THEME.colors.surface, padding: 14,
       boxShadow: "0 2px 8px rgba(11,18,32,0.06)",
     }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="bm-vocab-header" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <div className="bm-vocab-term" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 17, fontWeight: 900, color: THEME.colors.ink }}>{term}</span>
             <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: kindBg, border: `1px solid ${kindBorder}`, color: kindColor, fontWeight: 700 }}>
@@ -104,18 +104,18 @@ function VocabFavCard({ item, onRemove, showZh }) {
           </div>
           {data?.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {data.ipa} /</div>}
         </div>
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <div className="bm-vocab-btns" style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
           <button type="button" title="听发音"
             onClick={() => data?.audio_url ? new Audio(data.audio_url).play() : speakEn(term)}
-            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>🔊</button>
+            style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, boxSizing: "border-box", flexShrink: 0 }}>🔊</button>
           <a href={`/clips/${clip_id}`} title="回到原视频"
-            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center", textDecoration: "none" }}>🎬</a>
+            style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none", padding: 0, boxSizing: "border-box", flexShrink: 0 }}>🎬</a>
           <button type="button" title={collapsed ? "展开" : "收起"} onClick={() => setCollapsed(x => !x)}
-            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>
+            style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, boxSizing: "border-box", flexShrink: 0 }}>
             {collapsed ? "▾" : "▴"}
           </button>
           <button type="button" title="取消收藏" onClick={() => onRemove(item.id, term, clip_id)}
-            style={{ width: 32, height: 32, borderRadius: THEME.radii.pill, border: "1px solid #ffd5d5", background: "#fff5f5", cursor: "pointer", fontSize: 15, display: "grid", placeItems: "center" }}>🗑️</button>
+            style={{ width: 32, height: 32, minWidth: 32, borderRadius: "50%", border: "1px solid #ffd5d5", background: "#fff5f5", cursor: "pointer", fontSize: 15, display: "flex", alignItems: "center", justifyContent: "center", padding: 0, boxSizing: "border-box", flexShrink: 0 }}>🗑️</button>
         </div>
       </div>
 
@@ -287,7 +287,20 @@ export default function BookmarksClient({ accessToken: ssrToken = null }) {
 
   return (
     <>
-      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      <style>{`
+        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+        .bm-vocab-header { display: flex; gap: 10px; align-items: flex-start; }
+        .bm-vocab-term { flex: 1; min-width: 0; }
+        .bm-vocab-btns { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
+        @media (min-width: 768px) and (pointer: coarse) {
+          .bm-vocab-header { flex-direction: column; gap: 6px; }
+          .bm-vocab-term { width: 100%; }
+          .bm-vocab-btns button, .bm-vocab-btns a {
+            width: 28px !important; height: 28px !important;
+            min-width: 28px !important; font-size: 13px !important;
+          }
+        }
+      `}</style>
       <div style={{ background: THEME.colors.bg, minHeight: "100vh" }}>
         {navBar}
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 16px 60px" }}>
