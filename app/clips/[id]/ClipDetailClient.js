@@ -214,10 +214,11 @@ function Card({ children, style }) {
 function IconBtn({ title, onClick, active, children }) {
   return (
     <button type="button" title={title} onClick={onClick} style={{
-      width: 34, height: 34, borderRadius: THEME.radii.pill,
+      width: 32, height: 32, minWidth: 32, borderRadius: "50%",
       border: `1px solid ${active ? "#bfe3ff" : THEME.colors.border}`,
       background: active ? "#f3fbff" : THEME.colors.surface,
-      cursor: "pointer", display: "grid", placeItems: "center", fontSize: 16,
+      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, boxSizing: "border-box",
     }}>{children}</button>
   );
 }
@@ -391,7 +392,7 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
           <div style={{ fontSize: 17, fontWeight: 900 }}>{term || "-"}</div>
           {v.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {v.ipa} /</div>}
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
           <IconBtn title="收藏" active={isFav} onClick={() => {
             const normalizedData = { ...v, zh: v.zh || v.meaning_zh || "" };
@@ -1643,8 +1644,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, flexShrink: 0, marginBottom: 10, flexWrap: "nowrap" }}>
-                <div style={{ display: "flex", gap: vocabOpen ? 4 : 6, flexShrink: 0, flexWrap: "nowrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, minHeight: 36, flexShrink: 0, marginBottom: 10, flexWrap: "wrap", rowGap: 4 }}>
+                <div style={{ display: "flex", gap: vocabOpen ? 3 : 6, flexShrink: 0, flexWrap: "wrap", rowGap: 4 }}>
                   {modeTabItems.slice(0, 4).map(([m, label]) => (
                     <Btn key={m} active={subMode === m} onClick={() => { setSubMode(m); if (clozeMode) { setClozeMode(false); setClozeRevealed({}); } }} style={desktopBtnStyle}>{label}</Btn>
                   ))}
