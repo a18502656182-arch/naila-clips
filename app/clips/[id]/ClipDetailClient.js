@@ -1329,7 +1329,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         </div>
       )}
       {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", rowGap: 4, marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", minWidth: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
           <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)} style={{ padding: "4px 8px", fontSize: 11 }}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
         ))}
@@ -1586,8 +1586,15 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ─── DESKTOP LAYOUT ────────────────────────────────────────
   return (
-    <div style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} } @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }`}</style>
+    <div className="clip-detail-root" style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`
+        @keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+        @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+        @media (min-width: 1100px) and (max-width: 1400px) and (pointer: coarse) {
+          .clip-detail-root { font-size: 87.5% !important; }
+          .clip-detail-root button { font-size: 87.5% !important; }
+        }
+      `}</style>
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <TermPopup popup={termPopup} onClose={() => setTermPopup(null)} />
       <div style={{ flex: 1, overflow: "hidden", padding: "16px 24px 16px" }}>
