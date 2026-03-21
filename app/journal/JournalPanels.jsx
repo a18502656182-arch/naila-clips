@@ -6,12 +6,12 @@ import { Card, SectionTitle, MiniStat } from "./JournalUI";
 function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobile }) {
   return (
     <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="📊" title="学习总览" sub="打开手帐先看结果，再决定下一步学什么" />
+      <SectionTitle emoji="📊" title="学习总览" sub="你的学习轨迹都在这里，一眼看清楚" />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <MiniStat
           label="连续学习"
           value={streakDays || 0}
-          hint="习惯形成中"
+          hint="天没断"
           accent={{
             bg: "linear-gradient(135deg, rgba(251,146,60,0.16), rgba(251,146,60,0.05))",
             border: "rgba(251,146,60,0.22)",
@@ -21,7 +21,7 @@ function OverviewPanel({ streakDays, totalViews, activeDays, vocabCount, isMobil
         <MiniStat
           label="累计视频"
           value={totalViews || 0}
-          hint="场景输入总量"
+          hint="个真实场景"
           accent={{
             bg: "linear-gradient(135deg, rgba(99,102,241,0.16), rgba(99,102,241,0.05))",
             border: "rgba(99,102,241,0.22)",
@@ -175,7 +175,7 @@ function TodayPlan({ d, isMobile }) {
       <SectionTitle
         emoji="🎯"
         title="今天的学习计划"
-        sub="前两项自动统计，游戏练习先保留快捷入口，不做错误的假判定"
+        sub="完成了几项就算几项，别给自己太大压力"
         right={
           <div
             style={{
@@ -220,7 +220,7 @@ function TodayPlan({ d, isMobile }) {
         ))}
         <TaskRow
           title="去游戏大厅做一轮练习"
-          desc="这一项现在不做自动统计，避免沿用旧考试系统残留逻辑；点击直接进入练习大厅。"
+          desc="做几轮游戏，把今天看到的表达练一练"
           done={false}
           neutral
           href="/practice"
@@ -241,7 +241,7 @@ function TodayPlan({ d, isMobile }) {
             color: "#9a3412",
           }}
         >
-          现在这版手帐只展示真实可拿到的数据：视频、收藏、活跃度和练习入口，不再继续沿用“已掌握/学习中”的旧考试判定。
+          坚持每天打卡，积少成多才是王道 💪
         </div>
       )}
     </Card>
@@ -498,7 +498,7 @@ function MonthCalendar({ monthDate, heatmapData, isMobile }) {
         }}
       >
         <div style={{ fontSize: 12, color: THEME.colors.faint, fontWeight: 800 }}>
-          数字表示当天学习次数，今天会有紫色描边
+          数字是当天看视频的次数，今天有紫色标记
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "nowrap" }}>
           <span style={{ fontSize: 10, fontWeight: 900, color: "#64748b", padding: "4px 7px", borderRadius: 999, background: "rgba(15,23,42,0.05)", border: "1px solid rgba(15,23,42,0.08)", whiteSpace: "nowrap" }}>灰=未学习</span>
@@ -536,7 +536,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
       <SectionTitle
         emoji="🗓️"
         title="学习日历"
-        sub="按月份查看，比一大堆看不懂的小格子更直观"
+        sub="看看哪天学了，哪天没动，一目了然"
       />
 
       <div
@@ -629,7 +629,7 @@ function Heatmap({ heatmapData, streakDays, totalViews, isMobile }) {
             fontWeight: 900,
           }}
         >
-          你已经连续学习 {streakDays} 天了。现在月历能直接看清楚哪天学了、学了多少。
+          已连续学习 {streakDays} 天，继续保持！别让记录断掉 🔥
         </div>
       ) : null}
     </Card>
@@ -723,22 +723,22 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
         `今日新增收藏：${d.today_vocab || 0} 个`,
         vocabCount > 0
           ? "你已经不是单纯在看视频，而是在沉淀自己的表达库。"
-          : "先收藏一些词汇，这里会逐渐长成你的学习记录。",
+          : "去看视频的时候多点几下❤️，这里就会越来越丰富",
       ],
     },
     {
-      title: "练习大厅痕迹",
+      title: "游戏练习",
       accent: {
         bg: "linear-gradient(135deg, rgba(99,102,241,0.10), rgba(6,182,212,0.04))",
         border: "rgba(99,102,241,0.16)",
         title: "#4338ca",
       },
       lines: [
-        `已留下分数记录的游戏：${playedGameCount} 个`,
-        `当前本地总分：${totalGameScore}`,
+        `玩过的游戏类型：${playedGameCount} 个`,
+        `游戏累计总分：${totalGameScore} 分`,
         playedGameCount > 0
-          ? "说明你已经开始把输入转成输出练习了。"
-          : "这里暂未检测到游戏分数记录，去练习大厅做一轮就会有痕迹。",
+          ? "很好，输入和练习都没落下！"
+          : "还没有游戏记录，去练习大厅玩一轮试试~",
       ],
     },
     {
@@ -751,7 +751,7 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
       lines: [
         `最近最常见的话题：${topTopic}`,
         `第二偏好方向：${secondTopic}`,
-        `目前累计活跃 ${activeDays} 天，偏好会随着继续学习逐渐清晰。`,
+        `累计活跃 ${activeDays} 天，继续学偏好会越来越清晰`,
       ],
     },
     {
@@ -763,7 +763,7 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
       },
       lines: [
         summaryText,
-        "保持节奏，你的表达库正在逐渐成型。",
+        "保持节奏，慢慢来，表达库会越来越丰富的",
       ],
     }
   ];
@@ -773,7 +773,7 @@ function LearningAnalysis({ d, vocabCount, topicStats, gameSummary, isMobile }) 
       <SectionTitle
         emoji="🧭"
         title="学习动态分析"
-        sub="从行为数据里看到学习轨迹，而不是抽象的掌握等级"
+        sub="看看你最近都在学什么、学了多少"
       />
 
       <div
@@ -847,7 +847,7 @@ function ActionCard({ emoji, title, desc, href, dark }) {
 function ContinueLearning({ isMobile }) {
   return (
     <Card style={{ padding: 18 }}>
-      <SectionTitle emoji="🚀" title="继续学习" sub="手帐页不是终点，看完就继续学" />
+      <SectionTitle emoji="🚀" title="继续学习" sub="翻完记录，继续出发" />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 12 }}>
         <ActionCard emoji="🎬" title="去看新视频" desc="继续从场景里输入真实表达，让学习进入状态。" href="/" dark />
         <ActionCard emoji="📚" title="去复习词汇本" desc="看看最近收藏了什么，顺手再整理一下自己的表达库。" href="/bookmarks" />
