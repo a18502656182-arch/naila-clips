@@ -211,10 +211,10 @@ export default function Page({ accessToken }) {
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 1000 }}>
-                👋 {me?.email?.split("@")[0] || "同学"}，今天也来留下一点学习痕迹
+                👋 {me?.email?.split("@")[0] || "同学"}，今天也来打个卡
               </div>
               <div style={{ fontSize: 13, opacity: 0.92, lineHeight: 1.8, marginTop: 8 }}>
-                现在这版手帐页只保留真实有效的学习数据：看视频、收藏词汇、活跃天数、学习偏好和游戏大厅入口，不再沿用旧考试系统的掌握判定。
+                记录你每天看了什么、收藏了什么，慢慢来，积累才是最重要的事。
               </div>
             </div>
             {isMobile ? (
