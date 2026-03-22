@@ -402,7 +402,7 @@ function playWord(term) {
 const SCORE_KEY = "naila_game_scores";
 
 const GAME_META = [
-  { id: "bubble", emoji: "🫧", name: "气泡拼写", color: "#7c3aed" },
+  { id: "bubble", emoji: "✏️", name: "气泡拼写", color: "#7c3aed" },
   { id: "match", emoji: "🔗", name: "极速连连看", color: "#d97706" },
   { id: "swipe", emoji: "🃏", name: "单词探探", color: "#ec4899" },
   { id: "rebuild", emoji: "🧩", name: "台词磁力贴", color: "#059669" },
@@ -790,7 +790,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
       <div style={shellStyle}>
         <div style={topBar}>
           <button onClick={onExit} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", cursor: "pointer", fontWeight: 900 }}>← 返回大厅</button>
-          <div style={{ fontWeight: 1000 }}>🫧 气泡拼写</div>
+          <div style={{ fontWeight: 1000 }}>✏️ 气泡拼写</div>
           <div style={{ opacity: 0.7, fontWeight: 900 }}>结算</div>
         </div>
         <div style={{ maxWidth: 760, margin: "18px auto 0", padding: "0 14px" }}>
@@ -820,7 +820,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
 
   if (!started) {
     return (
-      <CountStartScreen emoji="🫧" name="气泡拼写" desc="听到单词发音，点击字母气泡按顺序拼出来" sourceLabel={sourceLabel} vocabCount={allFiltered.length}
+      <CountStartScreen emoji="✏️" name="气泡拼写" desc="听到单词发音，点击字母气泡按顺序拼出来" sourceLabel={sourceLabel} vocabCount={allFiltered.length}
         onStart={(count) => { setQuestionCount(count); setStarted(true); }} onExit={onExit} />
     );
   }
@@ -834,7 +834,7 @@ function BubbleSpellingGame({ vocabItems, onExit, onGameEnd, maxQuestions = 10, 
     <div style={shellStyle}>
       <div style={topBar}>
         <button onClick={onExit} style={{ border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.pill, padding: "8px 12px", cursor: "pointer", fontWeight: 900 }}>← 返回大厅</button>
-        <div style={{ fontWeight: 1000 }}>🫧 气泡拼写</div>
+        <div style={{ fontWeight: 1000 }}>✏️ 气泡拼写</div>
         <div style={{ opacity: 0.7, fontWeight: 900 }}>{idx + 1} / {cards.length}</div>
       </div>
       <div style={{ maxWidth: 600, margin: "0 auto", padding: "8px 16px 40px" }}>
@@ -2161,7 +2161,7 @@ export default function PracticeClient({ accessToken: ssrToken }) {
       </div>
 
       <div className="practice-games-grid">
-        <GameCard emoji="🫧" title="气泡拼写" subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写" tag="拼写训练" color="#7c3aed" disabled={isLocked()} onClick={() => setActiveGame("bubble")} />
+        <GameCard emoji="✏️" title="气泡拼写" subtitle="拼出你看到的单词，点击字母气泡按顺序完成拼写" tag="拼写训练" color="#7c3aed" disabled={isLocked()} onClick={() => setActiveGame("bubble")} />
         <GameCard emoji="🔗" title="极速连连看" subtitle="30秒内快速配对英文与中文，连击越多分越高" tag="速记模式" color="#d97706" disabled={isLocked()} onClick={() => setActiveGame("match")} />
         <GameCard emoji="🃏" title="单词探探" subtitle="左滑❌ 右滑✅ 判断释义是否正确" tag="休闲模式" color="#ec4899" disabled={isLocked()} onClick={() => setActiveGame("swipe")} />
         <GameCard emoji="🧩" title="台词磁力贴" subtitle="点击方块，把打散的例句拼回去" tag="语感训练" color="#059669" disabled={isLocked()} onClick={() => setActiveGame("rebuild")} />
