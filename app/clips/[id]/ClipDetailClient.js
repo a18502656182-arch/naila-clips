@@ -177,11 +177,13 @@ function useIsMobile(initial = false, bp = 960) {
   return m;
 }
 
-// 真正的桌面端（>1024px），排除 iPad 横屏避免双播放按钮
+// 真正的桌面端：无触摸屏的设备才显示自定义overlay，排除所有平板（iPad/华为pad等）
 function useIsDesktop() {
   const [d, setD] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1025px)");
+    // pointer: fine = 鼠标/触控板，pointer: coarse = 触摸屏
+    // 有触摸屏的设备（平板、手机）不显示overlay，避免与原生controls双按钮冲突
+    const mq = window.matchMedia("(pointer: fine) and (hover: hover)");
     const fn = () => setD(!!mq.matches);
     fn();
     mq.addEventListener("change", fn);
