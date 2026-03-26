@@ -177,6 +177,19 @@ function useIsMobile(initial = false, bp = 960) {
   return m;
 }
 
+// 真正的桌面端（>1024px），排除 iPad 横屏避免双播放按钮
+function useIsDesktop() {
+  const [d, setD] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1025px)");
+    const fn = () => setD(!!mq.matches);
+    fn();
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+  return d;
+}
+
 // ─── 骨架屏 ──────────────────────────────────────────────────
 function SkeletonBlock({ w = "100%", h = 20, r = 8, style = {} }) {
   return (
@@ -214,11 +227,10 @@ function Card({ children, style }) {
 function IconBtn({ title, onClick, active, children }) {
   return (
     <button type="button" title={title} onClick={onClick} style={{
-      width: 32, height: 32, minWidth: 32, borderRadius: "50%",
+      width: 34, height: 34, borderRadius: THEME.radii.pill,
       border: `1px solid ${active ? "#bfe3ff" : THEME.colors.border}`,
       background: active ? "#f3fbff" : THEME.colors.surface,
-      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, boxSizing: "border-box",
+      cursor: "pointer", display: "grid", placeItems: "center", fontSize: 16,
     }}>{children}</button>
   );
 }
@@ -387,18 +399,14 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
 
   return (
     <Card style={{ padding: 14 }}>
-      {/* 默认布局：单词+按钮同行；pad布局（CSS控制）：单词占满一行，按钮缩小在下方 */}
-      <div className="vocab-card-header" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <div className="vocab-card-term" style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "start" }}>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 17, fontWeight: 900 }}>{term || "-"}</div>
           {v.ipa && <div style={{ marginTop: 4, fontSize: 12, color: THEME.colors.faint }}>/ {v.ipa} /</div>}
         </div>
-        <div className="vocab-card-btns" style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6 }}>
           <IconBtn title="听发音" onClick={() => v.audio_url ? new Audio(v.audio_url).play() : speakEn(term)}>🔊</IconBtn>
-          <IconBtn title="收藏" active={isFav} onClick={() => {
-            const normalizedData = { ...v, zh: v.zh || v.meaning_zh || "" };
-            onToggleFav(term, kind, normalizedData);
-          }}>{isFav ? "❤️" : "🤍"}</IconBtn>
+          <IconBtn title="收藏" active={isFav} onClick={() => onToggleFav(term, kind, v)}>{isFav ? "❤️" : "🤍"}</IconBtn>
           <IconBtn title="定位到字幕" onClick={() => {
             const byId = findSegIdxBySegmentId(segments, v.segment_id);
             const idx = byId !== -1 ? byId : findSegIdxForTerm(segments, term);
@@ -539,6 +547,7 @@ function BookmarkLoginModal({ onClose }) {
 // ─── 主页面 ────────────────────────────────────────────────
 export default function ClipDetailClient({ clipId, initialItem, initialMe, initialDetails, initialBookmarked, initialIsMobile = false }) {
   const isMobile = useIsMobile(initialIsMobile);
+  const isDesktop = useIsDesktop();
   const router = useRouter();
 
   const [loading, setLoading] = useState(!initialItem);
@@ -1256,8 +1265,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           }}
         />
         {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
-        {/* 电脑版播放/暂停overlay */}
-        {!isMobile && hasPlayed && (
+        {/* 电脑版播放/暂停overlay：只在真正桌面端(>1024px)显示，iPad横屏不显示避免双按钮 */}
+        {isDesktop && hasPlayed && (
           <div
             onClick={vPlaying ? undefined : togglePlay}
             style={{
@@ -1330,25 +1339,17 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         </div>
       )}
       {/* tab行：紧凑模式时中文按钮在最右侧同一行 */}
-      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 4, flexWrap: "nowrap", marginBottom: compact ? 8 : 12, flexShrink: 0, alignItems: "center", overflow: "hidden", minWidth: 0 }}>
         {[["words", "单词", vocab.words], ["phrases", "短语", vocab.phrases], ["expressions", "地道表达", vocab.expressions]].map(([k, label, arr]) => (
-          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)} style={{ padding: "4px 8px", fontSize: 11 }}>
-            {label === "地道表达" ? (
-              <>
-                <span className="expressions-tab-label">地道表达</span>
-                <span className="expressions-tab-short" style={{ display: "none" }}>表达</span>
-              </>
-            ) : (compact && label === "地道表达" ? "表达" : label)}
-            {" "}({arr.length})
-          </Btn>
+          <Btn key={k} active={vocabTab === k} onClick={() => setVocabTab(k)}>{compact && label === "地道表达" ? "表达" : label} ({arr.length})</Btn>
         ))}
         {compact && (
-          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0, padding: "4px 8px", fontSize: 11 }}>
+          <Btn active={showZhExplain} onClick={() => setShowZhExplain(x => !x)} style={{ marginLeft: "auto", flexShrink: 0 }}>
             {showZhExplain ? "中文 ON" : "中文 OFF"}
           </Btn>
         )}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", paddingRight: 4 }}>
+      <div style={{ flex: 1, overflow: "auto", paddingRight: 4 }}>
         {vocabList.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {vocabList.map((v, i) => (
@@ -1438,7 +1439,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
     </div>
   );
   // 电脑版：词汇卡打开时按钮缩小以适应一行，关闭时恢复原始大小
-  const desktopBtnStyle = vocabOpen ? { padding: "4px 6px", fontSize: 11 } : {};
+  const desktopBtnStyle = vocabOpen ? { padding: "5px 9px", fontSize: 11 } : {};
 
   // 跟读模式：视频下方显示当前句中英文
   const readSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
@@ -1595,29 +1596,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // ─── DESKTOP LAYOUT ────────────────────────────────────────
   return (
-    <div className="clip-detail-root" style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`
-        @keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
-        @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
-        /* 默认（手机/电脑）：VocabCard header 同行布局 */
-        .vocab-card-header { display: flex; gap: 10px; align-items: flex-start; }
-        .vocab-card-term { flex: 1; min-width: 0; }
-        .vocab-card-btns { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
-
-        /* 所有pad（触摸屏，宽度>=768px）：单词占满一行，按钮缩小排在下方 */
-        @media (min-width: 768px) and (pointer: coarse) {
-          .vocab-card-header { flex-direction: column; gap: 6px; }
-          .vocab-card-term { width: 100%; }
-          .vocab-card-btns { gap: 6px; }
-          .vocab-card-btns button { width: 28px !important; height: 28px !important; min-width: 28px !important; font-size: 13px !important; }
-          .clip-detail-root .expressions-tab-label { display: none; }
-          .clip-detail-root .expressions-tab-short { display: inline !important; }
-        }
-      `}</style>
+    <div style={{ background: THEME.colors.bg, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <style>{`@keyframes skPulse { 0%,100%{opacity:1} 50%{opacity:0.45} } @keyframes bIn { 0%{opacity:0;transform:translateY(6px) scale(0.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }`}</style>
       {showBookmarkLoginModal && <BookmarkLoginModal onClose={() => setShowBookmarkLoginModal(false)} />}
       <TermPopup popup={termPopup} onClose={() => setTermPopup(null)} />
       <div style={{ flex: 1, overflow: "hidden", padding: "16px 24px 16px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "2fr 3fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: vocabOpen ? "1fr 1fr" : "1.1fr 1fr", gap: 16, height: "100%", alignItems: "start" }}>
 
           {/* 左列：标题行 + 视频 + 控制 + 当前句面板 */}
           <Card style={{ padding: 14, position: "sticky", top: 0, alignSelf: "start", display: "flex", flexDirection: "column" }}>
@@ -1667,11 +1651,11 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
           </Card>
 
           {/* 右列：字幕卡片（含模式tab）撑满高度 [+ 词汇卡] */}
-          <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1.2fr 0.8fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
+          <div style={{ display: vocabOpen ? "grid" : "flex", flexDirection: vocabOpen ? undefined : "column", gridTemplateColumns: vocabOpen ? "1fr 1fr" : undefined, gap: 16, height: "calc(100vh - 32px)" }}>
             <Card style={{ padding: 14, display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
               {/* 模式切换行 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4, minHeight: 36, flexShrink: 0, marginBottom: 10, flexWrap: "wrap", rowGap: 4 }}>
-                <div style={{ display: "flex", gap: vocabOpen ? 3 : 6, flexShrink: 0, flexWrap: "wrap", rowGap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, height: 44, flexShrink: 0, marginBottom: 10, flexWrap: "nowrap" }}>
+                <div style={{ display: "flex", gap: vocabOpen ? 4 : 6, flexShrink: 0, flexWrap: "nowrap" }}>
                   {modeTabItems.slice(0, 4).map(([m, label]) => (
                     <Btn key={m} active={subMode === m} onClick={() => { setSubMode(m); if (clozeMode) { setClozeMode(false); setClozeRevealed({}); } }} style={desktopBtnStyle}>{label}</Btn>
                   ))}
@@ -1702,7 +1686,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             </Card>
 
             {vocabOpen && (
-              <Card style={{ padding: 14, display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden", overflowX: "hidden" }}>
+              <Card style={{ padding: 14, display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", overflow: "hidden" }}>
                 <div style={{ display: "flex", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 15, color: THEME.colors.ink }}>词汇卡</div>
                   <button type="button" onClick={() => setVocabOpen(false)} style={{ marginLeft: "auto", border: `1px solid ${THEME.colors.border}`, background: THEME.colors.surface, borderRadius: THEME.radii.md, padding: "6px 12px", cursor: "pointer", fontSize: 12 }}>收起</button>
