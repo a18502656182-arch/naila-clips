@@ -284,9 +284,9 @@ export default function UserMenuClient() {
                 >
                   {isMember ? "✨ 会员" : "普通用户"}
                 </div>
-                {isMember && expiryStr && (
+                {isMember && (
                   <div style={{ marginTop: 2, fontSize: 11, color: THEME.colors.faint }}>
-                    到期：{expiryStr}
+                    到期：{expiryStr || "永久"}
                   </div>
                 )}
               </div>
