@@ -76,11 +76,12 @@ export default async function AdminPage() {
       .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
       .order("created_at", { ascending: false })
       .limit(200),
+    // 活跃会员数：永久卡(expires_at IS NULL) + 未过期的有效期卡
     supabase
       .from("subscriptions")
       .select("*", { count: "exact", head: true })
       .eq("status", "active")
-      .gt("expires_at", new Date().toISOString()),
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString()),
     supabase.auth.admin.listUsers({ perPage: 1000 }),
   ]);
 
@@ -95,7 +96,6 @@ export default async function AdminPage() {
 
   const [{ data: subs }, { data: profiles }] = await Promise.all([
     supabase.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
-    // 现在直接从 profiles 拿 used_code
     supabase.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
   ]);
 
