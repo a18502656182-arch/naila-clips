@@ -1,4 +1,4 @@
-// app/admin/api/route.js
+// app/admin-api/route.js
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -110,7 +110,6 @@ export async function POST(req) {
       details_json, upload_time, youtube_url,
     } = body;
 
-    // 1. 插入 clips 表（标签全部走 clip_taxonomies，clips 表不存标签）
     const { data: clip, error: clipErr } = await db
       .from("clips")
       .insert({
@@ -126,7 +125,6 @@ export async function POST(req) {
 
     if (clipErr) return NextResponse.json({ error: clipErr.message }, { status: 500 });
 
-    // 2. 插入 clip_details
     if (details_json) {
       let parsed = details_json;
       if (typeof details_json === "string") {
@@ -140,7 +138,6 @@ export async function POST(req) {
       if (detErr) return NextResponse.json({ error: detErr.message }, { status: 500 });
     }
 
-    // 3. 同步 taxonomies 表 + clip_taxonomies 关联
     await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
     await db.rpc("refresh_clips_view");
     revalidateTag("clips_view:all");
@@ -157,7 +154,6 @@ export async function POST(req) {
       details_json, youtube_url, upload_time,
     } = body;
 
-    // 只更新 body 里实际传了的字段，未传的字段保持原值
     const updatePayload = {};
     if (title !== undefined) updatePayload.title = title;
     if (description !== undefined) updatePayload.description = description;
@@ -185,13 +181,11 @@ export async function POST(req) {
         .upsert({ clip_id: id, details_json: parsed }, { onConflict: "clip_id" });
     }
 
-    // 各标签字段独立处理，只更新传了的，不传的保持原值
     const hasDifficulty = difficulty_slug !== undefined;
     const hasTopics = topic_slugs !== undefined;
     const hasChannels = channel_slugs !== undefined;
 
     if (hasDifficulty || hasTopics || hasChannels) {
-      // 先查出当前的标签状态
       const { data: currentTaxRows } = await db
         .from("clip_taxonomies")
         .select("taxonomy_id, taxonomies(type, slug)")
@@ -245,7 +239,6 @@ export async function POST(req) {
     const rows = [];
     const existing = new Set();
 
-    // 防重碰撞
     const { data: existingCodes } = await db
       .from("redeem_codes")
       .select("code");
@@ -274,7 +267,6 @@ export async function POST(req) {
   // ── 兑换码：停用/启用 ──
   if (action === "code_toggle") {
     const { id, is_active } = body;
-    // redeem_codes 表主键是 code 字段，没有 id 字段
     const { error } = await db
       .from("redeem_codes")
       .update({ is_active })
@@ -323,25 +315,32 @@ export async function POST(req) {
   if (action === "member_set") {
     const { user_id, days } = body;
     const d = Number(days);
-    if (!user_id || !d) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
+    if (!user_id || isNaN(d)) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
 
-    const { data: existing } = await db
-      .from("subscriptions")
-      .select("expires_at")
-      .eq("user_id", user_id)
-      .maybeSingle();
+    // days=0 表示永久卡，expires_at 设为 null，不在现有有效期上叠加
+    let expires_at = null;
+    let plan = "lifetime";
 
-    const now = Date.now();
-    const base =
-      existing?.expires_at && new Date(existing.expires_at).getTime() > now
-        ? new Date(existing.expires_at).getTime()
-        : now;
-    const expires_at = new Date(base + d * 86400000).toISOString();
+    if (d > 0) {
+      const { data: existing } = await db
+        .from("subscriptions")
+        .select("expires_at")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      const now = Date.now();
+      const base =
+        existing?.expires_at && new Date(existing.expires_at).getTime() > now
+          ? new Date(existing.expires_at).getTime()
+          : now;
+      expires_at = new Date(base + d * 86400000).toISOString();
+      plan = d >= 365 ? "year" : d >= 90 ? "quarter" : "month";
+    }
 
     const { error } = await db
       .from("subscriptions")
       .upsert(
-        { user_id, status: "active", plan: d >= 365 ? "year" : d >= 90 ? "quarter" : "month", expires_at },
+        { user_id, status: "active", plan, expires_at },
         { onConflict: "user_id" }
       );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -464,7 +463,6 @@ export async function GET(req) {
 
 // ── 工具函数：同步 taxonomies ──
 async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs) {
-  // 1. 确保 taxonomies 表里有这些 slug
   const toUpsert = [];
   if (difficulty_slug) toUpsert.push({ type: "difficulty", slug: difficulty_slug });
   (topic_slugs || []).forEach((s) => toUpsert.push({ type: "topic", slug: s }));
@@ -473,13 +471,11 @@ async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel
     await db.from("taxonomies").upsert(toUpsert, { onConflict: "type,slug", ignoreDuplicates: true });
   }
 
-  // 2. 查出所有相关 taxonomy id（同时匹配 type+slug，避免跨类型误匹配）
   if (toUpsert.length === 0) {
     await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
     return;
   }
 
-  // 逐条精确查询，确保 type+slug 都匹配
   const taxIds = [];
   for (const item of toUpsert) {
     const { data: row } = await db
@@ -491,7 +487,6 @@ async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel
     if (row?.id) taxIds.push(row.id);
   }
 
-  // 3. 重建 clip_taxonomies（先删后插）
   const { error: delErr } = await db.from("clip_taxonomies").delete().eq("clip_id", clip_id);
   let insertErr = null;
   if (taxIds.length > 0) {
