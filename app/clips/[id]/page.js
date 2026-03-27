@@ -33,13 +33,11 @@ function getAccessTokenFromCookies() {
   }
 }
 
-// 与 Railway clip_full.js 保持一致：把原始 video_url 转成反代路径
 function proxyVideoUrl(url) {
   if (!url) return null;
   return `/api/proxy_video?url=${encodeURIComponent(url)}`;
 }
 
-// cover_url 走 /cf-img/ 反代，与 Railway clips.js 保持一致
 function proxyCoverUrl(url) {
   if (!url) return null;
   if (url.startsWith("https://imagedelivery.net")) {
@@ -52,14 +50,12 @@ export default async function ClipPage({ params }) {
   const id = Number(params?.id);
   if (!id || isNaN(id)) notFound();
 
-  // 服务端读UA判断手机，避免客户端hydrate时的布局闪烁
   const ua = headers().get("user-agent") || "";
   const initialIsMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
 
   const token = getAccessTokenFromCookies();
   const admin = getSupabaseAdmin();
 
-  // 并行查询：clip 基础信息 + 详情 + 用户订阅 + 收藏状态
   const [clipResult, detailResult, subResult, bookmarkResult] = await Promise.all([
     admin
       .from("clips_view")
@@ -88,8 +84,9 @@ export default async function ClipPage({ params }) {
             .select("plan, expires_at, status")
             .eq("user_id", user.id)
             .eq("status", "active")
-            .gt("expires_at", new Date().toISOString())
-            .order("expires_at", { ascending: false })
+            // 永久卡 expires_at 为 null，有效期卡 expires_at > now()，两种都算有效会员
+            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+            .order("expires_at", { ascending: false, nullsFirst: true })
             .limit(1);
           return { user, sub: subData?.[0] || null };
         })()
@@ -129,7 +126,6 @@ export default async function ClipPage({ params }) {
     duration_sec: clip.duration_sec,
     access_tier: clip.access_tier,
     cover_url: proxyCoverUrl(clip.cover_url),
-    // ✅ SSR 阶段就用反代 URL，确保视频不走原始 Cloudflare 地址
     video_url: can_access ? proxyVideoUrl(clip.video_url) : null,
     created_at: clip.created_at,
     difficulty_slug: clip.difficulty_slug || null,
