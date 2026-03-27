@@ -924,6 +924,7 @@ function CodesPanel({ initialCodes, onToast }) {
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [planFilter, setPlanFilter] = useState("all");
   const [search, setSearch] = useState("");
 
   const planOptions = [
@@ -934,9 +935,14 @@ function CodesPanel({ initialCodes, onToast }) {
   ];
 
   const filtered = codes.filter((c) => {
-    if (filter === "active" && !c.is_active) return false;
-    if (filter === "used" && c.used_count < c.max_uses) return false;
+    const used = c.used_count >= (c.max_uses || 1);
+    if (filter === "active" && !(c.is_active && !used)) return false;
+    if (filter === "used" && !used) return false;
     if (filter === "inactive" && c.is_active) return false;
+    if (planFilter === "month" && !(c.days > 0 && c.days < 90)) return false;
+    if (planFilter === "quarter" && !(c.days >= 90 && c.days < 365)) return false;
+    if (planFilter === "year" && !(c.days >= 365)) return false;
+    if (planFilter === "lifetime" && c.days !== 0) return false;
     if (search && !c.code.includes(search.toUpperCase())) return false;
     return true;
   });
@@ -975,8 +981,15 @@ function CodesPanel({ initialCodes, onToast }) {
     onToast("已复制到剪贴板 ✓");
   }
 
-  const usedCount = codes.filter((c) => c.used_count >= c.max_uses).length;
-  const activeCount = codes.filter((c) => c.is_active && c.used_count < c.max_uses).length;
+  function handleCopyFiltered() {
+    const visibleCodes = filtered.slice(0, 100).map((c) => c.code);
+    if (!visibleCodes.length) return;
+    copyText(visibleCodes.join("\n"));
+    onToast(`已复制 ${visibleCodes.length} 个兑换码 ✓`);
+  }
+
+  const usedCount = codes.filter((c) => c.used_count >= (c.max_uses || 1)).length;
+  const activeCount = codes.filter((c) => c.is_active && c.used_count < (c.max_uses || 1)).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -990,6 +1003,7 @@ function CodesPanel({ initialCodes, onToast }) {
         <Btn onClick={() => setShowGen(true)}>+ 批量生成</Btn>
       </div>
 
+      {/* 状态筛选 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {[["all","全部"], ["active","可用"], ["used","已用完"], ["inactive","已停用"]].map(([v,l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
@@ -997,6 +1011,18 @@ function CodesPanel({ initialCodes, onToast }) {
             cursor: "pointer", border: `1px solid ${filter === v ? T.accent : T.border2}`,
             background: filter === v ? `${T.accent}22` : "transparent",
             color: filter === v ? T.accent2 : T.muted,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* 卡种筛选 + 搜索 + 一键复制 */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {[["all","全部卡种"], ["month","月卡"], ["quarter","季卡"], ["year","年卡"], ["lifetime","永久卡"]].map(([v,l]) => (
+          <button key={v} onClick={() => setPlanFilter(v)} style={{
+            padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+            cursor: "pointer", border: `1px solid ${planFilter === v ? T.vip : T.border2}`,
+            background: planFilter === v ? `${T.vip}22` : "transparent",
+            color: planFilter === v ? T.vip : T.muted,
           }}>{l}</button>
         ))}
         <input
@@ -1007,12 +1033,14 @@ function CodesPanel({ initialCodes, onToast }) {
             background: T.surface2, border: `1px solid ${T.border2}`, color: T.ink, outline: "none", width: 140,
           }}
         />
+        <Btn size="sm" variant="ghost" onClick={handleCopyFiltered}>
+          📋 复制当前列表（{Math.min(filtered.length, 100)}个）
+        </Btn>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.slice(0, 100).map((c, i) => {
           const used = c.used_count >= (c.max_uses || 1);
-          // 永久卡 days=0，颜色用特殊色
           const chipColor = c.days === 0 ? T.vip : c.days >= 365 ? T.vip : c.days >= 90 ? T.warn : T.accent;
           return (
             <div key={c.code || i} style={{
