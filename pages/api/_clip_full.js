@@ -11,6 +11,21 @@ function getBearer(req) {
   return m ? m[1].trim() : null;
 }
 
+const API_BASE = process.env.API_BASE || "";
+
+function proxyCoverUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("https://imagedelivery.net")) {
+    return "/cf-img" + url.slice("https://imagedelivery.net".length);
+  }
+  return url;
+}
+
+function proxyVideoUrl(url) {
+  if (!url) return null;
+  return `/api/proxy_video?url=${encodeURIComponent(url)}`;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store, max-age=0");
   if (req.method !== "GET") return res.status(405).json({ error: "method_not_allowed" });
@@ -21,7 +36,6 @@ module.exports = async function handler(req, res) {
   try {
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-    // 获取用户（可选）
     let user = null;
     const token = getBearer(req);
     if (token) {
@@ -30,8 +44,7 @@ module.exports = async function handler(req, res) {
       user = data?.user || null;
     }
 
-    // 三个查询并行
-    const [clipResult, detailResult, subResult] = await Promise.all([
+    const [clipResult, detailResult, subResult, bookmarkResult] = await Promise.all([
       admin.from("clips_view")
         .select("id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs")
         .eq("id", id).maybeSingle(),
@@ -39,7 +52,12 @@ module.exports = async function handler(req, res) {
       user?.id
         ? admin.from("subscriptions").select("plan, expires_at, status")
             .eq("user_id", user.id).eq("status", "active")
-            .maybeSingle()
+            // 永久卡 expires_at 为 null，有效期卡 expires_at > now()，两种都算有效会员
+            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+            .order("expires_at", { ascending: false, nullsFirst: true }).limit(1)
+        : Promise.resolve({ data: [], error: null }),
+      user?.id
+        ? admin.from("bookmarks").select("id").eq("user_id", user.id).eq("clip_id", id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
@@ -47,17 +65,10 @@ module.exports = async function handler(req, res) {
     const clip = clipResult.data;
     if (!clip) return res.status(404).json({ error: "not_found" });
 
-    const subRow = subResult.data || null;
-    const now = Date.now();
-    let is_member = false;
-    if (subRow?.status === "active") {
-      if (!subRow.expires_at) is_member = true;
-      else {
-        const endMs = new Date(subRow.expires_at).getTime();
-        if (!isNaN(endMs) && endMs > now) is_member = true;
-      }
-    }
+    const subRow = subResult.data?.[0] || null;
+    const is_member = !!subRow;
     const can_access = clip.access_tier === "free" ? true : is_member;
+    const bookmarked = !!bookmarkResult.data;
 
     let details_json = detailResult.data?.details_json ?? null;
     if (typeof details_json === "string") {
@@ -69,13 +80,13 @@ module.exports = async function handler(req, res) {
       item: {
         id: clip.id, title: clip.title, description: clip.description,
         duration_sec: clip.duration_sec, access_tier: clip.access_tier,
-        cover_url: clip.cover_url, video_url: clip.video_url,
+        cover_url: proxyCoverUrl(clip.cover_url), video_url: can_access ? clip.video_url : null,
         created_at: clip.created_at, difficulty_slug: clip.difficulty_slug || null,
         topic_slugs: clip.topic_slugs || [], channel_slugs: clip.channel_slugs || [],
         can_access,
       },
-      me: { logged_in: !!user, is_member, plan: subRow?.plan || null, ends_at: subRow?.expires_at || null },
-      details_json,
+      me: { logged_in: !!user, is_member, plan: subRow?.plan || null, ends_at: subRow?.expires_at || null, bookmarked },
+      details_json: can_access ? details_json : null,
     });
   } catch (e) {
     return res.status(500).json({ error: "server_error", detail: String(e?.message || e) });
