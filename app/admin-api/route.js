@@ -251,7 +251,7 @@ export async function POST(req) {
       rows.push({
         code,
         plan: plan || "month",
-        days: Number(days) || 30,
+        days: Number(days) >= 0 ? Number(days) : 30,
         max_uses: 1,
         used_count: 0,
         is_active: true,
