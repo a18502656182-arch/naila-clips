@@ -129,6 +129,7 @@ export default function RegisterPage() {
       setSuccess({
         email: j.email,
         expires_at: j.expires_at,
+        username: identifier.trim(),
       });
 
       // 如果后端返回了 token，直接写入 localStorage 实现自动登录
@@ -205,11 +206,16 @@ export default function RegisterPage() {
                 lineHeight: 1.7,
               }}
             >
-              账号：{success.email}
-              {success.expires_at && (
+              账号：{success.username || success.email}
+              {success.expires_at ? (
                 <>
                   <br />
                   到期时间：{new Date(success.expires_at).toLocaleDateString("zh-CN")}
+                </>
+              ) : (
+                <>
+                  <br />
+                  到期时间：永久
                 </>
               )}
             </div>
@@ -315,7 +321,7 @@ export default function RegisterPage() {
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="输入你的月卡 / 年卡兑换码"
+                  placeholder="输入你的兑换码"
                   style={inputStyle(true)}
                 />
               </div>
