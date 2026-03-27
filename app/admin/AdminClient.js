@@ -70,9 +70,14 @@ function fmtFull(dt) {
 }
 function isMemberActive(sub) {
   if (!sub) return false;
-  return sub.status === "active" && new Date(sub.expires_at) > new Date();
+  if (sub.status !== "active") return false;
+  // expires_at 为 null 表示永久卡，永远有效
+  if (!sub.expires_at) return true;
+  return new Date(sub.expires_at) > new Date();
 }
 function planLabel(days) {
+  // days=0 或 null/undefined 均表示永久卡
+  if (days === 0 || days === null || days === undefined) return "永久卡";
   if (days >= 365) return "年卡";
   if (days >= 90) return "季卡";
   return "月卡";
@@ -405,7 +410,6 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
   };
   function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
 
-  // 只把有值的字段传出去
   function handleSave() {
     const payload = {};
     if (form.access_tier) payload.access_tier = form.access_tier;
@@ -643,11 +647,9 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // 分页
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // 批量选择
   const [selected, setSelected] = useState(new Set());
   const [showBatchForm, setShowBatchForm] = useState(false);
   const [batchSaving, setBatchSaving] = useState(false);
@@ -664,13 +666,11 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     !search || c.title?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // 分页计算
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * pageSize;
   const pageClips = filtered.slice(pageStart, pageStart + pageSize);
 
-  // 搜索/pageSize变化时回到第1页
   const prevSearch = useState(search)[0];
   if (prevSearch !== search && currentPage !== 1) setCurrentPage(1);
 
@@ -752,7 +752,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* 顶栏 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>🎬 视频管理</h2>
         <input
@@ -771,7 +770,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         <Btn onClick={() => { setEditClip(null); setShowForm(true); }}>+ 上传新视频</Btn>
       </div>
 
-      {/* 分页控制栏 */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.faint }}>
           共 {filtered.length} 个视频，第 {safePage}/{totalPages} 页
@@ -789,7 +787,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
             }}>{n}</button>
           ))}
         </div>
-        {/* 翻页按钮 */}
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => setCurrentPage(1)} disabled={safePage === 1} style={{
             padding: "3px 8px", borderRadius: T.radius.sm, fontSize: 12, cursor: safePage === 1 ? "default" : "pointer",
@@ -810,7 +807,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         </div>
       </div>
 
-      {/* 全选行 */}
       {pageClips.length > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
           <input type="checkbox" checked={allPageSelected} onChange={toggleSelectAll}
@@ -831,7 +827,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         </div>
       )}
 
-      {/* 视频列表 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {pageClips.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.faint }}>暂无视频</div>
@@ -874,7 +869,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         ))}
       </div>
 
-      {/* 加载更多（全量加载时显示） */}
       {clips.length % 50 === 0 && clips.length > 0 && (
         <div style={{ textAlign: "center" }}>
           <Btn variant="ghost" onClick={loadMore} disabled={loadingMore}>
@@ -883,7 +877,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         </div>
       )}
 
-      {/* 单个新增/编辑弹窗 */}
       <Modal
         open={showForm}
         onClose={() => { setShowForm(false); setEditClip(null); }}
@@ -903,7 +896,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
         />
       </Modal>
 
-      {/* 批量编辑弹窗 */}
       <Modal
         open={showBatchForm}
         onClose={() => setShowBatchForm(false)}
@@ -938,6 +930,7 @@ function CodesPanel({ initialCodes, onToast }) {
     { value: "month", label: "月卡 (30天)", days: "30" },
     { value: "quarter", label: "季卡 (90天)", days: "90" },
     { value: "year", label: "年卡 (365天)", days: "365" },
+    { value: "lifetime", label: "永久卡 (0天)", days: "0" },
   ];
 
   const filtered = codes.filter((c) => {
@@ -959,8 +952,6 @@ function CodesPanel({ initialCodes, onToast }) {
     if (!res.ok) { onToast(res.error || "生成失败", "error"); return; }
     setGenerated(res.codes);
     onToast(`已生成 ${res.count} 个兑换码 ✓`);
-    // 重新拉列表顶部
-    const r = await apiGet("clips"); // 复用 GET 暂不单独做，直接刷全部兑换码
     setCodes((prev) => {
       const newRows = res.codes.map((code) => ({
         code, plan: genOpts.plan, days: Number(genOpts.days),
@@ -999,7 +990,6 @@ function CodesPanel({ initialCodes, onToast }) {
         <Btn onClick={() => setShowGen(true)}>+ 批量生成</Btn>
       </div>
 
-      {/* 筛选 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {[["all","全部"], ["active","可用"], ["used","已用完"], ["inactive","已停用"]].map(([v,l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
@@ -1019,10 +1009,11 @@ function CodesPanel({ initialCodes, onToast }) {
         />
       </div>
 
-      {/* 列表 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.slice(0, 100).map((c, i) => {
           const used = c.used_count >= (c.max_uses || 1);
+          // 永久卡 days=0，颜色用特殊色
+          const chipColor = c.days === 0 ? T.vip : c.days >= 365 ? T.vip : c.days >= 90 ? T.warn : T.accent;
           return (
             <div key={c.code || i} style={{
               background: T.surface2, borderRadius: T.radius.sm,
@@ -1032,7 +1023,7 @@ function CodesPanel({ initialCodes, onToast }) {
               <code style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: T.ink, flex: 1 }}>
                 {c.code}
               </code>
-              <Chip color={c.days >= 365 ? T.vip : c.days >= 90 ? T.warn : T.accent}>
+              <Chip color={chipColor}>
                 {planLabel(c.days)}
               </Chip>
               {used
@@ -1058,7 +1049,6 @@ function CodesPanel({ initialCodes, onToast }) {
         )}
       </div>
 
-      {/* 生成弹窗 */}
       <Modal open={showGen} onClose={() => { setShowGen(false); setGenerated(null); }} title="🎫 批量生成兑换码" width={520}>
         {generated ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1085,7 +1075,7 @@ function CodesPanel({ initialCodes, onToast }) {
               }}
               options={planOptions}
             />
-            <Input label="天数（自动根据套餐填入，可修改）" value={genOpts.days} onChange={(e) => setGenOpts((g) => ({ ...g, days: e.target.value }))} type="number" placeholder="30" />
+            <Input label="天数（自动根据套餐填入，可修改；永久卡为0）" value={genOpts.days} onChange={(e) => setGenOpts((g) => ({ ...g, days: e.target.value }))} type="number" placeholder="30" />
             <Input label="生成数量（最多500）" value={genOpts.count} onChange={(e) => setGenOpts((g) => ({ ...g, count: e.target.value }))} type="number" placeholder="100" />
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <Btn variant="ghost" onClick={() => setShowGen(false)}>取消</Btn>
@@ -1126,10 +1116,13 @@ function UsersPanel({ initialUsers, onToast }) {
     const res = await api("member_set", { user_id: memberModal.id, days: Number(memberDays) });
     setSaving(false);
     if (!res.ok) { onToast(res.error || "操作失败", "error"); return; }
-    onToast(`会员已更新，到期：${fmt(res.expires_at)} ✓`);
+    const d = Number(memberDays);
+    const inferredPlan = d === 0 ? "lifetime" : d >= 365 ? "year" : d >= 90 ? "quarter" : "month";
+    const expiryText = res.expires_at ? fmt(res.expires_at) : "永久";
+    onToast(`会员已更新，到期：${expiryText} ✓`);
     setUsers((prev) => prev.map((u) =>
       u.id === memberModal.id
-        ? { ...u, subscription: { status: "active", expires_at: res.expires_at, plan: memberDays >= 365 ? "year" : memberDays >= 90 ? "quarter" : "month" } }
+        ? { ...u, subscription: { status: "active", expires_at: res.expires_at, plan: inferredPlan } }
         : u
     ));
     setMemberModal(null);
@@ -1172,7 +1165,6 @@ function UsersPanel({ initialUsers, onToast }) {
         {searching && <span style={{ fontSize: 12, color: T.muted }}>搜索中…</span>}
       </div>
 
-      {/* 筛选 */}
       <div style={{ display: "flex", gap: 8 }}>
         {[["all","全部"], ["member","会员中"], ["expired","已过期"]].map(([v,l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
@@ -1184,7 +1176,6 @@ function UsersPanel({ initialUsers, onToast }) {
         ))}
       </div>
 
-      {/* 用户列表 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.faint }}>暂无用户</div>
@@ -1198,7 +1189,6 @@ function UsersPanel({ initialUsers, onToast }) {
               border: `1px solid ${T.border}`, padding: "12px 16px",
               display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
             }}>
-              {/* 头像 */}
               <div style={{
                 width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
                 background: `linear-gradient(135deg, ${T.accent}, ${T.vip})`,
@@ -1222,7 +1212,8 @@ function UsersPanel({ initialUsers, onToast }) {
                   {!u.subscription && <Chip color={T.muted}>普通用户</Chip>}
                   {u.subscription && (
                     <span style={{ fontSize: 11, color: T.faint }}>
-                      到期：{fmt(u.subscription.expires_at)}
+                      {/* expires_at 为 null 表示永久卡 */}
+                      到期：{u.subscription.expires_at ? fmt(u.subscription.expires_at) : "永久"}
                     </span>
                   )}
                   {u.used_code && (
@@ -1241,7 +1232,6 @@ function UsersPanel({ initialUsers, onToast }) {
         })}
       </div>
 
-      {/* 调整会员弹窗 */}
       <Modal open={!!memberModal} onClose={() => setMemberModal(null)} title="✨ 调整会员时长" width={400}>
         {memberModal && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1249,17 +1239,18 @@ function UsersPanel({ initialUsers, onToast }) {
               <div style={{ fontSize: 13, fontWeight: 800, color: T.ink }}>{memberModal.username || memberModal.email}</div>
               {memberModal.subscription && (
                 <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                  当前到期：{fmt(memberModal.subscription.expires_at)}
+                  {/* expires_at 为 null 表示永久卡 */}
+                  当前到期：{memberModal.subscription.expires_at ? fmt(memberModal.subscription.expires_at) : "永久"}
                   {isMemberActive(memberModal.subscription) ? " (有效)" : " (已过期)"}
                 </div>
               )}
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: T.muted, display: "block", marginBottom: 8 }}>
-                延长天数（在现有有效期基础上叠加）
+                延长天数（在现有有效期基础上叠加；永久卡直接覆盖）
               </label>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[["30","月卡"], ["90","季卡"], ["365","年卡"]].map(([d, l]) => (
+                {[["30","月卡"], ["90","季卡"], ["365","年卡"], ["0","永久卡"]].map(([d, l]) => (
                   <button key={d} onClick={() => setMemberDays(d)} style={{
                     padding: "7px 18px", borderRadius: T.radius.pill, fontSize: 13, fontWeight: 700,
                     cursor: "pointer", border: `1px solid ${memberDays === d ? T.vip : T.border2}`,
@@ -1272,7 +1263,7 @@ function UsersPanel({ initialUsers, onToast }) {
                 style={{ marginTop: 10 }}
                 value={memberDays}
                 onChange={(e) => setMemberDays(e.target.value)}
-                type="number" placeholder="或手动输入天数"
+                type="number" placeholder="或手动输入天数（0=永久）"
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -1282,7 +1273,7 @@ function UsersPanel({ initialUsers, onToast }) {
               <div style={{ display: "flex", gap: 10 }}>
                 <Btn variant="ghost" onClick={() => setMemberModal(null)}>取消</Btn>
                 <Btn variant="success" onClick={handleMemberSave} disabled={saving}>
-                  {saving ? "保存中…" : `✓ 延长 ${memberDays} 天`}
+                  {saving ? "保存中…" : Number(memberDays) === 0 ? "✓ 设为永久会员" : `✓ 延长 ${memberDays} 天`}
                 </Btn>
               </div>
             </div>
@@ -1300,10 +1291,8 @@ export default function AdminClient({
   adminEmail, initialClips, initialTaxonomies,
   initialRedeemCodes, initialUsers, stats, token,
 }) {
-  // 把服务端传来的 token 注入到模块级变量，供 api() 使用
   useEffect(() => { if (token) setAdminToken(token); }, [token]);
 
-  // 用 URL hash 保存 tab，刷新不丢失
   const [tab, setTab] = useState(() => {
     if (typeof window !== "undefined") {
       const hash = window.location.hash.replace("#", "");
@@ -1343,7 +1332,6 @@ export default function AdminClient({
         input:focus, textarea:focus, select:focus { border-color: ${T.accent} !important; box-shadow: 0 0 0 2px ${T.accent}33; }
       `}</style>
 
-      {/* 顶栏 */}
       <div style={{
         position: "sticky", top: 0, zIndex: 100,
         background: `${T.surface}ee`, backdropFilter: "blur(12px)",
@@ -1355,7 +1343,6 @@ export default function AdminClient({
           🛠 后台管理
         </div>
         <div style={{ height: 20, width: 1, background: T.border }} />
-        {/* Tab 导航 */}
         <div style={{ display: "flex", gap: 4, flex: 1 }}>
           {tabs.map((t) => (
             <button key={t.id} onClick={() => { setTab(t.id); window.location.hash = t.id; }} style={{
@@ -1371,7 +1358,6 @@ export default function AdminClient({
         <a href="/" style={{ fontSize: 12, color: T.faint, textDecoration: "none", flexShrink: 0 }}>← 返回网站</a>
       </div>
 
-      {/* 内容区 */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px 60px" }}>
         {tab === "overview" && <OverviewPanel stats={stats} />}
         {tab === "clips" && (
