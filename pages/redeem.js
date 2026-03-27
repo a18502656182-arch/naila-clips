@@ -247,8 +247,8 @@ export default function RedeemPage() {
                   <div style={{ fontSize: 44, marginBottom: 14 }}>🎉</div>
                   <div style={{ fontSize: 22, fontWeight: 980, color: C.ink, marginBottom: 10 }}>兑换成功！</div>
                   <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.8 }}>
-                    会员类型：{success.plan === "year" ? "年卡" : success.plan === "month" ? "月卡" : success.plan}
-                    {success.expires_at && (<><br />到期：{new Date(success.expires_at).toLocaleDateString("zh-CN")}</>)}
+                    会员类型：{success.plan === "lifetime" ? "永久卡" : success.plan === "year" ? "年卡" : success.plan === "month" ? "月卡" : success.plan}
+                    {success.expires_at ? (<><br />到期：{new Date(success.expires_at).toLocaleDateString("zh-CN")}</>) : (<><br />到期：永久</>)}
                   </div>
                   <div style={{ marginTop: 12, fontSize: 13, color: C.faint }}>正在跳转{redirectTo === "/" ? "首页" : "视频"}...</div>
                 </div>
@@ -290,7 +290,7 @@ export default function RedeemPage() {
                   <div style={{ marginBottom: 8, fontSize: 14, fontWeight: 700, color: C.ink }}>兑换码</div>
                   <input value={code} onChange={e => setCode(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") onSubmit(e); }}
-                    placeholder="输入月卡 / 年卡兑换码" autoFocus
+                    placeholder="输入你的兑换码" autoFocus
                     className="redeem-input" style={{ width: "100%", padding: "13px 16px", boxSizing: "border-box", border: "1px solid rgba(124,58,237,0.22)", borderRadius: 14, fontSize: 15, background: "rgba(124,58,237,0.03)", outline: "none", color: C.ink, letterSpacing: "0.04em", marginBottom: 14, transition: "border-color 160ms ease" }}
                     onFocus={e => e.target.style.borderColor = "rgba(124,58,237,0.5)"}
                     onBlur={e => e.target.style.borderColor = "rgba(124,58,237,0.22)"}
