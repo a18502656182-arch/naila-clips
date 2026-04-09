@@ -33,7 +33,6 @@ async function getToken() {
     if (data?.session?.access_token) return data.session.access_token;
   } catch {}
   if (_adminToken) return _adminToken;
-  // 从 cookie 直接读（fallback）
   try {
     const match = document.cookie.split(";").map(c => c.trim()).find(c => c.includes("-auth-token="));
     if (!match) return "";
@@ -71,16 +70,15 @@ function fmtFull(dt) {
 function isMemberActive(sub) {
   if (!sub) return false;
   if (sub.status !== "active") return false;
-  // expires_at 为 null 表示永久卡，永远有效
   if (!sub.expires_at) return true;
   return new Date(sub.expires_at) > new Date();
 }
 function planLabel(days) {
-  // days=0 或 null/undefined 均表示永久卡
   if (days === 0 || days === null || days === undefined) return "永久卡";
   if (days >= 365) return "年卡";
   if (days >= 90) return "季卡";
-  return "月卡";
+  if (days >= 30) return "月卡";
+  return `试用卡(${days}天)`;
 }
 function copyText(text) {
   navigator.clipboard?.writeText(text).catch(() => {});
@@ -255,11 +253,13 @@ function TagPill({ slug, selected, accent, onSelect, onRename, onDelete }) {
 }
 
 // ── 标签选择器（多选 + 可新增 + 可编辑/删除）────────────────────
+// options 必须是字符串数组 string[]
 function TagSelector({ label, value = [], onChange, options = [], type, onRefreshOptions, onAddLocalOption }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
   const toggle = (slug) => onChange(value.includes(slug) ? value.filter((v) => v !== slug) : [...value, slug]);
-  const [localOptions, setLocalOptions] = useState(options);
+  // 确保 localOptions 始终是字符串数组
+  const [localOptions, setLocalOptions] = useState(() => options.map(o => typeof o === "string" ? o : o.slug));
 
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
@@ -324,10 +324,12 @@ function TagSelector({ label, value = [], onChange, options = [], type, onRefres
 }
 
 // ── 单选标签（难度）────────────────────────────────────
+// options 必须是字符串数组 string[]
 function SingleTagSelector({ label, value, onChange, options = [], type, onRefreshOptions, onAddLocalOption }) {
   const [adding, setAdding] = useState(false);
   const [newVal, setNewVal] = useState("");
-  const [localOptions, setLocalOptions] = useState(options);
+  // 确保 localOptions 始终是字符串数组
+  const [localOptions, setLocalOptions] = useState(() => options.map(o => typeof o === "string" ? o : o.slug));
 
   const addNew = () => {
     const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
@@ -390,6 +392,7 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
     </div>
   );
 }
+
 // ── 视频表单（新增/编辑共用）──────────────────────────
 function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
   const [form, setForm] = useState({
@@ -399,16 +402,31 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     channel_slugs: [],
     upload_time: "",
   });
+  // ✅ 直接用字符串数组，不再 map 成对象
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
-  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
+  const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
 
   const addLocalOption = (type, slug) => {
     if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
-    else if (type === "topic") setTopics(prev => prev.includes(slug) ? prev : [...prev, slug]);
-    else if (type === "channel") setChannels(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "genre") setGenres(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "duration") setDurations(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "show") setShows(prev => prev.includes(slug) ? prev : [...prev, slug]);
   };
   function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
+
+  const selectedGenre = form.topic_slugs.find(s => genres.includes(s)) || "";
+  const selectedDuration = form.topic_slugs.find(s => durations.includes(s)) || "";
+
+  function setGenre(slug) {
+    const without = form.topic_slugs.filter(s => !genres.includes(s));
+    setF("topic_slugs", slug ? [...without, slug] : without);
+  }
+  function setDuration(slug) {
+    const without = form.topic_slugs.filter(s => !durations.includes(s));
+    setF("topic_slugs", slug ? [...without, slug] : without);
+  }
 
   function handleSave() {
     const payload = {};
@@ -417,6 +435,13 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     if (form.topic_slugs.length > 0) payload.topic_slugs = form.topic_slugs;
     if (form.channel_slugs.length > 0) payload.channel_slugs = form.channel_slugs;
     if (form.upload_time) payload.upload_time = form.upload_time;
+    // 传 slug→type 映射，让后端知道每个 slug 的真实 type
+    const taxonomyHints = {};
+    genres.forEach(s => { taxonomyHints[s] = "genre"; });
+    durations.forEach(s => { taxonomyHints[s] = "duration"; });
+    shows.forEach(s => { taxonomyHints[s] = "show"; });
+    difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
+    payload.taxonomy_hints = taxonomyHints;
     onSave(payload);
   }
 
@@ -452,21 +477,31 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
         onRefreshOptions={onRefreshTaxonomies}
         onAddLocalOption={addLocalOption}
       />
-      <TagSelector
-        label="话题标签（多选）"
-        value={form.topic_slugs}
-        onChange={(v) => setF("topic_slugs", v)}
-        options={topics}
-        type="topic"
+      {/* ✅ 修复：直接传字符串数组，不再 map 成 { slug } 对象 */}
+      <SingleTagSelector
+        label="内容类型（单选）"
+        value={selectedGenre}
+        onChange={setGenre}
+        options={genres}
+        type="genre"
+        onRefreshOptions={onRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+      <SingleTagSelector
+        label="片段时长（单选）"
+        value={selectedDuration}
+        onChange={setDuration}
+        options={durations}
+        type="duration"
         onRefreshOptions={onRefreshTaxonomies}
         onAddLocalOption={addLocalOption}
       />
       <TagSelector
-        label="博主 / 频道（多选）"
+        label="剧名（多选）"
         value={form.channel_slugs}
         onChange={(v) => setF("channel_slugs", v)}
-        options={channels}
-        type="channel"
+        options={shows}
+        type="show"
         onRefreshOptions={onRefreshTaxonomies}
         onAddLocalOption={addLocalOption}
       />
@@ -498,21 +533,34 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
       ? new Date(initial.upload_time).toISOString().slice(0, 10)
       : new Date().toISOString().slice(0, 10),
   });
-  const [jsonStatus, setJsonStatus] = useState(null); // null | "ok" | "error"
+  const [jsonStatus, setJsonStatus] = useState(null);
+  // ✅ 直接用字符串数组
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
-  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
+  const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
 
-  const handleRefreshTaxonomies = async () => {
-    await onRefreshTaxonomies?.();
-  };
+  const handleRefreshTaxonomies = async () => { await onRefreshTaxonomies?.(); };
   const addLocalOption = (type, slug) => {
     if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
-    else if (type === "topic") setTopics(prev => prev.includes(slug) ? prev : [...prev, slug]);
-    else if (type === "channel") setChannels(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "genre") setGenres(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "duration") setDurations(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "show") setShows(prev => prev.includes(slug) ? prev : [...prev, slug]);
   };
 
   function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
+
+  const selectedGenre = form.topic_slugs.find(s => genres.includes(s)) || "";
+  const selectedDuration = form.topic_slugs.find(s => durations.includes(s)) || "";
+
+  function setGenre(slug) {
+    const without = form.topic_slugs.filter(s => !genres.includes(s));
+    setF("topic_slugs", slug ? [...without, slug] : without);
+  }
+  function setDuration(slug) {
+    const without = form.topic_slugs.filter(s => !durations.includes(s));
+    setF("topic_slugs", slug ? [...without, slug] : without);
+  }
 
   function validateJson(val) {
     if (!val.trim()) { setJsonStatus(null); return; }
@@ -536,7 +584,7 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
           <Input label="描述" value={form.description} onChange={(e) => setF("description", e.target.value)} placeholder="视频描述（可选）" />
         </div>
         <div style={{ gridColumn: "1/-1" }}>
-          <Input label="原 YouTube 链接" value={form.youtube_url} onChange={(e) => setF("youtube_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+          <Input label="原视频链接" value={form.youtube_url} onChange={(e) => setF("youtube_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
         </div>
       </div>
 
@@ -549,8 +597,34 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         onRefreshOptions={handleRefreshTaxonomies}
         onAddLocalOption={addLocalOption}
       />
-      <TagSelector label="话题标签（多选）" value={form.topic_slugs} onChange={(v) => setF("topic_slugs", v)} options={topics} type="topic" onRefreshOptions={handleRefreshTaxonomies} onAddLocalOption={addLocalOption} />
-      <TagSelector label="博主 / 频道（多选）" value={form.channel_slugs} onChange={(v) => setF("channel_slugs", v)} options={channels} type="channel" onRefreshOptions={handleRefreshTaxonomies} onAddLocalOption={addLocalOption} />
+      {/* ✅ 修复：直接传字符串数组，不再 map 成 { slug } 对象 */}
+      <SingleTagSelector
+        label="内容类型（单选）"
+        value={selectedGenre}
+        onChange={setGenre}
+        options={genres}
+        type="genre"
+        onRefreshOptions={handleRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+      <SingleTagSelector
+        label="片段时长（单选）"
+        value={selectedDuration}
+        onChange={setDuration}
+        options={durations}
+        type="duration"
+        onRefreshOptions={handleRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
+      <TagSelector
+        label="剧名（多选，可新增）"
+        value={form.channel_slugs}
+        onChange={(v) => setF("channel_slugs", v)}
+        options={shows}
+        type="show"
+        onRefreshOptions={handleRefreshTaxonomies}
+        onAddLocalOption={addLocalOption}
+      />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -578,7 +652,15 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
         <Btn variant="ghost" onClick={onCancel}>取消</Btn>
         <Btn
-          onClick={() => onSave(form)}
+          onClick={() => {
+            // 构建 slug→type 提示，让后端知道每个 slug 的真实 type
+            const taxonomyHints = {};
+            genres.forEach(s => { taxonomyHints[s] = "genre"; });
+            durations.forEach(s => { taxonomyHints[s] = "duration"; });
+            shows.forEach(s => { taxonomyHints[s] = "show"; });
+            difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
+            onSave({ ...form, taxonomy_hints: taxonomyHints });
+          }}
           disabled={loading || (!isBatch && (!form.title || !form.video_url)) || jsonStatus === "error"}
         >{loading ? (isBatch ? "批量保存中…" : "保存中…") : (isBatch ? "💾 批量保存" : "💾 保存视频")}</Btn>
       </div>
@@ -643,6 +725,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [editClip, setEditClip] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [duplicating, setDuplicating] = useState(null);
   const [loadingEdit, setLoadingEdit] = useState(null);
   const [search, setSearch] = useState("");
   const [loadingMore, setLoadingMore] = useState(false);
@@ -748,6 +831,38 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     const r = await apiGet("clips", { offset: clips.length });
     setLoadingMore(false);
     if (r.ok) setClips((prev) => [...prev, ...r.clips]);
+  }
+
+  async function handleDuplicate(clip) {
+    if (!confirm(`确认复制「${clip.title}」？将新增一条完全相同的视频。`)) return;
+    setDuplicating(clip.id);
+    const dr = await api("clip_get_details", { id: clip.id });
+    const taxonomyHints = {};
+    (clip.topic_slugs || []).forEach(s => { taxonomyHints[s] = "genre"; });
+    (clip.channel_slugs || []).forEach(s => { taxonomyHints[s] = "show"; });
+    if (clip.difficulty_slug) taxonomyHints[clip.difficulty_slug] = "difficulty";
+    const res = await api("clip_create", {
+      title: clip.title,
+      description: clip.description || "",
+      video_url: clip.video_url || "",
+      cover_url: clip.cover_url || "",
+      duration_sec: clip.duration_sec || "",
+      access_tier: clip.access_tier || "free",
+      difficulty_slug: clip.difficulty_slug || "",
+      topic_slugs: clip.topic_slugs || [],
+      channel_slugs: clip.channel_slugs || [],
+      upload_time: clip.upload_time
+        ? new Date(clip.upload_time).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10),
+      youtube_url: clip.youtube_url || "",
+      details_json: dr.ok && dr.details_json ? JSON.stringify(dr.details_json) : "",
+      taxonomy_hints: taxonomyHints,
+    });
+    setDuplicating(null);
+    if (!res.ok) { onToast(res.error || "复制失败", "error"); return; }
+    onToast(`已复制「${clip.title}」✓`);
+    const r = await apiGet("clips", { offset: 0 });
+    if (r.ok) setClips(r.clips);
   }
 
   return (
@@ -861,6 +976,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               <Btn size="sm" variant="ghost" onClick={() => handleEdit(clip)} disabled={loadingEdit === clip.id}>{loadingEdit === clip.id ? "加载中…" : "编辑"}</Btn>
+              <Btn size="sm" variant="ghost" onClick={() => handleDuplicate(clip)} disabled={duplicating === clip.id} style={{ color: T.accent2 }}>{duplicating === clip.id ? "复制中…" : "复制"}</Btn>
               <Btn size="sm" variant="danger" onClick={() => handleDelete(clip)} disabled={deleting === clip.id}>
                 {deleting === clip.id ? "…" : "删除"}
               </Btn>
@@ -928,6 +1044,7 @@ function CodesPanel({ initialCodes, onToast }) {
   const [search, setSearch] = useState("");
 
   const planOptions = [
+    { value: "trial", label: "试用卡 (自定义天数)", days: "3" },
     { value: "month", label: "月卡 (30天)", days: "30" },
     { value: "quarter", label: "季卡 (90天)", days: "90" },
     { value: "year", label: "年卡 (365天)", days: "365" },
@@ -939,7 +1056,8 @@ function CodesPanel({ initialCodes, onToast }) {
     if (filter === "active" && !(c.is_active && !used)) return false;
     if (filter === "used" && !used) return false;
     if (filter === "inactive" && c.is_active) return false;
-    if (planFilter === "month" && !(c.days > 0 && c.days < 90)) return false;
+    if (planFilter === "trial" && !(c.days > 0 && c.days < 30)) return false;
+    if (planFilter === "month" && !(c.days >= 30 && c.days < 90)) return false;
     if (planFilter === "quarter" && !(c.days >= 90 && c.days < 365)) return false;
     if (planFilter === "year" && !(c.days >= 365)) return false;
     if (planFilter === "lifetime" && c.days !== 0) return false;
@@ -948,10 +1066,17 @@ function CodesPanel({ initialCodes, onToast }) {
   });
 
   async function handleGenerate() {
+    const days = Number(genOpts.days);
+    // 试用卡：1天到29天
+    if (genOpts.plan === "trial") {
+      if (!days || days < 1 || days >= 30) {
+        onToast("试用卡天数需在 1~29 天之间", "error"); return;
+      }
+    }
     setGenerating(true);
     const res = await api("codes_generate", {
       plan: genOpts.plan,
-      days: Number(genOpts.days),
+      days: days,
       count: Number(genOpts.count),
     });
     setGenerating(false);
@@ -1003,7 +1128,6 @@ function CodesPanel({ initialCodes, onToast }) {
         <Btn onClick={() => setShowGen(true)}>+ 批量生成</Btn>
       </div>
 
-      {/* 状态筛选 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         {[["all","全部"], ["active","可用"], ["used","已用完"], ["inactive","已停用"]].map(([v,l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
@@ -1015,9 +1139,8 @@ function CodesPanel({ initialCodes, onToast }) {
         ))}
       </div>
 
-      {/* 卡种筛选 + 搜索 + 一键复制 */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {[["all","全部卡种"], ["month","月卡"], ["quarter","季卡"], ["year","年卡"], ["lifetime","永久卡"]].map(([v,l]) => (
+        {[["all","全部卡种"], ["trial","试用卡"], ["month","月卡"], ["quarter","季卡"], ["year","年卡"], ["lifetime","永久卡"]].map(([v,l]) => (
           <button key={v} onClick={() => setPlanFilter(v)} style={{
             padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
             cursor: "pointer", border: `1px solid ${planFilter === v ? T.vip : T.border2}`,
@@ -1051,9 +1174,7 @@ function CodesPanel({ initialCodes, onToast }) {
               <code style={{ fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: T.ink, flex: 1 }}>
                 {c.code}
               </code>
-              <Chip color={chipColor}>
-                {planLabel(c.days)}
-              </Chip>
+              <Chip color={chipColor}>{planLabel(c.days)}</Chip>
               {used
                 ? <Chip color={T.muted}>已用完</Chip>
                 : c.is_active
@@ -1129,6 +1250,18 @@ function UsersPanel({ initialUsers, onToast }) {
   const [memberDays, setMemberDays] = useState("30");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [detailModal, setDetailModal] = useState(null); // { user, data, loading }
+
+  async function openDetail(u) {
+    setDetailModal({ user: u, data: null, loading: true });
+    const res = await api("user_detail", { user_id: u.id });
+    if (res.ok) {
+      setDetailModal({ user: u, data: res, loading: false });
+    } else {
+      setDetailModal({ user: u, data: null, loading: false });
+      onToast("加载失败", "error");
+    }
+  }
 
   async function handleSearch(q) {
     setSearch(q);
@@ -1240,7 +1373,6 @@ function UsersPanel({ initialUsers, onToast }) {
                   {!u.subscription && <Chip color={T.muted}>普通用户</Chip>}
                   {u.subscription && (
                     <span style={{ fontSize: 11, color: T.faint }}>
-                      {/* expires_at 为 null 表示永久卡 */}
                       到期：{u.subscription.expires_at ? fmt(u.subscription.expires_at) : "永久"}
                     </span>
                   )}
@@ -1252,13 +1384,111 @@ function UsersPanel({ initialUsers, onToast }) {
                   <span style={{ fontSize: 11, color: T.faint }}>注册：{fmt(u.created_at)}</span>
                 </div>
               </div>
-              <Btn size="sm" variant="ghost" onClick={() => { setMemberModal(u); setMemberDays("30"); }}>
-                调整会员
-              </Btn>
+              <div style={{ display: "flex", gap: 6 }}>
+                <Btn size="sm" variant="ghost" onClick={() => openDetail(u)}>
+                  查看详情
+                </Btn>
+                <Btn size="sm" variant="ghost" onClick={() => { setMemberModal(u); setMemberDays("30"); }}>
+                  调整会员
+                </Btn>
+              </div>
             </div>
           );
         })}
       </div>
+
+      {/* 用户详情弹窗 */}
+      <Modal open={!!detailModal} onClose={() => setDetailModal(null)} title="👤 用户详情" width={560}>
+        {detailModal && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "10px 14px", background: T.surface3, borderRadius: T.radius.md }}>
+              <div style={{ fontWeight: 800, color: T.ink }}>{detailModal.user.username || detailModal.user.email}</div>
+              <div style={{ fontSize: 12, color: T.faint, marginTop: 2 }}>ID: {detailModal.user.id?.slice(0, 16)}...</div>
+            </div>
+            {detailModal.loading && <div style={{ textAlign: "center", padding: 24, color: T.faint }}>加载中...</div>}
+            {!detailModal.loading && !detailModal.data && <div style={{ color: T.warn, fontSize: 13 }}>加载失败</div>}
+            {detailModal.data && (() => {
+              const d = detailModal.data;
+              const GAME_NAMES = { matchMadness: "配对狂热", fillBlank: "填词挑战", listenWrite: "听写练习" };
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {/* 游戏分数 */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: T.accent2, marginBottom: 8 }}>🎮 游戏分数</div>
+                    {(!d.game_scores || d.game_scores.length === 0) ? (
+                      <div style={{ fontSize: 12, color: T.faint }}>暂无游戏记录</div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {d.game_scores.map(g => (
+                          <div key={g.game_id} style={{ padding: "8px 14px", background: T.surface3, borderRadius: T.radius.md, minWidth: 120 }}>
+                            <div style={{ fontSize: 12, color: T.muted, marginBottom: 4 }}>{GAME_NAMES[g.game_id] || g.game_id}</div>
+                            <div style={{ fontSize: 18, fontWeight: 900, color: T.ink }}>最高 {g.best_score}</div>
+                            <div style={{ fontSize: 11, color: T.faint }}>共玩 {g.play_count} 次</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* 收藏词汇 */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: T.accent2, marginBottom: 8 }}>
+                      📚 收藏词汇（{d.vocab?.length || 0} 个）
+                    </div>
+                    {(!d.vocab || d.vocab.length === 0) ? (
+                      <div style={{ fontSize: 12, color: T.faint }}>暂无收藏词汇</div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxHeight: 120, overflowY: "auto" }}>
+                        {d.vocab.map((v, i) => (
+                          <span key={i} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 999, background: T.surface3, color: T.ink, border: `1px solid ${T.border}` }}>
+                            {v.term}
+                            {v.mastery_level > 0 && <span style={{ color: T.good, marginLeft: 4 }}>{"★".repeat(Math.min(v.mastery_level, 3))}</span>}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* 书签 */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: T.accent2, marginBottom: 8 }}>
+                      🔖 书签（{d.bookmarks?.length || 0} 个）
+                    </div>
+                    {(!d.bookmarks || d.bookmarks.length === 0) ? (
+                      <div style={{ fontSize: 12, color: T.faint }}>暂无书签</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" }}>
+                        {d.bookmarks.map((b, i) => (
+                          <div key={i} style={{ fontSize: 12, color: T.muted, padding: "4px 8px", background: T.surface3, borderRadius: 6 }}>
+                            {b.title}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {/* 观看记录 */}
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: T.accent2, marginBottom: 8 }}>
+                      👁 观看记录（{d.view_logs?.length || 0} 条）
+                    </div>
+                    {(!d.view_logs || d.view_logs.length === 0) ? (
+                      <div style={{ fontSize: 12, color: T.faint }}>暂无观看记录</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 120, overflowY: "auto" }}>
+                        {d.view_logs.slice(0, 10).map((v, i) => (
+                          <div key={i} style={{ fontSize: 12, color: T.muted, padding: "4px 8px", background: T.surface3, borderRadius: 6, display: "flex", justifyContent: "space-between" }}>
+                            <span>{v.title}</span>
+                            <span style={{ color: T.faint }}>{v.viewed_date}</span>
+                          </div>
+                        ))}
+                        {d.view_logs.length > 10 && <div style={{ fontSize: 11, color: T.faint }}>...共 {d.view_logs.length} 条</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </Modal>
 
       <Modal open={!!memberModal} onClose={() => setMemberModal(null)} title="✨ 调整会员时长" width={400}>
         {memberModal && (
@@ -1267,7 +1497,6 @@ function UsersPanel({ initialUsers, onToast }) {
               <div style={{ fontSize: 13, fontWeight: 800, color: T.ink }}>{memberModal.username || memberModal.email}</div>
               {memberModal.subscription && (
                 <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                  {/* expires_at 为 null 表示永久卡 */}
                   当前到期：{memberModal.subscription.expires_at ? fmt(memberModal.subscription.expires_at) : "永久"}
                   {isMemberActive(memberModal.subscription) ? " (有效)" : " (已过期)"}
                 </div>
@@ -1313,11 +1542,111 @@ function UsersPanel({ initialUsers, onToast }) {
 }
 
 // ══════════════════════════════════════════════════════
+// 模块五：订单管理
+// ══════════════════════════════════════════════════════
+function OrdersPanel({ initialOrders, onToast }) {
+  const [orders, setOrders] = useState(initialOrders);
+  const [search, setSearch] = useState("");
+
+  const PLAN_LABELS = {
+    month: "月卡", quarter: "季卡", year: "年卡", lifetime: "永久卡", trial: "试用卡",
+  };
+
+  const filtered = orders.filter((o) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      o.out_trade_no?.includes(q) ||
+      o.redeem_code?.toLowerCase().includes(q)
+    );
+  });
+
+  function copyText(text) {
+    navigator.clipboard?.writeText(text).catch(() => {});
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>📦 订单管理</h2>
+        <div style={{ display: "flex", gap: 8, fontSize: 12, color: T.muted }}>
+          <span>总计 <b style={{ color: T.ink }}>{orders.length}</b></span>
+          <span>已支付 <b style={{ color: T.good }}>{orders.filter(o => o.status === "paid").length}</b></span>
+          <span>待支付 <b style={{ color: T.warn }}>{orders.filter(o => o.status === "pending").length}</b></span>
+        </div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="搜索订单号或兑换码…"
+          style={{
+            padding: "7px 14px", borderRadius: T.radius.pill, fontSize: 13,
+            background: T.surface2, border: `1px solid ${T.border2}`, color: T.ink, outline: "none", width: 240,
+          }}
+        />
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: 40, color: T.faint }}>暂无订单</div>
+        )}
+        {filtered.map((o) => {
+          const isPaid = o.status === "paid";
+          return (
+            <div key={o.id} style={{
+              background: T.surface2, borderRadius: T.radius.md,
+              border: `1px solid ${isPaid ? "rgba(16,185,129,0.20)" : T.border}`,
+              padding: "12px 16px",
+              display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: T.radius.pill,
+                    background: isPaid ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+                    color: isPaid ? T.good : T.warn,
+                    border: `1px solid ${isPaid ? "rgba(16,185,129,0.25)" : "rgba(245,158,11,0.25)"}`,
+                  }}>{isPaid ? "已支付" : "待支付"}</span>
+                  <span style={{ fontSize: 12, color: T.muted }}>{PLAN_LABELS[o.plan] || o.plan}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: T.ink }}>¥{o.amount}</span>
+                  <span style={{ fontSize: 11, color: T.faint }}>
+                    {new Date(o.created_at).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ fontSize: 12, color: T.faint }}>
+                    订单号：<code style={{ fontFamily: "monospace", color: T.muted, fontSize: 12 }}>{o.out_trade_no}</code>
+                    <button onClick={() => { copyText(o.out_trade_no); onToast("已复制 ✓"); }} style={{ marginLeft: 6, fontSize: 11, padding: "1px 6px", borderRadius: 4, border: `1px solid ${T.border2}`, background: T.surface3, color: T.faint, cursor: "pointer" }}>复制</button>
+                  </div>
+                  <div style={{ fontSize: 12, color: T.faint }}>
+                    兑换码：
+                    <code style={{ fontFamily: "monospace", color: isPaid ? T.good : T.faint, fontWeight: isPaid ? 800 : 400, fontSize: 13, letterSpacing: 1 }}>
+                      {isPaid ? o.redeem_code : "（未支付）"}
+                    </code>
+                    {isPaid && (
+                      <button onClick={() => { copyText(o.redeem_code); onToast("已复制 ✓"); }} style={{ marginLeft: 6, fontSize: 11, padding: "1px 6px", borderRadius: 4, border: `1px solid ${T.border2}`, background: T.surface3, color: T.faint, cursor: "pointer" }}>复制</button>
+                    )}
+                    {isPaid && (
+                      <span style={{ marginLeft: 10, fontSize: 11, color: o.redeemed_by ? T.good : T.warn, fontWeight: 700 }}>
+                        {o.redeemed_by ? `已兑换 · ${o.redeemed_by}` : "未兑换"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════
 // 主入口
 // ══════════════════════════════════════════════════════
 export default function AdminClient({
   adminEmail, initialClips, initialTaxonomies,
-  initialRedeemCodes, initialUsers, stats, token,
+  initialRedeemCodes, initialUsers, initialOrders, stats, token,
 }) {
   useEffect(() => { if (token) setAdminToken(token); }, [token]);
 
@@ -1348,6 +1677,7 @@ export default function AdminClient({
     { id: "overview", label: "📊 概览" },
     { id: "clips", label: "🎬 视频" },
     { id: "codes", label: "🎫 兑换码" },
+    { id: "orders", label: "📦 订单" },
     { id: "users", label: "👤 用户" },
   ];
 
@@ -1398,6 +1728,12 @@ export default function AdminClient({
         {tab === "codes" && (
           <CodesPanel
             initialCodes={initialRedeemCodes}
+            onToast={onToast}
+          />
+        )}
+        {tab === "orders" && (
+          <OrdersPanel
+            initialOrders={initialOrders || []}
             onToast={onToast}
           />
         )}
