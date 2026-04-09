@@ -146,12 +146,12 @@ export default function RegisterPage() {
         } catch (e) {}
       }
 
+      // 跳转前更新缓存，避免主页闪烁
+      try { sessionStorage.setItem("buy_btn_is_member", "1"); } catch {}
       setTimeout(() => {
         if (j.access_token) {
-          // 已自动登录，直接跳目标页（首页或来源页）
           router.push(next || "/");
         } else {
-          // 极少数情况自动登录失败，跳登录页并预填邮箱
           router.push(`/login?email=${encodeURIComponent(j.email || "")}&redirectTo=${encodeURIComponent(next)}`);
         }
       }, 1800);
