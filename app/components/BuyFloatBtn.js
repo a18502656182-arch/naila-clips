@@ -1,19 +1,15 @@
 "use client";
 // app/components/BuyFloatBtn.js
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const CACHE_KEY = "buy_btn_is_member";
 
-// 这些页面本身有会员拦截，不需要显示悬浮块
-const EXCLUDED_PATHS = ["/journal", "/bookmarks", "/practice"];
-
 export default function BuyFloatBtn() {
-  const pathname = usePathname();
-
+  // 初始值直接读 sessionStorage，避免 hydration 闪烁
   const [hidden, setHidden] = useState(() => {
+    if (typeof window === "undefined") return true; // SSR 阶段默认隐藏
     try {
       return sessionStorage.getItem(CACHE_KEY) === "1";
     } catch {
@@ -36,6 +32,12 @@ export default function BuyFloatBtn() {
   }
 
   useEffect(() => {
+    // SSR 默认 true，客户端挂载后立即读缓存修正
+    try {
+      const cached = sessionStorage.getItem(CACHE_KEY);
+      if (cached === "1") { setHidden(true); return; }
+      if (cached === "0") { setHidden(false); }
+    } catch {}
     checkMember();
 
     const supabase = createSupabaseBrowserClient();
@@ -57,8 +59,6 @@ export default function BuyFloatBtn() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 排除特定页面
-  if (EXCLUDED_PATHS.some(p => pathname?.startsWith(p))) return null;
   if (hidden) return null;
 
   return (
