@@ -1,7 +1,5 @@
 /** @type {import('next').NextConfig} */
 
-// 正式后端地址（Production 用）
-// Preview 环境可通过 RAILWAY_API_URL 环境变量覆盖，指向 dev 后端
 const RAILWAY_BASE =
   process.env.RAILWAY_API_URL ||
   "https://railway.nailaobao.top";
@@ -11,6 +9,7 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "imagedelivery.net" },
+      { protocol: "https", hostname: "i.ytimg.com" },
     ],
   },
 
@@ -19,6 +18,11 @@ const nextConfig = {
       {
         source: "/cf-img/:path*",
         destination: "https://imagedelivery.net/:path*",
+      },
+      // YouTube 缩略图在国内被墙，通过 Vercel 边缘节点反代
+      {
+        source: "/yt-img/:path*",
+        destination: "https://i.ytimg.com/:path*",
       },
       {
         source: "/api/:path*",
