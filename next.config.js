@@ -1,4 +1,11 @@
 /** @type {import('next').NextConfig} */
+
+// 正式后端地址（Production 用）
+// Preview 环境可通过 RAILWAY_API_URL 环境变量覆盖，指向 dev 后端
+const RAILWAY_BASE =
+  process.env.RAILWAY_API_URL ||
+  "https://railway.nailaobao.top";
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
@@ -7,23 +14,19 @@ const nextConfig = {
     ],
   },
 
-  // imagedelivery.net (Cloudflare Images) 在国内被墙
-  // 通过 Vercel 边缘节点反代，浏览器请求 /cf-img/... 即可
   async rewrites() {
     return [
       {
         source: "/cf-img/:path*",
         destination: "https://imagedelivery.net/:path*",
       },
-      // Railway 后端在国内直连不稳定，走 Vercel 边缘节点转发
-      // 清空 NEXT_PUBLIC_API_BASE 环境变量后生效
       {
         source: "/api/:path*",
-        destination: "https://railway.nailaobao.top/api/:path*",
+        destination: `${RAILWAY_BASE}/api/:path*`,
       },
       {
         source: "/rsc-api/:path*",
-        destination: "https://railway.nailaobao.top/rsc-api/:path*",
+        destination: `${RAILWAY_BASE}/rsc-api/:path*`,
       },
     ];
   },
@@ -31,7 +34,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // ✅ 只给首页 document 加 CDN 缓存策略
         source: "/",
         headers: [
           {
