@@ -111,6 +111,8 @@ export default function RedeemPage() {
         setMsg(errMap[j.error] || j.error || "兑换失败"); return;
       }
       setSuccess({ plan: j.plan, expires_at: j.expires_at });
+      // 通知悬浮块立即隐藏
+      try { window.dispatchEvent(new Event("member_activated")); } catch {}
       setTimeout(() => router.push(redirectTo), 2200);
     } catch (err) {
       setMsg(err.message || "网络错误，请重试");
@@ -262,9 +264,6 @@ export default function RedeemPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <a href={`/login?next=${encodeURIComponent("/")}`} className="login-btn action-btn" style={{ textAlign: "center", minHeight: 50, borderRadius: 999, border: "1px solid rgba(99,102,241,0.24)", color: C.accent, background: "rgba(99,102,241,0.04)", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 160ms ease" }}>登录已有账号</a>
                     <a href={`/register?next=${encodeURIComponent("/")}`} className="register-btn action-btn" style={{ textAlign: "center", minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 32px rgba(124,58,237,0.24)", transition: "all 160ms ease" }}>注册并开通会员 ✨</a>
-                    <a href="/buy" style={{ textAlign: "center", minHeight: 48, borderRadius: 999, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#b45309", textDecoration: "none", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 160ms ease" }}>
-                      💳 直接购买会员（支付宝）
-                    </a>
                   </div>
                   <div className="back-home" style={{ marginTop: 20, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
@@ -306,10 +305,6 @@ export default function RedeemPage() {
                   <button type="button" onClick={onSubmit} disabled={loading} className="main-btn redeem-submit" style={{ width: "100%", minHeight: 52, borderRadius: 999, border: "none", background: loading ? "rgba(124,58,237,0.40)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 16px 32px rgba(124,58,237,0.24)", transition: "all 180ms ease" }}>
                     {loading ? "兑换中..." : "立即兑换 ✨"}
                   </button>
-
-                  <a href="/buy" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, minHeight: 46, borderRadius: 999, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#b45309", textDecoration: "none", fontSize: 14, fontWeight: 800, transition: "all 160ms ease" }}>
-                    💳 没有兑换码？直接购买（支付宝）
-                  </a>
 
                   <div className="back-home" style={{ marginTop: 18, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
