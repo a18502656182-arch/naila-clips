@@ -7,15 +7,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const CACHE_KEY = "buy_btn_is_member";
 
 export default function BuyFloatBtn() {
-  // 初始值直接读 sessionStorage，避免 hydration 闪烁
-  const [hidden, setHidden] = useState(() => {
-    if (typeof window === "undefined") return true; // SSR 阶段默认隐藏
-    try {
-      return sessionStorage.getItem(CACHE_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
+  const [mounted, setMounted] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   async function checkMember() {
     try {
@@ -32,12 +25,15 @@ export default function BuyFloatBtn() {
   }
 
   useEffect(() => {
-    // SSR 默认 true，客户端挂载后立即读缓存修正
+    // 先读缓存决定初始显示，再后台验证
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
-      if (cached === "1") { setHidden(true); return; }
-      if (cached === "0") { setHidden(false); }
-    } catch {}
+      if (cached === "1") setHidden(true);
+      else setHidden(false);
+    } catch {
+      setHidden(false);
+    }
+    setMounted(true);
     checkMember();
 
     const supabase = createSupabaseBrowserClient();
@@ -59,6 +55,8 @@ export default function BuyFloatBtn() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // 未挂载前不渲染，避免 SSR/hydration 闪烁
+  if (!mounted) return null;
   if (hidden) return null;
 
   return (
