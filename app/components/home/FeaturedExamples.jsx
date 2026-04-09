@@ -1,6 +1,7 @@
 // app/components/home/FeaturedExamples.jsx
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { THEME } from "./theme";
 
@@ -100,9 +101,10 @@ function FeaturedHoverMedia({ coverUrl, videoUrl, title, hover }) {
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 1 }}>
       {coverUrl ? (
-        <img
-          src={coverUrl} alt={title || ""}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", transition: "opacity 200ms ease", opacity: showVideo ? 0 : 1 }}
+        <Image
+          src={coverUrl} alt={title || ""} fill priority
+          sizes="(max-width: 960px) 100vw, 460px"
+          style={{ objectFit: "cover", transition: "opacity 200ms ease", opacity: showVideo ? 0 : 1 }}
         />
       ) : (
         <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
