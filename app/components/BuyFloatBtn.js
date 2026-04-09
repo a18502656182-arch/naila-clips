@@ -25,7 +25,6 @@ export default function BuyFloatBtn() {
   }
 
   useEffect(() => {
-    // 先读缓存决定初始显示，再后台验证
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
       if (cached === "1") setHidden(true);
@@ -52,12 +51,25 @@ export default function BuyFloatBtn() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    // 监听兑换成功事件，立即隐藏
+    function onMemberActivated() {
+      try { sessionStorage.setItem(CACHE_KEY, "1"); } catch {}
+      setHidden(true);
+    }
+    window.addEventListener("member_activated", onMemberActivated);
+
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener("member_activated", onMemberActivated);
+    };
   }, []);
 
-  // 未挂载前不渲染，避免 SSR/hydration 闪烁
   if (!mounted) return null;
   if (hidden) return null;
+
+  const EXCLUDED_PATHS = ["/journal", "/bookmarks", "/practice"];
+  if (typeof window !== "undefined" &&
+      EXCLUDED_PATHS.some(p => window.location.pathname.startsWith(p))) return null;
 
   return (
     <a
@@ -66,22 +78,13 @@ export default function BuyFloatBtn() {
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(99,102,241,0.55)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(99,102,241,0.45)"; }}
       style={{
-        position: "fixed",
-        right: 20,
-        bottom: 24,
-        zIndex: 999,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 5,
-        borderRadius: 22,
+        position: "fixed", right: 20, bottom: 24, zIndex: 999,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", gap: 5, borderRadius: 22,
         background: "linear-gradient(135deg, #7c3aed, #6366f1)",
-        color: "#fff",
-        textDecoration: "none",
+        color: "#fff", textDecoration: "none",
         boxShadow: "0 8px 28px rgba(99,102,241,0.45)",
-        cursor: "pointer",
-        textAlign: "center",
+        cursor: "pointer", textAlign: "center",
         transition: "transform 0.2s ease, box-shadow 0.2s ease",
       }}
     >
