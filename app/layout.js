@@ -1,4 +1,5 @@
 import PenguinWrapper from "./components/PenguinWrapper";
+import BuyFloatBtn from "./components/BuyFloatBtn";
 
 export const metadata = {
   title: "油管英语场景库 — 精选场景短片·双语字幕·词汇卡片",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
       <body style={{ margin: 0 }}>
         {children}
         <PenguinWrapper />
+        <BuyFloatBtn />
       </body>
     </html>
   );
