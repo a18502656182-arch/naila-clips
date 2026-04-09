@@ -1,5 +1,6 @@
 // components/HoverPreview.js
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 
 function isCoarsePointer() {
   if (typeof window === "undefined") return true;
@@ -61,11 +62,13 @@ export default function HoverPreview({
     >
       {/* 封面 */}
       {coverUrl ? (
-        <img
+        <Image
           src={coverUrl}
           alt={alt}
+          fill
+          sizes="(max-width: 768px) 100vw, 400px"
           style={{
-            width: "100%", height: "100%", objectFit: "cover",
+            objectFit: "cover",
             display: showVideo ? "none" : "block",
           }}
         />
