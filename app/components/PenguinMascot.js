@@ -146,7 +146,7 @@ export default function PenguinMascot() {
       const saved = localStorage.getItem(STORAGE_POS);
       if (saved) { setPos(JSON.parse(saved)); return; }
     } catch {}
-    setPos({ left: window.innerWidth - 92, top: window.innerHeight - 110 });
+    setPos({ left: 20, top: window.innerHeight - 110 });
   }, []);
 
   // resize 边界
