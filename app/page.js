@@ -8,6 +8,7 @@ import HeroSection from "./components/home/HeroSection";
 import HowItWorks from "./components/home/HowItWorks";
 import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
+import { proxyCoverUrl } from "../lib/imageUrl.js";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ function normRow(r) {
     created_at: r.created_at,
     upload_time: r.upload_time ?? null,
     access_tier: r.access_tier,
-    cover_url: r.cover_url ?? null,
+    cover_url: proxyCoverUrl(r.cover_url),
     video_url: r.video_url ?? null,
     difficulty: typeof r.difficulty_slug === "string" ? r.difficulty_slug : null,
     topics: Array.isArray(r.topic_slugs) ? r.topic_slugs : [],
