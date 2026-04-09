@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { THEME } from "./home/theme";
 import { createSupabaseBrowserClient } from "../../utils/supabase/client";
@@ -297,16 +296,14 @@ function HoverMedia({ coverUrl, videoUrl, title }) {
     >
       {/* 封面图：始终渲染，视频出现时淡出 */}
       {coverUrl ? (
-        <Image
+        <img
           src={coverUrl}
           alt={title || ""}
-          fill
           style={{
-            objectFit: "cover",
+            width: "100%", height: "100%", objectFit: "cover", display: "block",
             transition: "opacity 200ms ease",
             opacity: showVideo ? 0 : 1,
           }}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
       ) : (
         <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
