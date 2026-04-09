@@ -113,6 +113,8 @@ export default function RedeemPage() {
       setSuccess({ plan: j.plan, expires_at: j.expires_at });
       // 通知悬浮块立即隐藏
       try { window.dispatchEvent(new Event("member_activated")); } catch {}
+      // 跳转前更新缓存，避免主页闪烁
+      try { sessionStorage.setItem("buy_btn_is_member", "1"); } catch {}
       setTimeout(() => router.push(redirectTo), 2200);
     } catch (err) {
       setMsg(err.message || "网络错误，请重试");
