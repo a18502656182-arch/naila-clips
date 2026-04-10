@@ -107,7 +107,7 @@ export default function RedeemPage() {
       });
       const j = await r.json();
       if (!r.ok || !j.ok) {
-        const errMap = { invalid_code: "兑换码无效 / 已过期 / 已用完", code_expired: "该兑换码已过期", code_used_up: "该兑换码已达使用上限", not_logged_in: "请先登录后再兑换" };
+        const errMap = { invalid_code: "兑换码无效 / 已过期 / 已用完", code_expired: "该兑换码已过期", code_used_up: "该兑换码已达使用上限", not_logged_in: "请先登录后再兑换", trial_already_used: "每个账号只能使用一次试用卡" };
         setMsg(errMap[j.error] || j.error || "兑换失败"); return;
       }
       setSuccess({ plan: j.plan, expires_at: j.expires_at });
