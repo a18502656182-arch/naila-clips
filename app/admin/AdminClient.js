@@ -1149,7 +1149,7 @@ function CodesPanel({ initialCodes, onToast }) {
           }}>{l}</button>
         ))}
         <input
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          className="codes-search" value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="搜索码…"
           style={{
             padding: "5px 12px", borderRadius: T.radius.pill, fontSize: 12,
@@ -1166,7 +1166,7 @@ function CodesPanel({ initialCodes, onToast }) {
           const used = c.used_count >= (c.max_uses || 1);
           const chipColor = c.days === 0 ? T.vip : c.days >= 365 ? T.vip : c.days >= 90 ? T.warn : T.accent;
           return (
-            <div key={c.code || i} style={{
+            <div key={c.code || i} className="code-row" style={{
               background: T.surface2, borderRadius: T.radius.sm,
               border: `1px solid ${T.border}`, padding: "10px 14px",
               display: "flex", alignItems: "center", gap: 12, opacity: !c.is_active ? 0.5 : 1,
@@ -1181,7 +1181,7 @@ function CodesPanel({ initialCodes, onToast }) {
                   ? <Chip color={T.good}>可用</Chip>
                   : <Chip color={T.danger}>已停用</Chip>
               }
-              <span style={{ fontSize: 11, color: T.faint }}>{fmt(c.created_at)}</span>
+              <span className="code-date" style={{ fontSize: 11, color: T.faint }}>{fmt(c.created_at)}</span>
               <Btn size="sm" variant="ghost" onClick={() => { copyText(c.code); onToast("已复制 ✓"); }}>复制</Btn>
               {c.code && !used && (
                 <Btn size="sm" variant={c.is_active ? "danger" : "success"} onClick={() => handleToggle(c)}>
@@ -1324,7 +1324,7 @@ function UsersPanel({ initialUsers, onToast }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>👤 用户管理</h2>
         <input
-          value={search}
+          className="users-search" value={search}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="搜索邮箱 / 用户名…"
           style={{
@@ -1365,7 +1365,7 @@ function UsersPanel({ initialUsers, onToast }) {
           const active = isMemberActive(u.subscription);
           const expired = u.subscription && !active;
           return (
-            <div key={u.id} style={{
+            <div key={u.id} className="user-row" style={{
               background: T.surface2, borderRadius: T.radius.md,
               border: `1px solid ${T.border}`, padding: "12px 16px",
               display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
@@ -1410,7 +1410,7 @@ function UsersPanel({ initialUsers, onToast }) {
                   <span style={{ fontSize: 11, color: T.faint }}>注册：{fmtFull(u.created_at)}</span>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="user-row-actions" style={{ display: "flex", gap: 6 }}>
                 <Btn size="sm" variant="ghost" onClick={() => openDetail(u)}>
                   查看详情
                 </Btn>
@@ -1714,6 +1714,34 @@ export default function AdminClient({
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
         ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
         input:focus, textarea:focus, select:focus { border-color: ${T.accent} !important; box-shadow: 0 0 0 2px ${T.accent}33; }
+
+        @media (max-width: 640px) {
+          .admin-nav-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex: 1; }
+          .admin-nav-tabs::-webkit-scrollbar { display: none; }
+          .admin-nav-tabs button { flex-shrink: 0; }
+          .admin-nav-email { display: none !important; }
+          .admin-body { padding: 16px 12px 40px !important; }
+
+          .code-row { flex-wrap: wrap !important; }
+          .code-row code { width: 100%; margin-bottom: 2px; }
+          .code-date { display: none !important; }
+          .code-row-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; width: 100%; }
+          .codes-search { width: 100% !important; }
+
+          .user-row { flex-wrap: wrap !important; }
+          .user-row-actions { width: 100%; display: flex; gap: 6px; margin-top: 6px; }
+          .user-row-actions button { flex: 1; justify-content: center; }
+          .users-search { width: 100% !important; }
+
+          .admin-modal-inner {
+            max-width: 100% !important;
+            border-radius: 16px 16px 0 0 !important;
+            position: fixed !important;
+            bottom: 0 !important; left: 0 !important; right: 0 !important;
+            max-height: 88vh !important;
+            margin: 0 !important;
+          }
+        }
       `}</style>
 
       <div style={{
@@ -1727,7 +1755,7 @@ export default function AdminClient({
           🛠 后台管理
         </div>
         <div style={{ height: 20, width: 1, background: T.border }} />
-        <div style={{ display: "flex", gap: 4, flex: 1 }}>
+        <div className="admin-nav-tabs" style={{ display: "flex", gap: 4, flex: 1 }}>
           {tabs.map((t) => (
             <button key={t.id} onClick={() => { setTab(t.id); window.location.hash = t.id; }} style={{
               padding: "6px 16px", borderRadius: T.radius.pill, fontSize: 13, fontWeight: 700,
@@ -1738,11 +1766,11 @@ export default function AdminClient({
             }}>{t.label}</button>
           ))}
         </div>
-        <div style={{ fontSize: 12, color: T.faint, flexShrink: 0 }}>{adminEmail}</div>
+        <div className="admin-nav-email" style={{ fontSize: 12, color: T.faint, flexShrink: 0 }}>{adminEmail}</div>
         <a href="/" style={{ fontSize: 12, color: T.faint, textDecoration: "none", flexShrink: 0 }}>← 返回网站</a>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px 60px" }}>
+      <div className="admin-body" style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 24px 60px" }}>
         {tab === "overview" && <OverviewPanel stats={stats} />}
         {tab === "clips" && (
           <ClipsPanel
