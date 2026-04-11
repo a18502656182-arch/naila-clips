@@ -24,6 +24,11 @@ const nextConfig = {
         source: "/yt-img/:path*",
         destination: "https://i.ytimg.com/:path*",
       },
+      // Free Dictionary API 反代，解决国内访问问题
+      {
+        source: "/dict/:word",
+        destination: "https://api.dictionaryapi.dev/api/v2/entries/en/:word",
+      },
       {
         source: "/api/:path*",
         destination: `${RAILWAY_BASE}/api/:path*`,
