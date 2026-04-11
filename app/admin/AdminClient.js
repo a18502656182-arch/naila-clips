@@ -1250,6 +1250,7 @@ function UsersPanel({ initialUsers, onToast }) {
   const [memberDays, setMemberDays] = useState("30");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [planFilter, setPlanFilter] = useState("all");
   const [detailModal, setDetailModal] = useState(null); // { user, data, loading }
 
   async function openDetail(u) {
@@ -1307,6 +1308,14 @@ function UsersPanel({ initialUsers, onToast }) {
   const filtered = users.filter((u) => {
     if (filter === "member" && !isMemberActive(u.subscription)) return false;
     if (filter === "expired" && isMemberActive(u.subscription)) return false;
+    if (planFilter !== "all") {
+      const days = u.used_plan?.days;
+      if (planFilter === "trial" && !(days > 0 && days < 30)) return false;
+      if (planFilter === "month" && !(days >= 30 && days < 90)) return false;
+      if (planFilter === "quarter" && !(days >= 90 && days < 365)) return false;
+      if (planFilter === "year" && !(days >= 365)) return false;
+      if (planFilter === "lifetime" && days !== 0) return false;
+    }
     return true;
   });
 
@@ -1326,13 +1335,24 @@ function UsersPanel({ initialUsers, onToast }) {
         {searching && <span style={{ fontSize: 12, color: T.muted }}>搜索中…</span>}
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {[["all","全部"], ["member","会员中"], ["expired","已过期"]].map(([v,l]) => (
           <button key={v} onClick={() => setFilter(v)} style={{
             padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
             cursor: "pointer", border: `1px solid ${filter === v ? T.accent : T.border2}`,
             background: filter === v ? `${T.accent}22` : "transparent",
             color: filter === v ? T.accent2 : T.muted,
+          }}>{l}</button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {[["all","全部卡种"], ["trial","试用卡"], ["month","月卡"], ["quarter","季卡"], ["year","年卡"], ["lifetime","永久卡"]].map(([v,l]) => (
+          <button key={v} onClick={() => setPlanFilter(v)} style={{
+            padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+            cursor: "pointer", border: `1px solid ${planFilter === v ? T.vip : T.border2}`,
+            background: planFilter === v ? `${T.vip}22` : "transparent",
+            color: planFilter === v ? T.vip : T.muted,
           }}>{l}</button>
         ))}
       </div>
@@ -1381,7 +1401,13 @@ function UsersPanel({ initialUsers, onToast }) {
                       注册码：<code style={{ fontFamily: "monospace", color: T.muted }}>{u.used_code}</code>
                     </span>
                   )}
-                  <span style={{ fontSize: 11, color: T.faint }}>注册：{fmt(u.created_at)}</span>
+                  {u.used_plan && (() => {
+                    const { plan, days } = u.used_plan;
+                    const label = days === 0 ? "永久卡" : days >= 365 ? "年卡" : days >= 90 ? "季卡" : days >= 30 ? "月卡" : `试用卡(${days}天)`;
+                    const color = days === 0 ? T.vip : days >= 365 ? T.vip : days >= 90 ? T.warn : days >= 30 ? T.accent : T.good;
+                    return <Chip color={color}>{label}</Chip>;
+                  })()}
+                  <span style={{ fontSize: 11, color: T.faint }}>注册：{fmtFull(u.created_at)}</span>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
