@@ -132,39 +132,81 @@ const HIGHLIGHT_COLORS = {
 };
 
 // buildHighlighter 接收 { term -> kind } 映射，三种词汇同时高亮显示不同颜色
+// vocab 里的词彩色高亮可点击；其他单词普通显示但也可点击查词
 function buildHighlighter(termKindMap) {
   const terms = Object.keys(termKindMap || {});
   const clean = Array.from(new Set(terms.map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
-  if (!clean.length) return (text) => text || "-";
-  const re = new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig");
+  const vocabRe = clean.length
+    ? new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig")
+    : null;
+  const wordRe = /([a-zA-Z]+(?:'[a-zA-Z]+)?)/g;
+
   return (text, opts) => {
     const s = String(text || "");
     if (!s) return "-";
-    return s.split(re).map((p, i) => {
-      const normTerm = p.toLowerCase();
-      const isMatch = clean.some(t => t.toLowerCase() === normTerm);
-      if (!isMatch) return <span key={i}>{p}</span>;
-      const kind = termKindMap[normTerm] || "words";
-      const bg = (HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words).bg;
-      if (opts?.cloze) {
-        const revealed = opts.clozeRevealed?.[normTerm];
-        return (
-          <mark key={i}
-            onClick={e => { e.stopPropagation(); opts.onClickTerm?.(p, e); }}
-            style={{ background: revealed ? bg : "#d1d5db", color: revealed ? "inherit" : "transparent", padding: "0 3px", borderRadius: 6, cursor: "pointer", userSelect: "none" }}
-          >{p}</mark>
-        );
+    const result = [];
+    const vocabMatches = [];
+    if (vocabRe) {
+      vocabRe.lastIndex = 0;
+      let m;
+      while ((m = vocabRe.exec(s)) !== null) {
+        vocabMatches.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
       }
-      return (
-        <mark key={i}
-          onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(p, e); }) : undefined}
-          style={{ background: bg, padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
-        >{p}</mark>
-      );
-    });
+    }
+    let vi = 0;
+    let pos = 0;
+    while (pos < s.length) {
+      if (vi < vocabMatches.length && pos === vocabMatches[vi].start) {
+        const vm = vocabMatches[vi++];
+        const p = vm.text;
+        const normTerm = p.toLowerCase();
+        const kind = termKindMap[normTerm] || "words";
+        const bg = (HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words).bg;
+        if (opts?.cloze) {
+          const revealed = opts.clozeRevealed?.[normTerm];
+          result.push(
+            <mark key={`v-${vm.start}`}
+              onClick={e => { e.stopPropagation(); opts.onClickTerm?.(p, e); }}
+              style={{ background: revealed ? bg : "#d1d5db", color: revealed ? "inherit" : "transparent", padding: "0 3px", borderRadius: 6, cursor: "pointer", userSelect: "none" }}
+            >{p}</mark>
+          );
+        } else {
+          result.push(
+            <mark key={`v-${vm.start}`}
+              onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(p, e); }) : undefined}
+              style={{ background: bg, padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
+            >{p}</mark>
+          );
+        }
+        pos = vm.end;
+      } else {
+        const nextVocabStart = vi < vocabMatches.length ? vocabMatches[vi].start : s.length;
+        const chunk = s.slice(pos, nextVocabStart);
+        if (chunk) {
+          wordRe.lastIndex = 0;
+          let wm;
+          let wPos = 0;
+          while ((wm = wordRe.exec(chunk)) !== null) {
+            if (wm.index > wPos) result.push(<span key={`n-${pos + wPos}`}>{chunk.slice(wPos, wm.index)}</span>);
+            const word = wm[0];
+            result.push(
+              <span key={`w-${pos + wm.index}`}
+                onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(word, e); }) : undefined}
+                style={{ cursor: opts?.onClickTerm ? "pointer" : "default", borderRadius: 4, padding: "0 1px" }}
+                onMouseEnter={e => { if (opts?.onClickTerm) e.currentTarget.style.background = "rgba(99,102,241,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = ""; }}
+              >{word}</span>
+            );
+            wPos = wm.index + word.length;
+          }
+          if (wPos < chunk.length) result.push(<span key={`t-${pos + wPos}`}>{chunk.slice(wPos)}</span>);
+        }
+        pos = nextVocabStart;
+      }
+    }
+    return result;
   };
 }
-
 function useIsMobile(initial = false, bp = 960) {
   const [m, setM] = useState(initial);
   useEffect(() => {
@@ -468,48 +510,57 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
 function TermPopup({ popup, onClose }) {
   if (!popup) return null;
   const { term, v, kind, x, y, lookupData, lookupLoading, lookupError } = popup;
+  const safeX = typeof window !== "undefined" ? Math.min(x, window.innerWidth - 250) : x;
+  const safeY = typeof window !== "undefined" ? Math.min(y, window.innerHeight - 180) : y;
+
+  // vocab 有数据优先用 vocab，否则用查词结果
   const ipa = v?.ipa || lookupData?.phonetic || "";
   const partOfSpeech = lookupData?.partOfSpeech || "";
   const zhMeaning = v?.meaning_zh || lookupData?.zh || "";
   const audioUrl = v?.audio_url || lookupData?.audio || "";
+  const exampleEn = v?.example_en || "";
+  const exampleZh = v?.example_zh || "";
+
   return (
     <>
       <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 9998 }} />
       <div style={{
-        position: "fixed",
-        left: Math.min(x, typeof window !== "undefined" ? window.innerWidth - 240 : x),
-        top: Math.min(y, typeof window !== "undefined" ? window.innerHeight - 200 : y),
-        zIndex: 9999,
-        background: "#fff",
-        border: "1px solid rgba(99,102,241,0.2)",
-        borderRadius: 16,
-        boxShadow: "0 12px 40px rgba(11,18,32,0.18)",
-        padding: "14px 16px",
-        width: 220,
-        maxWidth: "calc(100vw - 32px)",
+        position: "fixed", left: safeX, top: safeY, zIndex: 9999,
+        background: "#fff", border: "1px solid rgba(99,102,241,0.2)",
+        borderRadius: 16, boxShadow: "0 12px 40px rgba(11,18,32,0.18)",
+        padding: "14px 16px", width: 240, maxWidth: "calc(100vw - 32px)",
         animation: "bIn 200ms cubic-bezier(.2,.9,.2,1)",
       }}>
         <button onClick={onClose} style={{ position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(11,18,32,0.07)", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b" }}>✕</button>
-        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 2 }}>{term}</div>
-        {ipa && <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 2 }}>/ {ipa} /</div>}
-        {partOfSpeech && <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>{partOfSpeech}</div>}
-        {lookupLoading && <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 6 }}>查询中…</div>}
-        {lookupError && !zhMeaning && <div style={{ fontSize: 12, color: "#f59e0b", marginBottom: 6 }}>查询失败</div>}
-        {zhMeaning && (
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 8, lineHeight: 1.5 }}>{zhMeaning}</div>
-        )}
-        {(v?.example_en || v?.example_zh) && (
-          <div style={{ fontSize: 12, background: "#f3fbff", borderRadius: 10, padding: "7px 10px", border: "1px solid #cfe6ff", lineHeight: 1.55 }}>
-            {v.example_en && <div style={{ color: "#0b5aa6", fontWeight: 600 }}>{v.example_en}</div>}
-            {v.example_zh && <div style={{ color: "#64748b", marginTop: 3 }}>{v.example_zh}</div>}
+        <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 4 }}>{term}</div>
+        {lookupLoading && <div style={{ fontSize: 13, color: "#94a3b8", padding: "6px 0" }}>查询中...</div>}
+        {lookupError && !v && <div style={{ fontSize: 12, color: "#ef4444", padding: "4px 0" }}>暂无数据</div>}
+        {!lookupLoading && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {(ipa || partOfSpeech) && (
+              <div style={{ fontSize: 12, color: "#94a3b8" }}>
+                {ipa ? `/ ${ipa} / ` : ""}{partOfSpeech ? <span style={{ fontStyle: "italic" }}>{partOfSpeech}</span> : null}
+              </div>
+            )}
+            {zhMeaning && (
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", lineHeight: 1.5 }}>{zhMeaning}</div>
+            )}
+            {(exampleEn || exampleZh) && (
+              <div style={{ marginTop: 6, padding: "7px 10px", background: "#f3fbff", borderRadius: 10, border: "1px solid #cfe6ff", lineHeight: 1.55 }}>
+                {exampleEn && <div style={{ fontSize: 12, color: "#0b5aa6", fontWeight: 600 }}>{exampleEn}</div>}
+                {exampleZh && <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>{exampleZh}</div>}
+              </div>
+            )}
+            <button
+              onClick={() => { if (audioUrl) { new Audio(audioUrl).play().catch(() => speakEn(term)); } else { speakEn(term); } }}
+              style={{ marginTop: 4, border: "1px solid #e2e8f0", background: "transparent", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#64748b", alignSelf: "flex-start" }}
+            >🔊 发音</button>
           </div>
         )}
-        <button onClick={() => { if (audioUrl) { new Audio(audioUrl).play(); } else { speakEn(term); } }} style={{ marginTop: 8, border: "1px solid #e2e8f0", background: "transparent", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#64748b" }}>🔊 发音</button>
       </div>
     </>
   );
 }
-
 // 未登录收藏弹窗
 function BookmarkLoginModal({ onClose }) {
   return (
