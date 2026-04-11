@@ -119,6 +119,12 @@ export default async function AdminPage() {
     }
   });
 
+  // 构建 code → plan 映射，用于用户列表显示卡种
+  const codeToPlanMap = {};
+  (redeemCodes || []).forEach((c) => {
+    codeToPlanMap[c.code] = { plan: c.plan, days: c.days };
+  });
+
   // 给订单附上兑换人信息
   const ordersWithUser = (orders || []).map((o) => ({
     ...o,
@@ -131,6 +137,7 @@ export default async function AdminPage() {
     username: profileMap[u.id]?.username || u.user_metadata?.username || null,
     created_at: u.created_at,
     used_code: profileMap[u.id]?.used_code || null,
+    used_plan: profileMap[u.id]?.used_code ? codeToPlanMap[profileMap[u.id].used_code] || null : null,
     subscription: subMap[u.id] || null,
   }));
 
