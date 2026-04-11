@@ -168,54 +168,7 @@ export default async function Page() {
                   }
                 `}</style>
               </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 12,
-                  color: THEME.colors.faint,
-                }}
-              >
-                Real scenes · bilingual subtitles · vocabulary cards
-              </div>
-            </div>
-          </div>
 
-          <UserMenuClient />
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
-        <HeroSection featured={featured} />
-
-        <div style={{ marginTop: 22 }}>
-          <HowItWorks />
-        </div>
-
-        <div style={{ marginTop: 30 }}>
-          <SectionTitle title="内容库" />
-
-          <div style={{ marginTop: 14 }}>
-            <Suspense
-              fallback={
-                <div
-                  style={{
-                    padding: 24,
-                    textAlign: "center",
-                    color: THEME.colors.faint,
-                  }}
-                >
-                  加载中...
-                </div>
-              }
-            >
-              <HomeClient allItems={allItems} initialTaxonomies={taxonomies} />
-            </Suspense>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
             </div>
           </div>
 
