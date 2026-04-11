@@ -157,7 +157,16 @@ export default async function Page() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                油管英语场景库
+                <span className="title-desktop">油管英语场景库</span>
+                <span className="title-mobile">油管英语<br />场景库</span>
+                <style>{`
+                  .title-desktop { display: inline; }
+                  .title-mobile { display: none; }
+                  @media (max-width: 640px) {
+                    .title-desktop { display: none; }
+                    .title-mobile { display: inline; }
+                  }
+                `}</style>
               </div>
               <div
                 style={{
@@ -168,6 +177,45 @@ export default async function Page() {
               >
                 Real scenes · bilingual subtitles · vocabulary cards
               </div>
+            </div>
+          </div>
+
+          <UserMenuClient />
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
+        <HeroSection featured={featured} />
+
+        <div style={{ marginTop: 22 }}>
+          <HowItWorks />
+        </div>
+
+        <div style={{ marginTop: 30 }}>
+          <SectionTitle title="内容库" />
+
+          <div style={{ marginTop: 14 }}>
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    padding: 24,
+                    textAlign: "center",
+                    color: THEME.colors.faint,
+                  }}
+                >
+                  加载中...
+                </div>
+              }
+            >
+              <HomeClient allItems={allItems} initialTaxonomies={taxonomies} />
+            </Suspense>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
             </div>
           </div>
 
