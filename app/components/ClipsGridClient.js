@@ -183,9 +183,6 @@ function isPlayable(url) {
   return isHls(url) || isMp4(url);
 }
 
-function isTouchDevice() {
-  try { return window.matchMedia("(hover: none)").matches; } catch { return false; }
-}
 
 // 动态加载 hls.js（只加载一次）
 let hlsJsPromise = null;
@@ -203,131 +200,14 @@ function loadHlsJs() {
   return hlsJsPromise;
 }
 
-function HoverMedia({ coverUrl, videoUrl, title }) {
-  const [hover, setHover] = useState(false);
-  const vref = useRef(null);
-  const hlsRef = useRef(null);
-
-  useEffect(() => {
-    const v = vref.current;
-    if (!v) return;
-
-    // 离开时：销毁 hls 实例，清空视频
-    if (!hover) {
-      try {
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-        v.pause();
-        v.removeAttribute("src");
-        v.load();
-      } catch {}
-      return;
-    }
-
-    if (!isPlayable(videoUrl)) return;
-
-    v.muted = true;
-    v.playsInline = true;
-    v.loop = true;
-
-    if (isHls(videoUrl)) {
-      // HLS 流：用 hls.js 播放
-      loadHlsJs().then((Hls) => {
-        if (!Hls) {
-          // 浏览器原生支持 HLS（Safari）
-          if (v.canPlayType("application/vnd.apple.mpegurl")) {
-            v.src = videoUrl;
-            v.play().catch(() => {});
-          }
-          return;
-        }
-        if (!Hls.isSupported()) return;
-        // 再次检查是否还在 hover（异步加载期间可能已离开）
-        if (!vref.current) return;
-
-        const hls = new Hls({
-          enableWorker: false,
-          lowLatencyMode: true,
-          maxBufferLength: 8,
-          maxMaxBufferLength: 15,
-        });
-        hlsRef.current = hls;
-        hls.loadSource(videoUrl);
-        hls.attachMedia(v);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          v.play().catch(() => {});
-        });
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            hls.destroy();
-            hlsRef.current = null;
-          }
-        });
-      });
-    } else {
-      // 普通 mp4
-      try {
-        v.src = videoUrl;
-        v.currentTime = 0;
-        v.play().catch(() => {});
-      } catch {}
-    }
-
-    return () => {
-      // cleanup：组件卸载时销毁
-      try {
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-      } catch {}
-    };
-  }, [hover, videoUrl]);
-
-  const showVideo = hover && isPlayable(videoUrl);
-
+function HoverMedia({ coverUrl, title }) {
   return (
-    <div
-      onMouseEnter={() => { if (!isTouchDevice()) setHover(true); }}
-      onMouseLeave={() => setHover(false)}
-      style={{ position: "relative", width: "100%", height: "100%" }}
-    >
-      {/* 封面图：始终渲染，视频出现时淡出 */}
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {coverUrl ? (
-        <img
-          src={coverUrl}
-          alt={title || ""}
-          style={{
-            position: "absolute", inset: 0,
-            width: "100%", height: "100%", objectFit: "cover",
-            transition: "opacity 200ms ease",
-            opacity: showVideo ? 0 : 1,
-          }}
-        />
+        <img src={coverUrl} alt={title || ""} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
       ) : (
         <div style={{ width: "100%", height: "100%", background: "rgba(11,18,32,0.06)" }} />
       )}
-
-      {/* 视频层：始终挂载，hover 时显示 */}
-      <video
-        ref={vref}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          opacity: showVideo ? 1 : 0,
-          transition: "opacity 200ms ease",
-          pointerEvents: "none",
-        }}
-        preload="none"
-        muted
-        playsInline
-        loop
-      />
     </div>
   );
 }
