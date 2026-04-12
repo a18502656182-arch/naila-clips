@@ -50,6 +50,12 @@ export default function FeaturedExamples({ featured }) {
           overflow: hidden;
           flex-shrink: 0;
         }
+        @media (max-width: 640px) {
+          .featCover {
+            height: auto;
+            aspect-ratio: 5/3;
+          }
+        }
         .featBody {
           padding: 12px;
           background: ${THEME.colors.surface};
