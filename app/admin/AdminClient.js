@@ -404,9 +404,9 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
   });
   // ✅ 直接用字符串数组，不再 map 成对象
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre" || t.type === "topic").map((t) => t.slug));
   const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
-  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show" || t.type === "channel").map((t) => t.slug));
 
   const addLocalOption = (type, slug) => {
     if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
@@ -437,9 +437,9 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     if (form.upload_time) payload.upload_time = form.upload_time;
     // 传 slug→type 映射，让后端知道每个 slug 的真实 type
     const taxonomyHints = {};
-    genres.forEach(s => { taxonomyHints[s] = "genre"; });
+    genres.forEach(s => { taxonomyHints[s] = "topic"; });
     durations.forEach(s => { taxonomyHints[s] = "duration"; });
-    shows.forEach(s => { taxonomyHints[s] = "show"; });
+    shows.forEach(s => { taxonomyHints[s] = "channel"; });
     difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
     payload.taxonomy_hints = taxonomyHints;
     onSave(payload);
@@ -536,9 +536,9 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
   const [jsonStatus, setJsonStatus] = useState(null);
   // ✅ 直接用字符串数组
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre" || t.type === "topic").map((t) => t.slug));
   const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
-  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show" || t.type === "channel").map((t) => t.slug));
 
   const handleRefreshTaxonomies = async () => { await onRefreshTaxonomies?.(); };
   const addLocalOption = (type, slug) => {
@@ -655,9 +655,9 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
           onClick={() => {
             // 构建 slug→type 提示，让后端知道每个 slug 的真实 type
             const taxonomyHints = {};
-            genres.forEach(s => { taxonomyHints[s] = "genre"; });
+            genres.forEach(s => { taxonomyHints[s] = "topic"; });
             durations.forEach(s => { taxonomyHints[s] = "duration"; });
-            shows.forEach(s => { taxonomyHints[s] = "show"; });
+            shows.forEach(s => { taxonomyHints[s] = "channel"; });
             difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
             onSave({ ...form, taxonomy_hints: taxonomyHints });
           }}
