@@ -67,7 +67,7 @@ export default function BuyFloatBtn() {
   if (!mounted) return null;
   if (hidden) return null;
 
-  const EXCLUDED_PATHS = ["/journal", "/bookmarks", "/practice"];
+  const EXCLUDED_PATHS = ["/journal", "/bookmarks", "/practice", "/clips"];
   if (typeof window !== "undefined" &&
       EXCLUDED_PATHS.some(p => window.location.pathname.startsWith(p))) return null;
 
@@ -98,10 +98,10 @@ export default function BuyFloatBtn() {
           padding: 3px 10px; letter-spacing: 0.03em;
         }
         @media (max-width: 768px) {
-          .buy-float-btn { padding: 9px 14px; min-width: 0; gap: 3px; border-radius: 16px; right: 14px !important; bottom: 18px !important; }
-          .buy-float-title { font-size: 12px; }
+          .buy-float-btn { padding: 12px 18px; min-width: 120px; }
+          .buy-float-title { font-size: 13px; }
           .buy-float-sub { font-size: 11px; }
-          .buy-float-badge { display: none; }
+          .buy-float-badge { margin-top: 4px; font-size: 10px; padding: 2px 8px; }
         }
       `}</style>
       <div className="buy-float-title">加入会员</div>
