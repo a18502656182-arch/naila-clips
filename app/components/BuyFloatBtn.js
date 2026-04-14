@@ -1,12 +1,14 @@
 "use client";
 // app/components/BuyFloatBtn.js
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const CACHE_KEY = "buy_btn_is_member";
 
 export default function BuyFloatBtn() {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [hidden, setHidden] = useState(false);
 
@@ -68,8 +70,7 @@ export default function BuyFloatBtn() {
   if (hidden) return null;
 
   const EXCLUDED_PATHS = ["/journal", "/bookmarks", "/practice", "/clips"];
-  if (typeof window !== "undefined" &&
-      EXCLUDED_PATHS.some(p => window.location.pathname.startsWith(p))) return null;
+  if (EXCLUDED_PATHS.some(p => pathname?.startsWith(p))) return null;
 
   return (
     <a
@@ -98,10 +99,10 @@ export default function BuyFloatBtn() {
           padding: 3px 10px; letter-spacing: 0.03em;
         }
         @media (max-width: 768px) {
-          .buy-float-btn { padding: 12px 18px; min-width: 120px; }
-          .buy-float-title { font-size: 13px; }
+          .buy-float-btn { padding: 9px 14px; min-width: 0; gap: 3px; border-radius: 16px; right: 14px !important; bottom: 18px !important; }
+          .buy-float-title { font-size: 12px; }
           .buy-float-sub { font-size: 11px; }
-          .buy-float-badge { margin-top: 4px; font-size: 10px; padding: 2px 8px; }
+          .buy-float-badge { display: none; }
         }
       `}</style>
       <div className="buy-float-title">加入会员</div>
