@@ -671,6 +671,89 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
 // ══════════════════════════════════════════════════════
 // 模块一：数据概览
 // ══════════════════════════════════════════════════════
+
+function SettingsPanel() {
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
+  const [buyMode, setBuyMode] = useState("subscription");
+  const [lifetimePrice, setLifetimePrice] = useState("38.80");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/site_config?key=buy_mode`)
+      .then(r => r.json()).then(d => { if (d?.value) setBuyMode(d.value); }).catch(() => {});
+    fetch(`${API_BASE}/api/site_config?key=lifetime_price`)
+      .then(r => r.json()).then(d => { if (d?.value) setLifetimePrice(d.value); }).catch(() => {});
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      const token = localStorage.getItem("sb_access_token");
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+      await fetch(`${API_BASE}/api/site_config`, {
+        method: "POST", headers,
+        body: JSON.stringify({ key: "buy_mode", value: buyMode }),
+      });
+      await fetch(`${API_BASE}/api/site_config`, {
+        method: "POST", headers,
+        body: JSON.stringify({ key: "lifetime_price", value: lifetimePrice }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+    setSaving(false);
+  }
+
+  return (
+    <div style={{ maxWidth: 480, margin: "0 auto", padding: "24px 16px" }}>
+      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 24 }}>⚙️ 购买页设置</div>
+      <div style={{ background: "#fff", border: "1px solid rgba(15,23,42,0.08)", borderRadius: 16, padding: 20, marginBottom: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>购买页模式</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { value: "subscription", label: "套餐订阅页", desc: "月卡/季卡/年卡选择" },
+            { value: "lifetime", label: "永久卡页", desc: "一次性永久买断" },
+          ].map(opt => (
+            <div key={opt.value} onClick={() => setBuyMode(opt.value)} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "12px 14px", borderRadius: 12, cursor: "pointer",
+              border: `2px solid ${buyMode === opt.value ? "#4f46e5" : "rgba(15,23,42,0.08)"}`,
+              background: buyMode === opt.value ? "rgba(79,70,229,0.04)" : "#fff",
+            }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                border: `2px solid ${buyMode === opt.value ? "#4f46e5" : "rgba(15,23,42,0.3)"}`,
+                background: buyMode === opt.value ? "#4f46e5" : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {buyMode === opt.value && <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#fff" }} />}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>{opt.label}</div>
+                <div style={{ fontSize: 12, color: "rgba(11,18,32,0.5)", marginTop: 2 }}>{opt.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: "#fff", border: "1px solid rgba(15,23,42,0.08)", borderRadius: 16, padding: 20, marginBottom: 24 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>永久卡定价（元）</div>
+        <input type="number" value={lifetimePrice} onChange={e => setLifetimePrice(e.target.value)} step="0.01"
+          style={{ width: "100%", padding: "10px 14px", fontSize: 16, fontWeight: 700, border: "1px solid rgba(15,23,42,0.15)", borderRadius: 10, outline: "none", boxSizing: "border-box" }} />
+      </div>
+      <button onClick={handleSave} disabled={saving} style={{
+        width: "100%", padding: "14px 0", borderRadius: 12, border: "none",
+        background: saving ? "rgba(79,70,229,0.5)" : "#4f46e5",
+        color: "#fff", fontSize: 15, fontWeight: 800, cursor: saving ? "not-allowed" : "pointer",
+      }}>
+        {saved ? "✅ 已保存" : saving ? "保存中..." : "保存设置"}
+      </button>
+    </div>
+  );
+}
+
 function OverviewPanel({ stats }) {
   const [live, setLive] = useState(stats);
   const refresh = useCallback(async () => {
@@ -1705,6 +1788,7 @@ export default function AdminClient({
     { id: "codes", label: "🎫 兑换码" },
     { id: "orders", label: "📦 订单" },
     { id: "users", label: "👤 用户" },
+    { id: "settings", label: "⚙️ 设置" },
   ];
 
   return (
@@ -1791,6 +1875,7 @@ export default function AdminClient({
             onToast={onToast}
           />
         )}
+        {tab === "settings" && <SettingsPanel />}
         {tab === "users" && (
           <UsersPanel
             initialUsers={initialUsers}
