@@ -36,6 +36,29 @@ export default function UserMenuClient() {
   const [meData, setMeData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    try {
+      const isDark = localStorage.getItem("dark_mode") === "1";
+      setDarkMode(isDark);
+      if (isDark) document.body.classList.add("dark-mode");
+    } catch {}
+  }, []);
+
+  function toggleDark() {
+    const next = !darkMode;
+    setDarkMode(next);
+    try {
+      if (next) {
+        document.body.classList.add("dark-mode");
+        localStorage.setItem("dark_mode", "1");
+      } else {
+        document.body.classList.remove("dark-mode");
+        localStorage.removeItem("dark_mode");
+      }
+    } catch {}
+  }
   const wrapRef = useRef(null);
   const router = useRouter();
 
@@ -380,6 +403,28 @@ export default function UserMenuClient() {
             >
               {isMember ? "✨ 兑换码续期" : "✨ 兑换码开通会员"}
             </a>
+
+<button
+              type="button"
+              onClick={toggleDark}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: THEME.radii.md,
+                border: `1px solid ${THEME.colors.border}`,
+                background: THEME.colors.surface,
+                color: THEME.colors.ink,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                textAlign: "left",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {darkMode ? "☀️ 切换浅色模式" : "🌙 切换深色模式"}
+            </button>
 
             <button
               type="button"
