@@ -130,8 +130,12 @@ export default function UserMenuClient() {
       setEmail(null);
       setIsMember(false);
       setMeData(null);
+      // 退出时清除深色模式
       try {
         localStorage.removeItem("sb_access_token");
+        localStorage.removeItem("dark_mode");
+        document.body.classList.remove("dark-mode");
+        setDarkMode(false);
       } catch {}
       const supabase = createSupabaseBrowserClient();
       await supabase.auth.signOut();
