@@ -126,9 +126,9 @@ function findSegIdxBySegmentId(segments, segmentId) {
 
 // 三种高亮颜色
 const HIGHLIGHT_COLORS = {
-  words:       { bg: "#fff1b8" }, // 黄色-单词
-  phrases:     { bg: "#dbeafe" }, // 蓝色-短语
-  expressions: { bg: "#dcfce7" }, // 绿色-地道表达
+  words:       { bg: "#f59e0b", color: "#fff" }, // 黄色-单词
+  phrases:     { bg: "#3b82f6", color: "#fff" }, // 蓝色-短语
+  expressions: { bg: "#10b981", color: "#fff" }, // 绿色-地道表达
 };
 
 // buildHighlighter 接收 { term -> kind } 映射，三种词汇同时高亮显示不同颜色
@@ -161,7 +161,7 @@ function buildHighlighter(termKindMap) {
         const p = vm.text;
         const normTerm = p.toLowerCase();
         const kind = termKindMap[normTerm] || "words";
-        const bg = (HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words).bg;
+        const { bg, color: markColor = "#000" } = HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words;
         if (opts?.cloze) {
           const revealed = opts.clozeRevealed?.[normTerm];
           result.push(
@@ -174,7 +174,7 @@ function buildHighlighter(termKindMap) {
           result.push(
             <mark key={`v-${vm.start}`}
               onClick={opts?.onClickTerm ? (e => { e.stopPropagation(); opts.onClickTerm(p, e); }) : undefined}
-              style={{ background: bg, padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
+              style={{ background: bg, color: markColor, padding: "0 3px", borderRadius: 6, cursor: opts?.onClickTerm ? "pointer" : "default" }}
             >{p}</mark>
           );
         }
@@ -289,8 +289,8 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
 
   return (
     <div ref={rowRef} onClick={onClick} role="button" tabIndex={0} style={{
-      border: `1px solid ${active ? "#bfe3ff" : THEME.colors.border}`,
-      background: active ? "#f3fbff" : THEME.colors.surface,
+      border: `1px solid ${active ? "#3b82f6" : THEME.colors.border}`,
+      background: active ? "#dbeafe" : THEME.colors.surface,
       borderRadius: THEME.radii.md, padding: 12, cursor: "pointer",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1679,12 +1679,12 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             <div style={{ width: "100%", height: "100%", background: THEME.colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, border: `1px solid ${THEME.colors.border}`, boxShadow: "0 -20px 50px rgba(0,0,0,0.12)", overflow: "hidden", boxSizing: "border-box", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
               {/* 当前字幕：实时跟随视频播放 */}
               {activeSegIdx >= 0 && segments[activeSegIdx] && (
-                <div style={{ padding: "10px 14px 12px", borderBottom: `1px solid ${THEME.colors.border}`, background: "#f0f6ff", flexShrink: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#1d4ed8", lineHeight: 1.6 }}>
+                <div style={{ padding: "10px 14px 12px", borderBottom: `1px solid ${THEME.colors.border}`, background: "#1d4ed8", flexShrink: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.6 }}>
                     {segments[activeSegIdx].en || ""}
                   </div>
                   {segments[activeSegIdx].zh && (
-                    <div style={{ fontSize: 13, color: "#3b82f6", marginTop: 4, lineHeight: 1.5 }}>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4, lineHeight: 1.5 }}>
                       {segments[activeSegIdx].zh}
                     </div>
                   )}
