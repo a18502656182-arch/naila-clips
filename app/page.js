@@ -10,7 +10,7 @@ import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 import { proxyCoverUrl } from "../lib/imageUrl.js";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
