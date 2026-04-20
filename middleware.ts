@@ -7,6 +7,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)",
+    // 只在需要验证身份的页面执行
+    "/clips/:path*",
+    "/journal/:path*",
+    "/bookmarks/:path*",
+    "/practice/:path*",
+    "/admin/:path*",
   ],
 };
