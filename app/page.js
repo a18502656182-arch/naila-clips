@@ -22,16 +22,6 @@ function getSupabaseAdmin() {
   });
 }
 
-
-function proxyCoverUrl(url) {
-  if (!url) return null;
-  if (url.startsWith("https://imagedelivery.net")) {
-    const base = url.slice("https://imagedelivery.net".length).replace(/\/[^\/]+$/, "");
-    return "/cf-img" + base + "/w=400,quality=70,format=webp";
-  }
-  return url;
-}
-
 function normRow(r) {
   return {
     id: r.id,
