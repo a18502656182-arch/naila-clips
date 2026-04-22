@@ -41,7 +41,8 @@ function proxyVideoUrl(url) {
 function proxyCoverUrl(url) {
   if (!url) return null;
   if (url.startsWith("https://imagedelivery.net")) {
-    return "/cf-img" + url.slice("https://imagedelivery.net".length);
+    const base = url.slice("https://imagedelivery.net".length).replace(/\/[^\/]+$/, "");
+    return "/cf-img" + base + "/w=400,quality=70,format=webp";
   }
   return url;
 }
