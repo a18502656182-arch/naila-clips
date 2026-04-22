@@ -10,7 +10,7 @@ import SectionTitle from "./components/home/SectionTitle";
 import { THEME } from "./components/home/theme";
 import { proxyCoverUrl } from "../lib/imageUrl.js";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
@@ -20,6 +20,16 @@ function getSupabaseAdmin() {
     auth: { persistSession: false },
     global: { fetch: (u, o = {}) => fetch(u, { ...o, cache: "no-store" }) },
   });
+}
+
+
+function proxyCoverUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("https://imagedelivery.net")) {
+    const base = url.slice("https://imagedelivery.net".length).replace(/\/[^\/]+$/, "");
+    return "/cf-img" + base + "/w=400,quality=70,format=webp";
+  }
+  return url;
 }
 
 function normRow(r) {
