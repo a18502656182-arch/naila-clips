@@ -8,7 +8,7 @@ const PLANS = [
   { id: "month", label: "月卡", days: "30天", price: "13.80", desc: "适合先体验一个月", hot: false },
   { id: "quarter", label: "季卡", days: "90天", price: "29.80", desc: "最划算的短期选择", hot: true },
   { id: "year", label: "年卡", days: "365天", price: "66.80", desc: "深度学习推荐", hot: false },
-  { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: "一次买断，终身使用", hot: false },
+  { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null, hot: false },
 ];
 
 const C = {
@@ -99,12 +99,12 @@ export default function BuyPage() {
                         <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{p.label}</span>
                         <span style={{ fontSize: 12, color: C.faint }}>{p.days}</span>
                       </div>
-                      <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.desc}</div>
-                      {p.id === "lifetime" && (
-                        <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 4, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 6, padding: "3px 8px", width: "fit-content", whiteSpace: "nowrap" }}>
-                          <span style={{ fontSize: 11, color: "#dc2626", flexShrink: 0 }}>🎁</span>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: "#dc2626" }}>赠送 10 期定制油管博主视频</span>
+                      {p.id === "lifetime" ? (
+                        <div style={{ marginTop: 2, fontSize: 12, fontWeight: 800, color: "#dc2626", lineHeight: 1.6 }}>
+                          🎁 赠送 10 期<br />定制油管博主视频
                         </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.desc}</div>
                       )}
                     </div>
                   </div>
