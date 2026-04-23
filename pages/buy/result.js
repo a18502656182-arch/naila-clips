@@ -27,8 +27,8 @@ export default function BuyResultPage() {
   const router = useRouter();
   const { order } = router.query;
 
-  const [status, setStatus] = useState("loading"); // loading | paid | pending | error
-  const [orderData, setOrderData] = useState(null);
+  const [status, setStatus] = useState("paid");
+const [orderData, setOrderData] = useState({ plan: "lifetime", redeem_code: "TEST-XXXX-1234" });
   const [copied, setCopied] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
