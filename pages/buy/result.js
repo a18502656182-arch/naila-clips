@@ -27,15 +27,15 @@ export default function BuyResultPage() {
   const router = useRouter();
   const { order } = router.query;
 
-  const [status, setStatus] = useState("paid"); // loading | paid | pending | error
-  const [orderData, setOrderData] = useState({ plan: "lifetime", redeem_code: "TEST-XXXX-1234", amount: "168.80", out_trade_no: "TEST202604230001" });
+  const [status, setStatus] = useState("loading"); // loading | paid | pending | error
+  const [orderData, setOrderData] = useState(null);
   const [copied, setCopied] = useState(false);
   const [pollCount, setPollCount] = useState(0);
 
-  // useEffect(() => {
-  //   if (!order) return;
-  //   poll();
-  // }, [order]);
+  useEffect(() => {
+    if (!order) return;
+    poll();
+  }, [order]);
 
   // 轮询订单状态，最多轮询 20 次（每次 3 秒）
   async function poll() {
@@ -205,7 +205,7 @@ export default function BuyResultPage() {
                   </div>
                   <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.8, marginBottom: 12 }}>
                     恭喜你成为永久会员！我们将为你定制 10 期专属的油管博主视频内容。<br />
-                    请添加客服微信，发送「永久卡定制」，我们会在 1-2 个工作日内与你确认定制需求。
+                    请添加客服微信，发送「永久卡定制」，我们会与你确认定制需求。
                   </div>
                   <div style={{
                     display: "inline-flex", alignItems: "center", gap: 8,
@@ -214,7 +214,7 @@ export default function BuyResultPage() {
                     fontSize: 13, fontWeight: 800, color: "#dc2626",
                   }}
                     onClick={() => {
-                      navigator.clipboard?.writeText("你的客服微信号").catch(() => {});
+                      navigator.clipboard?.writeText("wll74748585").catch(() => {});
                       alert("客服微信号已复制，请打开微信添加");
                     }}
                   >
