@@ -125,7 +125,7 @@ export default function BuyResultPage() {
               }}>
                 <span style={{ fontSize: 22, flexShrink: 0 }}>⚠️</span>
                 <div style={{ fontSize: 13, color: "#991b1b", fontWeight: 800, lineHeight: 1.6 }}>
-                  请立即截图或复制保存兑换码！关闭页面后将无法再次查看，丢失后需联系客服找回。
+                  请立即截图或复制保存兑换码！丢失后需联系客服找回。
                 </div>
               </div>
 
@@ -192,6 +192,36 @@ export default function BuyResultPage() {
                 <div>• 没有账号：前往注册页，填入兑换码完成注册</div>
                 <div>• 已有账号：登录后前往兑换页，输入兑换码激活</div>
               </div>
+
+              {/* 永久卡专属：定制视频引导 */}
+              {orderData?.plan === "lifetime" && (
+                <div style={{
+                  background: "linear-gradient(135deg, rgba(220,38,38,0.06), rgba(251,146,60,0.06))",
+                  border: "1.5px solid rgba(220,38,38,0.25)",
+                  borderRadius: 14, padding: "16px 18px", marginBottom: 24,
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: "#dc2626", marginBottom: 8 }}>
+                    🎁 你的专属福利：10 期定制油管博主视频
+                  </div>
+                  <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.8, marginBottom: 12 }}>
+                    恭喜你成为永久会员！我们将为你定制 10 期专属的油管博主视频内容。<br />
+                    请添加客服微信，发送「永久卡定制」，我们会在 1-2 个工作日内与你确认定制需求。
+                  </div>
+                  <div style={{
+                    display: "inline-flex", alignItems: "center", gap: 8,
+                    background: "#fff", border: "1.5px solid rgba(220,38,38,0.3)",
+                    borderRadius: 999, padding: "8px 16px", cursor: "pointer",
+                    fontSize: 13, fontWeight: 800, color: "#dc2626",
+                  }}
+                    onClick={() => {
+                      navigator.clipboard?.writeText("wll74748585").catch(() => {});
+                      alert("客服微信号已复制，请打开微信添加");
+                    }}
+                  >
+                    💬 联系客服领取定制内容
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: "flex", gap: 10 }}>
                 <a href="/register" style={{
