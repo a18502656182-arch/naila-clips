@@ -66,7 +66,7 @@ export default function BuyPage() {
 
   return (
     <>
-      <Head><title>开通会员 — 油管英语场景库</title></Head>
+      <Head><title>开通会员 — 影视英语片段库</title></Head>
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif" }}>
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
           <a href="/" style={{ textDecoration: "none", color: C.muted, fontSize: 22, lineHeight: 1 }}>‹</a>
@@ -100,6 +100,12 @@ export default function BuyPage() {
                         <span style={{ fontSize: 12, color: C.faint }}>{p.days}</span>
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.desc}</div>
+                      {p.id === "lifetime" && (
+                        <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontSize: 11, color: "#dc2626" }}>🎁</span>
+                          <span style={{ fontSize: 11, fontWeight: 800, color: "#dc2626" }}>赠送 10 期定制油管博主视频</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
