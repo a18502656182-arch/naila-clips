@@ -90,19 +90,19 @@ export default function BuyPage() {
                   position: "relative", transition: "all 0.15s",
                 }}>
                   {p.hot && <div style={{ position: "absolute", top: -10, left: 18, background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 10px", borderRadius: 999 }}>热门</div>}
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
                     <div style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${isSelected ? C.accent : C.faint}`, background: isSelected ? C.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{p.label}</span>
                         <span style={{ fontSize: 12, color: C.faint }}>{p.days}</span>
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.desc}</div>
                       {p.id === "lifetime" && (
-                        <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 5, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 6, padding: "3px 8px" }}>
-                          <span style={{ fontSize: 11, color: "#dc2626" }}>🎁</span>
+                        <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 4, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 6, padding: "3px 8px", width: "fit-content", whiteSpace: "nowrap" }}>
+                          <span style={{ fontSize: 11, color: "#dc2626", flexShrink: 0 }}>🎁</span>
                           <span style={{ fontSize: 11, fontWeight: 800, color: "#dc2626" }}>赠送 10 期定制油管博主视频</span>
                         </div>
                       )}
