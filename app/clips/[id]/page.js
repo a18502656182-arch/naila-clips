@@ -42,7 +42,7 @@ function proxyCoverUrl(url) {
   if (!url) return null;
   if (url.startsWith("https://imagedelivery.net")) {
     const base = url.slice("https://imagedelivery.net".length).replace(/\/[^\/]+$/, "");
-    return "/cf-img" + base + "/w=800,quality=85,format=webp";
+    return "/cf-img" + base + "/w=400,quality=80,format=webp";
   }
   return url;
 }
