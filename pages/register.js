@@ -163,6 +163,7 @@ export default function RegisterPage() {
   }
 
   return (
+    <>
     <div style={shellStyle()}>
       <a
         href="/"
@@ -389,6 +390,7 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
-    <BuyFloatBtnPages />
+      <BuyFloatBtnPages />
+    </>
   );
 }
