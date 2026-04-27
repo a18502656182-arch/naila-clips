@@ -105,9 +105,9 @@ export default function BuyFloatBtnPages() {
           .buy-float-badge { display: none; }
         }
       `}</style>
-      <div className="buy-float-title">加入会员</div>
-      <div className="buy-float-sub">解锁全部动画视频</div>
-      <div className="buy-float-badge">支持支付宝</div>
+      <div className="buy-float-title">点击这里</div>
+      <div className="buy-float-sub">解锁会员全部视频</div>
+      <div className="buy-float-badge">购买兑换码</div>
     </a>
   );
 }
