@@ -1,5 +1,5 @@
 import { useState } from "react";
-import BuyFloatBtn from "../app/components/BuyFloatBtn";
+import BuyFloatBtnPages from "./components/BuyFloatBtnPages";
 import { useRouter } from "next/router";
 import { createSupabaseBrowserClient } from "../utils/supabase/client";
 
@@ -389,6 +389,6 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
-    <BuyFloatBtn />
+    <BuyFloatBtnPages />
   );
 }
