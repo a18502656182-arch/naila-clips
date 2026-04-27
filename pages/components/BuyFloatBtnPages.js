@@ -2,7 +2,7 @@
 // Pages Router 专用版本，用 useRouter 替代 usePathname
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { createSupabaseBrowserClient } from "../utils/supabase/client";
+import { createSupabaseBrowserClient } from "../../utils/supabase/client";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const CACHE_KEY = "buy_btn_is_member";
