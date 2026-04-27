@@ -79,7 +79,7 @@ export default function BuyFloatBtn() {
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 12px 36px rgba(99,102,241,0.55)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 8px 28px rgba(99,102,241,0.45)"; }}
       style={{
-        position: "fixed", right: 20, bottom: 24, zIndex: 999,
+        position: "fixed", right: 20, bottom: 24, zIndex: 10000,
         display: "flex", flexDirection: "column", alignItems: "center",
         justifyContent: "center", gap: 5, borderRadius: 22,
         background: "linear-gradient(135deg, #7c3aed, #6366f1)",
