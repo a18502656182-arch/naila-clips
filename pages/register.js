@@ -1,4 +1,5 @@
 import { useState } from "react";
+import BuyFloatBtn from "../app/components/BuyFloatBtn";
 import { useRouter } from "next/router";
 import { createSupabaseBrowserClient } from "../utils/supabase/client";
 
@@ -173,13 +174,13 @@ export default function RegisterPage() {
           marginBottom: 28,
         }}
       >
-        <div style={logoStyle()}>EC</div>
+        <div style={logoStyle()}>JC</div>
         <div style={{ lineHeight: 1.2 }}>
           <div style={{ fontSize: 17, fontWeight: 950, color: THEME.colors.ink }}>
-            油管英语场景库
+            影视英语场景库
           </div>
           <div style={{ fontSize: 12, color: THEME.colors.faint }}>
-            Real scenes · bilingual subtitles · vocabulary cards
+            Real dramas · bilingual subtitles · vocabulary cards
           </div>
         </div>
       </a>
@@ -388,5 +389,6 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
+    <BuyFloatBtn />
   );
 }
