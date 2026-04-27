@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import BuyFloatBtnPages from "./components/BuyFloatBtnPages";
 import { useRouter } from "next/router";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
@@ -24,7 +25,7 @@ const C = {
 
 const BENEFITS = [
   { icon: "🔓", title: "解锁全站所有功能", sub: "视频 / 游戏 / 手账", desc: "会员专享内容全部开放，无限使用" },
-  { icon: "📚", title: "150+ 场景持续更新", sub: null, desc: "精选 YouTube 真实场景，每周持续新增" },
+  { icon: "📚", title: "影视片段持续更新", sub: null, desc: "精选英美剧、电影、动画真实片段，每周持续新增" },
   { icon: "📱", title: "手机 · 电脑 · 平板三端互通", sub: null, desc: "任意设备登录，数据实时同步" },
 ];
 
@@ -39,6 +40,7 @@ function WechatModal({ onClose }) {
     }
   }
   return (
+    <>
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(11,18,32,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(6px)", animation: "fadeIn 160ms ease" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 24, border: "1px solid rgba(11,18,32,0.08)", boxShadow: "0 40px 100px rgba(11,18,32,0.20)", padding: "24px 24px 20px", width: "100%", maxWidth: 360, animation: "slideUp 200ms cubic-bezier(.2,.9,.2,1)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
@@ -67,6 +69,8 @@ function WechatModal({ onClose }) {
         <div style={{ fontSize: 12, color: C.faint, textAlign: "center" }}>添加时备注「兑换码」，购买咨询均可</div>
       </div>
     </div>
+      <BuyFloatBtnPages />
+    </>
   );
 }
 
@@ -111,10 +115,6 @@ export default function RedeemPage() {
         setMsg(errMap[j.error] || j.error || "兑换失败"); return;
       }
       setSuccess({ plan: j.plan, expires_at: j.expires_at });
-      // 通知悬浮块立即隐藏
-      try { window.dispatchEvent(new Event("member_activated")); } catch {}
-      // 跳转前更新缓存，避免主页闪烁
-      try { sessionStorage.setItem("buy_btn_is_member", "1"); } catch {}
       setTimeout(() => router.push(redirectTo), 2200);
     } catch (err) {
       setMsg(err.message || "网络错误，请重试");
@@ -178,10 +178,10 @@ export default function RedeemPage() {
 
       {/* Logo：手机隐藏，电脑显示 */}
       <a href="/" className="logo-link" style={{ textDecoration: "none", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14, boxShadow: "0 10px 24px rgba(99,102,241,0.26)" }}>EC</div>
+        <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14, boxShadow: "0 10px 24px rgba(99,102,241,0.26)" }}>JC</div>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>油管英语场景库</div>
-          <div style={{ fontSize: 12, color: C.faint, marginTop: 2 }}>Real scenes · bilingual subtitles · vocabulary cards</div>
+          <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>影视英语场景库</div>
+          <div style={{ fontSize: 12, color: C.faint, marginTop: 2 }}>Real dramas · bilingual subtitles · vocabulary cards</div>
         </div>
       </a>
 
@@ -266,6 +266,9 @@ export default function RedeemPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <a href={`/login?next=${encodeURIComponent("/")}`} className="login-btn action-btn" style={{ textAlign: "center", minHeight: 50, borderRadius: 999, border: "1px solid rgba(99,102,241,0.24)", color: C.accent, background: "rgba(99,102,241,0.04)", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 160ms ease" }}>登录已有账号</a>
                     <a href={`/register?next=${encodeURIComponent("/")}`} className="register-btn action-btn" style={{ textAlign: "center", minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", textDecoration: "none", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 32px rgba(124,58,237,0.24)", transition: "all 160ms ease" }}>注册并开通会员 ✨</a>
+                    <a href="/buy" style={{ textAlign: "center", minHeight: 48, borderRadius: 999, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#b45309", textDecoration: "none", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all 160ms ease" }}>
+                      💳 直接购买会员（支付宝）
+                    </a>
                   </div>
                   <div className="back-home" style={{ marginTop: 20, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
@@ -307,6 +310,10 @@ export default function RedeemPage() {
                   <button type="button" onClick={onSubmit} disabled={loading} className="main-btn redeem-submit" style={{ width: "100%", minHeight: 52, borderRadius: 999, border: "none", background: loading ? "rgba(124,58,237,0.40)" : "linear-gradient(135deg, #8b5cf6, #7c3aed)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 16px 32px rgba(124,58,237,0.24)", transition: "all 180ms ease" }}>
                     {loading ? "兑换中..." : "立即兑换 ✨"}
                   </button>
+
+                  <a href="/buy" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 12, minHeight: 46, borderRadius: 999, border: "1px solid rgba(245,158,11,0.30)", background: "rgba(245,158,11,0.08)", color: "#b45309", textDecoration: "none", fontSize: 14, fontWeight: 800, transition: "all 160ms ease" }}>
+                    💳 没有兑换码？直接购买（支付宝）
+                  </a>
 
                   <div className="back-home" style={{ marginTop: 18, textAlign: "center" }}>
                     <a href="/" style={{ fontSize: 13, color: C.faint, fontWeight: 700, textDecoration: "none" }}>← 返回首页</a>
