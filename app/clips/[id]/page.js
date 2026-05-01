@@ -61,7 +61,7 @@ export default async function ClipPage({ params }) {
     admin
       .from("clips_view")
       .select(
-        "id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs"
+        "id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs,site"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -82,14 +82,12 @@ export default async function ClipPage({ params }) {
           if (!user) return { user: null, sub: null };
           const { data: subData } = await admin
             .from("subscriptions")
-            .select("plan, expires_at, status")
+            .select("plan, expires_at, status, site")
             .eq("user_id", user.id)
             .eq("status", "active")
             // 永久卡 expires_at 为 null，有效期卡 expires_at > now()，两种都算有效会员
-            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
-            .order("expires_at", { ascending: false, nullsFirst: true })
-            .limit(1);
-          return { user, sub: subData?.[0] || null };
+            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString());
+          return { user, subs: subData || [] };
         })()
       : Promise.resolve({ user: null, sub: null }),
     token
@@ -110,7 +108,9 @@ export default async function ClipPage({ params }) {
   if (clipResult.error || !clipResult.data) notFound();
 
   const clip = clipResult.data;
-  const { user, sub } = subResult;
+  const { user, subs } = subResult;
+  const clipSite = clip.site || "yt";
+  const sub = (subs || []).find(s => (s.site || "yt") === clipSite) || null;
   const is_member = !!sub;
   const can_access = clip.access_tier === "free" ? true : is_member;
   const initialBookmarked = !!bookmarkResult.data;
