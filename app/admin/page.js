@@ -74,7 +74,7 @@ export default async function AdminPage() {
     supabase.from("taxonomies").select("type,slug").order("type").order("slug"),
     supabase
       .from("redeem_codes")
-      .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
+      .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at,site")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
@@ -85,7 +85,7 @@ export default async function AdminPage() {
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase
       .from("orders")
-      .select("id,out_trade_no,plan,days,amount,redeem_code,status,created_at,paid_at")
+      .select("id,out_trade_no,plan,days,amount,redeem_code,status,created_at,paid_at,site")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -100,13 +100,16 @@ export default async function AdminPage() {
   const userIds = recentAuthUsers.map((u) => u.id);
 
   const [{ data: subs }, { data: profiles }, { data: allProfiles }] = await Promise.all([
-    supabase.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
+    supabase.from("subscriptions").select("user_id,plan,expires_at,status,site").in("user_id", userIds),
     supabase.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
     supabase.from("profiles").select("user_id,username,used_code"),
   ]);
 
   const subMap = {};
-  (subs || []).forEach((s) => { subMap[s.user_id] = s; });
+  (subs || []).forEach((s) => {
+    if (!subMap[s.user_id]) subMap[s.user_id] = {};
+    subMap[s.user_id][s.site || "yt"] = s;
+  });
   const profileMap = {};
   (profiles || []).forEach((p) => { profileMap[p.user_id] = p; });
 
@@ -134,7 +137,9 @@ export default async function AdminPage() {
     created_at: u.created_at,
     used_code: profileMap[u.id]?.used_code || null,
     used_plan: profileMap[u.id]?.used_code ? codeToPlanMap[profileMap[u.id].used_code] || null : null,
-    subscription: subMap[u.id] || null,
+    subscription: subMap[u.id]?.["yt"] || null,
+    subscription_yt: subMap[u.id]?.["yt"] || null,
+    subscription_drama: subMap[u.id]?.["drama"] || null,
   }));
 
   return (
