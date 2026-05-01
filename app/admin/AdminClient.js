@@ -804,7 +804,7 @@ function OverviewPanel({ stats }) {
 // ══════════════════════════════════════════════════════
 // 模块二：视频管理
 // ══════════════════════════════════════════════════════
-function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast }) {
+function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast, globalSite = "yt" }) {
   const [clips, setClips] = useState(initialClips);
   const [taxonomies, setTaxonomies] = useState(initialTaxonomiesFromProps);
   const [showForm, setShowForm] = useState(false);
@@ -814,7 +814,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [duplicating, setDuplicating] = useState(null);
   const [loadingEdit, setLoadingEdit] = useState(null);
   const [search, setSearch] = useState("");
-  const [siteFilter, setSiteFilter] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [pageSize, setPageSize] = useState(20);
@@ -833,8 +832,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   };
 
   const filtered = clips.filter((c) => {
-    if (siteFilter === "yt" && c.site !== "yt") return false;
-    if (siteFilter === "drama" && c.site !== "drama") return false;
+    if (c.site !== globalSite) return false;
     if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -959,16 +957,6 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>🎬 视频管理</h2>
-        <div style={{ display: "flex", gap: 6 }}>
-          {[["all","全部"], ["yt","🎥 油管"], ["drama","🎬 美剧"]].map(([v,l]) => (
-            <button key={v} onClick={() => { setSiteFilter(v); setCurrentPage(1); }} style={{
-              padding: "6px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
-              cursor: "pointer", border: `1px solid ${siteFilter === v ? T.accent : T.border2}`,
-              background: siteFilter === v ? `${T.accent}22` : "transparent",
-              color: siteFilter === v ? T.accent2 : T.muted,
-            }}>{l}</button>
-          ))}
-        </div>
         <input
           value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           placeholder="搜索标题…"
@@ -1136,7 +1124,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 // ══════════════════════════════════════════════════════
 // 模块三：兑换码管理
 // ══════════════════════════════════════════════════════
-function CodesPanel({ initialCodes, onToast }) {
+function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
   const [codes, setCodes] = useState(initialCodes);
   const [showGen, setShowGen] = useState(false);
   const [genOpts, setGenOpts] = useState({ plan: "month", days: "30", count: "100", site: "yt" });
@@ -1156,6 +1144,7 @@ function CodesPanel({ initialCodes, onToast }) {
 
   const filtered = codes.filter((c) => {
     const used = c.used_count >= (c.max_uses || 1);
+    if (c.site && c.site !== globalSite) return false;
     if (filter === "active" && !(c.is_active && !used)) return false;
     if (filter === "used" && !used) return false;
     if (filter === "inactive" && c.is_active) return false;
@@ -1351,7 +1340,7 @@ function CodesPanel({ initialCodes, onToast }) {
 // ══════════════════════════════════════════════════════
 // 模块四：用户管理
 // ══════════════════════════════════════════════════════
-function UsersPanel({ initialUsers, onToast }) {
+function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1679,7 +1668,7 @@ function UsersPanel({ initialUsers, onToast }) {
 // ══════════════════════════════════════════════════════
 // 模块五：订单管理
 // ══════════════════════════════════════════════════════
-function OrdersPanel({ initialOrders, onToast }) {
+function OrdersPanel({ initialOrders, onToast, globalSite = "yt" }) {
   const [orders, setOrders] = useState(initialOrders);
   const [search, setSearch] = useState("");
 
@@ -1688,6 +1677,7 @@ function OrdersPanel({ initialOrders, onToast }) {
   };
 
   const filtered = orders.filter((o) => {
+    if (o.site && o.site !== globalSite) return false;
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     return (
@@ -1801,6 +1791,7 @@ export default function AdminClient({
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
+  const [globalSite, setGlobalSite] = useState("yt");
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   function onToast(msg, type = "success") {
@@ -1876,6 +1867,16 @@ export default function AdminClient({
             }}>{t.label}</button>
           ))}
         </div>
+        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+          {[["yt","🎥 油管"], ["drama","🎬 美剧"]].map(([v,l]) => (
+            <button key={v} onClick={() => setGlobalSite(v)} style={{
+              padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", border: `1px solid ${globalSite === v ? T.good : T.border2}`,
+              background: globalSite === v ? `${T.good}22` : "transparent",
+              color: globalSite === v ? T.good : T.muted,
+            }}>{l}</button>
+          ))}
+        </div>
         <div className="admin-nav-email" style={{ fontSize: 12, color: T.faint, flexShrink: 0 }}>{adminEmail}</div>
         <a href="/" style={{ fontSize: 12, color: T.faint, textDecoration: "none", flexShrink: 0 }}>← 返回网站</a>
       </div>
@@ -1887,18 +1888,21 @@ export default function AdminClient({
             initialClips={initialClips}
             taxonomies={initialTaxonomies}
             onToast={onToast}
+            globalSite={globalSite}
           />
         )}
         {tab === "codes" && (
           <CodesPanel
             initialCodes={initialRedeemCodes}
             onToast={onToast}
+            globalSite={globalSite}
           />
         )}
         {tab === "orders" && (
           <OrdersPanel
             initialOrders={initialOrders || []}
             onToast={onToast}
+            globalSite={globalSite}
           />
         )}
         {tab === "settings" && <SettingsPanel />}
@@ -1906,6 +1910,7 @@ export default function AdminClient({
           <UsersPanel
             initialUsers={initialUsers}
             onToast={onToast}
+            globalSite={globalSite}
           />
         )}
       </div>
