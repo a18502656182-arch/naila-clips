@@ -7,6 +7,7 @@ import ClipsGridClient from "./ClipsGridClient";
 const SCROLL_KEY = "naila_home_scroll_v1";
 const BANNER_KEY = "naila_free_banner_closed_v1";
 const FILTERS_KEY = "naila_home_filters_v1";
+const SITE_KEY = "naila_home_site_v1";
 
 const DEFAULT_FILTERS = {
   sort: "newest",
@@ -14,9 +15,22 @@ const DEFAULT_FILTERS = {
   difficulty: [],
   topic: [],
   channel: [],
+  genre: "",
+  duration: "",
+  show: [],
 };
 
+const TABS = [
+  { id: "yt",    label: "🎥 油管博主" },
+  { id: "drama", label: "🎬 影视美剧" },
+];
+
 export default function HomeClient({ allItems, initialTaxonomies }) {
+  // 当前选中的站点 Tab
+  const [site, setSite] = useState(() => {
+    try { return sessionStorage.getItem(SITE_KEY) || "yt"; } catch { return "yt"; }
+  });
+
   const [filters, setFilters] = useState(() => {
     try {
       const saved = sessionStorage.getItem(FILTERS_KEY);
@@ -35,7 +49,6 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
     } catch {}
   }, []);
 
-  // 让浏览器自动记住并恢复滚动位置
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.history.scrollRestoration = "auto";
@@ -47,7 +60,6 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
     };
   }, []);
 
-  // 恢复滚动位置（等visibleCount恢复后页面高度足够再滚）
   useEffect(() => {
     if (scrollRestored.current) return;
     scrollRestored.current = true;
@@ -72,7 +84,6 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
     } catch {}
   }, []);
 
-  // 保存滚动位置
   useEffect(() => {
     let timer = null;
     function saveScroll() {
@@ -92,14 +103,18 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
     };
   }, []);
 
-
-  // 保存筛选状态
   useEffect(() => {
     try {
       sessionStorage.setItem(FILTERS_KEY, JSON.stringify(filters));
     } catch {}
   }, [filters]);
 
+  // 切换 Tab 时重置筛选，保存 site
+  function handleSiteChange(newSite) {
+    setSite(newSite);
+    try { sessionStorage.setItem(SITE_KEY, newSite); } catch {}
+    setFilters(DEFAULT_FILTERS);
+  }
 
   function closeBanner() {
     try { localStorage.setItem(BANNER_KEY, "1"); } catch {}
@@ -113,6 +128,34 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
 
   return (
     <div ref={containerRef}>
+      {/* 油管 / 美剧 Tab 切换 */}
+      <div style={{
+        display: "flex", gap: 8, marginBottom: 16,
+        borderBottom: "2px solid rgba(15,23,42,0.08)",
+        paddingBottom: 0,
+      }}>
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => handleSiteChange(tab.id)}
+            style={{
+              padding: "10px 20px",
+              border: "none",
+              background: "transparent",
+              fontSize: 15,
+              fontWeight: site === tab.id ? 900 : 500,
+              color: site === tab.id ? "#4f46e5" : "rgba(11,18,32,0.45)",
+              cursor: "pointer",
+              borderBottom: site === tab.id ? "2px solid #4f46e5" : "2px solid transparent",
+              marginBottom: -2,
+              transition: "all 0.15s",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {showBanner && (
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
@@ -145,11 +188,18 @@ export default function HomeClient({ allItems, initialTaxonomies }) {
           >×</button>
         </div>
       )}
-      <FiltersClient filters={filters} onFiltersChange={setFilters} initialTaxonomies={initialTaxonomies} />
+
+      <FiltersClient
+        filters={filters}
+        onFiltersChange={setFilters}
+        initialTaxonomies={initialTaxonomies}
+        site={site}
+      />
       <div style={{ marginTop: 14 }}>
         <ClipsGridClient
           allItems={allItems || []}
           filters={filters}
+          site={site}
         />
       </div>
     </div>
