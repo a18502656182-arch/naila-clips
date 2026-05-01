@@ -524,6 +524,7 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     cover_url: initial.cover_url || "",
     duration_sec: initial.duration_sec || "",
     access_tier: initial.access_tier || "free",
+    site: initial.site || "yt",
     difficulty_slug: initial.difficulty_slug || "",
     topic_slugs: initial.topic_slugs || [],
     channel_slugs: initial.channel_slugs || [],
@@ -579,6 +580,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         <Input label="时长（秒）" value={form.duration_sec} onChange={(e) => setF("duration_sec", e.target.value)} type="number" placeholder="如 342" />
         <Select label="访问权限" value={form.access_tier} onChange={(e) => setF("access_tier", e.target.value)}
           options={[{ value: "free", label: "🆓 免费" }, { value: "vip", label: "✨ 会员" }]} />
+        <Select label="站点 *" value={form.site} onChange={(e) => setF("site", e.target.value)}
+          options={[{ value: "yt", label: "🎥 油管博主" }, { value: "drama", label: "🎬 影视美剧" }]} />
         <Input label="上传日期" value={form.upload_time} onChange={(e) => setF("upload_time", e.target.value)} type="date" />
         <div style={{ gridColumn: "1/-1" }}>
           <Input label="描述" value={form.description} onChange={(e) => setF("description", e.target.value)} placeholder="视频描述（可选）" />
@@ -659,7 +662,7 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
             durations.forEach(s => { taxonomyHints[s] = "duration"; });
             shows.forEach(s => { taxonomyHints[s] = "channel"; });
             difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
-            onSave({ ...form, taxonomy_hints: taxonomyHints });
+            onSave({ ...form, taxonomy_hints: taxonomyHints, site: form.site || "yt" });
           }}
           disabled={loading || (!isBatch && (!form.title || !form.video_url)) || jsonStatus === "error"}
         >{loading ? (isBatch ? "批量保存中…" : "保存中…") : (isBatch ? "💾 批量保存" : "💾 保存视频")}</Btn>
@@ -1119,7 +1122,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 function CodesPanel({ initialCodes, onToast }) {
   const [codes, setCodes] = useState(initialCodes);
   const [showGen, setShowGen] = useState(false);
-  const [genOpts, setGenOpts] = useState({ plan: "month", days: "30", count: "100" });
+  const [genOpts, setGenOpts] = useState({ plan: "month", days: "30", count: "100", site: "yt" });
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -1161,6 +1164,7 @@ function CodesPanel({ initialCodes, onToast }) {
       plan: genOpts.plan,
       days: days,
       count: Number(genOpts.count),
+      site: genOpts.site || "yt",
     });
     setGenerating(false);
     if (!res.ok) { onToast(res.error || "生成失败", "error"); return; }
@@ -1299,6 +1303,11 @@ function CodesPanel({ initialCodes, onToast }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <Select label="站点（兑换码适用哪个站的会员）"
+              value={genOpts.site}
+              onChange={(e) => setGenOpts((g) => ({ ...g, site: e.target.value }))}
+              options={[{ value: "yt", label: "🎥 油管博主会员" }, { value: "drama", label: "🎬 影视美剧会员" }]}
+            />
             <Select label="套餐类型"
               value={genOpts.plan}
               onChange={(e) => {
