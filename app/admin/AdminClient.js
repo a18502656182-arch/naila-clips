@@ -814,6 +814,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [duplicating, setDuplicating] = useState(null);
   const [loadingEdit, setLoadingEdit] = useState(null);
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [pageSize, setPageSize] = useState(20);
@@ -831,9 +832,12 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     } catch {}
   };
 
-  const filtered = clips.filter((c) =>
-    !search || c.title?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = clips.filter((c) => {
+    if (siteFilter === "yt" && c.site !== "yt") return false;
+    if (siteFilter === "drama" && c.site !== "drama") return false;
+    if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -955,6 +959,16 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>🎬 视频管理</h2>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[["all","全部"], ["yt","🎥 油管"], ["drama","🎬 美剧"]].map(([v,l]) => (
+            <button key={v} onClick={() => { setSiteFilter(v); setCurrentPage(1); }} style={{
+              padding: "6px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", border: `1px solid ${siteFilter === v ? T.accent : T.border2}`,
+              background: siteFilter === v ? `${T.accent}22` : "transparent",
+              color: siteFilter === v ? T.accent2 : T.muted,
+            }}>{l}</button>
+          ))}
+        </div>
         <input
           value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           placeholder="搜索标题…"
@@ -1051,6 +1065,9 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
                 {clip.title}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                <Chip color={clip.site === "drama" ? "#f472b6" : T.accent}>
+                  {clip.site === "drama" ? "🎬 美剧" : "🎥 油管"}
+                </Chip>
                 <Chip color={clip.access_tier === "vip" ? T.vip : T.good}>
                   {clip.access_tier === "vip" ? "✨ 会员" : "🆓 免费"}
                 </Chip>
