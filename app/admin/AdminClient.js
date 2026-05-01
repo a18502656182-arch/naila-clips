@@ -1403,9 +1403,10 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
     setMemberModal(null);
   }
 
+  const siteSub = (u) => globalSite === "drama" ? u.subscription_drama : u.subscription_yt;
   const filtered = users.filter((u) => {
-    if (filter === "member" && !isMemberActive(u.subscription)) return false;
-    if (filter === "expired" && isMemberActive(u.subscription)) return false;
+    if (filter === "member" && !isMemberActive(siteSub(u))) return false;
+    if (filter === "expired" && isMemberActive(siteSub(u))) return false;
     if (planFilter !== "all") {
       const days = u.used_plan?.days;
       if (planFilter === "trial" && !(days > 0 && days < 30)) return false;
@@ -1460,8 +1461,9 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
           <div style={{ textAlign: "center", padding: 40, color: T.faint }}>暂无用户</div>
         )}
         {filtered.map((u) => {
-          const active = isMemberActive(u.subscription);
-          const expired = u.subscription && !active;
+          const sub = globalSite === "drama" ? u.subscription_drama : u.subscription_yt;
+          const active = isMemberActive(sub);
+          const expired = sub && !active;
           return (
             <div key={u.id} className="user-row" style={{
               background: T.surface2, borderRadius: T.radius.md,
@@ -1489,9 +1491,9 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
                   {active && <Chip color={T.vip}>✨ 会员中</Chip>}
                   {expired && <Chip color={T.danger}>已过期</Chip>}
                   {!u.subscription && <Chip color={T.muted}>普通用户</Chip>}
-                  {u.subscription && (
+                  {sub && (
                     <span style={{ fontSize: 11, color: T.faint }}>
-                      到期：{u.subscription.expires_at ? fmt(u.subscription.expires_at) : "永久"}
+                      到期：{sub.expires_at ? fmt(sub.expires_at) : "永久"}
                     </span>
                   )}
                   {u.used_code && (
@@ -1619,10 +1621,10 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: "12px 16px", background: T.surface3, borderRadius: T.radius.md }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: T.ink }}>{memberModal.username || memberModal.email}</div>
-              {memberModal.subscription && (
+              {(globalSite === "drama" ? memberModal.subscription_drama : memberModal.subscription_yt) && (
                 <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
-                  当前到期：{memberModal.subscription.expires_at ? fmt(memberModal.subscription.expires_at) : "永久"}
-                  {isMemberActive(memberModal.subscription) ? " (有效)" : " (已过期)"}
+                  当前到期：{(globalSite === "drama" ? memberModal.subscription_drama : memberModal.subscription_yt)?.expires_at ? fmt((globalSite === "drama" ? memberModal.subscription_drama : memberModal.subscription_yt).expires_at) : "永久"}
+                  {isMemberActive(globalSite === "drama" ? memberModal.subscription_drama : memberModal.subscription_yt) ? " (有效)" : " (已过期)"}
                 </div>
               )}
             </div>
