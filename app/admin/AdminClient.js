@@ -1181,6 +1181,7 @@ function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
         code, plan: genOpts.plan, days: Number(genOpts.days),
         max_uses: 1, used_count: 0, is_active: true,
         created_at: new Date().toISOString(),
+        site: genOpts.site || "yt",
       }));
       return [...newRows, ...prev];
     });
