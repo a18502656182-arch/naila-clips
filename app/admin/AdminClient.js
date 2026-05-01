@@ -1144,7 +1144,7 @@ function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
 
   const filtered = codes.filter((c) => {
     const used = c.used_count >= (c.max_uses || 1);
-    if (c.site && c.site !== globalSite) return false;
+    if ((c.site || "yt") !== globalSite) return false;
     if (filter === "active" && !(c.is_active && !used)) return false;
     if (filter === "used" && !used) return false;
     if (filter === "inactive" && c.is_active) return false;
