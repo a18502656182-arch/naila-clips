@@ -176,33 +176,29 @@ export default async function Page() {
           }}
         >
           {/* 左：Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
             <div
               style={{
-                width: 40, height: 40, borderRadius: 14,
+                width: 36, height: 36, borderRadius: 12,
                 background: `linear-gradient(135deg, ${THEME.colors.accent}, ${THEME.colors.accent2})`,
                 display: "grid", placeItems: "center",
-                color: "#fff", fontWeight: 950, fontSize: 14,
+                color: "#fff", fontWeight: 950, fontSize: 13,
                 letterSpacing: "-0.03em",
-                boxShadow: "0 14px 28px rgba(79,70,229,0.26)",
+                boxShadow: "0 10px 22px rgba(79,70,229,0.26)",
+                flexShrink: 0,
               }}
             >
               EC
             </div>
-            <div style={{ lineHeight: 1.15 }}>
-              <div style={{ fontSize: 16, fontWeight: 950, color: THEME.colors.ink, letterSpacing: "-0.02em" }}>
-                <span className="title-desktop">英语场景库</span>
-                <span className="title-mobile">英语场景库</span>
-                <style>{`
-                  .title-desktop { display: inline; }
-                  .title-mobile { display: none; }
-                  @media (max-width: 480px) {
-                    .title-desktop { display: none; }
-                    .title-mobile { display: inline; }
-                  }
-                `}</style>
-              </div>
-            </div>
+            <style>{`
+              .nav-title {
+                font-size: 15px; font-weight: 950;
+                color: #0b1220; letter-spacing: -0.02em;
+                white-space: nowrap;
+              }
+              @media (max-width: 520px) { .nav-title { display: none; } }
+            `}</style>
+            <span className="nav-title">英语场景库</span>
           </div>
 
           {/* 中：Tab切换（客户端组件） */}
