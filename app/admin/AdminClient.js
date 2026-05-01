@@ -1374,7 +1374,7 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
 
   async function handleMemberSave() {
     setSaving(true);
-    const res = await api("member_set", { user_id: memberModal.id, days: Number(memberDays) });
+    const res = await api("member_set", { user_id: memberModal.id, days: Number(memberDays), site: globalSite });
     setSaving(false);
     if (!res.ok) { onToast(res.error || "操作失败", "error"); return; }
     const d = Number(memberDays);
@@ -1392,7 +1392,7 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
   async function handleMemberStop() {
     if (!confirm(`确认立即停用「${memberModal.username || memberModal.email}」的会员？`)) return;
     setSaving(true);
-    const res = await api("member_stop", { user_id: memberModal.id });
+    const res = await api("member_stop", { user_id: memberModal.id, site: globalSite });
     setSaving(false);
     if (!res.ok) { onToast(res.error || "操作失败", "error"); return; }
     onToast("会员已停用 ✓");
