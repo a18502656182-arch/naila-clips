@@ -66,9 +66,9 @@ export default async function ClipPage({ params }) {
       .eq("id", id)
       .maybeSingle(),
     admin
-      .from("clip_details")
+      .from("clips")
       .select("details_json")
-      .eq("clip_id", id)
+      .eq("id", id)
       .maybeSingle(),
     token
       ? (async () => {
@@ -116,6 +116,15 @@ export default async function ClipPage({ params }) {
   const initialBookmarked = !!bookmarkResult.data;
 
   let details_json = detailResult.data?.details_json ?? null;
+  // 如果 clips 表里没有，尝试从 clip_details 表读取（兼容旧数据）
+  if (!details_json) {
+    const { data: legacyDetail } = await admin
+      .from("clip_details")
+      .select("details_json")
+      .eq("clip_id", id)
+      .maybeSingle();
+    details_json = legacyDetail?.details_json ?? null;
+  }
   if (typeof details_json === "string") {
     try { details_json = JSON.parse(details_json); } catch { details_json = null; }
   }
