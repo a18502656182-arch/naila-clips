@@ -293,15 +293,12 @@ export async function POST(req) {
 
     const userIds = filtered.map((u) => u.id);
     const [{ data: subs }, { data: profiles }] = await Promise.all([
-      db.from("subscriptions").select("user_id,plan,expires_at,status,site").in("user_id", userIds),
+      db.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
       db.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
     ]);
 
     const subMap = {};
-    (subs || []).forEach((s) => {
-      if (!subMap[s.user_id]) subMap[s.user_id] = {};
-      subMap[s.user_id][s.site || "yt"] = s;
-    });
+    (subs || []).forEach((s) => { subMap[s.user_id] = s; });
     const profMap = {};
     (profiles || []).forEach((p) => { profMap[p.user_id] = p; });
 
@@ -311,9 +308,9 @@ export async function POST(req) {
       username: profMap[u.id]?.username || u.user_metadata?.username || null,
       used_code: profMap[u.id]?.used_code || null,
       created_at: u.created_at,
-      subscription: subMap[u.id]?.["yt"] || null,
-      subscription_yt: subMap[u.id]?.["yt"] || null,
-      subscription_drama: subMap[u.id]?.["drama"] || null,
+      subscription: subMap[u.id] || null,
+      subscription_yt: subMap[u.id] || null,
+      subscription_drama: subMap[u.id] || null,
     }));
 
     return NextResponse.json({ ok: true, users: result });
@@ -323,7 +320,6 @@ export async function POST(req) {
   if (action === "member_set") {
     const { user_id, days } = body;
     const d = Number(days);
-    const site = body.site || "yt";
     if (!user_id || isNaN(d)) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
 
     let expires_at = null;
@@ -334,7 +330,6 @@ export async function POST(req) {
         .from("subscriptions")
         .select("expires_at")
         .eq("user_id", user_id)
-        .eq("site", site)
         .maybeSingle();
 
       const now = Date.now();
@@ -349,8 +344,8 @@ export async function POST(req) {
     const { error } = await db
       .from("subscriptions")
       .upsert(
-        { user_id, status: "active", plan, expires_at, site },
-        { onConflict: "user_id,site" }
+        { user_id, status: "active", plan, expires_at },
+        { onConflict: "user_id" }
       );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, expires_at });
@@ -359,13 +354,11 @@ export async function POST(req) {
   // ── 会员：立即停用 ──
   if (action === "member_stop") {
     const { user_id } = body;
-    const site = body.site || "yt";
     if (!user_id) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
     const { error } = await db
       .from("subscriptions")
       .update({ status: "inactive", expires_at: new Date().toISOString() })
-      .eq("user_id", user_id)
-      .eq("site", site);
+      .eq("user_id", user_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
