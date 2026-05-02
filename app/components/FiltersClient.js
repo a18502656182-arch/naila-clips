@@ -152,48 +152,224 @@ function SingleSelectDropdown({ label, options, selected, onSelect, renderLabel 
   );
 }
 
-// 美剧站剧名云标签
-function ShowFilter({ shows, selectedShows, onSelectShow }) {
-  const [search, setSearch] = useState("");
-  const filtered = search.trim()
-    ? shows.filter(s => s.slug.includes(search))
-    : shows;
+// ── 剧集目录抽屉（点击筛选）────────────────────────────────
+const PINNED_SOURCES = ["美剧", "电影", "动画", "英剧"];
+
+function ShowDrawer({ shows, sources, selectedShows, onSelectShow, onClose }) {
+  const sortedSources = useMemo(() => {
+    const pinned = PINNED_SOURCES.map(name => sources.find(s => s.slug === name)).filter(Boolean);
+    const rest = sources.filter(s => !PINNED_SOURCES.includes(s.slug));
+    return [...pinned, ...rest];
+  }, [sources]);
+
+  const [activeSource, setActiveSource] = useState(sortedSources[0]?.slug || null);
+
+  const displayShows = useMemo(() => {
+    if (!activeSource) return shows;
+    return shows.filter((s) => s.source === activeSource);
+  }, [shows, activeSource, sortedSources]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  function handleSelectShow(slug) {
+    if (selectedShows?.includes(slug)) {
+      onSelectShow("");
+    } else {
+      onSelectShow(slug);
+    }
+    onClose();
+  }
 
   return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 12, color: THEME.colors.faint, marginBottom: 6 }}>剧名筛选</div>
-      <input
-        type="text"
-        placeholder="搜索剧名..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
+    <>
+      <div
+        onClick={onClose}
         style={{
-          width: "100%", padding: "7px 10px", borderRadius: 10,
-          border: `1px solid ${THEME.colors.border2}`, fontSize: 13,
-          background: THEME.colors.surface, color: THEME.colors.ink,
-          marginBottom: 8, boxSizing: "border-box", outline: "none",
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(11,18,32,0.35)", backdropFilter: "blur(2px)",
         }}
       />
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {(filtered || []).map(s => {
-          const active = selectedShows.includes(s.slug);
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 201,
+        width: "min(420px, 96vw)", background: "#fff",
+        boxShadow: "-16px 0 60px rgba(11,18,32,0.14)",
+        display: "flex", flexDirection: "column",
+        animation: "drawerSlideIn 0.22s ease",
+      }}>
+        <style>{`
+          @keyframes drawerSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+          .drawerBody::-webkit-scrollbar { width: 4px; }
+          .drawerBody::-webkit-scrollbar-thumb { background: rgba(11,18,32,0.12); border-radius: 4px; }
+          .drawerItem { display: flex; align-items: center; gap: 14px; padding: 11px 20px; border-bottom: 1px solid rgba(15,23,42,0.06); cursor: pointer; transition: background 0.12s; }
+          .drawerItem:hover { background: rgba(99,102,241,0.06) !important; }
+        `}</style>
+        <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid rgba(15,23,42,0.08)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontSize: 17, fontWeight: 900, color: "#0b1220" }}>🎬 全部剧集目录</div>
+            <button onClick={onClose} style={{
+              width: 32, height: 32, borderRadius: "50%", border: "1px solid rgba(15,23,42,0.08)",
+              background: "#f4f6fb", cursor: "pointer", fontSize: 16,
+              display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8",
+            }}>✕</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {sortedSources.map((src) => {
+              const isActive = activeSource === src.slug;
+              return (
+                <button key={src.slug} onClick={() => setActiveSource(src.slug)} style={{
+                  padding: "6px 16px", borderRadius: 999, fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", border: "none", transition: "all 0.15s",
+                  background: isActive ? "#4f46e5" : "#f0f1f8",
+                  color: isActive ? "#fff" : "#94a3b8",
+                }}>{src.slug}</button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(11,18,32,0.38)" }}>点击剧名筛选该剧集片段，再次点击取消</div>
+        </div>
+        <div className="drawerBody" style={{ flex: 1, overflowY: "auto", padding: "4px 0 24px" }}>
+          {displayShows.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 40, color: "rgba(11,18,32,0.38)", fontSize: 13 }}>暂无剧集</div>
+          ) : (
+            <div>
+              {displayShows.map((s, i) => {
+                const isSelected = selectedShows?.includes(s.slug);
+                return (
+                  <div key={s.slug} onClick={() => handleSelectShow(s.slug)} className="drawerItem"
+                    style={{ background: isSelected ? "rgba(99,102,241,0.10)" : i % 2 === 0 ? "#fff" : "#fafbfd" }}>
+                    <span style={{ minWidth: 22, fontSize: 12, fontWeight: 700, color: isSelected ? "#4f46e5" : "rgba(11,18,32,0.38)", textAlign: "right" }}>{i + 1}</span>
+                    <span style={{ fontSize: 14, fontWeight: isSelected ? 700 : 500, color: isSelected ? "#4f46e5" : "#0b1220", flex: 1 }}>{s.slug}</span>
+                    {isSelected && <span style={{ fontSize: 11, color: "#4f46e5", fontWeight: 700, whiteSpace: "nowrap" }}>筛选中 ✓</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── 剧名行：热门标签 + 全目录按钮 ────────────────────────
+const HOT_COUNT = 10;
+const HOT_COUNT_MOBILE = 5;
+const PINNED_SHOWS = ["绝望主妇", "生活大爆炸", "老友记", "破产姐妹", "绝命毒师"];
+const TAG_COLORS = [
+  { bg: "rgba(99,102,241,0.10)", color: "#4338ca", border: "rgba(99,102,241,0.25)" },
+  { bg: "rgba(16,185,129,0.10)", color: "#065f46", border: "rgba(16,185,129,0.25)" },
+  { bg: "rgba(245,158,11,0.10)", color: "#92400e", border: "rgba(245,158,11,0.25)" },
+  { bg: "rgba(239,68,68,0.10)",  color: "#991b1b", border: "rgba(239,68,68,0.25)"  },
+  { bg: "rgba(6,182,212,0.10)",  color: "#0e7490", border: "rgba(6,182,212,0.25)"  },
+  { bg: "rgba(139,92,246,0.10)", color: "#5b21b6", border: "rgba(139,92,246,0.25)" },
+  { bg: "rgba(236,72,153,0.10)", color: "#9d174d", border: "rgba(236,72,153,0.25)" },
+  { bg: "rgba(52,211,153,0.10)", color: "#065f46", border: "rgba(52,211,153,0.25)" },
+];
+
+function ShowFilter({ shows, sources, selectedShows, showSearch, onSelectShow, onSearchChange, onClearShows }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filteredShows = useMemo(() => {
+    if (!showSearch.trim()) return shows;
+    return shows.filter((s) => s.slug.toLowerCase().includes(showSearch.toLowerCase()));
+  }, [shows, showSearch]);
+
+  const hotShows = useMemo(() => {
+    const pinned = PINNED_SHOWS.map(name => shows.find(s => s.slug === name)).filter(Boolean);
+    const rest = shows.filter(s => !PINNED_SHOWS.includes(s.slug));
+    return [...pinned, ...rest].slice(0, HOT_COUNT);
+  }, [shows]);
+
+  const displayShows = showSearch.trim() ? filteredShows : hotShows;
+
+  function handleSelectShow(slug) {
+    if (selectedShows.includes(slug)) {
+      onSelectShow("");
+    } else {
+      onSelectShow(slug);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      <style>{`
+        .showTagMobileHide { display: inline-block; }
+        @media (max-width: 960px) { .showTagMobileHide { display: none !important; } }
+      `}</style>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: THEME.colors.faint }}>剧集筛选</span>
+        {selectedShows.length > 0 && (
+          <span onClick={onClearShows} style={{ fontSize: 11, color: THEME.colors.accent, cursor: "pointer" }}>清空已选</span>
+        )}
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <input
+          type="text" value={showSearch} onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="搜索剧名…"
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "7px 12px",
+            borderRadius: 10, border: `1px solid ${THEME.colors.border2}`,
+            background: THEME.colors.surface, color: THEME.colors.ink,
+            fontSize: 13, outline: "none",
+          }}
+        />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        {displayShows.map((s, i) => {
+          const isSelected = selectedShows.includes(s.slug);
+          const palette = TAG_COLORS[i % TAG_COLORS.length];
+          const hiddenOnMobile = !showSearch.trim() && i >= HOT_COUNT_MOBILE;
           return (
-            <button
+            <span
               key={s.slug}
-              onClick={() => onSelectShow(s.slug)}
+              onClick={() => handleSelectShow(s.slug)}
+              className={hiddenOnMobile ? "showTagMobileHide" : undefined}
               style={{
-                padding: "5px 12px", borderRadius: 999, border: "none", cursor: "pointer",
-                fontSize: 13, fontWeight: active ? 700 : 400,
-                background: active ? "#4f46e5" : "rgba(15,23,42,0.07)",
-                color: active ? "#fff" : THEME.colors.ink,
-                transition: "all 0.12s",
+                padding: isSelected ? "6px 15px" : "5px 13px",
+                borderRadius: 999, fontSize: isSelected ? 13 : 12, cursor: "pointer",
+                userSelect: "none", transition: "all 0.18s", whiteSpace: "nowrap",
+                fontWeight: 700,
+                border: `1.5px solid ${isSelected ? THEME.colors.accent : palette.border}`,
+                background: isSelected ? THEME.colors.accent : palette.bg,
+                color: isSelected ? "#fff" : palette.color,
+                boxShadow: isSelected ? "0 2px 10px rgba(99,102,241,0.35)" : "none",
+                transform: isSelected ? "scale(1.06)" : "scale(1)",
               }}
-            >
-              {s.slug}
-            </button>
+            >{s.slug}</span>
           );
         })}
+        {!showSearch.trim() && (
+          <button
+            onClick={() => setDrawerOpen(true)}
+            style={{
+              padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", whiteSpace: "nowrap", border: "none",
+              background: "linear-gradient(135deg, #6366f1, #818cf8)",
+              color: "#fff", boxShadow: "0 2px 8px rgba(99,102,241,0.30)",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.opacity = "0.85"}
+            onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+          >🎬 全部剧集目录</button>
+        )}
       </div>
+      {drawerOpen && (
+        <ShowDrawer
+          shows={shows}
+          sources={sources || []}
+          selectedShows={selectedShows}
+          onSelectShow={onSelectShow}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -204,7 +380,7 @@ const GENRE_LABELS = {
 };
 
 const DEFAULT_FILTERS_YT = { sort: "newest", access: [], difficulty: [], topic: [], channel: [], genre: "", duration: "", show: [] };
-const DEFAULT_FILTERS_DRAMA = { sort: "newest", access: [], difficulty: [], genre: "", duration: "", show: [], topic: [], channel: [] };
+const DEFAULT_FILTERS_DRAMA = { sort: "newest", access: [], difficulty: [], genre: "", duration: "", show: [], showSearch: "", topic: [], channel: [] };
 
 export default function FiltersClient({ filters, onFiltersChange, initialTaxonomies, site }) {
   const tax = initialTaxonomies || { difficulties: [], topics: [], channels: [], genres: [], durations: [], shows: [] };
@@ -369,8 +545,12 @@ export default function FiltersClient({ filters, onFiltersChange, initialTaxonom
             </div>
             <ShowFilter
               shows={tax.shows || []}
+              sources={tax.durations || []}
               selectedShows={filters.show || []}
-              onSelectShow={(slug) => update({ show: toggleInArray(filters.show || [], slug) })}
+              showSearch={filters.showSearch || ""}
+              onSelectShow={(slug) => update({ show: slug ? [slug] : [] })}
+              onSearchChange={(v) => update({ showSearch: v })}
+              onClearShows={() => update({ show: [], showSearch: "" })}
             />
           </>
         )}
