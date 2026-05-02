@@ -204,8 +204,10 @@ export default async function Page() {
             <span className="nav-title">英语场景库</span>
           </div>
 
-          {/* 中：Tab切换（客户端组件） */}
-          <SiteTabs />
+          {/* 中：Tab切换（客户端组件），用占位保持布局稳定 */}
+          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+            <SiteTabs />
+          </div>
 
           {/* 右：用户菜单 */}
           <UserMenuClient />
