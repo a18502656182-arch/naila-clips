@@ -86,8 +86,10 @@ export default async function ClipPage({ params }) {
             .eq("user_id", user.id)
             .eq("status", "active")
             // 永久卡 expires_at 为 null，有效期卡 expires_at > now()，两种都算有效会员
-            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString());
-          return { user, subs: subData || [] };
+            .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+            .order("expires_at", { ascending: false, nullsFirst: true })
+            .limit(1);
+          return { user, sub: subData?.[0] || null };
         })()
       : Promise.resolve({ user: null, sub: null }),
     token
@@ -108,9 +110,7 @@ export default async function ClipPage({ params }) {
   if (clipResult.error || !clipResult.data) notFound();
 
   const clip = clipResult.data;
-  const { user, subs } = subResult;
-  const clipSite = clip.site || "yt";
-  const sub = (subs || []).find(s => (s.site || "yt") === clipSite) || null;
+  const { user, sub } = subResult;
   const is_member = !!sub;
   const can_access = clip.access_tier === "free" ? true : is_member;
   const initialBookmarked = !!bookmarkResult.data;
