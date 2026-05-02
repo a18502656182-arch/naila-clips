@@ -74,7 +74,7 @@ export default function SiteTabs() {
           <button
             key={tab.id}
             onClick={() => handleSwitch(tab.id)}
-            className={`site-tab-btn${(!mounted ? tab.id === "yt" : site === tab.id) ? " active" : ""}`}
+            className={`site-tab-btn${site === tab.id ? " active" : ""}`}
           >
             {tab.label}
           </button>
