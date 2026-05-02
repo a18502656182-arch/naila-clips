@@ -78,7 +78,10 @@ async function fetchTaxonomies() {
     channels: rows.filter(t => t.type === "channel").map(t => ({ slug: t.slug, name: t.slug, count: 0 })),
     genres: rows.filter(t => t.type === "genre").map(t => ({ slug: t.slug, name: t.slug, count: 0 })),
     durations: rows.filter(t => t.type === "duration").map(t => ({ slug: t.slug, name: t.slug, count: 0 })),
-    shows: rows.filter(t => t.type === "show").map(t => ({ slug: t.slug, name: t.slug, count: 0 })),
+    shows: rows.filter(t => t.type === "show").map(t => {
+      const sourceMap = {"冰河世纪": "动画", "唐顿庄园": "美剧", "复仇者联盟3": "电影", "复仇者联盟终局之战": "电影", "暮光之城": "美剧", "汉尼拔": "美剧", "生活大爆炸": "美剧", "破产姐妹": "美剧", "神探夏洛克": "英剧", "绝命毒师": "美剧", "绝望主妇": "美剧", "老友记": "美剧", "蚁人": "电影", "超人特工队": "动画", "越狱": "美剧"};
+      return { slug: t.slug, name: t.slug, count: 0, source: sourceMap[t.slug] || "美剧" };
+    }),
   };
 }
 
