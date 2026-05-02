@@ -336,6 +336,7 @@ export default function ClipsGridClient({ allItems, filters, site }) {
                       {r.difficulty ? <span className="metaTag metaTagD">{r.difficulty}</span> : null}
                       {isSiteDrama ? (
                         <>
+                          {(r.durations || []).map((d) => <span key={d} className="metaTag metaTagD">{d}</span>)}
                           {(r.genres || []).map((g) => <span key={g} className="metaTag metaTagG">{g}</span>)}
                           {(r.shows || []).map((s) => <span key={s} className="metaTag metaTagC" title={s}>{s}</span>)}
                         </>
