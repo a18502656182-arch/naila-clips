@@ -196,9 +196,8 @@ export default function ClipsGridClient({ allItems, filters, site }) {
   // 根据当前 site 判断用户是否有会员
   const isMember = useMemo(() => {
     if (!meLoaded || !me?.logged_in) return false;
-    if (site === "drama") return !!me?.is_member_drama;
-    return !!me?.is_member_yt ?? !!me?.is_member;
-  }, [me, meLoaded, site]);
+    return !!me?.is_member;
+  }, [me, meLoaded]);
 
   // 本地筛选：同时支持油管筛选参数和美剧筛选参数
   const filteredAll = useMemo(() => {
