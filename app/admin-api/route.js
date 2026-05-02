@@ -139,7 +139,7 @@ export async function POST(req) {
       if (detErr) return NextResponse.json({ error: detErr.message }, { status: 500 });
     }
 
-    await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
+    await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs, body.taxonomy_hints || {});
     await db.rpc("refresh_clips_view");
     revalidateTag("clips_view:all");
     revalidateTag("clips_view:featured");
@@ -194,14 +194,19 @@ export async function POST(req) {
         .eq("clip_id", id);
 
       const currentDifficulty = currentTaxRows?.find(r => r.taxonomies?.type === "difficulty")?.taxonomies?.slug || null;
-      const currentTopics = currentTaxRows?.filter(r => r.taxonomies?.type === "topic").map(r => r.taxonomies.slug) || [];
-      const currentChannels = currentTaxRows?.filter(r => r.taxonomies?.type === "channel").map(r => r.taxonomies.slug) || [];
+      const currentTopics = currentTaxRows?.filter(r => ["topic","genre","duration"].includes(r.taxonomies?.type)).map(r => r.taxonomies.slug) || [];
+      const currentChannels = currentTaxRows?.filter(r => ["channel","show"].includes(r.taxonomies?.type)).map(r => r.taxonomies.slug) || [];
+      // 重建 taxonomy_hints 从现有数据
+      const existingHints = {};
+      (currentTaxRows || []).forEach(r => { if (r.taxonomies?.slug) existingHints[r.taxonomies.slug] = r.taxonomies.type; });
+      if (!body.taxonomy_hints) body.taxonomy_hints = existingHints;
+      else body.taxonomy_hints = { ...existingHints, ...body.taxonomy_hints };
 
       const finalDifficulty = hasDifficulty ? difficulty_slug : currentDifficulty;
       const finalTopics = hasTopics ? topic_slugs : currentTopics;
       const finalChannels = hasChannels ? channel_slugs : currentChannels;
 
-      await syncTaxonomies(db, id, finalDifficulty, finalTopics, finalChannels);
+      await syncTaxonomies(db, id, finalDifficulty, finalTopics, finalChannels, body.taxonomy_hints || {});
     }
 
     await db.rpc("refresh_clips_view");
@@ -476,11 +481,18 @@ export async function GET(req) {
 }
 
 // ── 工具函数：同步 taxonomies ──
-async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs) {
+async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs, taxonomy_hints = {}) {
   const toUpsert = [];
   if (difficulty_slug) toUpsert.push({ type: "difficulty", slug: difficulty_slug });
-  (topic_slugs || []).forEach((s) => toUpsert.push({ type: "topic", slug: s }));
-  (channel_slugs || []).forEach((s) => toUpsert.push({ type: "channel", slug: s }));
+  // taxonomy_hints 告诉我们每个 slug 的真实 type（genre/duration/show/topic/channel）
+  (topic_slugs || []).forEach((s) => {
+    const type = taxonomy_hints[s] || "topic";
+    toUpsert.push({ type, slug: s });
+  });
+  (channel_slugs || []).forEach((s) => {
+    const type = taxonomy_hints[s] || "channel";
+    toUpsert.push({ type, slug: s });
+  });
   if (toUpsert.length > 0) {
     await db.from("taxonomies").upsert(toUpsert, { onConflict: "type,slug", ignoreDuplicates: true });
   }
