@@ -404,9 +404,12 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
   });
   // ✅ 直接用字符串数组，不再 map 成对象
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre" || t.type === "topic").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
   const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
-  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show" || t.type === "channel").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
+  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
+  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+  const toggleInArr = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
 
   const addLocalOption = (type, slug) => {
     if (type === "difficulty") setDifficulties(prev => prev.includes(slug) ? prev : [...prev, slug]);
@@ -427,6 +430,9 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     const without = form.topic_slugs.filter(s => !durations.includes(s));
     setF("topic_slugs", slug ? [...without, slug] : without);
   }
+
+  // 美剧视频：topic_slugs 存 genre/duration，channel_slugs 存 show
+  // 油管视频：topic_slugs 存 topic，channel_slugs 存 channel
 
   function handleSave() {
     const payload = {};
@@ -516,6 +522,56 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
   );
 }
 
+
+// ── 油管视频标签多选（topic/channel）────────────────────
+function MultiSelectDropdownAdmin({ label, options = [], selected = [], onToggle, type, onRefreshOptions, onAddLocalOption }) {
+  const [adding, setAdding] = useState(false);
+  const [newVal, setNewVal] = useState("");
+  const [localOptions, setLocalOptions] = useState(() => options);
+
+  const addNew = () => {
+    const s = newVal.trim().toLowerCase().replace(/\s+/g, "-");
+    if (!s) return;
+    setLocalOptions(prev => prev.includes(s) ? prev : [...prev, s]);
+    onAddLocalOption?.(type, s);
+    if (!selected.includes(s)) onToggle(s);
+    setNewVal(""); setAdding(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {label && <label style={{ fontSize: 12, fontWeight: 700, color: T.muted }}>{label}</label>}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {localOptions.map((slug) => (
+          <button key={slug} onClick={() => onToggle(slug)} style={{
+            padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+            borderRadius: T.radius.pill, border: `1px solid ${selected.includes(slug) ? T.accent2 : T.border2}`,
+            background: selected.includes(slug) ? `${T.accent2}22` : T.surface3,
+            color: selected.includes(slug) ? T.accent2 : T.muted,
+          }}>{slug}</button>
+        ))}
+        {adding ? (
+          <div style={{ display: "flex", gap: 4 }}>
+            <input autoFocus value={newVal} onChange={(e) => setNewVal(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addNew(); if (e.key === "Escape") setAdding(false); }}
+              placeholder="新标签…" style={{
+                padding: "4px 10px", borderRadius: T.radius.pill, fontSize: 12,
+                background: T.surface3, border: `1px solid ${T.border2}`, color: T.ink, outline: "none", width: 100,
+              }} />
+            <Btn size="sm" onClick={addNew}>✓</Btn>
+            <Btn size="sm" variant="ghost" onClick={() => setAdding(false)}>✕</Btn>
+          </div>
+        ) : (
+          <button onClick={() => setAdding(true)} style={{
+            padding: "4px 12px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+            cursor: "pointer", border: `1px dashed ${T.border2}`, background: "transparent", color: T.faint,
+          }}>+ 新增</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefreshTaxonomies, isBatch = false }) {
   const [form, setForm] = useState({
     title: initial.title || "",
@@ -544,9 +600,12 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
   const [jsonStatus, setJsonStatus] = useState(null);
   // ✅ 直接用字符串数组
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
-  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre" || t.type === "topic").map((t) => t.slug));
+  const [genres, setGenres] = useState(() => taxonomies.filter((t) => t.type === "genre").map((t) => t.slug));
   const [durations, setDurations] = useState(() => taxonomies.filter((t) => t.type === "duration").map((t) => t.slug));
-  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show" || t.type === "channel").map((t) => t.slug));
+  const [shows, setShows] = useState(() => taxonomies.filter((t) => t.type === "show").map((t) => t.slug));
+  const [topics, setTopics] = useState(() => taxonomies.filter((t) => t.type === "topic").map((t) => t.slug));
+  const [channels, setChannels] = useState(() => taxonomies.filter((t) => t.type === "channel").map((t) => t.slug));
+  const toggleInArr = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
 
   const handleRefreshTaxonomies = async () => { await onRefreshTaxonomies?.(); };
   const addLocalOption = (type, slug) => {
@@ -554,6 +613,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     else if (type === "genre") setGenres(prev => prev.includes(slug) ? prev : [...prev, slug]);
     else if (type === "duration") setDurations(prev => prev.includes(slug) ? prev : [...prev, slug]);
     else if (type === "show") setShows(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "topic") setTopics(prev => prev.includes(slug) ? prev : [...prev, slug]);
+    else if (type === "channel") setChannels(prev => prev.includes(slug) ? prev : [...prev, slug]);
   };
 
   function setF(key, val) { setForm((f) => ({ ...f, [key]: val })); }
@@ -569,6 +630,9 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     const without = form.topic_slugs.filter(s => !durations.includes(s));
     setF("topic_slugs", slug ? [...without, slug] : without);
   }
+
+  // 美剧视频：topic_slugs 存 genre/duration，channel_slugs 存 show
+  // 油管视频：topic_slugs 存 topic，channel_slugs 存 channel
 
   function validateJson(val) {
     if (!val.trim()) { setJsonStatus(null); return; }
@@ -607,34 +671,60 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
         onRefreshOptions={handleRefreshTaxonomies}
         onAddLocalOption={addLocalOption}
       />
-      {/* ✅ 修复：直接传字符串数组，不再 map 成 { slug } 对象 */}
-      <SingleTagSelector
-        label="内容类型（单选）"
-        value={selectedGenre}
-        onChange={setGenre}
-        options={genres}
-        type="genre"
-        onRefreshOptions={handleRefreshTaxonomies}
-        onAddLocalOption={addLocalOption}
-      />
-      <SingleTagSelector
-        label="片段时长（单选）"
-        value={selectedDuration}
-        onChange={setDuration}
-        options={durations}
-        type="duration"
-        onRefreshOptions={handleRefreshTaxonomies}
-        onAddLocalOption={addLocalOption}
-      />
-      <TagSelector
-        label="剧名（多选，可新增）"
-        value={form.channel_slugs}
-        onChange={(v) => setF("channel_slugs", v)}
-        options={shows}
-        type="show"
-        onRefreshOptions={handleRefreshTaxonomies}
-        onAddLocalOption={addLocalOption}
-      />
+
+      {/* 美剧站标签 */}
+      {form.site === "drama" ? (
+        <>
+          <SingleTagSelector
+            label="内容类型（单选）"
+            value={selectedGenre}
+            onChange={setGenre}
+            options={genres}
+            type="genre"
+            onRefreshOptions={handleRefreshTaxonomies}
+            onAddLocalOption={addLocalOption}
+          />
+          <SingleTagSelector
+            label="来源（单选）"
+            value={selectedDuration}
+            onChange={setDuration}
+            options={durations}
+            type="duration"
+            onRefreshOptions={handleRefreshTaxonomies}
+            onAddLocalOption={addLocalOption}
+          />
+          <TagSelector
+            label="剧名（多选，可新增）"
+            value={form.channel_slugs}
+            onChange={(v) => setF("channel_slugs", v)}
+            options={shows}
+            type="show"
+            onRefreshOptions={handleRefreshTaxonomies}
+            onAddLocalOption={addLocalOption}
+          />
+        </>
+      ) : (
+        <>
+          <MultiSelectDropdownAdmin
+            label="视频话题"
+            options={topics}
+            selected={form.topic_slugs}
+            onToggle={(slug) => setF("topic_slugs", toggleInArr(form.topic_slugs, slug))}
+            type="topic"
+            onRefreshOptions={handleRefreshTaxonomies}
+            onAddLocalOption={addLocalOption}
+          />
+          <MultiSelectDropdownAdmin
+            label="视频频道"
+            options={channels}
+            selected={form.channel_slugs}
+            onToggle={(slug) => setF("channel_slugs", toggleInArr(form.channel_slugs, slug))}
+            type="channel"
+            onRefreshOptions={handleRefreshTaxonomies}
+            onAddLocalOption={addLocalOption}
+          />
+        </>
+      )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -665,10 +755,12 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
           onClick={() => {
             // 构建 slug→type 提示，让后端知道每个 slug 的真实 type
             const taxonomyHints = {};
-            genres.forEach(s => { taxonomyHints[s] = "topic"; });
+            genres.forEach(s => { taxonomyHints[s] = "genre"; });
             durations.forEach(s => { taxonomyHints[s] = "duration"; });
-            shows.forEach(s => { taxonomyHints[s] = "channel"; });
+            shows.forEach(s => { taxonomyHints[s] = "show"; });
             difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
+            topics.forEach(s => { taxonomyHints[s] = "topic"; });
+            channels.forEach(s => { taxonomyHints[s] = "channel"; });
             onSave({ ...form, taxonomy_hints: taxonomyHints, site: form.site || "yt" });
           }}
           disabled={loading || (!isBatch && (!form.title || !form.video_url)) || jsonStatus === "error"}
@@ -811,7 +903,7 @@ function OverviewPanel({ stats }) {
 // ══════════════════════════════════════════════════════
 // 模块二：视频管理
 // ══════════════════════════════════════════════════════
-function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast, globalSite = "yt" }) {
+function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onToast }) {
   const [clips, setClips] = useState(initialClips);
   const [taxonomies, setTaxonomies] = useState(initialTaxonomiesFromProps);
   const [showForm, setShowForm] = useState(false);
@@ -821,6 +913,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   const [duplicating, setDuplicating] = useState(null);
   const [loadingEdit, setLoadingEdit] = useState(null);
   const [search, setSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [pageSize, setPageSize] = useState(20);
@@ -839,7 +932,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
   };
 
   const filtered = clips.filter((c) => {
-    if (c.site !== globalSite) return false;
+    if (siteFilter !== "all" && c.site !== siteFilter) return false;
     if (search && !c.title?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -964,6 +1057,16 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ fontSize: 18, fontWeight: 900, color: T.ink, margin: 0, flex: 1 }}>🎬 视频管理</h2>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[["all","全部"], ["yt","🎥 油管"], ["drama","🎬 美剧"]].map(([v,l]) => (
+            <button key={v} onClick={() => { setSiteFilter(v); setCurrentPage(1); }} style={{
+              padding: "6px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
+              cursor: "pointer", border: `1px solid ${siteFilter === v ? T.accent : T.border2}`,
+              background: siteFilter === v ? `${T.accent}22` : "transparent",
+              color: siteFilter === v ? T.accent2 : T.muted,
+            }}>{l}</button>
+          ))}
+        </div>
         <input
           value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           placeholder="搜索标题…"
@@ -1131,7 +1234,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
 // ══════════════════════════════════════════════════════
 // 模块三：兑换码管理
 // ══════════════════════════════════════════════════════
-function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
+function CodesPanel({ initialCodes, onToast }) {
   const [codes, setCodes] = useState(initialCodes);
   const [showGen, setShowGen] = useState(false);
   const [genOpts, setGenOpts] = useState({ plan: "month", days: "30", count: "100", site: "yt" });
@@ -1151,7 +1254,6 @@ function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
 
   const filtered = codes.filter((c) => {
     const used = c.used_count >= (c.max_uses || 1);
-    if ((c.site || "yt") !== globalSite) return false;
     if (filter === "active" && !(c.is_active && !used)) return false;
     if (filter === "used" && !used) return false;
     if (filter === "inactive" && c.is_active) return false;
@@ -1348,7 +1450,7 @@ function CodesPanel({ initialCodes, onToast, globalSite = "yt" }) {
 // ══════════════════════════════════════════════════════
 // 模块四：用户管理
 // ══════════════════════════════════════════════════════
-function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
+function UsersPanel({ initialUsers, onToast }) {
   const [users, setUsers] = useState(initialUsers);
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
@@ -1676,7 +1778,7 @@ function UsersPanel({ initialUsers, onToast, globalSite = "yt" }) {
 // ══════════════════════════════════════════════════════
 // 模块五：订单管理
 // ══════════════════════════════════════════════════════
-function OrdersPanel({ initialOrders, onToast, globalSite = "yt" }) {
+function OrdersPanel({ initialOrders, onToast }) {
   const [orders, setOrders] = useState(initialOrders);
   const [search, setSearch] = useState("");
 
@@ -1685,7 +1787,6 @@ function OrdersPanel({ initialOrders, onToast, globalSite = "yt" }) {
   };
 
   const filtered = orders.filter((o) => {
-    if (o.site && o.site !== globalSite) return false;
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     return (
@@ -1799,7 +1900,6 @@ export default function AdminClient({
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const [globalSite, setGlobalSite] = useState("yt");
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   function onToast(msg, type = "success") {
@@ -1875,16 +1975,6 @@ export default function AdminClient({
             }}>{t.label}</button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-          {[["yt","🎥 油管"], ["drama","🎬 美剧"]].map(([v,l]) => (
-            <button key={v} onClick={() => setGlobalSite(v)} style={{
-              padding: "5px 14px", borderRadius: T.radius.pill, fontSize: 12, fontWeight: 700,
-              cursor: "pointer", border: `1px solid ${globalSite === v ? T.good : T.border2}`,
-              background: globalSite === v ? `${T.good}22` : "transparent",
-              color: globalSite === v ? T.good : T.muted,
-            }}>{l}</button>
-          ))}
-        </div>
         <div className="admin-nav-email" style={{ fontSize: 12, color: T.faint, flexShrink: 0 }}>{adminEmail}</div>
         <a href="/" style={{ fontSize: 12, color: T.faint, textDecoration: "none", flexShrink: 0 }}>← 返回网站</a>
       </div>
@@ -1896,21 +1986,18 @@ export default function AdminClient({
             initialClips={initialClips}
             taxonomies={initialTaxonomies}
             onToast={onToast}
-            globalSite={globalSite}
           />
         )}
         {tab === "codes" && (
           <CodesPanel
             initialCodes={initialRedeemCodes}
             onToast={onToast}
-            globalSite={globalSite}
           />
         )}
         {tab === "orders" && (
           <OrdersPanel
             initialOrders={initialOrders || []}
             onToast={onToast}
-            globalSite={globalSite}
           />
         )}
         {tab === "settings" && <SettingsPanel />}
@@ -1918,7 +2005,6 @@ export default function AdminClient({
           <UsersPanel
             initialUsers={initialUsers}
             onToast={onToast}
-            globalSite={globalSite}
           />
         )}
       </div>
