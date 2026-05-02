@@ -225,6 +225,16 @@ export async function POST(req) {
   // ── 视频：获取 details_json ──
   if (action === "clip_get_details") {
     const { id } = body;
+    // 先查 clips.details_json（美剧视频存这里）
+    const { data: clipData } = await db
+      .from("clips")
+      .select("details_json")
+      .eq("id", id)
+      .maybeSingle();
+    if (clipData?.details_json) {
+      return NextResponse.json({ ok: true, details_json: clipData.details_json });
+    }
+    // 兜底查 clip_details 表（油管视频存这里）
     const { data, error } = await db
       .from("clip_details")
       .select("details_json")
@@ -424,7 +434,7 @@ export async function GET(req) {
     const offset = Number(searchParams.get("offset") || 0);
     const { data } = await db
       .from("clips_view")
-      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,cover_url,video_url,duration_sec,description,youtube_url,site")
+      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,genre_slugs,duration_slugs,show_slugs,cover_url,video_url,duration_sec,description,youtube_url,site")
       .order("created_at", { ascending: false })
       .range(offset, offset + 49);
     return NextResponse.json({ ok: true, clips: data || [] });
