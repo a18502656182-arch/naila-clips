@@ -11,23 +11,6 @@ const PLANS = [
   { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null,           hot: false },
 ];
 
-const SITE_CONFIG = {
-  yt: {
-    label: "🎥 油管博主会员",
-    title: "解锁全部油管视频",
-    desc: "海量真实英语母语者vlog、生活、学习视频片段",
-    icon: "🎥",
-    site: "yt",
-  },
-  drama: {
-    label: "🎬 影视美剧会员",
-    title: "解锁全部影视片段",
-    desc: "精选英美剧、电影、动画高质量片段",
-    icon: "🎬",
-    site: "drama",
-  },
-};
-
 const C = {
   bg: "#f4f6fb", surface: "#ffffff", ink: "#0b1220",
   muted: "rgba(11,18,32,0.6)", faint: "rgba(11,18,32,0.38)",
@@ -36,7 +19,6 @@ const C = {
 };
 
 export default function BuyPage() {
-  const [selectedSite, setSelectedSite] = useState("yt");
   const [selectedPlan, setSelectedPlan] = useState("quarter");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -64,7 +46,6 @@ export default function BuyPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plan: selectedPlan,
-          site: selectedSite,
           return_url: window.location.origin + "/buy/result",
         }),
       });
@@ -80,7 +61,6 @@ export default function BuyPage() {
   if (checking) return <div style={{ minHeight: "100vh", background: C.bg }} />;
 
   const plan = PLANS.find(p => p.id === selectedPlan);
-  const siteInfo = SITE_CONFIG[selectedSite];
 
   return (
     <>
@@ -93,30 +73,10 @@ export default function BuyPage() {
 
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 16px 60px" }}>
 
-          {/* 站点选择 Tab */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 28, background: "rgba(15,23,42,0.05)", borderRadius: 14, padding: 4 }}>
-            {Object.values(SITE_CONFIG).map(s => (
-              <button
-                key={s.site}
-                onClick={() => setSelectedSite(s.site)}
-                style={{
-                  flex: 1, padding: "10px 0", border: "none", borderRadius: 10, cursor: "pointer",
-                  fontSize: 14, fontWeight: selectedSite === s.site ? 800 : 500,
-                  background: selectedSite === s.site ? C.surface : "transparent",
-                  color: selectedSite === s.site ? C.accent : C.muted,
-                  boxShadow: selectedSite === s.site ? "0 2px 8px rgba(11,18,32,0.10)" : "none",
-                  transition: "all 0.15s",
-                }}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
           <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>{siteInfo.icon}</div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: "0 0 8px" }}>{siteInfo.title}</h1>
-            <p style={{ fontSize: 14, color: C.muted, margin: 0, lineHeight: 1.6 }}>{siteInfo.desc}</p>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>🎬</div>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: "0 0 8px" }}>解锁全站所有内容</h1>
+            <p style={{ fontSize: 14, color: C.muted, margin: 0, lineHeight: 1.6 }}>油管博主视频 + 影视美剧片段，一次开通全部解锁</p>
             <p style={{ fontSize: 13, color: C.faint, margin: "8px 0 0", lineHeight: 1.6 }}>支付后自动生成兑换码，前往注册页填入即可开通</p>
           </div>
 
