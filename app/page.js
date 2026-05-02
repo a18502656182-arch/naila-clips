@@ -44,6 +44,7 @@ async function fetchAllClips() {
     const { data, error } = await supabase
       .from("clips_view")
       .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
+      .eq("site", "yt")
       .order("upload_time", { ascending: false })
     if (error) throw error;
     return (data || []).map(normRow);
@@ -70,6 +71,7 @@ async function fetchFeatured() {
     const { data } = await supabase
       .from("clips_view")
       .select("id,title,description,duration_sec,created_at,upload_time,access_tier,cover_url,video_url,difficulty_slug,topic_slugs,channel_slugs")
+      .eq("site", "yt")
       .eq("access_tier", "free")
       .order("upload_time", { ascending: false })
     if (Array.isArray(data) && data[0]) return normRow(data[0]);
