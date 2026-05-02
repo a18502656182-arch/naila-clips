@@ -526,8 +526,15 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     access_tier: initial.access_tier || "free",
     site: initial.site || "yt",
     difficulty_slug: initial.difficulty_slug || "",
-    topic_slugs: initial.topic_slugs || [],
-    channel_slugs: initial.channel_slugs || [],
+    topic_slugs: [
+      ...(initial.topic_slugs || []),
+      ...(initial.genre_slugs || []),
+      ...(initial.duration_slugs || []),
+    ],
+    channel_slugs: [
+      ...(initial.channel_slugs || []),
+      ...(initial.show_slugs || []),
+    ],
     details_json: initial.details_json || "",
     youtube_url: initial.youtube_url || "",
     upload_time: initial.upload_time
