@@ -212,6 +212,8 @@ export default async function Page() {
           {/* 右：用户菜单 */}
           <UserMenuClient />
         </div>
+        {/* 手机端：导航栏下方全宽Tab行 */}
+        <SiteTabs mobile />
       </div>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 16px 52px" }}>
