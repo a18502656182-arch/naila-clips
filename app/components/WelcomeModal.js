@@ -43,7 +43,7 @@ export default function WelcomeModal() {
       >
         <div style={{ fontSize: 24, marginBottom: 10 }}>👋</div>
         <div style={{ fontSize: 18, fontWeight: 900, color: "#0b1220", marginBottom: 12, lineHeight: 1.3 }}>
-          欢迎来到油管英语场景库！
+          欢迎来到奶酪包英语场景库！
         </div>
         <div style={{ fontSize: 14, color: "rgba(11,18,32,0.65)", lineHeight: 1.8, marginBottom: 12 }}>
           这里收录了来自 YouTube 的真实场景短片，双语字幕 + 词汇卡，帮你在真实语境里学地道英语。<br /><br />
