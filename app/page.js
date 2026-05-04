@@ -179,7 +179,7 @@ export default async function Page() {
           }}
         >
           {/* 左：Logo */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             <div
               style={{
                 width: 36, height: 36, borderRadius: 12,
@@ -198,8 +198,10 @@ export default async function Page() {
                 display: flex;
                 flex-direction: column;
                 line-height: 1.2;
-                min-width: 0;
-                flex-shrink: 1;
+              }
+              @media (max-width: 640px) {
+                .nav-title-main { font-size: 13px; }
+                .nav-title-sub { font-size: 10px; }
               }
               .nav-title-main {
                 font-size: 15px; font-weight: 950;
