@@ -197,8 +197,8 @@ export default function GuidePage() {
       <div className="guide-mobile">
         <div className="m-hero">
           <div className="m-hero-label">YOUTUBE SCENE LIBRARY</div>
-          <h1 className="m-hero-title">怎么用油管视频学英语</h1>
-          <p className="m-hero-desc">精选来自 YouTube 的真实场景短片，双语字幕 + 词汇卡，帮你在真实语境里学地道英语。</p>
+          <h1 className="m-hero-title">怎么用奶酪包英语场景库学英语</h1>
+          <p className="m-hero-desc">近 500 期真实英语场景短片，油管博主 vlog + 影视美剧双板块，双语字幕 + 词汇卡，帮你在真实语境里学地道英语。</p>
         </div>
 
         <div className="m-section">
@@ -237,7 +237,7 @@ export default function GuidePage() {
         <div className="m-bottom">
           <div className="m-bottom-card">
             <div className="m-bottom-title">✨ 关于会员</div>
-            <div className="m-bottom-desc">免费片段随便看，会员解锁全站所有内容。支持支付宝购买，有月卡、季卡、年卡和永久卡可以选。</div>
+            <div className="m-bottom-desc">免费片段随便看，会员解锁全站近 500 期所有内容，油管和美剧两个板块全部解锁。支持支付宝购买，有月卡、季卡、年卡和永久卡可以选。</div>
             <a href="/buy" className="m-btn">立即开通会员 →</a>
           </div>
           <div className="m-bottom-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
@@ -255,8 +255,8 @@ export default function GuidePage() {
         <div className="d-hero">
           <div>
             <div className="d-hero-label">YOUTUBE SCENE LIBRARY · 使用指南</div>
-            <h1 className="d-hero-title">怎么用油管视频学英语</h1>
-            <p className="d-hero-desc">精选来自 YouTube 的真实场景短片，覆盖生活、日常、健身、旅游、人文等实用场景，来自英语核心圈母语博主的真实内容。</p>
+            <h1 className="d-hero-title">怎么用奶酪包英语场景库学英语</h1>
+            <p className="d-hero-desc">近 500 期真实英语场景短片，油管博主 vlog + 影视美剧双板块，覆盖生活、日常、学习、影视等实用场景，用真实内容轻松摆脱哑巴英语。</p>
           </div>
           <div className="d-hero-card">
             <div className="d-hero-card-item">
