@@ -34,6 +34,7 @@ async function fetchAllClips() {
         taxonomies ( type, slug )
       )
     `)
+    .lte("upload_time", new Date().toISOString())
     .order("upload_time", { ascending: false });
 
   if (error) throw error;
