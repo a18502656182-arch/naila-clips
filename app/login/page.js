@@ -150,7 +150,7 @@ function LoginForm() {
         <div style={logoStyle()}>EC</div>
         <div style={{ lineHeight: 1.2 }}>
           <div style={{ fontSize: 17, fontWeight: 950, color: THEME.colors.ink }}>
-            油管英语场景库
+            奶酪包英语场景库
           </div>
           <div style={{ fontSize: 12, color: THEME.colors.faint }}>
             Real scenes · bilingual subtitles · vocabulary cards
