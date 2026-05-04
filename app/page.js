@@ -195,13 +195,27 @@ export default async function Page() {
             </div>
             <style>{`
               .nav-title {
+                display: flex;
+                flex-direction: column;
+                line-height: 1.2;
+              }
+              .nav-title-main {
                 font-size: 15px; font-weight: 950;
                 color: #0b1220; letter-spacing: -0.02em;
                 white-space: nowrap;
               }
-              @media (max-width: 520px) { .nav-title { display: none; } }
+              .nav-title-sub {
+                font-size: 11px; font-weight: 600;
+                color: rgba(11,18,32,0.45);
+                white-space: nowrap;
+                letter-spacing: 0.01em;
+              }
+              @media (max-width: 400px) { .nav-title { display: none; } }
             `}</style>
-            <span className="nav-title">英语场景库</span>
+            <div className="nav-title">
+              <span className="nav-title-main">奶酪包</span>
+              <span className="nav-title-sub">英语场景库</span>
+            </div>
           </div>
 
           {/* 中：Tab切换（客户端组件），用占位保持布局稳定 */}
