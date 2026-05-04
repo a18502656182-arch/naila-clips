@@ -40,6 +40,17 @@ function nanoid(len = 10) {
   return s;
 }
 
+// 把前端传来的 datetime-local 字符串（北京时间 UTC+8）转成 UTC ISO 字符串
+function localCNToUTC(str) {
+  if (!str) return null;
+  // 如果已经是完整 ISO 格式（含Z或+），直接返回
+  if (str.includes("Z") || str.includes("+")) return new Date(str).toISOString();
+  // 否则当作北京时间，减去8小时
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return null;
+  return new Date(d.getTime() - 8 * 60 * 60 * 1000).toISOString();
+}
+
 export async function POST(req) {
   const user = await verifyAdmin(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -116,7 +127,7 @@ export async function POST(req) {
         title, description, video_url, cover_url,
         duration_sec: duration_sec ? Number(duration_sec) : null,
         access_tier: access_tier || "free",
-        upload_time: upload_time || new Date().toISOString(),
+        upload_time: localCNToUTC(upload_time) || new Date().toISOString(),
         created_at: new Date().toISOString(),
         youtube_url: youtube_url || null,
         site: site || "yt",
@@ -162,7 +173,7 @@ export async function POST(req) {
     if (cover_url !== undefined) updatePayload.cover_url = cover_url;
     if (duration_sec !== undefined) updatePayload.duration_sec = duration_sec ? Number(duration_sec) : null;
     if (access_tier !== undefined) updatePayload.access_tier = access_tier || "free";
-    if (upload_time !== undefined) updatePayload.upload_time = upload_time || undefined;
+    if (upload_time !== undefined) updatePayload.upload_time = localCNToUTC(upload_time) || undefined;
     if (youtube_url !== undefined) updatePayload.youtube_url = youtube_url || null;
     if (site !== undefined) updatePayload.site = site;
 
