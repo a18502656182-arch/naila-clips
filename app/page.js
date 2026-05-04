@@ -154,6 +154,7 @@ export default async function Page() {
   } catch {}
 
   return (
+    <>
     <style>{`
       .nav-title { display: flex; flex-direction: column; line-height: 1.2; }
       .nav-title-main { font-size: 15px; font-weight: 950; color: #0b1220; letter-spacing: -0.02em; white-space: nowrap; }
@@ -241,5 +242,6 @@ export default async function Page() {
         </div>
       </div>
     </div>
+    </>
   );
 }
