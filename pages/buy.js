@@ -64,7 +64,7 @@ export default function BuyPage() {
 
   return (
     <>
-      <Head><title>开通会员 — 油管英语场景库</title></Head>
+      <Head><title>开通会员 — 奶酪包英语场景库</title></Head>
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif" }}>
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
           <a href="/" style={{ textDecoration: "none", color: C.muted, fontSize: 22, lineHeight: 1 }}>‹</a>
