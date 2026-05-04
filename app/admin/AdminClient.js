@@ -400,7 +400,7 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     difficulty_slug: "",
     topic_slugs: [],
     channel_slugs: [],
-    upload_time: "",
+    upload_time: new Date().toISOString().slice(0, 16),
   });
   // ✅ 直接用字符串数组，不再 map 成对象
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
@@ -594,8 +594,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     details_json: initial.details_json || "",
     youtube_url: initial.youtube_url || "",
     upload_time: initial.upload_time
-      ? new Date(initial.upload_time).toISOString().slice(0, 10)
-      : new Date().toISOString().slice(0, 10),
+      ? new Date(initial.upload_time).toISOString().slice(0, 16)
+      : new Date().toISOString().slice(0, 16),
   });
   const [jsonStatus, setJsonStatus] = useState(null);
   // ✅ 直接用字符串数组
@@ -653,7 +653,12 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
           options={[{ value: "free", label: "🆓 免费" }, { value: "vip", label: "✨ 会员" }]} />
         <Select label="站点 *" value={form.site} onChange={(e) => setF("site", e.target.value)}
           options={[{ value: "yt", label: "🎥 油管博主" }, { value: "drama", label: "🎬 影视美剧" }]} />
-        <Input label="上传日期" value={form.upload_time} onChange={(e) => setF("upload_time", e.target.value)} type="date" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Input label="发布时间（定时发布）" value={form.upload_time} onChange={(e) => setF("upload_time", e.target.value)} type="datetime-local" />
+          {form.upload_time && new Date(form.upload_time) > new Date() && (
+            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700 }}>⏰ 定时发布：将在设定时间后自动出现在前台</span>
+          )}
+        </div>
         <div style={{ gridColumn: "1/-1" }}>
           <Input label="描述" value={form.description} onChange={(e) => setF("description", e.target.value)} placeholder="视频描述（可选）" />
         </div>
@@ -1040,7 +1045,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
       topic_slugs: clip.topic_slugs || [],
       channel_slugs: clip.channel_slugs || [],
       upload_time: clip.upload_time
-        ? new Date(clip.upload_time).toISOString().slice(0, 10)
+        ? new Date(clip.upload_time).toISOString().slice(0, 16)
         : new Date().toISOString().slice(0, 10),
       youtube_url: clip.youtube_url || "",
       details_json: dr.ok && dr.details_json ? JSON.stringify(dr.details_json) : "",
@@ -1182,7 +1187,9 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
                     {(clip.channel_slugs || []).map((s) => <Chip key={s} color={T.muted}>{s}</Chip>)}
                   </>
                 )}
-                <span style={{ fontSize: 11, color: T.faint }}>{fmt(clip.upload_time || clip.created_at)}</span>
+                <span style={{ fontSize: 11, color: clip.upload_time && new Date(clip.upload_time) > new Date() ? "#f59e0b" : T.faint }}>
+                  {clip.upload_time && new Date(clip.upload_time) > new Date() ? "⏰ 定时 " : ""}{fmt(clip.upload_time || clip.created_at)}
+                </span>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
