@@ -394,13 +394,19 @@ function SingleTagSelector({ label, value, onChange, options = [], type, onRefre
 }
 
 // ── 视频表单（新增/编辑共用）──────────────────────────
+// 把 Date 转成 datetime-local input 所需的本地时间字符串（避免时区偏差）
+function toLocalDatetimeInput(date) {
+  const d = new Date(date - date.getTimezoneOffset() * 60000);
+  return d.toISOString().slice(0, 16);
+}
+
 function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies }) {
   const [form, setForm] = useState({
     access_tier: "",
     difficulty_slug: "",
     topic_slugs: [],
     channel_slugs: [],
-    upload_time: new Date().toISOString().slice(0, 16),
+    upload_time: toLocalDatetimeInput(new Date()),
   });
   // ✅ 直接用字符串数组，不再 map 成对象
   const [difficulties, setDifficulties] = useState(() => taxonomies.filter((t) => t.type === "difficulty").map((t) => t.slug));
@@ -594,8 +600,8 @@ function ClipForm({ initial = {}, taxonomies, onSave, onCancel, loading, onRefre
     details_json: initial.details_json || "",
     youtube_url: initial.youtube_url || "",
     upload_time: initial.upload_time
-      ? new Date(initial.upload_time).toISOString().slice(0, 16)
-      : new Date().toISOString().slice(0, 16),
+      ? toLocalDatetimeInput(new Date(initial.upload_time))
+      : toLocalDatetimeInput(new Date()),
   });
   const [jsonStatus, setJsonStatus] = useState(null);
   // ✅ 直接用字符串数组
@@ -1045,7 +1051,7 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
       topic_slugs: clip.topic_slugs || [],
       channel_slugs: clip.channel_slugs || [],
       upload_time: clip.upload_time
-        ? new Date(clip.upload_time).toISOString().slice(0, 16)
+        ? toLocalDatetimeInput(new Date(clip.upload_time))
         : new Date().toISOString().slice(0, 10),
       youtube_url: clip.youtube_url || "",
       details_json: dr.ok && dr.details_json ? JSON.stringify(dr.details_json) : "",
