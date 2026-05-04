@@ -5,10 +5,10 @@ import Head from "next/head";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 const PLANS = [
-  { id: "month", label: "月卡", days: "30天", price: "13.80", desc: "适合先体验一个月", hot: false },
-  { id: "quarter", label: "季卡", days: "90天", price: "29.80", desc: "最划算的短期选择", hot: true },
-  { id: "year", label: "年卡", days: "365天", price: "66.80", desc: "深度学习推荐", hot: false },
-  { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null, hot: false },
+  { id: "month",    label: "月卡", days: "30天",   price: "13.80", desc: "适合先体验一个月",   hot: false },
+  { id: "quarter",  label: "季卡", days: "90天",   price: "29.80", desc: "最划算的短期选择",   hot: true  },
+  { id: "year",     label: "年卡", days: "365天",  price: "66.80", desc: "深度学习推荐",       hot: false },
+  { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null,           hot: false },
 ];
 
 const C = {
@@ -47,7 +47,6 @@ export default function BuyPage() {
         body: JSON.stringify({
           plan: selectedPlan,
           return_url: window.location.origin + "/buy/result",
-          notify_url: "https://naila-api-meiju-production.up.railway.app/api/pay_notify",
         }),
       });
       const data = await res.json();
@@ -59,25 +58,28 @@ export default function BuyPage() {
     }
   }
 
-  // 读取配置期间显示空白，避免闪烁
   if (checking) return <div style={{ minHeight: "100vh", background: C.bg }} />;
 
   const plan = PLANS.find(p => p.id === selectedPlan);
 
   return (
     <>
-      <Head><title>开通会员 — 影视英语片段库</title></Head>
+      <Head><title>开通会员 — 油管英语场景库</title></Head>
       <div style={{ minHeight: "100vh", background: C.bg, fontFamily: "'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif" }}>
         <div style={{ background: C.surface, borderBottom: `1px solid ${C.border}`, padding: "14px 20px", display: "flex", alignItems: "center", gap: 12 }}>
           <a href="/" style={{ textDecoration: "none", color: C.muted, fontSize: 22, lineHeight: 1 }}>‹</a>
           <span style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>开通会员</span>
         </div>
+
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 16px 60px" }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
+
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>🎬</div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: "0 0 8px" }}>解锁全部影视片段</h1>
-            <p style={{ fontSize: 14, color: C.muted, margin: 0, lineHeight: 1.6 }}>支付后自动生成兑换码，前往注册页填入即可开通</p>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: "0 0 8px" }}>解锁全站所有内容</h1>
+            <p style={{ fontSize: 14, color: C.muted, margin: 0, lineHeight: 1.6 }}>油管博主视频 + 影视美剧片段，一次开通全部解锁</p>
+            <p style={{ fontSize: 13, color: C.faint, margin: "8px 0 0", lineHeight: 1.6 }}>支付后自动生成兑换码，前往注册页填入即可开通</p>
           </div>
+
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
             {PLANS.map(p => {
               const isSelected = selectedPlan === p.id;
@@ -101,7 +103,7 @@ export default function BuyPage() {
                       </div>
                       {p.id === "lifetime" ? (
                         <div style={{ marginTop: 2, fontSize: 12, fontWeight: 800, color: "#dc2626", lineHeight: 1.6 }}>
-                          🎁 赠送 10 期<br />定制油管博主视频
+                          🎁 赠送 10 期定制视频
                         </div>
                       ) : (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{p.desc}</div>
@@ -117,6 +119,7 @@ export default function BuyPage() {
               );
             })}
           </div>
+
           <div style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 12, padding: "12px 16px", marginBottom: 24, fontSize: 13, color: "#065f46", lineHeight: 1.7 }}>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>📋 购买说明</div>
             <div>1. 点击下方按钮，跳转支付宝完成付款</div>
@@ -124,7 +127,9 @@ export default function BuyPage() {
             <div>3. 前往网站注册页，填入兑换码完成注册</div>
             <div>4. 已有账号可在兑换页直接激活</div>
           </div>
+
           {error && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#991b1b" }}>{error}</div>}
+
           <button onClick={handlePay} disabled={loading} style={{ width: "100%", padding: "16px 0", borderRadius: 16, border: "none", background: loading ? "rgba(79,70,229,0.5)" : "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "#fff", fontSize: 16, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 8px 24px rgba(79,70,229,0.35)", transition: "all 0.2s" }}>
             {loading ? "跳转中..." : `支付宝支付 ¥${plan?.price}`}
           </button>

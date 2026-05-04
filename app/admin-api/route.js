@@ -107,7 +107,7 @@ export async function POST(req) {
     const {
       title, description, video_url, cover_url, duration_sec,
       access_tier, difficulty_slug, topic_slugs, channel_slugs,
-      details_json, upload_time, youtube_url,
+      details_json, upload_time, youtube_url, site,
     } = body;
 
     const { data: clip, error: clipErr } = await db
@@ -119,6 +119,7 @@ export async function POST(req) {
         upload_time: upload_time || new Date().toISOString(),
         created_at: new Date().toISOString(),
         youtube_url: youtube_url || null,
+        site: site || "yt",
       })
       .select()
       .single();
@@ -138,7 +139,7 @@ export async function POST(req) {
       if (detErr) return NextResponse.json({ error: detErr.message }, { status: 500 });
     }
 
-    await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs);
+    await syncTaxonomies(db, clip.id, difficulty_slug, topic_slugs, channel_slugs, body.taxonomy_hints || {});
     await db.rpc("refresh_clips_view");
     revalidateTag("clips_view:all");
     revalidateTag("clips_view:featured");
@@ -151,7 +152,7 @@ export async function POST(req) {
     const {
       id, title, description, video_url, cover_url, duration_sec,
       access_tier, difficulty_slug, topic_slugs, channel_slugs,
-      details_json, youtube_url, upload_time,
+      details_json, youtube_url, upload_time, site,
     } = body;
 
     const updatePayload = {};
@@ -163,6 +164,7 @@ export async function POST(req) {
     if (access_tier !== undefined) updatePayload.access_tier = access_tier || "free";
     if (upload_time !== undefined) updatePayload.upload_time = upload_time || undefined;
     if (youtube_url !== undefined) updatePayload.youtube_url = youtube_url || null;
+    if (site !== undefined) updatePayload.site = site;
 
     if (Object.keys(updatePayload).length > 0) {
       const { error: clipErr } = await db.from("clips").update(updatePayload).eq("id", id);
@@ -192,14 +194,19 @@ export async function POST(req) {
         .eq("clip_id", id);
 
       const currentDifficulty = currentTaxRows?.find(r => r.taxonomies?.type === "difficulty")?.taxonomies?.slug || null;
-      const currentTopics = currentTaxRows?.filter(r => r.taxonomies?.type === "topic").map(r => r.taxonomies.slug) || [];
-      const currentChannels = currentTaxRows?.filter(r => r.taxonomies?.type === "channel").map(r => r.taxonomies.slug) || [];
+      const currentTopics = currentTaxRows?.filter(r => ["topic","genre","duration"].includes(r.taxonomies?.type)).map(r => r.taxonomies.slug) || [];
+      const currentChannels = currentTaxRows?.filter(r => ["channel","show"].includes(r.taxonomies?.type)).map(r => r.taxonomies.slug) || [];
+      // 重建 taxonomy_hints 从现有数据
+      const existingHints = {};
+      (currentTaxRows || []).forEach(r => { if (r.taxonomies?.slug) existingHints[r.taxonomies.slug] = r.taxonomies.type; });
+      if (!body.taxonomy_hints) body.taxonomy_hints = existingHints;
+      else body.taxonomy_hints = { ...existingHints, ...body.taxonomy_hints };
 
       const finalDifficulty = hasDifficulty ? difficulty_slug : currentDifficulty;
       const finalTopics = hasTopics ? topic_slugs : currentTopics;
       const finalChannels = hasChannels ? channel_slugs : currentChannels;
 
-      await syncTaxonomies(db, id, finalDifficulty, finalTopics, finalChannels);
+      await syncTaxonomies(db, id, finalDifficulty, finalTopics, finalChannels, body.taxonomy_hints || {});
     }
 
     await db.rpc("refresh_clips_view");
@@ -223,6 +230,16 @@ export async function POST(req) {
   // ── 视频：获取 details_json ──
   if (action === "clip_get_details") {
     const { id } = body;
+    // 先查 clips.details_json（美剧视频存这里）
+    const { data: clipData } = await db
+      .from("clips")
+      .select("details_json")
+      .eq("id", id)
+      .maybeSingle();
+    if (clipData?.details_json) {
+      return NextResponse.json({ ok: true, details_json: clipData.details_json });
+    }
+    // 兜底查 clip_details 表（油管视频存这里）
     const { data, error } = await db
       .from("clip_details")
       .select("details_json")
@@ -234,7 +251,7 @@ export async function POST(req) {
 
   // ── 兑换码：批量生成 ──
   if (action === "codes_generate") {
-    const { plan, days, count = 100 } = body;
+    const { plan, days, count = 100, site } = body;
     const safeCount = Math.min(Math.max(Number(count) || 100, 1), 500);
     const rows = [];
     const existing = new Set();
@@ -256,6 +273,7 @@ export async function POST(req) {
         used_count: 0,
         is_active: true,
         created_at: new Date().toISOString(),
+        site: site || "yt",
       });
     }
 
@@ -306,6 +324,8 @@ export async function POST(req) {
       used_code: profMap[u.id]?.used_code || null,
       created_at: u.created_at,
       subscription: subMap[u.id] || null,
+      subscription_yt: subMap[u.id] || null,
+      subscription_drama: subMap[u.id] || null,
     }));
 
     return NextResponse.json({ ok: true, users: result });
@@ -317,7 +337,6 @@ export async function POST(req) {
     const d = Number(days);
     if (!user_id || isNaN(d)) return NextResponse.json({ error: "缺少参数" }, { status: 400 });
 
-    // days=0 表示永久卡，expires_at 设为 null，不在现有有效期上叠加
     let expires_at = null;
     let plan = "lifetime";
 
@@ -420,7 +439,7 @@ export async function GET(req) {
     const offset = Number(searchParams.get("offset") || 0);
     const { data } = await db
       .from("clips_view")
-      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,cover_url,video_url,duration_sec,description,youtube_url")
+      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,genre_slugs,duration_slugs,show_slugs,cover_url,video_url,duration_sec,description,youtube_url,site")
       .order("created_at", { ascending: false })
       .range(offset, offset + 49);
     return NextResponse.json({ ok: true, clips: data || [] });
@@ -462,11 +481,18 @@ export async function GET(req) {
 }
 
 // ── 工具函数：同步 taxonomies ──
-async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs) {
+async function syncTaxonomies(db, clip_id, difficulty_slug, topic_slugs, channel_slugs, taxonomy_hints = {}) {
   const toUpsert = [];
   if (difficulty_slug) toUpsert.push({ type: "difficulty", slug: difficulty_slug });
-  (topic_slugs || []).forEach((s) => toUpsert.push({ type: "topic", slug: s }));
-  (channel_slugs || []).forEach((s) => toUpsert.push({ type: "channel", slug: s }));
+  // taxonomy_hints 告诉我们每个 slug 的真实 type（genre/duration/show/topic/channel）
+  (topic_slugs || []).forEach((s) => {
+    const type = taxonomy_hints[s] || "topic";
+    toUpsert.push({ type, slug: s });
+  });
+  (channel_slugs || []).forEach((s) => {
+    const type = taxonomy_hints[s] || "channel";
+    toUpsert.push({ type, slug: s });
+  });
   if (toUpsert.length > 0) {
     await db.from("taxonomies").upsert(toUpsert, { onConflict: "type,slug", ignoreDuplicates: true });
   }

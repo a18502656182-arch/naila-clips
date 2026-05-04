@@ -68,13 +68,13 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase
       .from("clips_view")
-      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,cover_url,video_url,duration_sec,description,youtube_url")
+      .select("id,title,access_tier,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,genre_slugs,duration_slugs,show_slugs,cover_url,video_url,duration_sec,description,youtube_url,site")
       .order("created_at", { ascending: false })
       .limit(50),
     supabase.from("taxonomies").select("type,slug").order("type").order("slug"),
     supabase
       .from("redeem_codes")
-      .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at")
+      .select("code,plan,days,max_uses,used_count,is_active,created_at,expires_at,site")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
@@ -85,7 +85,7 @@ export default async function AdminPage() {
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase
       .from("orders")
-      .select("id,out_trade_no,plan,days,amount,redeem_code,status,created_at,paid_at")
+      .select("id,out_trade_no,plan,days,amount,redeem_code,status,created_at,paid_at,site")
       .order("created_at", { ascending: false })
       .limit(200),
   ]);
@@ -102,7 +102,6 @@ export default async function AdminPage() {
   const [{ data: subs }, { data: profiles }, { data: allProfiles }] = await Promise.all([
     supabase.from("subscriptions").select("user_id,plan,expires_at,status").in("user_id", userIds),
     supabase.from("profiles").select("user_id,username,used_code").in("user_id", userIds),
-    // 拉所有 profiles 用于订单关联（找谁用了哪个兑换码）
     supabase.from("profiles").select("user_id,username,used_code"),
   ]);
 
@@ -111,7 +110,6 @@ export default async function AdminPage() {
   const profileMap = {};
   (profiles || []).forEach((p) => { profileMap[p.user_id] = p; });
 
-  // 构建 used_code → username 映射，用于订单显示谁兑换了
   const codeToUserMap = {};
   (allProfiles || []).forEach((p) => {
     if (p.used_code) {
@@ -119,13 +117,11 @@ export default async function AdminPage() {
     }
   });
 
-  // 构建 code → plan 映射，用于用户列表显示卡种
   const codeToPlanMap = {};
   (redeemCodes || []).forEach((c) => {
     codeToPlanMap[c.code] = { plan: c.plan, days: c.days };
   });
 
-  // 给订单附上兑换人信息
   const ordersWithUser = (orders || []).map((o) => ({
     ...o,
     redeemed_by: o.status === "paid" ? (codeToUserMap[o.redeem_code] || null) : null,
@@ -139,6 +135,8 @@ export default async function AdminPage() {
     used_code: profileMap[u.id]?.used_code || null,
     used_plan: profileMap[u.id]?.used_code ? codeToPlanMap[profileMap[u.id].used_code] || null : null,
     subscription: subMap[u.id] || null,
+    subscription_yt: subMap[u.id] || null,
+    subscription_drama: subMap[u.id] || null,
   }));
 
   return (
