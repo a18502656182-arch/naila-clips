@@ -154,6 +154,13 @@ export default async function Page() {
   } catch {}
 
   return (
+    <style>{`
+      .nav-title { display: flex; flex-direction: column; line-height: 1.2; }
+      .nav-title-main { font-size: 15px; font-weight: 950; color: #0b1220; letter-spacing: -0.02em; white-space: nowrap; }
+      .nav-title-sub { font-size: 11px; font-weight: 600; color: rgba(11,18,32,0.45); white-space: nowrap; }
+      @media (max-width: 640px) { .nav-title-main { font-size: 13px; } .nav-title-sub { font-size: 10px; } }
+      @media (max-width: 400px) { .nav-title { display: none; } }
+    `}</style>
     <div
       style={{
         minHeight: "100vh",
@@ -193,29 +200,6 @@ export default async function Page() {
             >
               EC
             </div>
-            <style>{`
-              .nav-title {
-                display: flex;
-                flex-direction: column;
-                line-height: 1.2;
-              }
-              @media (max-width: 640px) {
-                .nav-title-main { font-size: 13px; }
-                .nav-title-sub { font-size: 10px; }
-              }
-              .nav-title-main {
-                font-size: 15px; font-weight: 950;
-                color: #0b1220; letter-spacing: -0.02em;
-                white-space: nowrap;
-              }
-              .nav-title-sub {
-                font-size: 11px; font-weight: 600;
-                color: rgba(11,18,32,0.45);
-                white-space: nowrap;
-                letter-spacing: 0.01em;
-              }
-              @media (max-width: 400px) { .nav-title { display: none; } }
-            `}</style>
             <div className="nav-title">
               <span className="nav-title-main">奶酪包</span>
               <span className="nav-title-sub">英语场景库</span>
