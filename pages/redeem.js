@@ -180,7 +180,7 @@ export default function RedeemPage() {
       <a href="/" className="logo-link" style={{ textDecoration: "none", alignItems: "center", gap: 14, marginBottom: 24 }}>
         <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.accent}, ${C.cyan})`, display: "grid", placeItems: "center", color: "#fff", fontWeight: 900, fontSize: 14, boxShadow: "0 10px 24px rgba(99,102,241,0.26)" }}>JC</div>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>影视英语场景库</div>
+          <div style={{ fontSize: 17, fontWeight: 950, color: C.ink }}>奶酪包英语场景库</div>
           <div style={{ fontSize: 12, color: C.faint, marginTop: 2 }}>Real dramas · bilingual subtitles · vocabulary cards</div>
         </div>
       </a>
