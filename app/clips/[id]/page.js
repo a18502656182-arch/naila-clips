@@ -61,9 +61,10 @@ export default async function ClipPage({ params }) {
     admin
       .from("clips_view")
       .select(
-        "id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,difficulty_slug,topic_slugs,channel_slugs,site"
+        "id,title,description,duration_sec,access_tier,cover_url,video_url,created_at,upload_time,difficulty_slug,topic_slugs,channel_slugs,site"
       )
       .eq("id", id)
+      .lte("upload_time", new Date().toISOString())
       .maybeSingle(),
     admin
       .from("clips")
