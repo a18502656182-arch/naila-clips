@@ -5,8 +5,8 @@ import Head from "next/head";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 const PLANS = [
-  { id: "month",    label: "月卡", days: "30天",   price: "13.80", desc: "适合先体验一个月",   hot: false },
-  { id: "quarter",  label: "季卡", days: "90天",   price: "29.80", desc: "最划算的短期选择",   hot: true  },
+  { id: "month",    label: "月卡", days: "30天",   price: "19.80", desc: "适合先体验一个月",   hot: false },
+  { id: "quarter",  label: "季卡", days: "90天",   price: "38.80", desc: "最划算的短期选择",   hot: true  },
   { id: "year",     label: "年卡", days: "365天",  price: "66.80", desc: "深度学习推荐",       hot: false },
   { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null,           hot: false },
 ];
