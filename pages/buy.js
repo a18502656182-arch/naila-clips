@@ -5,7 +5,7 @@ import Head from "next/head";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 const PLANS = [
-  { id: "month",    label: "月卡", days: "30天",   price: "16.80", desc: "适合先体验一个月",   hot: false },
+  { id: "month",    label: "月卡", days: "30天",   price: "19.80", desc: "适合先体验一个月",   hot: false },
   { id: "quarter",  label: "季卡", days: "90天",   price: "38.80", desc: "最划算的短期选择",   hot: true  },
   { id: "year",     label: "年卡", days: "365天",  price: "66.80", desc: "深度学习推荐",       hot: false },
   { id: "lifetime", label: "永久卡", days: "永久有效", price: "168.80", desc: null,           hot: false },
@@ -77,7 +77,7 @@ export default function BuyPage() {
             <div style={{ fontSize: 28, marginBottom: 8 }}>🎬</div>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: "0 0 8px" }}>解锁全站所有内容</h1>
             <p style={{ fontSize: 14, color: C.muted, margin: 0, lineHeight: 1.6 }}>油管博主视频 + 影视美剧片段，一次开通全部解锁</p>
-            <p style={{ fontSize: 13, color: C.faint, margin: "8px 0 0", lineHeight: 1.6 }}>支付后自动生成兑换码，前往注册页填入即可开通</p>
+            <p style={{ fontSize: 13, color: C.faint, margin: "8px 0 0", lineHeight: 1.6 }}>支付后自动生成兑换码，前往注册页填入即可开通。<a href="/order-query" style={{ color: "#6366f1", fontWeight: 700 }}>找不到兑换码？点这里查询</a></p>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 24 }}>
