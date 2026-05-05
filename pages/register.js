@@ -374,6 +374,8 @@ export default function RegisterPage() {
                 color: THEME.colors.muted,
               }}
             >
+              <a href="/order-query" style={{ color: "#6366f1", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>找不到兑换码？点这里查询</a>
+              <span style={{ color: "rgba(11,18,32,0.2)", margin: "0 6px" }}>|</span>
               已有账号？{" "}
               <a
                 href="/login"
