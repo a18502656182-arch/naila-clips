@@ -77,7 +77,7 @@ export default function OrderQuery() {
               }}
             />
             <div style={{ fontSize: 11, color: C.faint, marginTop: 5 }}>
-              在支付宝 → 我的 → 账单 里可以找到订单号
+              支付宝 → 对应支付账单详情 → 更多 → 条形码下方点击查看订单号
             </div>
           </div>
 
