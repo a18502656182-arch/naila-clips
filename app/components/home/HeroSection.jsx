@@ -184,8 +184,8 @@ export default function HeroSection({ featured, featuredDrama }) {
             <div className="heroEyebrow">{content.eyebrow}</div>
             <h1 className="heroTitle">{content.title}</h1>
             <div className="heroDesc">{content.desc}</div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: "10px 0 4px", padding: "5px 14px", borderRadius: 999, background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.18)" }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#4f46e5" }}>✦ 已收录近 500 期真实英语场景片段</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, margin: "10px 0 4px", padding: "6px 16px", borderRadius: 999, background: "linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.10))", border: "1.5px solid rgba(245,158,11,0.45)" }}>
+              <span style={{ fontSize: 14, fontWeight: 900, color: "#b45309", letterSpacing: "0.01em" }}>🔥 已收录近 500 期真实英语场景片段</span>
             </div>
             <div className="heroFeatures">
               {content.features.map(f => <FeatureItem key={f}>{f}</FeatureItem>)}
