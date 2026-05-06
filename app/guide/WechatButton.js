@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/94686906-f46c-44cc-b53c-0d6b77166500/qr";
+const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr";
 const WECHAT_ID = "wll74748585";
 
 function WechatIcon({ size = 15, color = "#059669" }) {
