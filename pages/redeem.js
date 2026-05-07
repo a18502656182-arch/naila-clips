@@ -6,7 +6,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
 // wechat_qr_url 从后端 site_config 读取
-const WECHAT_ID = "wll74748585";
 
 function getToken() {
   try { return localStorage.getItem("sb_access_token") || null; } catch { return null; }
@@ -29,7 +28,7 @@ const BENEFITS = [
   { icon: "📱", title: "手机 · 电脑 · 平板三端互通", sub: null, desc: "任意设备登录，数据实时同步" },
 ];
 
-function WechatModal({ onClose }) {
+function WechatModal({ onClose, wechatQrUrl }) {
   return (
     <>
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(11,18,32,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(6px)", animation: "fadeIn 160ms ease" }}>
@@ -167,7 +166,7 @@ export default function RedeemPage() {
         .register-btn:hover { transform: translateY(-1px) !important; box-shadow: 0 22px 44px rgba(124,58,237,0.32) !important; }
       `}</style>
 
-      {showWechat && <WechatModal onClose={() => setShowWechat(false)} />}
+      {showWechat && <WechatModal onClose={() => setShowWechat(false)} wechatQrUrl={wechatQrUrl} />}
 
       {/* Logo：手机隐藏，电脑显示 */}
       <a href="/" className="logo-link" style={{ textDecoration: "none", alignItems: "center", gap: 14, marginBottom: 24 }}>
