@@ -1,8 +1,6 @@
 "use client";
 import { useState } from "react";
 
-// wechat_qr_url 由 guide/page.js 从数据库读取后通过 props 传入
-
 function WechatIcon({ size = 15, color = "#059669" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
@@ -12,9 +10,8 @@ function WechatIcon({ size = 15, color = "#059669" }) {
   );
 }
 
-export default function WechatButton({ btnStyle = "light", compact = false, wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/13252c4c-662b-4537-9ad0-c571d226af00/qr" }) {
+export default function WechatButton({ btnStyle = "light", compact = false, wechatQrUrl = "" }) {
   const [open, setOpen] = useState(false);
-
   const isLight = btnStyle === "light";
 
   return (
@@ -56,11 +53,23 @@ export default function WechatButton({ btnStyle = "light", compact = false, wech
               width: "100%", maxWidth: 360,
             }}
           >
-            {/* 标题 */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-
-            <div style={{ fontSize: 12, color: "rgba(11,18,32,0.42)", textAlign: "center" }}>
-              添加时备注「英语学习」，购买咨询均可
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(5,150,105,0.10)", border: "1px solid rgba(5,150,105,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <WechatIcon size={15} color="#059669" />
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 900, color: "#0b1220" }}>联系客服</span>
+              </div>
+              <button onClick={() => setOpen(false)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid rgba(11,18,32,0.10)", background: "rgba(11,18,32,0.04)", cursor: "pointer", color: "#94a3b8", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(11,18,32,0.08)", marginBottom: 12 }}>
+              <div style={{ background: "#fff", padding: 12 }}>
+                <img src={wechatQrUrl} alt="客服二维码" style={{ width: "100%", display: "block", borderRadius: 8 }}
+                  onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="font-size:13px;color:rgba(11,18,32,0.38);text-align:center;padding:40px 16px;line-height:1.8">图片加载失败，请联系客服</div>'; }} />
+              </div>
+              <div style={{ padding: "9px 14px", background: "rgba(99,102,241,0.04)", borderTop: "1px solid rgba(11,18,32,0.06)", fontSize: 12, color: "rgba(11,18,32,0.55)", lineHeight: 1.6, textAlign: "center" }}>
+                截图后在微信扫一扫识别二维码添加客服
+              </div>
             </div>
           </div>
         </div>
