@@ -10,7 +10,7 @@ function WechatIcon({ size = 15, color = "#059669" }) {
   );
 }
 
-export default function WechatButton({ btnStyle = "light", compact = false, wechatQrUrl = "" }) {
+export default function WechatButton({ btnStyle = "light", compact = false, wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr" }) {
   const [open, setOpen] = useState(false);
   const isLight = btnStyle === "light";
 
