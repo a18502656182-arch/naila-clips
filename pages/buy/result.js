@@ -205,10 +205,7 @@ export default function BuyResultPage() {
                   </div>
                   <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.8, marginBottom: 12 }}>
                     恭喜你成为永久会员！我们将为你定制 10 期专属的油管博主视频内容。<br />
-                    请添加客服微信，发送「永久卡定制」，我们会与你确认定制需求。
-                  </div>
-                  <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.6 }}>
-                    💬 请扫描右下角客服二维码，备注「永久卡定制」联系客服领取
+                    请添加企鹅客服微信，发送「永久卡定制」，我们会与你确认定制需求。
                   </div>
                 </div>
               )}
