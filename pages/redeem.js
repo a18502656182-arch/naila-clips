@@ -49,7 +49,7 @@ function WechatModal({ onClose, wechatQrUrl }) {
             截图后在微信扫一扫识别二维码添加客服
           </div>
         </div>
-        <div style={{ fontSize: 12, color: C.faint, textAlign: "center", marginTop: 4 }}>添加时备注「兑换码」，购买咨询均可</div>
+
       </div>
     </div>
       <BuyFloatBtnPages />
