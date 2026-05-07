@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // wechat_qr_url 由 page.js 从数据库读取后通过 props 传入
-function WechatModal({ onClose }) {
+function WechatModal({ onClose, wechatQrUrl = "" }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(11,18,32,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(4px)" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, border: "1px solid rgba(11,18,32,0.08)", boxShadow: "0 24px 60px rgba(11,18,32,0.18)", padding: "20px 20px 16px", width: "100%", maxWidth: 300 }}>
@@ -317,7 +317,7 @@ export default function PenguinMascot({ wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3L
 
   return (
     <>
-      {showWechat && <WechatModal onClose={() => setShowWechat(false)} />}
+      {showWechat && <WechatModal onClose={() => setShowWechat(false)} wechatQrUrl={wechatQrUrl} />}
       <style>{`
         @keyframes pFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
         @keyframes pBounce { 0%,100%{transform:translateY(0)} 30%{transform:translateY(-10px)} 60%{transform:translateY(-4px)} }
