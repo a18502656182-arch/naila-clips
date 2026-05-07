@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 const remote = (p) => (API_BASE ? `${API_BASE}${p}` : p);
 
-const WECHAT_QR_URL = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr";
+// wechat_qr_url 从后端 site_config 读取
 const WECHAT_ID = "wll74748585";
 
 function getToken() {
@@ -30,15 +30,6 @@ const BENEFITS = [
 ];
 
 function WechatModal({ onClose }) {
-  const [copied, setCopied] = useState(false);
-  function copy() {
-    try { navigator.clipboard.writeText(WECHAT_ID).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2200); }); }
-    catch {
-      const el = document.createElement("textarea"); el.value = WECHAT_ID;
-      document.body.appendChild(el); el.select(); document.execCommand("copy"); document.body.removeChild(el);
-      setCopied(true); setTimeout(() => setCopied(false), 2200);
-    }
-  }
   return (
     <>
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(11,18,32,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(6px)", animation: "fadeIn 160ms ease" }}>
@@ -52,21 +43,14 @@ function WechatModal({ onClose }) {
         </div>
         <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid rgba(11,18,32,0.08)", marginBottom: 12 }}>
           <div style={{ background: "#fff", padding: 12 }}>
-            <img src={WECHAT_QR_URL} alt="微信二维码" style={{ width: "100%", display: "block", borderRadius: 8 }}
-              onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="font-size:13px;color:rgba(11,18,32,0.38);text-align:center;padding:40px 16px;line-height:1.8">图片加载失败<br/>请直接搜索下方微信号</div>'; }} />
+            <img src={wechatQrUrl} alt="微信二维码" style={{ width: "100%", display: "block", borderRadius: 8 }}
+              onError={e => { e.target.style.display = "none"; e.target.parentNode.innerHTML = '<div style="font-size:13px;color:rgba(11,18,32,0.38);text-align:center;padding:40px 16px;line-height:1.8">图片加载失败，请联系客服</div>'; }} />
           </div>
           <div style={{ padding: "9px 14px", background: "rgba(99,102,241,0.04)", borderTop: "1px solid rgba(11,18,32,0.06)", fontSize: 12, color: C.muted, lineHeight: 1.6, textAlign: "center" }}>
-            截图后用微信扫码识别 · 或在微信搜索下方账号
+            截图后在微信扫一扫识别二维码添加客服
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(99,102,241,0.05)", border: "1px solid rgba(99,102,241,0.14)", marginBottom: 12 }}>
-          <WechatIcon size={14} color="#059669" />
-          <span style={{ fontSize: 14, fontWeight: 800, color: C.ink, flex: 1 }}>{WECHAT_ID}</span>
-          <button onClick={copy} style={{ padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 800, border: copied ? "1px solid rgba(16,185,129,0.30)" : "1px solid rgba(99,102,241,0.22)", background: copied ? "rgba(16,185,129,0.09)" : "rgba(99,102,241,0.09)", color: copied ? C.good : C.accent, cursor: "pointer", transition: "all 180ms ease", whiteSpace: "nowrap" }}>
-            {copied ? "✓ 已复制" : "复制"}
-          </button>
-        </div>
-        <div style={{ fontSize: 12, color: C.faint, textAlign: "center" }}>添加时备注「兑换码」，购买咨询均可</div>
+        <div style={{ fontSize: 12, color: C.faint, textAlign: "center", marginTop: 4 }}>添加时备注「兑换码」，购买咨询均可</div>
       </div>
     </div>
       <BuyFloatBtnPages />
@@ -84,6 +68,15 @@ function WechatIcon({ size = 18, color = "#059669" }) {
 }
 
 export default function RedeemPage() {
+  const [wechatQrUrl, setWechatQrUrl] = useState("/cf-img/qvilyoTfnpu3-vu3LTcGwQ/13252c4c-662b-4537-9ad0-c571d226af00/qr");
+
+  useEffect(() => {
+    fetch("/api/site_config?key=wechat_qr_url")
+      .then(r => r.json())
+      .then(d => { if (d?.value) setWechatQrUrl(d.value); })
+      .catch(() => {});
+  }, []);
+
   const router = useRouter();
   const [me, setMe] = useState(null);
   const [code, setCode] = useState("");
