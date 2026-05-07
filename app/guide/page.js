@@ -22,6 +22,8 @@ const FEATURES = [
   { icon: "📒", title: "学习手帐", desc: "热力图、连续打卡天数，生成打卡海报分享给朋友。" },
 ];
 
+export const dynamic = "force-dynamic";
+
 export default async function GuidePage() {
   let wechatQrUrl = "";
   try {
