@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 // wechat_qr_url 由 page.js 从数据库读取后通过 props 传入
-function WechatModal({ onClose, wechatQrUrl = "" }) {
+function WechatModal({ onClose, wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr" }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(11,18,32,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, backdropFilter: "blur(4px)" }}>
       <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, border: "1px solid rgba(11,18,32,0.08)", boxShadow: "0 24px 60px rgba(11,18,32,0.18)", padding: "20px 20px 16px", width: "100%", maxWidth: 300 }}>
@@ -139,7 +139,7 @@ export function triggerPenguin(event) { listeners.forEach(fn => fn(event)); }
 const STORAGE_POS = "penguin_pos_v2";
 const STORAGE_HIDDEN = "penguin_hidden_v1";
 
-export default function PenguinMascot({ wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/13252c4c-662b-4537-9ad0-c571d226af00/qr" }) {
+export default function PenguinMascot({ wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr" }) {
   const [pos, setPos] = useState(null);
   const [text, setText] = useState("");
   const [bounce, setBounce] = useState(false);
