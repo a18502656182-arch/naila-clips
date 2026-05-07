@@ -67,7 +67,7 @@ function WechatIcon({ size = 18, color = "#059669" }) {
 }
 
 export default function RedeemPage() {
-  const [wechatQrUrl, setWechatQrUrl] = useState("/cf-img/qvilyoTfnpu3-vu3LTcGwQ/13252c4c-662b-4537-9ad0-c571d226af00/qr");
+  const [wechatQrUrl, setWechatQrUrl] = useState("/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr");
 
   useEffect(() => {
     fetch("/api/site_config?key=wechat_qr_url")
