@@ -1059,8 +1059,16 @@ function ClipsPanel({ initialClips, taxonomies: initialTaxonomiesFromProps, onTo
     setDuplicating(clip.id);
     const dr = await api("clip_get_details", { id: clip.id });
     const taxonomyHints = {};
-    (clip.topic_slugs || []).forEach(s => { taxonomyHints[s] = "genre"; });
-    (clip.channel_slugs || []).forEach(s => { taxonomyHints[s] = "show"; });
+    if (clip.site === "drama") {
+      (clip.topic_slugs || []).forEach(s => { taxonomyHints[s] = "genre"; });
+      (clip.genre_slugs || []).forEach(s => { taxonomyHints[s] = "genre"; });
+      (clip.duration_slugs || []).forEach(s => { taxonomyHints[s] = "duration"; });
+      (clip.channel_slugs || []).forEach(s => { taxonomyHints[s] = "show"; });
+      (clip.show_slugs || []).forEach(s => { taxonomyHints[s] = "show"; });
+    } else {
+      (clip.topic_slugs || []).forEach(s => { taxonomyHints[s] = "topic"; });
+      (clip.channel_slugs || []).forEach(s => { taxonomyHints[s] = "channel"; });
+    }
     if (clip.difficulty_slug) taxonomyHints[clip.difficulty_slug] = "difficulty";
     const res = await api("clip_create", {
       title: clip.title,
