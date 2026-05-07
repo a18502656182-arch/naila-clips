@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 // app/guide/page.js
 import Link from "next/link";
 import WechatButton from "./WechatButton";
@@ -21,7 +22,17 @@ const FEATURES = [
   { icon: "📒", title: "学习手帐", desc: "热力图、连续打卡天数，生成打卡海报分享给朋友。" },
 ];
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  let wechatQrUrl = "";
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } }
+    );
+    const { data } = await supabase.from("site_config").select("value").eq("key", "wechat_qr_url").maybeSingle();
+    wechatQrUrl = data?.value || "";
+  } catch {}
   return (
     <div style={{ minHeight: "100vh", background: "#f7f8fd", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
@@ -245,7 +256,7 @@ export default function GuidePage() {
               <div className="m-bottom-title" style={{ marginBottom: 4 }}>💬 联系客服</div>
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", lineHeight: 1.65 }}>购买咨询、使用问题、对网站的任何建议都可以加微信联系我们。</div>
             </div>
-            <WechatButton btnStyle="light" compact />
+            <WechatButton wechatQrUrl={wechatQrUrl} btnStyle="light" compact />
           </div>
         </div>
       </div>
@@ -271,7 +282,7 @@ export default function GuidePage() {
                 <div className="d-hero-card-title">💬 联系客服</div>
                 <div className="d-hero-card-sub">购买咨询 · 使用问题</div>
               </div>
-              <WechatButton btnStyle="light" />
+              <WechatButton wechatQrUrl={wechatQrUrl} btnStyle="light" />
             </div>
           </div>
         </div>
