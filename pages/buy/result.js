@@ -207,18 +207,8 @@ export default function BuyResultPage() {
                     恭喜你成为永久会员！我们将为你定制 10 期专属的油管博主视频内容。<br />
                     请添加客服微信，发送「永久卡定制」，我们会与你确认定制需求。
                   </div>
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 8,
-                    background: "#fff", border: "1.5px solid rgba(220,38,38,0.3)",
-                    borderRadius: 999, padding: "8px 16px", cursor: "pointer",
-                    fontSize: 13, fontWeight: 800, color: "#dc2626",
-                  }}
-                    onClick={() => {
-                      navigator.clipboard?.writeText("wll74748585").catch(() => {});
-                      alert("客服微信号已复制，请打开微信添加");
-                    }}
-                  >
-                    💬 联系客服领取定制内容
+                  <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.6 }}>
+                    💬 请扫描右下角客服二维码，备注「永久卡定制」联系客服领取
                   </div>
                 </div>
               )}
