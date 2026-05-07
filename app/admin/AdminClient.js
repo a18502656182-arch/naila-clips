@@ -449,10 +449,12 @@ function BatchForm({ taxonomies, onSave, onCancel, loading, onRefreshTaxonomies 
     if (form.upload_time) payload.upload_time = form.upload_time;
     // 传 slug→type 映射，让后端知道每个 slug 的真实 type
     const taxonomyHints = {};
-    genres.forEach(s => { taxonomyHints[s] = "topic"; });
+    genres.forEach(s => { taxonomyHints[s] = "genre"; });
     durations.forEach(s => { taxonomyHints[s] = "duration"; });
-    shows.forEach(s => { taxonomyHints[s] = "channel"; });
+    shows.forEach(s => { taxonomyHints[s] = "show"; });
     difficulties.forEach(s => { taxonomyHints[s] = "difficulty"; });
+    topics.forEach(s => { taxonomyHints[s] = "topic"; });
+    channels.forEach(s => { taxonomyHints[s] = "channel"; });
     payload.taxonomy_hints = taxonomyHints;
     onSave(payload);
   }
@@ -813,6 +815,11 @@ function SettingsPanel() {
         method: "POST", headers,
         body: JSON.stringify({ key: "lifetime_price", value: lifetimePrice }),
       });
+      await fetch(`${API_BASE}/api/site_config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "wechat_qr_url", value: wechatQrUrl }),
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -856,10 +863,25 @@ function SettingsPanel() {
         <input type="number" value={lifetimePrice} onChange={e => setLifetimePrice(e.target.value)} step="0.01"
           style={{ width: "100%", padding: "10px 14px", fontSize: 16, fontWeight: 700, border: "1px solid rgba(15,23,42,0.15)", borderRadius: 10, outline: "none", boxSizing: "border-box" }} />
       </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>客服微信二维码链接</div>
+        <input
+          value={wechatQrUrl}
+          onChange={e => setWechatQrUrl(e.target.value)}
+          placeholder="填入新的图片链接"
+          style={{
+            padding: "10px 12px", borderRadius: 10, fontSize: 13,
+            border: "1px solid rgba(15,23,42,0.12)", background: "#f8f9ff",
+            color: "#0b1220", outline: "none", width: "100%", boxSizing: "border-box",
+          }}
+        />
+        <div style={{ fontSize: 11, color: "rgba(11,18,32,0.4)" }}>上传新二维码到 Cloudflare Images 后，将图片链接填入此处保存即可</div>
+      </div>
       <button onClick={handleSave} disabled={saving} style={{
         width: "100%", padding: "14px 0", borderRadius: 12, border: "none",
         background: saving ? "rgba(79,70,229,0.5)" : "#4f46e5",
         color: "#fff", fontSize: 15, fontWeight: 800, cursor: saving ? "not-allowed" : "pointer",
+        marginTop: 20,
       }}>
         {saved ? "✅ 已保存" : saving ? "保存中..." : "保存设置"}
       </button>
