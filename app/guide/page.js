@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 // app/guide/page.js
 import Link from "next/link";
 import WechatButton from "./WechatButton";
@@ -22,19 +21,8 @@ const FEATURES = [
   { icon: "📒", title: "学习手帐", desc: "热力图、连续打卡天数，生成打卡海报分享给朋友。" },
 ];
 
-export const dynamic = "force-dynamic";
-
 export default async function GuidePage() {
-  let wechatQrUrl = "";
-  try {
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-    const { data } = await supabase.from("site_config").select("value").eq("key", "wechat_qr_url").maybeSingle();
-    wechatQrUrl = data?.value || "";
-  } catch {}
+  const wechatQrUrl = "/cf-img/qvilyoTfnpu3-vu3LTcGwQ/7416f983-b4dc-4be0-b6a5-7ec5b6b8e800/qr";
   return (
     <div style={{ minHeight: "100vh", background: "#f7f8fd", fontFamily: "system-ui, -apple-system, sans-serif" }}>
       <style>{`
