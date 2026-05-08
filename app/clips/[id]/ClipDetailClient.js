@@ -501,6 +501,12 @@ function VocabCard({ v, kind, showZh, segments, onLocate, favSet, onToggleFav })
               </div>
             ) : null;
           })()}
+          {kind === "expressions" && showZh && v.common_examples_zh && (
+            <div style={{ marginTop: 8, border: "1px solid #e2f0e8", background: "#f4fbf6", borderRadius: 12, padding: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "#2d7a4f", marginBottom: 4 }}>常用例句</div>
+              <div style={{ fontSize: 13, lineHeight: 1.75, whiteSpace: "pre-wrap", color: "#1a3a2a" }}>{v.common_examples_zh}</div>
+            </div>
+          )}
         </>
       )}
     </Card>
