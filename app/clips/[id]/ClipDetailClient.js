@@ -650,7 +650,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const [vocabOpen, setVocabOpen] = useState(false);
   const [vocabTab, setVocabTab] = useState("words");
   const [showZhExplain, setShowZhExplain] = useState(true);
-  const [clozeMode, setClozeMode] = useState(false);          // 挖空模式（仅电脑端）
+  const [clozeMode, setClozeMode] = useState(false);
+  const [showSubtitle, setShowSubtitle] = useState(true);          // 挖空模式（仅电脑端）
   const [clozeRevealed, setClozeRevealed] = useState({});     // { term: true } 已点击显示的词
   const [termPopup, setTermPopup] = useState(null);           // { term, v, kind, x, y } 点击高亮块弹窗
 
@@ -1362,6 +1363,15 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             ...(maxH ? { maxHeight: maxH } : {}),
           }}
         />
+        {/* 网速提示 */}
+        <div style={{
+          position: "absolute", bottom: 60, left: 8, zIndex: 10,
+          background: "rgba(0,0,0,0.55)", borderRadius: 6,
+          padding: "3px 8px", fontSize: 11, color: "rgba(255,255,255,0.7)",
+          pointerEvents: "none",
+        }}>
+          画质由网速自动决定，模糊时请检查网络
+        </div>
         {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
         {/* 电脑版播放/暂停overlay：只在真正桌面端(>1024px)显示，iPad横屏不显示避免双按钮 */}
         {isDesktop && hasPlayed && (
@@ -1762,7 +1772,23 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
                 </div>
               </div>
             )}
-            {belowVideoPanel}
+            {belowVideoPanel && (
+              <div>
+                <button
+                  onClick={() => setShowSubtitle(v => !v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: 12, color: THEME.colors.muted, padding: "6px 0",
+                    fontWeight: 700,
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{showSubtitle ? "▾" : "▸"}</span>
+                  {showSubtitle ? "收起字幕" : "展开字幕"}
+                </button>
+                {showSubtitle && belowVideoPanel}
+              </div>
+            )}
           </Card>
 
           {/* 右列：字幕卡片（含模式tab）撑满高度 [+ 词汇卡] */}
