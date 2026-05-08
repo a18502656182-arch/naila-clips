@@ -1363,15 +1363,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             ...(maxH ? { maxHeight: maxH } : {}),
           }}
         />
-        {/* 网速提示 */}
-        <div style={{
-          position: "absolute", bottom: 60, left: 8, zIndex: 10,
-          background: "rgba(0,0,0,0.55)", borderRadius: 6,
-          padding: "3px 8px", fontSize: 11, color: "rgba(255,255,255,0.7)",
-          pointerEvents: "none",
-        }}>
-          画质由网速自动决定，模糊时请检查网络
-        </div>
+
         {/* 封面图覆盖层：解决手机端 muted HLS video poster 不生效的问题，点击封面图直接开始播放 */}
         {/* 电脑版播放/暂停overlay：只在真正桌面端(>1024px)显示，iPad横屏不显示避免双按钮 */}
         {isDesktop && hasPlayed && (
