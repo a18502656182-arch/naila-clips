@@ -1662,10 +1662,10 @@ function UsersPanel({ initialUsers, onToast }) {
                       注册码：<code style={{ fontFamily: "monospace", color: T.muted }}>{u.used_code}</code>
                     </span>
                   )}
-                  {u.used_plan && (() => {
-                    const { plan, days } = u.used_plan;
-                    const label = days === 0 ? "永久卡" : days >= 365 ? "年卡" : days >= 90 ? "季卡" : days >= 30 ? "月卡" : `试用卡(${days}天)`;
-                    const color = days === 0 ? T.vip : days >= 365 ? T.vip : days >= 90 ? T.warn : days >= 30 ? T.accent : T.good;
+                  {u.subscription && (() => {
+                    const plan = u.subscription.plan;
+                    const label = { lifetime: "永久卡", year: "年卡", quarter: "季卡", month: "月卡", trial: "试用卡" }[plan] || plan;
+                    const color = plan === "lifetime" ? T.vip : plan === "year" ? T.vip : plan === "quarter" ? T.warn : plan === "month" ? T.accent : T.good;
                     return <Chip color={color}>{label}</Chip>;
                   })()}
                   <span style={{ fontSize: 11, color: T.faint }}>注册：{fmtFull(u.created_at)}</span>
