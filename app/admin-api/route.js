@@ -342,6 +342,16 @@ export async function POST(req) {
     return NextResponse.json({ ok: true, users: result });
   }
 
+  // ── 用户：重置密码 ──
+  if (action === "user_reset_pw") {
+    const { user_id, password } = body;
+    if (!user_id || !password || password.length < 6)
+      return NextResponse.json({ error: "缺少参数或密码太短" }, { status: 400 });
+    const { error } = await db.auth.admin.updateUserById(user_id, { password });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   // ── 会员：手动调整 ──
   if (action === "member_set") {
     const { user_id, days } = body;
