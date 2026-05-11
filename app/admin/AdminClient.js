@@ -1508,6 +1508,10 @@ function UsersPanel({ initialUsers, onToast }) {
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
   const [memberModal, setMemberModal] = useState(null);
+  const [pwModal, setPwModal] = useState(null);
+  const [newPw, setNewPw] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwMsg, setPwMsg] = useState("");
   const [memberDays, setMemberDays] = useState("30");
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState("all");
@@ -1551,7 +1555,24 @@ function UsersPanel({ initialUsers, onToast }) {
     setMemberModal(null);
   }
 
-  async function handleMemberStop() {
+    async function handleResetPw() {
+    if (!newPw || newPw.length < 6) { setPwMsg("密码至少6位"); return; }
+    setPwSaving(true);
+    setPwMsg("");
+    try {
+      const res = await fetch("/admin-api", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ action: "user_reset_pw", user_id: pwModal.id, password: newPw }),
+      });
+      const d = await res.json();
+      if (d.ok) { setPwMsg("✅ 密码已重置"); setTimeout(() => setPwModal(null), 1200); }
+      else setPwMsg("❌ " + (d.error || "失败"));
+    } catch { setPwMsg("❌ 网络错误"); }
+    setPwSaving(false);
+  }
+
+async function handleMemberStop() {
     if (!confirm(`确认立即停用「${memberModal.username || memberModal.email}」的会员？`)) return;
     setSaving(true);
     const res = await api("member_stop", { user_id: memberModal.id });
@@ -1678,6 +1699,9 @@ function UsersPanel({ initialUsers, onToast }) {
                 <Btn size="sm" variant="ghost" onClick={() => { setMemberModal(u); setMemberDays("30"); }}>
                   调整会员
                 </Btn>
+                <Btn size="sm" variant="ghost" onClick={() => { setPwModal(u); setNewPw(""); setPwMsg(""); }}>
+                  重置密码
+                </Btn>
               </div>
             </div>
           );
@@ -1773,6 +1797,28 @@ function UsersPanel({ initialUsers, onToast }) {
                 </div>
               );
             })()}
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!pwModal} onClose={() => setPwModal(null)} title="🔑 重置用户密码" width={380}>
+        {pwModal && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 13, color: T.muted }}>
+              为 <strong>{pwModal.username || pwModal.email}</strong> 设置新密码
+            </div>
+            <input
+              type="text"
+              placeholder="输入新密码（至少6位）"
+              value={newPw}
+              onChange={e => setNewPw(e.target.value)}
+              style={{ padding: "10px 12px", borderRadius: T.radius.md, fontSize: 14, border: `1px solid ${T.border2}`, background: T.surface3, color: T.ink, outline: "none", width: "100%", boxSizing: "border-box" }}
+            />
+            {pwMsg && <div style={{ fontSize: 13, color: pwMsg.startsWith("✅") ? T.good : T.danger }}>{pwMsg}</div>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Btn variant="ghost" onClick={() => setPwModal(null)}>取消</Btn>
+              <Btn onClick={handleResetPw} disabled={pwSaving}>{pwSaving ? "保存中..." : "确认重置"}</Btn>
+            </div>
           </div>
         )}
       </Modal>
