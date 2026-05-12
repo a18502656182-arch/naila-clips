@@ -141,16 +141,18 @@ function buildHighlighter(termKindMap) {
     : null;
   const wordRe = /([a-zA-Z]+(?:'[a-zA-Z]+)?)/g;
 
-  return (text, opts) => {
-    const s = String(text || "");
+  return (displayText, matchText, opts) => {
+    // displayText 用于显示，matchText 用于高亮匹配（可能不同）
+    const s = String(displayText || "");
+    const m = String(matchText || displayText || "");
     if (!s) return "-";
     const result = [];
     const vocabMatches = [];
     if (vocabRe) {
       vocabRe.lastIndex = 0;
-      let m;
-      while ((m = vocabRe.exec(s)) !== null) {
-        vocabMatches.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+      let match;
+      while ((match = vocabRe.exec(m)) !== null) {
+        vocabMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
       }
     }
     let vi = 0;
@@ -388,7 +390,7 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
       ) : (
         <div style={{ marginTop: 8, lineHeight: 1.55 }}>
           {(subMode === "bilingual" || subMode === "en") && (
-            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en || "-")}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
           )}
           {(subMode === "bilingual" || subMode === "zh") && (
             <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>
@@ -404,11 +406,11 @@ function ReadingRow({ seg, idx, mode, renderEn, rowRef, onClick }) {
   const [expanded, setExpanded] = useState(false);
   // mode="reading": 主显英文，展开中文；mode="zh2en": 主显中文，展开英文
   const primary = mode === "reading"
-    ? <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>
+    ? <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>
     : <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
   const secondary = mode === "reading"
     ? <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
-    : <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{renderEn ? renderEn(seg.en || "") : (seg.en || "-")}</div>;
+    : <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>;
 
   return (
     <div ref={rowRef} style={{
@@ -1109,7 +1111,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
 
   // 构造带点击回调的 renderEn（供字幕行使用）
   const makeRenderEnWithClick = useCallback((onClickTerm, cloze, clozeRevealedMap) => {
-    return (text) => buildHighlighter(termKindMap)(text, { onClickTerm, cloze, clozeRevealed: clozeRevealedMap });
+    return (displayText, matchText, opts) => buildHighlighter(termKindMap)(displayText, matchText || displayText, { onClickTerm, cloze, clozeRevealed: clozeRevealedMap, ...(opts || {}) });
   }, [termKindMap]);
   const canAccess = !!item?.can_access;
 
@@ -1552,7 +1554,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const readingPanel = canAccess && subMode !== "dictation" && segments.length > 0 ? (
     <div style={{ marginTop: 10, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.md, padding: "14px 16px", textAlign: "center" }}>
       <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.6, marginBottom: 6 }}>
-        {renderEn ? renderEn(segments[readSegIdx]?.en || "") : (segments[readSegIdx]?.en || "")}
+        {renderEn ? renderEn(segments[readSegIdx]?.en_display || segments[readSegIdx]?.en || "", segments[readSegIdx]?.en || "") : (segments[readSegIdx]?.en_display || segments[readSegIdx]?.en || "")}
       </div>
       <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.6 }}>
         {segments[readSegIdx]?.zh || ""}
