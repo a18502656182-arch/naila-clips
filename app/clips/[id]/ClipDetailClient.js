@@ -133,6 +133,42 @@ const HIGHLIGHT_COLORS = {
 
 // buildHighlighter 接收 { term -> kind } 映射，三种词汇同时高亮显示不同颜色
 // vocab 里的词彩色高亮可点击；其他单词普通显示但也可点击查词
+
+// 把 en（原文）里的词汇匹配位置映射到 en_display（带标点）里的位置
+// 两者单词顺序相同，en_display 只是多了标点
+function mapMatchesToDisplay(enText, displayText, matches) {
+  if (!enText || !displayText || enText === displayText) return matches;
+  // 拆出所有单词及其在各自字符串中的位置
+  const wordRe = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
+  const enWords = [];
+  const dispWords = [];
+  let m;
+  wordRe.lastIndex = 0;
+  while ((m = wordRe.exec(enText)) !== null) enWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
+  wordRe.lastIndex = 0;
+  while ((m = wordRe.exec(displayText)) !== null) dispWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
+
+  // 建立 en 字符位置 → display 字符位置的映射（按单词顺序对齐）
+  // enPos → dispPos（单词起始位置对齐）
+  const enToDisp = {}; // en word start → disp word start/end
+  let di = 0;
+  for (let ei = 0; ei < enWords.length; ei++) {
+    // 在 display 里找下一个匹配的单词
+    while (di < dispWords.length && dispWords[di].word !== enWords[ei].word) di++;
+    if (di < dispWords.length) {
+      enToDisp[enWords[ei].start] = { start: dispWords[di].start, end: dispWords[di].end };
+      di++;
+    }
+  }
+
+  // 把 matches 里的 en 位置转换成 display 位置
+  return matches.map(match => {
+    const mapped = enToDisp[match.start];
+    if (!mapped) return null; // 找不到对应位置就跳过
+    return { start: mapped.start, end: mapped.end, text: displayText.slice(mapped.start, mapped.end) };
+  }).filter(Boolean);
+}
+
 function buildHighlighter(termKindMap) {
   const terms = Object.keys(termKindMap || {});
   const clean = Array.from(new Set(terms.map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
@@ -147,14 +183,16 @@ function buildHighlighter(termKindMap) {
     const m = String(matchText || displayText || "");
     if (!s) return "-";
     const result = [];
-    const vocabMatches = [];
+    const rawMatches = [];
     if (vocabRe) {
       vocabRe.lastIndex = 0;
       let match;
       while ((match = vocabRe.exec(m)) !== null) {
-        vocabMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
+        rawMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
       }
     }
+    // 如果 display 和 match 文本不同，把匹配位置映射到 display 上
+    const vocabMatches = (s !== m) ? mapMatchesToDisplay(m, s, rawMatches) : rawMatches;
     let vi = 0;
     let pos = 0;
     while (pos < s.length) {
