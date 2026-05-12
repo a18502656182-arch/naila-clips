@@ -138,7 +138,6 @@ const HIGHLIGHT_COLORS = {
 // 两者单词顺序相同，en_display 只是多了标点
 function mapMatchesToDisplay(enText, displayText, matches) {
   if (!enText || !displayText || enText === displayText) return matches;
-  // 拆出所有单词及其在各自字符串中的位置
   const wordRe = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
   const enWords = [];
   const dispWords = [];
@@ -148,24 +147,29 @@ function mapMatchesToDisplay(enText, displayText, matches) {
   wordRe.lastIndex = 0;
   while ((m = wordRe.exec(displayText)) !== null) dispWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
 
-  // 建立 en 字符位置 → display 字符位置的映射（按单词顺序对齐）
-  // enPos → dispPos（单词起始位置对齐）
-  const enToDisp = {}; // en word start → disp word start/end
+  // 建立 en 单词起始位置 → display 单词索引的映射
+  const enStartToDispIdx = {};
   let di = 0;
   for (let ei = 0; ei < enWords.length; ei++) {
-    // 在 display 里找下一个匹配的单词
     while (di < dispWords.length && dispWords[di].word !== enWords[ei].word) di++;
     if (di < dispWords.length) {
-      enToDisp[enWords[ei].start] = { start: dispWords[di].start, end: dispWords[di].end };
+      enStartToDispIdx[enWords[ei].start] = di;
       di++;
     }
   }
 
-  // 把 matches 里的 en 位置转换成 display 位置
   return matches.map(match => {
-    const mapped = enToDisp[match.start];
-    if (!mapped) return null; // 找不到对应位置就跳过
-    return { start: mapped.start, end: mapped.end, text: displayText.slice(mapped.start, mapped.end) };
+    // 找 match 范围内 en 里的所有单词
+    const wordsInMatch = enWords.filter(w => w.start >= match.start && w.end <= match.end);
+    if (!wordsInMatch.length) return null;
+    // 第一个词和最后一个词在 display 里的索引
+    const firstDispIdx = enStartToDispIdx[wordsInMatch[0].start];
+    const lastDispIdx = enStartToDispIdx[wordsInMatch[wordsInMatch.length - 1].start];
+    if (firstDispIdx === undefined || lastDispIdx === undefined) return null;
+    // display 里从第一个词的 start 到最后一个词的 end
+    const dispStart = dispWords[firstDispIdx].start;
+    const dispEnd = dispWords[lastDispIdx].end;
+    return { start: dispStart, end: dispEnd, text: displayText.slice(dispStart, dispEnd) };
   }).filter(Boolean);
 }
 
