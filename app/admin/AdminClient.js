@@ -1562,7 +1562,7 @@ function UsersPanel({ initialUsers, onToast }) {
     try {
       const res = await fetch("/admin-api", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${await getToken()}` },
         body: JSON.stringify({ action: "user_reset_pw", user_id: pwModal.id, password: newPw }),
       });
       const d = await res.json();
