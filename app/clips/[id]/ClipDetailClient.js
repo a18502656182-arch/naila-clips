@@ -380,7 +380,7 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
           {savedAt && <div style={{ fontSize: 11, color: THEME.colors.faint, marginTop: 2 }}>上次听写：{new Date(savedAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>}
           {showReveal && (
             <div style={{ marginTop: 6, padding: "6px 8px", background: "#fff5f5", borderRadius: 6, border: "1px solid #fecaca" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}>{seg.en}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}>{seg.en_display || seg.en}</div>
               <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 2 }}>{seg.zh}</div>
             </div>
           )}
@@ -1580,7 +1580,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
         {dictShowAnswer && (
           <div style={{ marginTop: 8, padding: "8px 10px", background: "#fff5f5", borderRadius: THEME.radii.sm, border: "1px solid #fecaca" }}>
             <div style={{ fontSize: 11, color: THEME.colors.faint, marginBottom: 4 }}>字幕原文：</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", fontFamily: "monospace" }}>{segments[dictSegIdx]?.en}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#dc2626", fontFamily: "monospace" }}>{segments[dictSegIdx]?.en_display || segments[dictSegIdx]?.en}</div>
           </div>
         )}
         <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
@@ -1689,7 +1689,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
               {activeSegIdx >= 0 && segments[activeSegIdx] && (
                 <div style={{ padding: "10px 14px 12px", borderBottom: `1px solid ${THEME.colors.border}`, background: "#1d4ed8", flexShrink: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", lineHeight: 1.6 }}>
-                    {segments[activeSegIdx].en || ""}
+                    {segments[activeSegIdx].en_display || segments[activeSegIdx].en || ""}
                   </div>
                   {segments[activeSegIdx].zh && (
                     <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 4, lineHeight: 1.5 }}>
