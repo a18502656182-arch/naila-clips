@@ -148,14 +148,19 @@ function mapMatchesToDisplay(enText, displayText, matches) {
   while ((m = wordRe.exec(displayText)) !== null) dispWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
 
   // 建立 en 单词起始位置 → display 单词索引的映射
+  // 修复：找不到的词跳过，di 不移动，避免指针耗光导致后续词全部失败
   const enStartToDispIdx = {};
   let di = 0;
   for (let ei = 0; ei < enWords.length; ei++) {
-    while (di < dispWords.length && dispWords[di].word !== enWords[ei].word) di++;
-    if (di < dispWords.length) {
-      enStartToDispIdx[enWords[ei].start] = di;
-      di++;
+    let found = -1;
+    for (let d = di; d < dispWords.length; d++) {
+      if (dispWords[d].word === enWords[ei].word) { found = d; break; }
     }
+    if (found !== -1) {
+      enStartToDispIdx[enWords[ei].start] = found;
+      di = found + 1;
+    }
+    // 找不到就跳过这个 en 词，di 不动
   }
 
   return matches.map(match => {
@@ -170,7 +175,7 @@ function mapMatchesToDisplay(enText, displayText, matches) {
     const dispStart = dispWords[firstDispIdx].start;
     const dispEnd = dispWords[lastDispIdx].end;
     return { start: dispStart, end: dispEnd, text: displayText.slice(dispStart, dispEnd) };
-  }).filter(Boolean);
+  }).filter(Boolean).sort((a, b) => a.start - b.start); // 确保映射后仍按位置排序
 }
 
 function buildHighlighter(termKindMap) {
