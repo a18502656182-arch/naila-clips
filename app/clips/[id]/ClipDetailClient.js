@@ -136,49 +136,78 @@ const HIGHLIGHT_COLORS = {
 
 // 把 en（原文）里的词汇匹配位置映射到 en_display（带标点）里的位置
 // 两者单词顺序相同，en_display 只是多了标点
-// 撇号统一转直引号（curly → straight），用于 term 和文本的一致化比较
-function normApostrophe(s) { return String(s || "").replace(/[\u2018\u2019\u201A\u201B]/g, "'"); }
+function mapMatchesToDisplay(enText, displayText, matches) {
+  if (!enText || !displayText || enText === displayText) return matches;
+  const wordRe = /[a-zA-Z]+(?:'[a-zA-Z]+)?/g;
+  const enWords = [];
+  const dispWords = [];
+  let m;
+  wordRe.lastIndex = 0;
+  while ((m = wordRe.exec(enText)) !== null) enWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
+  wordRe.lastIndex = 0;
+  while ((m = wordRe.exec(displayText)) !== null) dispWords.push({ word: m[0].toLowerCase(), start: m.index, end: m.index + m[0].length });
+
+  // 建立 en 单词起始位置 → display 单词索引的映射
+  const enStartToDispIdx = {};
+  let di = 0;
+  for (let ei = 0; ei < enWords.length; ei++) {
+    while (di < dispWords.length && dispWords[di].word !== enWords[ei].word) di++;
+    if (di < dispWords.length) {
+      enStartToDispIdx[enWords[ei].start] = di;
+      di++;
+    }
+  }
+
+  return matches.map(match => {
+    // 找 match 范围内 en 里的所有单词
+    const wordsInMatch = enWords.filter(w => w.start >= match.start && w.end <= match.end);
+    if (!wordsInMatch.length) return null;
+    // 第一个词和最后一个词在 display 里的索引
+    const firstDispIdx = enStartToDispIdx[wordsInMatch[0].start];
+    const lastDispIdx = enStartToDispIdx[wordsInMatch[wordsInMatch.length - 1].start];
+    if (firstDispIdx === undefined || lastDispIdx === undefined) return null;
+    // display 里从第一个词的 start 到最后一个词的 end
+    const dispStart = dispWords[firstDispIdx].start;
+    const dispEnd = dispWords[lastDispIdx].end;
+    return { start: dispStart, end: dispEnd, text: displayText.slice(dispStart, dispEnd) };
+  }).filter(Boolean);
+}
 
 function buildHighlighter(termKindMap) {
   const terms = Object.keys(termKindMap || {});
-  // term normalize：小写 + 撇号统一
-  const normKey = t => normApostrophe(String(t || "").trim()).toLowerCase();
-  const clean = Array.from(new Set(terms.map(normKey).filter(Boolean))).sort((a, b) => b.length - a.length);
-  // 用词边界（前后不是字母或撇号）直接在 displayText 里匹配
-  // 这样 'vlog' 不会匹配 'vlogging'，且完全绕开 en↔display 映射的所有问题
+  const clean = Array.from(new Set(terms.map(t => String(t || "").trim()).filter(Boolean))).sort((a, b) => b.length - a.length);
   const vocabRe = clean.length
-    ? new RegExp(`(?<![a-zA-Z'])(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![a-zA-Z'])`, "ig")
+    ? new RegExp(`(${clean.map(s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "ig")
     : null;
   const wordRe = /([a-zA-Z]+(?:'[a-zA-Z]+)?)/g;
 
   return (displayText, matchText, opts) => {
-    // 直接在 displayText 里匹配，matchText 参数保留但不再使用
-    // displayText 也做撇号 normalize，确保和 term 的正则一致
-    const s = normApostrophe(String(displayText || ""));
+    // displayText 用于显示，matchText 用于高亮匹配（可能不同）
+    const s = String(displayText || "");
+    const m = String(matchText || displayText || "");
     if (!s) return "-";
     const result = [];
-    const vocabMatches = [];
+    const rawMatches = [];
     if (vocabRe) {
       vocabRe.lastIndex = 0;
       let match;
-      while ((match = vocabRe.exec(s)) !== null) {
-        // match[1] 是捕获组（去掉 lookbehind 偏移）
-        const text = match[1];
-        const start = match.index + match[0].indexOf(text);
-        vocabMatches.push({ start, end: start + text.length, text });
+      while ((match = vocabRe.exec(m)) !== null) {
+        rawMatches.push({ start: match.index, end: match.index + match[0].length, text: match[0] });
       }
     }
+    // 如果 display 和 match 文本不同，把匹配位置映射到 display 上
+    const vocabMatches = (s !== m) ? mapMatchesToDisplay(m, s, rawMatches) : rawMatches;
     let vi = 0;
     let pos = 0;
     while (pos < s.length) {
       if (vi < vocabMatches.length && pos === vocabMatches[vi].start) {
         const vm = vocabMatches[vi++];
         const p = vm.text;
-        const nk = normKey(p);
-        const kind = termKindMap[nk] || "words";
+        const normTerm = p.toLowerCase();
+        const kind = termKindMap[normTerm] || "words";
         const { bg, color: markColor = "#000" } = HIGHLIGHT_COLORS[kind] || HIGHLIGHT_COLORS.words;
         if (opts?.cloze) {
-          const revealed = opts.clozeRevealed?.[nk];
+          const revealed = opts.clozeRevealed?.[normTerm];
           result.push(
             <mark key={`v-${vm.start}`}
               onClick={e => { e.stopPropagation(); opts.onClickTerm?.(p, e); }}
