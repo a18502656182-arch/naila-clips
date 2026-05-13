@@ -432,10 +432,10 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
       ) : (
         <div style={{ marginTop: 8, lineHeight: 1.55 }}>
           {(subMode === "bilingual" || subMode === "en") && (
-            <div style={{ fontSize: compact ? 15 : 17, fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
+            <div style={{ fontSize: isMobile ? 14 : (compact ? 15 : 17), fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
           )}
           {(subMode === "bilingual" || subMode === "zh") && (
-            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: compact ? 14 : 16, color: THEME.colors.muted, fontWeight: 700 }}>{seg.zh || "（暂无中文）"}</div>
+            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: isMobile ? 13 : (compact ? 14 : 16), color: THEME.colors.muted, fontWeight: 700 }}>{seg.zh || "（暂无中文）"}</div>
           )}
         </div>
       )}
