@@ -325,7 +325,7 @@ function IconBtn({ title, onClick, active, children }) {
 }
 
 // 普通双语/单语字幕行
-function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment, onClickTerm, clozeMode, clozeRevealed, compact = false }) {
+function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment, onClickTerm, clozeMode, clozeRevealed, compact = false, isMobile = false }) {
   const isDictation = subMode === "dictation";
   const savedText = dictationMap?.[idx]?.input_text;
   const savedAt = dictationMap?.[idx]?.updated_at;
@@ -1574,7 +1574,8 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             onClickTerm={handleClickTerm}
             clozeMode={clozeMode}
             clozeRevealed={clozeRevealed}
-            compact={isMobile ? true : vocabOpen} />
+            compact={isMobile ? true : vocabOpen}
+            isMobile={isMobile} />
         ))}
       </div>
     );
