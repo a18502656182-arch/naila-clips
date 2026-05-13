@@ -425,7 +425,7 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
           {showReveal && (
             <div style={{ marginTop: 6, padding: "6px 8px", background: "#fff5f5", borderRadius: 6, border: "1px solid #fecaca" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}>{seg.en_display || seg.en}</div>
-              <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 2 }}>{seg.zh}</div>
+              <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 700, marginTop: 2 }}>{seg.zh}</div>
             </div>
           )}
         </div>
@@ -435,7 +435,7 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
             <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
           )}
           {(subMode === "bilingual" || subMode === "zh") && (
-            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>
+            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted, fontWeight: 700 }}>{seg.zh || "（暂无中文）"}</div>
           )}
         </div>
       )}
@@ -449,9 +449,9 @@ function ReadingRow({ seg, idx, mode, renderEn, rowRef, onClick }) {
   // mode="reading": 主显英文，展开中文；mode="zh2en": 主显中文，展开英文
   const primary = mode === "reading"
     ? <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>
-    : <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
+    : <div style={{ fontSize: 14, color: THEME.colors.muted, fontWeight: 700, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
   const secondary = mode === "reading"
-    ? <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
+    ? <div style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
     : <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>;
 
   return (
