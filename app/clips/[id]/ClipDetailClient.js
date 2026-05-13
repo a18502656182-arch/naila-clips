@@ -325,7 +325,7 @@ function IconBtn({ title, onClick, active, children }) {
 }
 
 // 普通双语/单语字幕行
-function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment, onClickTerm, clozeMode, clozeRevealed, compact = false, isMobile = false }) {
+function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onToggleLoop, renderEn, dictationMap, recording, onRecordToggle, onRecordPlay, onRecordSave, onRecordDelete, onPlaySegment, onClickTerm, clozeMode, clozeRevealed }) {
   const isDictation = subMode === "dictation";
   const savedText = dictationMap?.[idx]?.input_text;
   const savedAt = dictationMap?.[idx]?.updated_at;
@@ -425,17 +425,17 @@ function SubtitleRow({ seg, idx, active, onClick, subMode, rowRef, loopIdx, onTo
           {showReveal && (
             <div style={{ marginTop: 6, padding: "6px 8px", background: "#fff5f5", borderRadius: 6, border: "1px solid #fecaca" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}>{seg.en_display || seg.en}</div>
-              <div style={{ fontSize: 12, color: THEME.colors.muted, fontWeight: 700, marginTop: 2 }}>{seg.zh}</div>
+              <div style={{ fontSize: 12, color: THEME.colors.muted, marginTop: 2 }}>{seg.zh}</div>
             </div>
           )}
         </div>
       ) : (
         <div style={{ marginTop: 8, lineHeight: 1.55 }}>
           {(subMode === "bilingual" || subMode === "en") && (
-            <div style={{ fontSize: isMobile ? 14 : (compact ? 15 : 17), fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "", { onClickTerm, cloze: clozeMode, clozeRevealed }) : (seg.en_display || seg.en || "-")}</div>
           )}
           {(subMode === "bilingual" || subMode === "zh") && (
-            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: isMobile ? 13 : (compact ? 14 : 16), color: THEME.colors.muted, fontWeight: 700 }}>{seg.zh || "（暂无中文）"}</div>
+            <div style={{ marginTop: subMode === "bilingual" ? 6 : 0, fontSize: 13, color: THEME.colors.muted }}>{seg.zh || "（暂无中文）"}</div>
           )}
         </div>
       )}
@@ -449,9 +449,9 @@ function ReadingRow({ seg, idx, mode, renderEn, rowRef, onClick }) {
   // mode="reading": 主显英文，展开中文；mode="zh2en": 主显中文，展开英文
   const primary = mode === "reading"
     ? <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>
-    : <div style={{ fontSize: 14, color: THEME.colors.muted, fontWeight: 700, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
+    : <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.55 }}>{seg.zh || "（暂无中文）"}</div>;
   const secondary = mode === "reading"
-    ? <div style={{ fontSize: 13, color: THEME.colors.muted, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
+    ? <div style={{ fontSize: 13, color: THEME.colors.muted, lineHeight: 1.55, marginTop: 6 }}>{seg.zh || "（暂无中文）"}</div>
     : <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.55, marginTop: 6 }}>{renderEn ? renderEn(seg.en_display || seg.en || "", seg.en || "") : (seg.en_display || seg.en || "-")}</div>;
 
   return (
@@ -1573,9 +1573,7 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
             onPlaySegment={() => playSegmentOnly(seg)}
             onClickTerm={handleClickTerm}
             clozeMode={clozeMode}
-            clozeRevealed={clozeRevealed}
-            compact={isMobile ? true : vocabOpen}
-            isMobile={isMobile} />
+            clozeRevealed={clozeRevealed} />
         ))}
       </div>
     );
@@ -1597,10 +1595,10 @@ export default function ClipDetailClient({ clipId, initialItem, initialMe, initi
   const readSegIdx = activeSegIdx >= 0 ? activeSegIdx : 0;
   const readingPanel = canAccess && subMode !== "dictation" && segments.length > 0 ? (
     <div style={{ marginTop: 10, background: THEME.colors.surface, border: `1px solid ${THEME.colors.border}`, borderRadius: THEME.radii.md, padding: "14px 16px", textAlign: "center" }}>
-      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.6, marginBottom: 6 }}>
+      <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.6, marginBottom: 6 }}>
         {renderEn ? renderEn(segments[readSegIdx]?.en_display || segments[readSegIdx]?.en || "", segments[readSegIdx]?.en || "") : (segments[readSegIdx]?.en_display || segments[readSegIdx]?.en || "")}
       </div>
-      <div style={{ fontSize: 18, color: THEME.colors.muted, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 14, color: THEME.colors.muted, lineHeight: 1.6 }}>
         {segments[readSegIdx]?.zh || ""}
       </div>
     </div>
