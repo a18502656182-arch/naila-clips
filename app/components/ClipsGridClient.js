@@ -222,7 +222,8 @@ export default function ClipsGridClient({ allItems, filters, site }) {
     if (f.duration) result = result.filter(r => (r.durations || []).includes(f.duration));
     if (f.show?.length) result = result.filter(r => (r.shows || []).some(s => f.show.includes(s)));
 
-    if (f.sort === "oldest") result = [...result].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    // FIX: 使用 upload_time 排序，fallback 到 created_at
+    if (f.sort === "oldest") result = [...result].sort((a, b) => new Date(a.upload_time || a.created_at) - new Date(b.upload_time || b.created_at));
     return result;
   }, [allItems, filters, site]);
 
@@ -313,7 +314,8 @@ export default function ClipsGridClient({ allItems, filters, site }) {
               const canAccess = r.can_access != null ? r.can_access : (meLoaded ? isMember : true);
               const isBlocked = isVip && !canAccess;
               const duration = formatDuration(r.duration_sec);
-              const dateStr = formatDate(r.created_at);
+              // FIX: 优先使用 upload_time 显示日期，fallback 到 created_at
+              const dateStr = formatDate(r.upload_time || r.created_at);
 
               // 美剧站卡片显示genre/show标签，油管站显示topic/channel
               const isSiteDrama = r.site === "drama" || site === "drama";
